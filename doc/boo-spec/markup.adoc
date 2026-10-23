@@ -4513,7 +4513,8 @@ take one for the other.
 messages themselves are `SRMSG<id>` anchors, one per message, and hosted emits
 `<a name="MSG <id>"><hr></a>` before each. `GX27-3999-00.boo` topic `B.0`
 (`Appendix B. NDIS MAC Driver Messages`), logical record 104, segments 1 and 2
-open and close the region and segment 3 is `SRMSG LTC0008`.
+open and close the region and segment 3 is `SRMSG LTC0008`. The complete
+message-list grammar is under <<markup_cz_message_lists>>.
 
 *`cz FLOW PROBD <left> <indent>`* and *`cz FLOW ORESP <left> <indent>`* are
 the two body blocks of a message: the problem description and the operator
@@ -4530,8 +4531,141 @@ blocks with `User Action:`; hosted serves record 105's pair as
           <B>User</B> <B>Action:</B>  Edit the PROTOCOL.INI file to change the value for
 ----
 
-at column 10, the blocks' `indent` operand. They occur only in
-`GX27-3999-00.boo`, 23 each.
+at column 10, the blocks' `indent` operand. In the 34-book census they occur
+only in `GX27-3999-00.boo`, 23 each; the wider library uses them and eight
+more message body tags (see <<markup_cz_message_lists>>).
+
+[[markup_cz_message_lists]]
+==== CZ Message Lists
+
+A message list is far more common than the 34-book census suggests. A random
+sample of 500 of the 8,236 books in the hosted BookServer's library (498 of
+them readable) holds 210 books with `CZ` controls, and 43 of those (8.6% of
+the sample) open at least one `cz FLOW MSGL`. Those 43 books carry 659
+`cz FLOW MSGL` openers, 659 `cz OFF MSGL` and 659 `cz OFF EMSGL` closers; in
+650 of the openers the `cz OFF MSGL` follows directly in the same logical
+record, and the other nine were not followed across a record boundary.
+
+*Grammar.* A message list is
+
+----
+cz FLOW MSGL <left> <indent>      opener, draws nothing
+cz OFF MSGL                       always directly after the opener, draws nothing
+  message ...                     one or more messages
+cz OFF EMSGL <left> <indent>      closer; rows after it are ordinary body text
+----
+
+and each message is
+
+----
+SRMSG <id>                        a display line of its own
+<rule row>                        U+2500 cells only
+<headline rows>                   the message number and text
+cz FLOW <body tag> <left> <indent>  one block per body tag, in source order
+----
+
+The headline rows belong to whichever directive precedes the `SRMSG` (the
+`cz OFF MSGL` for the first message, the previous message's last block for
+every later one); the anchor and rule before them separate them from it.
+A body block may contain ordinary nested structure -- a `cz FLOW P`
+paragraph, an `XMP`, `SL` or `UL` region closed again before the next body
+tag -- exactly as anywhere else in the dialect.
+
+*The `SRMSG` line.* `GX27-3999-00.boo` logical record 104 stores the opener,
+its `OFF`, the first message's `SRMSG` row and its rule as
+
+[cols="<20,<16,<64",options="header"]
+|===
+|Offset |Bytes |Decoded reading
+
+|`0x1303C` |`06` |row length 6
+|`0x1303D`..`0x13042` |`4E 96 E3 47 D0 D0` |`cz` `FLOW` `MSGL` `3` `3` (`E3 47` is the two-byte `MSGL` token)
+|`0x13043` |`04` |row length 4
+|`0x13044`..`0x13047` |`4E A9 E3 47` |`cz` `OFF` `MSGL`
+|`0x13048` |`03` |row length 3
+|`0x13049` |`B6` |`SRMSG`
+|`0x1304A`..`0x1304B` |`E2 9C` |`LTC0008`
+|`0x1304C` |`04` |row length 4
+|`0x1304D` |`17` |three blanks
+|`0x1304E` |`10` |a 63-cell run of `U+2500`
+|`0x1304F` |`00` |bare spacing token
+|`0x13050` |`0C` |an 11-cell run of `U+2500`
+|`0x13051` |`2B` |row length 43: `cfont 3 7 2 11 3 2 ...` for the headline
+|===
+
+The `SRMSG` row holds the opcode and the message id and nothing else, so the
+id is the rest of that one display line. The served anchor is `MSG ` followed
+by that text, exactly as for the `SRMSG <id>` metadata line of an
+individually indexed message topic: hosted `GX27-3999-00` `B.0` (DT
+`19950730184057`) serves
+
+[source,html]
+----
+<a name="MSG LTC0008"><hr>
+</a>
+   <B>LTC0008</B> <B>The</B> <B>value</B> ... <B>is</B> <B>not</B>
+          <B>the</B> <B>correct</B> <B>character</B> <B>type.</B>
+----
+
+and prints neither `SRMSG` nor the id from the `SRMSG` row: the headline's
+`LTC0008` is the headline row's own word. The rule row is the `<hr>`; it
+prints no character. A message id may be any text: `SC31-6242-02.boo`
+(DT `19950803212024`) serves `SRMSG 1` and `SRMSG 100` as
+`<a name="MSG 1">` and `<a name="MSG 100">`, `SC31-8224-01.boo`
+(DT `19980821071949`) `SRMSG 00000004` as `<a name="MSG 00000004">`, and
+`GC30-3845-01.boo` (DT `19960718115511`) `SRMSG TOKEN-DOS-211` as
+`<a name="MSG TOKEN-DOS-211">`.
+
+*Body tags.* Each body block is an ordinary flowed paragraph at its `indent`
+column whose label (`Explanation:`, `System Action:`, ...) is the `CFONT`
+bold run it opens with; hosted adds no markup of its own. The 43 sampled
+message-list books use these body tags, with their whole-book `cz FLOW`
+counts:
+
+[cols="<14,>12,>10,<64",options="header"]
+|===
+|Tag |Lines |Books |Labels the blocks open with
+
+|`XPL` |26,914 |37 |`Explanation:`
+|`URESP` |20,545 |30 |`User Response:`, `Action:`
+|`DEST` |15,485 |12 |`Destination:`
+|`SYSACT` |14,823 |21 |`System Action:`
+|`MODULE` |7,172 |13 |`Module:`
+|`ORESP` |5,404 |11 |`Operator Response:`, `User Action:`
+|`PRESP` |1,176 |11 |`Programmer Response:`, `Application Programmer Response:`, `Action:`
+|`SPRESP` |733 |9 |`System Programmer Response:`
+|`SEVERITY` |633 |5 |`Severity:`
+|`PROBD` |150 |6 |`Explanation:`, `Cause:`, `Problem Determination:`
+|===
+
+The label is ordinary display text of the block's first row, styled by its
+own `CFONT` triple; the tag does not supply it and a reader must not
+synthesize it.
+
+`SC31-6242-02` `APPENDIX1.2.1` (DT `19950803212024`) shows four of them in one
+message:
+
+[source,html]
+----
+<p>   <B>Explanation:</B>  Operating system error occurred in component %i, instance
+...
+<p>   <B>Action:</B>  Check the error messages before and after this one in the log
+...
+<p>   <B>Module:</B>  INTERNALSYS
+<p>   <B>Severity:</B>  WARNING
+----
+
+The same books also write `NUMBYTES` (3 books) and `CODEL` (5 books) flow
+tags, and three of them a `cz OFF MSG` directive (133 lines in
+`dfhtmp12.boo`, `cbcvmu00.boo` and `SC33-1654-09.boo`). In `dfhtmp12.boo`
+`3.10.1` it stands between the `SRMSG 0` row and the rule row (record 696
+segments 12--13), so the rule and headline are its rows. Their hosted reading
+is not yet established.
+
+*Closing `SRMSG`.* A list may end with a bare `SRMSG` -- the opcode alone on
+its display line -- directly before `cz OFF EMSGL`. It is the anchor
+`MSG` and draws nothing (`GX27-3999-00` record 120 segments 1--2, served as
+`<a name="MSG"></a>` with no `<hr>`).
 
 [[markup_footnotes_in_the_flattened_dialect]]
 ==== Footnotes in the flattened dialect

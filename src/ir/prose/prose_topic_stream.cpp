@@ -1574,14 +1574,67 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                                                    opcode_tokens.front());
         if (native == nullptr)
           return fail(error, "body SRMSG has no native row framing");
+        bool operands = false;
         for (auto token = native->prefix_token + 1;
              token < native->token_end; ++token) {
           if (std::binary_search(opcode_tokens.begin(), opcode_tokens.end(),
                                  token))
             continue;
           const auto view = view_token(records, record_index, token);
-          if (is_visible(view) && !is_padding(view))
+          if (is_visible(view) && !is_padding(view)) operands = true;
+        }
+        if (operands) {
+          // A message of a CZ message list (`cz FLOW MSGL`): the SRMSG row
+          // names the message, and the whole row after `SR` is the served
+          // anchor, exactly as for the envelope SRMSG above.  GX27-3999-00
+          // B.0 record 104 line 7 is the row `SRMSG LTC0008` (tokens
+          // [56,58)), a row of its own; hosted (DT 19950730184057) serves
+          // `<a name="MSG LTC0008"><hr></a>` and prints neither word.  Every
+          // token after the row -- the separator rule and the message
+          // headline -- re-enters the body stream.
+          if (!cz_dialect)
             return fail(error, "body SRMSG native row carries operands");
+          if (opcode_tokens.front() != native->prefix_token + 1)
+            return fail(error, "body SRMSG does not open its native row");
+          auto identity =
+              trim_ascii(display_line_text(record, *native));
+          if (identity.size() < 6 ||
+              ascii_lower(identity).rfind("srmsg ", 0) != 0)
+            return fail(error, "body SRMSG row '" + identity +
+                                   "' does not spell its opcode");
+          identity = trim_ascii(identity.substr(5));
+          if (identity.empty() ||
+              !std::all_of(identity.begin(), identity.end(),
+                           [](const unsigned char ch) {
+                             return ch >= 0x20 && ch < 0x7F;
+                           }))
+            return fail(error, "body SRMSG identity '" + identity +
+                                   "' is invalid");
+          Item anchor;
+          anchor.kind = ItemKind::anchor;
+          anchor.anchor_id = "MSG " + identity;
+          anchor.source = token_slice(record, native->prefix_token + 1,
+                                      native->token_end);
+          build.items.push_back(std::move(anchor));
+          for (const auto token : segment.source_tokens) {
+            if (token > native->prefix_token && token < native->token_end) {
+              const auto view = view_token(records, record_index, token);
+              if (!ledger.assign(record_index, token,
+                                 is_padding(view) ? ProseTokenRoleIR::padding
+                                                  : ProseTokenRoleIR::control,
+                                 error))
+                return false;
+              continue;
+            }
+            Item item;
+            item.kind = ItemKind::token;
+            item.token = view_token(records, record_index, token);
+            build.items.push_back(std::move(item));
+          }
+          Item end;
+          end.kind = ItemKind::segment_end;
+          build.items.push_back(std::move(end));
+          break;
         }
         Item anchor;
         anchor.kind = ItemKind::anchor;

@@ -145,18 +145,27 @@ bool has_text(const Line& line) { return line.cells.size() > line.text_begin; }
 
 // Groups [begin, end) of a directive's lines: a bare spacing token or an
 // anchor before a row starts a new group; rows without text separate groups.
+// With `rules`, a `U+2500` rule row is a group of its own (see
+// `message_rule`).
 std::vector<std::pair<std::size_t, std::size_t>> group_lines(
-    const std::vector<Line>& lines, std::size_t begin, std::size_t end) {
+    const std::vector<Line>& lines, std::size_t begin, std::size_t end,
+    bool rules = false) {
   std::vector<std::pair<std::size_t, std::size_t>> groups;
   std::size_t index = begin;
   while (index < end) {
+    if (rules && lines[index].thematic_break) {
+      groups.emplace_back(index, index + 1);
+      ++index;
+      continue;
+    }
     if (!has_text(lines[index])) {
       ++index;
       continue;
     }
     auto stop = index + 1;
     while (stop < end && lines[stop].breaks_before == 0 &&
-           !lines[stop].anchor_before) {
+           !lines[stop].anchor_before &&
+           !(rules && lines[stop].thematic_break)) {
       // A row that carries no text is a layout artefact of a control that
       // opened a row without display words (packet 3.2 record 80 `SI Linux
       // AX.25, ...` between `... use tabs for` and `everything, not
@@ -305,9 +314,32 @@ struct CzBuilder {
     return true;
   }
 
+  // The separator rule of a message in a message list (`message_list`):
+  // one native `U+2500` row, already claimed as markers by the display-row
+  // reader, that draws `<hr>` and no character.
+  bool message_rule(std::size_t line) {
+    const auto& source = lines[line];
+    if (source.thematic_record >= records.size() ||
+        source.thematic_token_begin >= source.thematic_token_end)
+      return fail(error, "thematic break has no native row provenance");
+    ProseBlockIR block;
+    block.kind = ProseBlockKindIR::thematic_break;
+    block.origin = source.origin;
+    block.slices.push_back(token_slice(records[source.thematic_record],
+                                       source.thematic_token_begin,
+                                       source.thematic_token_end));
+    append(std::move(block), line);
+    return true;
+  }
+
   bool paragraphs(const std::vector<std::pair<std::size_t, std::size_t>>& groups,
                   std::size_t from) {
     for (auto index = from; index < groups.size(); ++index) {
+      if (groups[index].second == groups[index].first + 1 &&
+          lines[groups[index].first].thematic_break) {
+        if (!message_rule(groups[index].first)) return false;
+        continue;
+      }
       ProseBlockIR block;
       block.kind = ProseBlockKindIR::paragraph;
       if (!emit(std::move(block), groups[index].first, groups[index].second))
@@ -1076,7 +1108,9 @@ struct CzBuilder {
     const auto closer = ranges[closer_index];
     index = closer_index;
     if (closer.first == npos) return true;
-    return paragraphs(group_lines(lines, closer.first, closer.second), 0);
+    return paragraphs(group_lines(lines, closer.first, closer.second,
+                                  in_message_list()),
+                      0);
   }
 
   // Issue #81.  What `degraded_region` decided about one unmodelled
@@ -1170,7 +1204,9 @@ struct CzBuilder {
     const auto closer = ranges[closer_index];
     index = closer_index;
     if (closer.first == npos) return RegionOutcome::emitted;
-    return paragraphs(group_lines(lines, closer.first, closer.second), 0)
+    return paragraphs(group_lines(lines, closer.first, closer.second,
+                                  in_message_list()),
+                      0)
                ? RegionOutcome::emitted
                : RegionOutcome::declined;
   }
@@ -1256,9 +1292,11 @@ struct CzBuilder {
     for (std::size_t index = 0; index < directives.size(); ++index) {
       const auto& directive = directives[index];
       const auto range = ranges[index];
-      const auto groups = range.first == npos
-                              ? std::vector<std::pair<std::size_t, std::size_t>>{}
-                              : group_lines(lines, range.first, range.second);
+      const auto groups =
+          range.first == npos
+              ? std::vector<std::pair<std::size_t, std::size_t>>{}
+              : group_lines(lines, range.first, range.second,
+                            in_message_list());
       const auto name = "cz " + directive.mode + " " + directive.tag;
       const auto& tag = directive.tag;
       if (directive.mode == "break") {
@@ -1279,8 +1317,66 @@ struct CzBuilder {
     if (!stack.empty())
       return fail(error, "cz list " + stack.back().tag + " is not closed");
     const auto leading_anchors = topic.anchors.size();
-    place_anchors();
+    if (!place_anchors()) return false;
     return place_spans(leading_anchors);
+  }
+
+  bool in_message_list() const {
+    return std::any_of(stack.begin(), stack.end(), [](const Frame& frame) {
+      return frame.tag == "msgl";
+    });
+  }
+
+  // `cz FLOW MSGL` .. `cz OFF EMSGL`, the message list (doc/boo-spec/
+  // markup.adoc, "CZ message lists").  The opener is always followed by a
+  // bare `cz OFF MSGL`; neither draws anything, and hosted BookServer
+  // serves no list element for them.  Each message is an `SRMSG <id>` row
+  // (the body anchor `MSG <id>`, prose_topic_stream.cpp), a `U+2500`
+  // separator row served as `<hr>`, the message headline, and the message
+  // body blocks, each a `cz FLOW <tag>` paragraph whose label is the
+  // `CFONT`-bold word run it opens with.  GX27-3999-00 B.0 (DT
+  // 19950730184057) serves record 105's `cz FLOW PROBD 3 10` as
+  // `<B>Explanation:</B>  The value provided ...` and SC31-6242-02
+  // APPENDIX1.2.1 (DT 19950803212024) serves `cz FLOW XPL`, `URESP`,
+  // `MODULE` and `SEVERITY` as `<p>   <B>Explanation:</B> ...`,
+  // `<p>   <B>Action:</B> ...`, `<p>   <B>Module:</B>  INTERNALSYS` and
+  // `<p>   <B>Severity:</B>  WARNING`.
+  static bool message_body_tag(const std::string& tag) {
+    return tag == "xpl" || tag == "sysact" || tag == "uresp" ||
+           tag == "oresp" || tag == "presp" || tag == "spresp" ||
+           tag == "probd" || tag == "module" || tag == "dest" ||
+           tag == "severity";
+  }
+
+  bool message_list(std::size_t index, const LayoutDirective& directive,
+                    const std::vector<std::pair<std::size_t, std::size_t>>& groups,
+                    const std::string& name) {
+    const auto& tag = directive.tag;
+    if (directive.mode == "flow" && tag == "msgl") {
+      if (!groups.empty()) return fail(error, name + " carries display text");
+      if (index + 1 >= build.directives.size() ||
+          build.directives[index + 1].mode != "off" ||
+          build.directives[index + 1].tag != "msgl")
+        return fail(error, name + " is not followed by cz OFF MSGL");
+      stack.push_back({"msgl", next_list_ordinal++, 0});
+      return true;
+    }
+    if (directive.mode == "off" && tag == "msgl") {
+      if (index == 0 || build.directives[index - 1].mode != "flow" ||
+          build.directives[index - 1].tag != "msgl")
+        return fail(error, name + " does not follow cz FLOW MSGL");
+      return paragraphs(groups, 0);
+    }
+    if (directive.mode == "off" && tag == "emsgl") {
+      if (stack.empty() || stack.back().tag != "msgl")
+        return fail(error, name + " closes no open msgl");
+      stack.pop_back();
+      return paragraphs(groups, 0);
+    }
+    // A message body block.
+    if (stack.empty() || stack.back().tag != "msgl")
+      return fail(error, name + " is outside a message list");
+    return paragraphs(groups, 0);
   }
 
   // One directive with its display-line range and text groups.
@@ -1440,12 +1536,16 @@ struct CzBuilder {
         const auto closer = ranges[closer_index];
         index = closer_index;
         if (closer.first == npos) return true;
-        return paragraphs(group_lines(lines, closer.first, closer.second), 0);
+        return paragraphs(group_lines(lines, closer.first, closer.second,
+                                    in_message_list()), 0);
       }
       // The generated title-page projection, ahead of the unmodelled path:
       // its rows are re-flowed, not reproduced (see `title_page`).
       if (directive.mode == "off" && cz_title_page_tag(tag))
         return title_page(index, range, name, tag);
+      if (tag == "msgl" || (directive.mode == "off" && tag == "emsgl") ||
+          (directive.mode == "flow" && message_body_tag(tag)))
+        return message_list(index, directive, groups, name);
       // The artwork region, ahead of the generic `cz OFF <tag>` fallback.
       if (directive.mode == "off" &&
           (cz_artwork_region_tag(tag) || cz_tabdata_region_tag(tag)))
@@ -1740,19 +1840,31 @@ struct CzBuilder {
   }
 
   // Anchors precede the block whose first row follows them.
-  void place_anchors() {
+  bool place_anchors() {
+    const auto block_of = [&](std::size_t anchor) {
+      for (std::size_t block = 0; block < block_first_line.size(); ++block) {
+        const auto& first = lines[block_first_line[block]];
+        if (first.anchor_before && first.anchor_index == anchor) return block;
+      }
+      return npos;
+    };
     for (std::size_t anchor = 0; anchor < build.body_anchors.size(); ++anchor) {
       auto placed = build.body_anchors[anchor];
       placed.position = topic.blocks.size();
-      for (std::size_t block = 0; block < block_first_line.size(); ++block) {
-        const auto& first = lines[block_first_line[block]];
-        if (first.anchor_before && first.anchor_index == anchor) {
-          placed.position = block;
-          break;
-        }
-      }
+      const auto block = block_of(anchor);
+      if (block != npos) placed.position = block;
+      // A rule row draws a block only inside a message list; an anchor it
+      // carries anywhere else has no row to precede.
+      if (block == npos &&
+          std::any_of(lines.begin(), lines.end(), [anchor](const Line& line) {
+            return line.thematic_break && line.anchor_before &&
+                   line.anchor_index == anchor;
+          }))
+        return fail(error, "anchor " + placed.id +
+                               " precedes a rule row outside a message list");
       topic.anchors.push_back(std::move(placed));
     }
+    return true;
   }
 };
 
