@@ -146,6 +146,8 @@ struct Line {
   std::vector<std::size_t> junctions;
   std::vector<std::size_t> verticals;
   std::vector<FontSpanIR> font_spans;
+  // A revision bar stood in the margin before the left border.
+  bool revised = false;
 };
 
 struct FlatRow {
@@ -1303,6 +1305,27 @@ private:
               words[next].token_start && next + 1 < words.size() &&
               words[next + 1].token != words[next].token)
             next = skip_token(words, next);
+          // A revision bar (U+2502) in the margin: a one-space origin, the
+          // bar one column after it, then the box's own left border at the
+          // column every line of the box puts it (SC33-1369-09 2.1 record
+          // 94 line 23 ` | |      Y     | ...`).  The bar is structural and
+          // the line is the box's; reading the bar as the border instead
+          // misaligns the line, and every word of it would fall to the
+          // hidden-slot path below and vanish from the table.
+          bool revision_bar = false;
+          if (width_known && next < words.size() &&
+              words[next].value == kVertical && words[next].token_start &&
+              next == at + 1 && word.output != npos &&
+              words[next].output == word.output + 1 &&
+              words[next].output != word.output + block.left_column) {
+            const auto border = skip_token(words, next);
+            if (border < words.size() && line_start(words[border].value) &&
+                words[border].token_start && words[border].output != npos &&
+                words[border].output == word.output + block.left_column) {
+              next = border;
+              revision_bar = true;
+            }
+          }
           if (next < words.size() && line_start(words[next].value) &&
               words[next].token_start && word.output != npos &&
               words[next].output != npos &&
@@ -1312,6 +1335,7 @@ private:
               pending.push_back(&words[index]);
             base = word.output;
             line.first_token = word.token;
+            line.revised = revision_bar;
             at = next;
           } else if (word.width == 1) {
             const auto stop = skip_token(words, at);
@@ -1584,6 +1608,8 @@ private:
       row.kind = caption ? FixedTableRowKindIR::caption
                          : FixedTableRowKindIR::body;
       row.line_count = group.size();
+      row.revised = std::any_of(group.begin(), group.end(),
+                                [](const auto *line) { return line->revised; });
       const auto cells = caption ? std::size_t{1} : column_count;
       row.cells.resize(cells);
       for (std::size_t index = 0; index < cells; ++index)
@@ -2575,7 +2601,7 @@ const char *row_kind_name(FixedTableRowKindIR kind) {
 
 void emit_row(std::ostringstream &out, const FixedTableRowIR &row) {
   out << "row kind=" << row_kind_name(row.kind) << " lines=" << row.line_count
-      << '\n';
+      << (row.revised ? " revised" : "") << '\n';
   for (const auto &cell : row.cells) {
     out << " cell column=" << cell.column << '\n';
     for (const auto &line : cell.lines) {

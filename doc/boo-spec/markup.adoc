@@ -5128,6 +5128,41 @@ envelope as a `<table>` whose rows are the empty header cell over `1`..`5`
 and `Overall satisfaction` with five empty cells -- the same shape it serves
 for the next envelope, `TBLUNIQ162`, which lies wholly in record 969.
 
+[[markup_revision_bar_beside_a_box_table]]
+*Revision bar beside a box table.*  A row of a box table that was revised
+in this edition carries the revision bar in the margin, one cell left of the
+box's own left border, and the border stays where every other line of the
+box puts it.  `SC33-1369-09` topic `2.1`, logical record 94, envelope
+`SRTBLTBLUNIQ35` under `cz OFF TABLE`:
+
+[cols="<16,<12,<16,<56",options="header"]
+|===
+|Offset |Bytes |Line, cell |Content
+
+|`0x0FE52` |`1E` |17 |length byte of the top rule (30)
+|`0x0FE53` |`22` |17, cells 0--2 |a three-cell blank origin
+|`0x0FE54` |`06` |17, cell 3 |`U+250C`, the top-left corner
+|`0x0FEFF` |`1F` |23 |length byte of the revised row (31)
+|`0x0FF00` |`20` |23, cell 0 |a one-cell blank origin
+|`0x0FF01` |`90` |23, cell 1 |`U+2502`, the revision bar
+|— |— |23, cell 2 |the blank the reader draws after the bar's word
+|`0x0FF02` |`90` |23, cell 3 |`U+2502`, the box's left border
+|`0x0FF03` |`24` |23, cells 4--9 |a five-cell blank run (and the reader's blank after the border)
+|`0x0FF04` |`BA` |23, cell 10 |`Y`, the first cell's text
+|`0x0FF1E` |`90` |23, cell 96 |`U+2502`, the right border
+|`0x0FF1F` |`1E` |24 |length byte of the bottom rule (30), `22` three-cell origin, `08` `U+2514` at cell 3
+|===
+
+Every other line of the envelope opens with the three-cell origin and puts
+its border in cell 3; only line 23 opens with a one-cell origin and the bar.
+Hosted BookServer (DT `19971205131216`) serves the region inside
+`<pre width="132"><!-- table -->` with the line as drawn,
+` | |      Y     |      Y     | ...`: the bar is margin, the seven `Y` words
+are the cells of a body row under the `Digital OpenVMS` .. `Windows NT`
+header.  A reader that takes cell 1 for the left border misaligns the line
+against the box and loses the row; the bar belongs to no cell.  The same
+shape recurs in 22 more topics of the book (`2.3`, `2.4`, `2.6`, ... `2.62`).
+
 Corpus census of the directive pairs, recounted by display line over all 34
 fixtures. *Six* books carry any `CZ` control, not five: `SG24-204.boo` has a
 single unmatched `cz OFF LBLBOX` and no other `CZ` directive anywhere. Two rows

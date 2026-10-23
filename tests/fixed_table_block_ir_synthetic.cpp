@@ -76,6 +76,20 @@ struct RecordBuilder {
     }
   }
 
+  // A display line of one-byte tokens, the shape a drawn box row is stored
+  // in: every glyph run, origin and cell word is its own one-byte token.
+  void narrow_line(std::vector<TokenWords> content) {
+    record.encoded_tokens.push_back(
+        {static_cast<std::uint16_t>(content.size()), 1});
+    record.tokens.push_back({0x25ba});
+    for (auto &token : content) {
+      const auto joiner = !token.empty() && token.front() < 4;
+      record.encoded_tokens.push_back(
+          {static_cast<std::uint16_t>(joiner ? token.front() : 0x60), 1});
+      record.tokens.push_back(std::move(token));
+    }
+  }
+
   DecodedLogicalRecordSource finish(std::uint32_t logical_record) {
     record.logical_record = logical_record;
     record.assembled = assemble_logical_record_with_sources(record.tokens);
@@ -686,6 +700,89 @@ void test_glued_one_byte_word_is_content() {
           "the `2` of `PS/2` was taken for a hidden marker slot: " + text);
 }
 
+// A revision bar standing in the margin of a declared box table, one column
+// to the left of the table's own left border.  SC33-1369-09 2.1 record 94
+// line 23 is ` | |      Y     |      Y     | ...`: a one-space origin, the
+// bar (U+2502), then the box's left border at the column every other line of
+// the box puts it.  Hosted BookServer (DT 19971205131216) serves the line as
+// drawn, bar included, inside the region's `<pre>`; the `Y` cells are table
+// content.  The row must survive as a body row with its revision flag, and
+// the bar must stay structural.
+TokenWords glyphs(std::uint16_t glyph, std::size_t count) {
+  return TokenWords(count, glyph);
+}
+
+void test_revision_bar_before_box_border() {
+  constexpr std::uint16_t vertical = 0x2502;
+  constexpr std::uint16_t horizontal = 0x2500;
+  const TokenWords join{1};
+  const auto rule = [&](std::uint16_t left, std::uint16_t middle,
+                        std::uint16_t right) {
+    return std::vector<TokenWords>{words("   "), {left},  join,
+                                   glyphs(horizontal, 6),  join,
+                                   {middle},               join,
+                                   glyphs(horizontal, 6),  join,
+                                   {right}};
+  };
+  RecordBuilder builder;
+  builder.line({words("cz"), words("OFF"), words("TABLE")});
+  builder.line({words("SRTBLREVISED")});
+  builder.narrow_line(rule(0x250c, 0x252c, 0x2510));
+  builder.narrow_line({words("   "), {vertical}, words(" "), words("Ab"),
+                       words(" "), {vertical}, words(" "), words("Cd"),
+                       words(" "), {vertical}});
+  builder.narrow_line(rule(0x251c, 0x253c, 0x2524));
+  builder.narrow_line({words(" "), {vertical}, {vertical}, words(" "),
+                       words("Y"), words("  "), {vertical}, words(" "),
+                       words("Y"), words("  "), {vertical}});
+  builder.narrow_line(rule(0x2514, 0x2534, 0x2518));
+  builder.line({words("SRETBL")});
+  builder.line({words("cz"), words("OFF"), words("ETABLE")});
+
+  std::vector<DecodedLogicalRecordSource> sources;
+  sources.push_back(builder.finish(23));
+  require(sources.front().ir.display_lines_parse,
+          "revision-bar table: display lines do not parse");
+  const auto layout = extract_layout_ir(sources);
+  const auto ownership = build_ownership_ir(sources, layout);
+  const LayoutRowRangeIR range{0, count_layout_rows(layout)};
+  const auto blocks =
+      extract_fixed_table_blocks_ir(sources, layout, ownership, range);
+  require(blocks.declined.empty() && blocks.blocks.size() == 1,
+          "revision-bar table was declined" +
+              (blocks.declined.empty()
+                   ? std::string{}
+                   : ": " + blocks.declined.front().reason));
+  if (blocks.blocks.size() != 1)
+    return;
+  const auto &block = blocks.blocks.front();
+  require(block.geometry == FixedTableGeometryIR::box,
+          "revision-bar table did not prove its box geometry");
+  require(block.body.size() == 2,
+          "revision-barred row was not kept as a body row (" +
+              std::to_string(block.body.size()) + " body rows)");
+  const auto *revised = find_row(block, "Y");
+  require(revised != nullptr, "revision-barred row lost its cell words");
+  if (revised != nullptr) {
+    require(cell_text(*revised, 1) == "Y",
+            "revision-barred row lost its second cell: '" +
+                cell_text(*revised, 1) + "'");
+    require(revised->revised, "revision-barred row lost its revision flag");
+  }
+  const auto *plain = find_row(block, "Ab");
+  require(plain != nullptr && !plain->revised,
+          "unrevised row is missing or carries a revision flag");
+  std::string error;
+  require(verify_fixed_table_blocks_ir(sources, layout, ownership, range,
+                                       blocks, &error),
+          "revision-bar table did not verify: " + error);
+  const auto lowered = lower_fixed_table_block_to_document_ir(block);
+  require(verify_fixed_table_document_ir(block, lowered, &error),
+          "revision-bar table lowering did not verify: " + error);
+  const auto *table = lowered_table(lowered);
+  require(table != nullptr, "revision-bar table did not lower to a table");
+}
+
 } // namespace
 
 int main() {
@@ -697,6 +794,7 @@ int main() {
   test_spot_anchor_inside_preformatted_table();
   test_native_row_without_layout_projection();
   test_glued_one_byte_word_is_content();
+  test_revision_bar_before_box_border();
   geist_test::exit_with_failures();
   std::cout << "fixed table block IR checks passed\n";
   return 0;
