@@ -42,6 +42,12 @@ void open_context(const std::filesystem::path &path,
       static_cast<std::size_t>(directory_page) * geist::boo_page_size;
   context.directory.page_number = directory_page;
   context.directory.token_threshold = context.bytes[base + 0x14];
+  // The dictionary text the directory version and parameter select.
+  context.directory.version_text =
+      geist::detail::EbcdicCodec::cp037().decode_ascii(
+          context.bytes, base + 0x10, 4, "short directory");
+  context.directory.dictionary_text_parameter = static_cast<std::uint16_t>(
+      (context.bytes[base + 0x4c] << 8) | context.bytes[base + 0x4d]);
   context.directory.token_map_offset =
       geist::detail::read_be16(context.bytes, base + 0x22);
   context.directory.dictionary_start_page =

@@ -321,9 +321,9 @@ bool looks_like_gml_control_at(const std::string& value, std::size_t offset) {
   // artwork envelope (SG24-4815-01 record 25): the picture selector sits
   // between the first pair and the `cartdesc` description lines between the
   // second.  Listed longest first so `csartdesc` is not read as `csart`.
-  static constexpr std::array<std::string_view, 55> prefixes = {
+  static constexpr std::array<std::string_view, 56> prefixes = {
       "csartdesc",   "ceartdesc",  "cartdesc",   "csart",      "ceart",
-      "ctopicn",     "cparent",    "cforwardlevel",
+      "ctopicn",     "ctopic#",    "cparent",    "cforwardlevel",
       "cbacklevel",  "csummary",   "chdlevel",   "csourcefn",
       "st",          "c.sp",       "c.cp",       "ctocdef",    "ctoce",
       "etoc",

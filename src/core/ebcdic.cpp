@@ -4,6 +4,7 @@
 #include "geist/detail/core/internal.hpp"
 
 #include "cp/cp037.hpp"
+#include "cp/cp351.hpp"
 #include "cp/cp500.hpp"
 
 #include <stdexcept>
@@ -19,6 +20,8 @@ const std::array<std::uint16_t, 256>& table_for(EbcdicCodePage code_page)
     return cp::cp037_to_unicode;
   case EbcdicCodePage::cp500:
     return cp::cp500_to_token_word;
+  case EbcdicCodePage::cp351:
+    return cp::cp351_to_token_word;
   }
   return cp::cp037_to_unicode;
 }
@@ -48,6 +51,11 @@ const EbcdicCodec& EbcdicCodec::cp037() noexcept {
 
 const EbcdicCodec& EbcdicCodec::cp500() noexcept {
   static const EbcdicCodec codec(EbcdicCodePage::cp500);
+  return codec;
+}
+
+const EbcdicCodec& EbcdicCodec::cp351() noexcept {
+  static const EbcdicCodec codec(EbcdicCodePage::cp351);
   return codec;
 }
 

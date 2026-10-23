@@ -51,9 +51,16 @@ std::size_t find_toc_end_marker(const std::string& lower_record,
   return end_marker;
 }
 
+TocEntryGrammar toc_entry_grammar(const BooDirectory& directory) {
+  return directory.version_text == " 1.0" || directory.version_text == " 1.1"
+             ? TocEntryGrammar::style_only
+             : TocEntryGrammar::nesting_and_style;
+}
+
 std::vector<TocEntry> extract_toc_entries(
     const std::string& decoded_record,
-    const std::vector<std::size_t>& display_line_starts) {
+    const std::vector<std::size_t>& display_line_starts,
+    TocEntryGrammar grammar) {
   std::vector<TocEntry> entries;
   const auto lower_record = ascii_lower(decoded_record);
   std::size_t search_offset = 0;
@@ -108,7 +115,11 @@ std::vector<TocEntry> extract_toc_entries(
     std::uint32_t level = 0;
     std::uint32_t style = 0;
     std::string id;
-    if (input >> level >> style >> id) {
+    const auto fields_read =
+        grammar == TocEntryGrammar::style_only
+            ? static_cast<bool>(input >> style >> id)
+            : static_cast<bool>(input >> level >> style >> id);
+    if (fields_read) {
       if (style == 0) {
         search_offset = found + marker_size;
         continue;
@@ -132,6 +143,14 @@ std::vector<TocEntry> extract_toc_entries(
   return entries;
 }
 
+std::uint32_t topic_number_control_value(const std::string& record) {
+  // Version 1.2 books spell the topic-number control `CTOPICN`; version 1.0
+  // and 1.1 books spell it `CTOPIC#` (doc/boo-spec, "Containers Older Than
+  // Version 1.2"). Each book uses one spelling only.
+  const auto value = extract_uint_control_value(record, "ctopicn ");
+  return value != 0 ? value : extract_uint_control_value(record, "ctopic# ");
+}
+
 bool is_contents_topic_record(const std::string& decoded_record) {
   const auto lower_record = ascii_lower(decoded_record);
   return lower_record.find("shcontents") != std::string::npos ||
@@ -149,7 +168,8 @@ bool is_topic_header_record(const std::string& decoded_record) {
     return false;
   }
   const auto lower_record = ascii_lower(decoded_record);
-  if (lower_record.find("ctopicn") != std::string::npos) {
+  if (lower_record.find("ctopicn") != std::string::npos ||
+      lower_record.find("ctopic#") != std::string::npos) {
     return true;
   }
 
@@ -184,12 +204,35 @@ void attach_topic_data(
   entry.end_logical_record = topic.end_logical_record;
 }
 
+namespace {
+
+// The nesting a version 1.2 book stores in each `CTocE` is the length of the
+// target topic's `CPARENT` chain (doc/boo-spec, toc). A version 1.0 or 1.1
+// book stores no nesting, so it is read off that same chain. Returns
+// `std::nullopt` when the chain cannot be followed to the top: a topic whose
+// parent was not read, a parent that is not a topic of the book, or a cycle.
+std::optional<std::uint32_t> parent_chain_length(
+    const std::vector<TopicData>& topics, const std::string& topic_id) {
+  std::uint32_t length = 0;
+  const auto* topic = find_topic_data(topics, topic_id);
+  while (topic != nullptr) {
+    if (!topic->parent) return std::nullopt;
+    if (topic->parent->empty()) return length;
+    if (++length > topics.size()) return std::nullopt;
+    topic = find_topic_data(topics, *topic->parent);
+  }
+  return std::nullopt;
+}
+
+} // namespace
+
 std::vector<TocEntry> build_table_of_contents(
     const std::vector<std::string>& decoded_records,
     const std::vector<TopicData>& topics,
     bool attach_records,
     const std::vector<std::vector<std::size_t>>* record_display_line_starts,
-    const std::vector<DecodedLogicalRecordSource>* record_sources) {
+    const std::vector<DecodedLogicalRecordSource>* record_sources,
+    TocEntryGrammar grammar) {
   std::vector<TocEntry> toc;
   bool in_contents_topic = false;
   static const std::vector<std::size_t> no_display_lines;
@@ -211,9 +254,18 @@ std::vector<TocEntry> build_table_of_contents(
          index < record_display_line_starts->size())
             ? (*record_display_line_starts)[index]
             : no_display_lines;
-    auto entries = extract_toc_entries(decoded, display_line_starts);
+    auto entries = extract_toc_entries(decoded, display_line_starts, grammar);
     if (entries.empty()) {
       continue;
+    }
+    if (grammar == TocEntryGrammar::style_only) {
+      for (auto& entry : entries) {
+        const auto nesting = parent_chain_length(topics, entry.id);
+        // An entry whose nesting cannot be derived is not given a guessed
+        // one: the book's contents are declined as a whole.
+        if (!nesting) return {};
+        entry.level = *nesting;
+      }
     }
     for (auto& entry : entries) {
       if (const auto* topic = find_topic_data(topics, entry.id)) {
@@ -266,13 +318,12 @@ std::vector<TopicData> build_topics(const LogicalDecodeContext& context,
     // carrying the topic controls, rather than assuming the boundary and
     // metadata share one logical record.
     std::size_t metadata_record = record_begin;
-    if (extract_uint_control_value(decoded_records[metadata_record],
-                                   "ctopicn ") == 0) {
+    if (topic_number_control_value(decoded_records[metadata_record]) == 0) {
       for (auto candidate = record_begin + 1;
            candidate < record_end;
            ++candidate) {
         const auto& candidate_record = decoded_records[candidate];
-        if (extract_uint_control_value(candidate_record, "ctopicn ") != 0 &&
+        if (topic_number_control_value(candidate_record) != 0 &&
             (!extract_control_value_until_boundary(candidate_record,
                                                    "chdlevel ")
                   .empty() ||
@@ -284,7 +335,7 @@ std::vector<TopicData> build_topics(const LogicalDecodeContext& context,
       }
     }
     const auto& metadata = decoded_records[metadata_record];
-    topic.topic_number = extract_uint_control_value(metadata, "ctopicn ");
+    topic.topic_number = topic_number_control_value(metadata);
     topic.start_logical_record =
         static_cast<std::uint32_t>(record_begin + 1);
     topic.end_logical_record = static_cast<std::uint32_t>(record_end + 1);
@@ -314,6 +365,8 @@ std::vector<TopicData> build_topics(const LogicalDecodeContext& context,
           context, static_cast<std::uint32_t>(candidate + 1),
           static_cast<std::uint32_t>(candidate + 2));
       if (sources.empty()) break;
+      if (!topic.parent)
+        topic.parent = topic_header_parent_of_record(sources.front());
       display_line_title = topic_header_title_of_record(sources.front());
       if (display_line_title) break;
     }

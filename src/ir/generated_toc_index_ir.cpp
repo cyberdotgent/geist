@@ -241,7 +241,8 @@ private:
       GeneratedTocIndexLineKindIR kind{};
       if (index == 0 && opcode.rfind("sh", 0) == 0) {
         kind = GeneratedTocIndexLineKindIR::topic_start;
-      } else if (opcode == "ctopicn" || opcode == "cparent" ||
+      } else if (opcode == "ctopicn" || opcode == "ctopic#" ||
+                 opcode == "cparent" ||
                  opcode == "cforwardlevel" || opcode == "cbacklevel" ||
                  opcode == "csummary" || opcode == "csourcefn") {
         kind = GeneratedTocIndexLineKindIR::metadata;

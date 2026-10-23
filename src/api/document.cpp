@@ -235,9 +235,9 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
       break;
     }
   }
-  document.toc_ = build_table_of_contents(contents_records, topics, false,
-                                          &contents_display_line_starts,
-                                          &contents_sources);
+  document.toc_ = build_table_of_contents(
+      contents_records, topics, false, &contents_display_line_starts,
+      &contents_sources, toc_entry_grammar(document.directory_));
   // A book with no CONTENTS topic has no contents page to read a table of
   // contents from, and short books are published that way. Its topics still
   // carry their own hierarchy -- `:H1`, `:H2` -- which is what the

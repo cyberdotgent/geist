@@ -147,6 +147,9 @@ struct TopicData {
   std::uint32_t topic_number = 0;
   std::uint32_t start_logical_record = 0;
   std::uint32_t end_logical_record = 0;
+  // The `CPARENT` operand of the topic's header: empty for a top-level
+  // topic, unset when the header's display lines did not yield it.
+  std::optional<std::string> parent;
   std::vector<std::string> raw_records;
   // Positioned source decode for the selected topic, populated lazily once
   // per topic and shared by typed lowering and the verbatim best-effort
@@ -157,6 +160,7 @@ struct TopicData {
 enum class EbcdicCodePage {
   cp037,
   cp500,
+  cp351,
 };
 
 class EbcdicCodec {
@@ -165,6 +169,7 @@ public:
 
   static const EbcdicCodec& cp037() noexcept;
   static const EbcdicCodec& cp500() noexcept;
+  static const EbcdicCodec& cp351() noexcept;
 
   std::uint16_t decode_word(std::uint8_t byte) const noexcept;
   char decode_ascii_byte(std::uint8_t byte,
@@ -296,6 +301,10 @@ std::optional<std::uint16_t> read_compact_length(
     std::size_t end_offset);
 std::uint32_t physical_page_for_logical(const BooDirectory& directory,
                                         std::uint32_t logical_page);
+// The table that turns the dictionary's literal bytes into token words, as
+// the directory version and text parameter select it. Throws for a
+// combination no real book has shown.
+const EbcdicCodec& dictionary_literal_codec(const BooDirectory& directory);
 std::map<std::uint16_t, TokenWords> decode_experimental_dictionary(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory);
@@ -399,9 +408,18 @@ const TopicData* find_topic_data(const std::vector<TopicData>& topics,
 // passing them stops a title from absorbing that byte's dictionary spelling.
 // An empty vector means the record has no decided framing: the title then
 // runs to the next entry, as it did before the framing was carried.
+// How a `CTocE` line lays out its fields.  A version 1.2 book writes
+// `CTocE <nesting> <style> <id> <title>`; a version 1.0 or 1.1 book writes
+// `CTocE <style> <id> <title>` and stores no nesting (doc/boo-spec, toc).
+enum class TocEntryGrammar {
+  nesting_and_style,
+  style_only,
+};
+TocEntryGrammar toc_entry_grammar(const BooDirectory& directory);
 std::vector<TocEntry> extract_toc_entries(
     const std::string& decoded_record,
-    const std::vector<std::size_t>& display_line_starts = {});
+    const std::vector<std::size_t>& display_line_starts = {},
+    TocEntryGrammar grammar = TocEntryGrammar::nesting_and_style);
 bool is_contents_topic_record(const std::string& decoded_record);
 bool is_topic_header_record(const std::string& decoded_record);
 void attach_topic_data(
@@ -418,7 +436,8 @@ std::vector<TocEntry> build_table_of_contents(
     bool attach_records = true,
     const std::vector<std::vector<std::size_t>>* record_display_line_starts =
         nullptr,
-    const std::vector<DecodedLogicalRecordSource>* record_sources = nullptr);
+    const std::vector<DecodedLogicalRecordSource>* record_sources = nullptr,
+    TocEntryGrammar grammar = TocEntryGrammar::nesting_and_style);
 // Topic identities, boundaries and header titles.  The title is read off the
 // `ST` display line of the topic's own metadata record, so this needs the
 // positioned decode context and not only the flattened record strings

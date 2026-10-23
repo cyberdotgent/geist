@@ -49,16 +49,42 @@ std::uint32_t physical_page_for_logical(const BooDirectory& directory,
   return directory.page_number + logical_page - 1;
 }
 
+const EbcdicCodec& dictionary_literal_codec(const BooDirectory& directory) {
+  // The directory version picks the dictionary's text selector: version 1.0
+  // always uses 351; version 1.1 reads the directory word and treats 0 as
+  // 351; version 1.2 reads the word as it stands. Selector 351 and selector
+  // 500 are the two with real books behind them (doc/boo-spec, "Version
+  // Variants Other Than 2"). Anything else -- version 1.3, or a selector no
+  // book has shown -- is refused rather than read through the wrong table.
+  const auto parameter = directory.dictionary_text_parameter;
+  std::uint16_t selector = 0;
+  if (directory.version_text == " 1.0") {
+    selector = 351;
+  } else if (directory.version_text == " 1.1") {
+    selector = parameter == 0 ? 351 : parameter;
+  } else if (directory.version_text == " 1.2") {
+    selector = parameter;
+  }
+  if (selector == 351) {
+    return EbcdicCodec::cp351();
+  }
+  if (selector == 500) {
+    return EbcdicCodec::cp500();
+  }
+  throw std::runtime_error(
+      "unsupported BOO dictionary text: directory version '" +
+      directory.version_text + "' with text parameter " +
+      std::to_string(parameter));
+}
+
 TokenWords decode_dictionary_words(const std::vector<std::uint8_t>& bytes,
                                    std::size_t offset,
-                                   std::size_t count) {
-  // The fixture-backed literal path is CP500. The raw directory text
-  // parameter is retained by the prologue, but alternate dictionary modes
-  // need real-book validation before they can select a different decoder.
+                                   std::size_t count,
+                                   const EbcdicCodec& codec) {
   TokenWords output;
   output.reserve(count);
   for (std::size_t i = 0; i < count; ++i) {
-    output.push_back(EbcdicCodec::cp500().decode_word(bytes[offset + i]));
+    output.push_back(codec.decode_word(bytes[offset + i]));
   }
   return output;
 }
@@ -98,7 +124,8 @@ void decode_dictionary_delta_range(
     std::uint16_t first_key,
     const std::vector<std::uint8_t>& bytes,
     std::size_t begin,
-    std::size_t end) {
+    std::size_t end,
+    const EbcdicCodec& codec) {
   if (begin >= end) {
     return;
   }
@@ -109,7 +136,7 @@ void decode_dictionary_delta_range(
     return;
   }
 
-  auto value = decode_dictionary_words(bytes, cursor, base_count);
+  auto value = decode_dictionary_words(bytes, cursor, base_count, codec);
   cursor += base_count;
   auto key = first_key;
   token_strings[key++] = value;
@@ -140,7 +167,7 @@ void decode_dictionary_delta_range(
       value.resize(std::min<std::size_t>(count, value.size()));
       lowercase_words(value);
       const auto literal_words =
-          decode_dictionary_words(bytes, cursor, literal_count);
+          decode_dictionary_words(bytes, cursor, literal_count, codec);
       value.insert(value.end(), literal_words.begin(), literal_words.end());
       cursor += literal_count;
     } else if (mode == 2) {
@@ -157,7 +184,7 @@ void decode_dictionary_delta_range(
         break;
       }
       lowercase_words(value);
-      const auto literal_words = decode_dictionary_words(bytes, cursor, count);
+      const auto literal_words = decode_dictionary_words(bytes, cursor, count, codec);
       value.insert(value.end(), literal_words.begin(), literal_words.end());
       cursor += count;
     }
@@ -170,6 +197,7 @@ std::map<std::uint16_t, TokenWords> decode_experimental_dictionary(
     const std::vector<std::uint8_t>& bytes,
     const BooDirectory& directory) {
   std::map<std::uint16_t, TokenWords> token_strings;
+  const auto& codec = dictionary_literal_codec(directory);
   const auto page_count = bytes.size() / boo_page_size;
   const auto dictionary_page_end =
       directory.dictionary_start_page +
@@ -226,7 +254,8 @@ std::map<std::uint16_t, TokenWords> decode_experimental_dictionary(
                                             key,
                                             bytes,
                                             nested_payload + 2,
-                                            nested_end);
+                                            nested_end,
+                                            codec);
             }
             nested_offset = nested_end;
           }

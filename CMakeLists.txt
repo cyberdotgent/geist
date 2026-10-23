@@ -565,6 +565,7 @@ endfunction()
 foreach(synthetic_test
     gdf_synthetic
     container_prologue_synthetic
+    container_version_synthetic
     logical_synthetic
     book_control_value_boundary_synthetic
     display_line_control_extent_synthetic

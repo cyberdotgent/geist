@@ -31,6 +31,8 @@ struct Book {
 
   Book() {
     context.directory.token_threshold = 0x80;
+    context.directory.version_text = " 1.2";
+    context.directory.dictionary_text_parameter = 500;
     context.bytes.resize(512);
     for (std::size_t byte = 0; byte < 128; ++byte) {
       const auto key = static_cast<std::uint16_t>(0x100 + byte);

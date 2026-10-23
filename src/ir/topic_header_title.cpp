@@ -100,4 +100,34 @@ std::optional<std::string> topic_header_title_of_record(
   return trim_ascii(std::move(title));
 }
 
+std::optional<std::string> topic_header_parent_of_record(
+    const DecodedLogicalRecordSource& record) {
+  const auto lines = record_display_lines(record);
+  if (!lines) return std::nullopt;
+
+  for (const auto& line : *lines) {
+    const auto cells = display_line_cells(record, line);
+    std::size_t opcode_token = no_token;
+    for (const auto& cell : cells) {
+      if (cell.token == no_token || cell.word == ' ') continue;
+      const auto opcode = token_body_text(record, cell.token);
+      if (ascii_equals_case_insensitive(opcode, "cparent") ||
+          ascii_equals_case_insensitive(opcode, "cparent."))
+        opcode_token = cell.token;
+      break;  // only the line's first visible token opens a control
+    }
+    if (opcode_token == no_token) continue;
+
+    std::string operand;
+    for (const auto& cell : cells) {
+      if (cell.token != no_token && cell.token <= opcode_token) continue;
+      operand += figure_display_glyph(cell.word);
+    }
+    operand = trim_ascii(std::move(operand));
+    if (operand.find(' ') != std::string::npos) return std::nullopt;
+    return operand;
+  }
+  return std::nullopt;
+}
+
 } // namespace geist::detail

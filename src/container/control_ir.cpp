@@ -138,7 +138,8 @@ BookControlKind classify(std::string opcode) {
   // without that terminator; the byte remains inside the opcode range.
   if (opcode.size() > 2 && opcode.front() == 'c' && opcode.back() == '.')
     opcode.pop_back();
-  if (opcode == "ctopicn")
+  // Version 1.0 and 1.1 books spell the topic-number control `ctopic#`.
+  if (opcode == "ctopicn" || opcode == "ctopic#")
     return BookControlKind::topic_number;
   if (opcode == "cparent")
     return BookControlKind::parent;

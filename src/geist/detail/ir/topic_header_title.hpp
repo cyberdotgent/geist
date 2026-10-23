@@ -49,4 +49,13 @@ namespace geist::detail {
 std::optional<std::string> topic_header_title_of_record(
     const DecodedLogicalRecordSource& record);
 
+// The `CPARENT` operand a topic's own header carries: the id of the topic it
+// nests under, or "" for a top-level topic.  Read the same way as the title,
+// off the first display line whose first visible token spells `CPARENT`, so
+// the next line's length byte is never taken for part of the id.  Returns
+// `std::nullopt` when the record does not parse into display lines, carries
+// no `CPARENT` line, or the operand is more than one word.
+std::optional<std::string> topic_header_parent_of_record(
+    const DecodedLogicalRecordSource& record);
+
 } // namespace geist::detail
