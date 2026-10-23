@@ -108,6 +108,12 @@ std::optional<EmphasisKindIR> emphasis_for(FontStyleIR style) {
   // headline and `<var>prm</var><B>:</B>  <var>text</var>` on its next row.
   // It takes the variable convention every other family lowers it to.
   case FontStyleIR::variable:
+  // `C` (CIT) is hosted `<cite>` and `W`/`G` (WARNING/WARNINGTEXT) `<em>`
+  // inside message entries of every sampled book (doc/boo-spec/markup.adoc,
+  // the message-entry census); they take the emphasis prose gives them.
+  case FontStyleIR::citation:
+  case FontStyleIR::warning:
+  case FontStyleIR::warning_text:
     return font_style_emphasis_kind(style);
   case FontStyleIR::highlight_2:
   case FontStyleIR::bold_phrase:
@@ -119,12 +125,9 @@ std::optional<EmphasisKindIR> emphasis_for(FontStyleIR style) {
   case FontStyleIR::highlight_7:
   case FontStyleIR::highlight_8:
   case FontStyleIR::highlight_9:
-  case FontStyleIR::citation:
   case FontStyleIR::example_phrase:
   case FontStyleIR::keyword:
   case FontStyleIR::keyword_define:
-  case FontStyleIR::warning:
-  case FontStyleIR::warning_text:
   case FontStyleIR::apl_symbol:
   // `_` draws its blank columns as underscores, which only the prose family
   // models; here it stays the unmapped code it was.
@@ -133,6 +136,62 @@ std::optional<EmphasisKindIR> emphasis_for(FontStyleIR style) {
     break;
   }
   return std::nullopt;
+}
+
+// How one `CFONT` run presents inside an entry: a code span or emphasis of
+// one kind. `E` (XMP, hosted `<samp>`), `X` (XPH, `<tt>`), `4` (HP4, `<TT>`)
+// and `P` (PK, `<kbd>`) are served monospace inside message entries of every
+// sampled book (doc/boo-spec/markup.adoc, the message-entry census) and are
+// the code spans prose lowers them to; every other code keeps
+// `emphasis_for`, and a code with no verified presentation stays text.
+struct RunStyle {
+  bool code = false;
+  EmphasisKindIR emphasis = EmphasisKindIR::emphasis;
+};
+
+bool operator==(const RunStyle &left, const RunStyle &right) {
+  return left.code == right.code &&
+         (left.code || left.emphasis == right.emphasis);
+}
+
+std::optional<RunStyle> run_style(FontStyleIR style) {
+  if (style == FontStyleIR::example_phrase || style == FontStyleIR::keyword)
+    return RunStyle{true, EmphasisKindIR::emphasis};
+  if (const auto kind = emphasis_for(style))
+    return RunStyle{false, *kind};
+  return std::nullopt;
+}
+
+InlineNodeIR run_node(const RunStyle &style, std::string text) {
+  if (style.code)
+    return CodeInlineIR{std::move(text)};
+  return EmphasisInlineIR{std::move(text), style.emphasis};
+}
+
+// Appends `text` to the run `previous` already holds when both present the
+// same way; false when `previous` is another kind of inline.
+bool extend_run(InlineNodeIR &previous, const std::optional<RunStyle> &style,
+                const std::string &text) {
+  if (!style) {
+    if (auto *plain = std::get_if<TextInlineIR>(&previous)) {
+      plain->text += text;
+      return true;
+    }
+    return false;
+  }
+  if (style->code) {
+    if (auto *code = std::get_if<CodeInlineIR>(&previous)) {
+      code->code += text;
+      return true;
+    }
+    return false;
+  }
+  if (auto *emphasis = std::get_if<EmphasisInlineIR>(&previous);
+      emphasis != nullptr && emphasis->kind == style->emphasis) {
+    emphasis->text += text;
+    return true;
+  }
+  return false;
 }
 
 // Highlighted span words as separate inlines: BookServer renders each CFONT
@@ -158,28 +217,16 @@ void append_spans(InlineSequenceIR &content,
                               spans[index - 1].span.length;
     if (index != 0 && !abuts)
       content.push_back({TextInlineIR{" "}, synthesized("span separator")});
-    auto kind = emphasis_for(spans[index].span.style);
-    if (definition_term && !kind)
-      kind = EmphasisKindIR::strong;
-    // Abutting spans that land on the same emphasis are one run: emitting
-    // two closes and reopens the markup inside a word.
-    if (abuts && !content.empty()) {
-      auto &previous = content.back().node;
-      if (kind) {
-        if (auto *emphasis = std::get_if<EmphasisInlineIR>(&previous);
-            emphasis != nullptr && emphasis->kind == *kind) {
-          emphasis->text += spans[index].text;
-          continue;
-        }
-      } else if (auto *text = std::get_if<TextInlineIR>(&previous);
-                 text != nullptr) {
-        text->text += spans[index].text;
-        continue;
-      }
-    }
-    if (kind)
-      content.push_back(
-          {EmphasisInlineIR{spans[index].text, *kind}, span_origin});
+    auto style = run_style(spans[index].span.style);
+    if (definition_term && !style)
+      style = RunStyle{false, EmphasisKindIR::strong};
+    // Abutting spans that land on the same presentation are one run:
+    // emitting two closes and reopens the markup inside a word.
+    if (abuts && !content.empty() &&
+        extend_run(content.back().node, style, spans[index].text))
+      continue;
+    if (style)
+      content.push_back({run_node(*style, spans[index].text), span_origin});
     else
       content.push_back({TextInlineIR{spans[index].text}, span_origin});
   }
@@ -217,13 +264,13 @@ bool append_body_after(InlineSequenceIR &content, const TrapTextIR &body,
     // silently discard either source claim.
     struct Range {
       std::size_t begin, end;
-      std::optional<EmphasisKindIR> emphasis;
+      std::optional<RunStyle> style;
       const TrapTextLinkIR* link = nullptr;
     };
     std::vector<Range> ranges;
     for (const auto& span : body.highlights) {
       if (span.end <= from) continue;
-      ranges.push_back({span.begin, span.end, emphasis_for(span.style), nullptr});
+      ranges.push_back({span.begin, span.end, run_style(span.style), nullptr});
     }
     for (const auto& link : body.links)
       ranges.push_back({link.begin, link.end, std::nullopt, &link});
@@ -242,8 +289,8 @@ bool append_body_after(InlineSequenceIR &content, const TrapTextIR &body,
         if (range.link->target.empty()) return false;
         content.push_back({CrossReferenceInlineIR{
             {CrossReferenceTargetKindIR::anchor, range.link->target}, std::move(label)}, body_origin});
-      } else if (range.emphasis)
-        content.push_back({EmphasisInlineIR{std::move(label), *range.emphasis}, body_origin});
+      } else if (range.style)
+        content.push_back({run_node(*range.style, std::move(label)), body_origin});
       else
         content.push_back({TextInlineIR{std::move(label)}, body_origin});
       cursor = range.end;
@@ -252,8 +299,8 @@ bool append_body_after(InlineSequenceIR &content, const TrapTextIR &body,
       content.push_back({TextInlineIR{body.text.substr(cursor)}, body_origin});
     return true;
   }
-  std::vector<std::pair<std::string, std::optional<EmphasisKindIR>>> pieces;
-  const auto push = [&](std::string text, std::optional<EmphasisKindIR> kind) {
+  std::vector<std::pair<std::string, std::optional<RunStyle>>> pieces;
+  const auto push = [&](std::string text, std::optional<RunStyle> kind) {
     if (text.empty())
       return;
     if (!pieces.empty() && pieces.back().second == kind) {
@@ -273,7 +320,7 @@ bool append_body_after(InlineSequenceIR &content, const TrapTextIR &body,
       return false;
     push(body.text.substr(at, highlight.begin - at), std::nullopt);
     push(body.text.substr(highlight.begin, highlight.end - highlight.begin),
-         emphasis_for(highlight.style));
+         run_style(highlight.style));
     at = highlight.end;
   }
   push(body.text.substr(at, limit - at), std::nullopt);
@@ -286,8 +333,7 @@ bool append_body_after(InlineSequenceIR &content, const TrapTextIR &body,
     content.push_back({TextInlineIR{" "}, body_origin});
   for (auto &piece : pieces) {
     if (piece.second)
-      content.push_back(
-          {EmphasisInlineIR{piece.first, *piece.second}, body_origin});
+      content.push_back({run_node(*piece.second, piece.first), body_origin});
     else
       content.push_back({TextInlineIR{piece.first}, body_origin});
   }
@@ -313,13 +359,13 @@ bool paragraph_inlines(const TrapFlowParagraphIR &paragraph,
   struct Range {
     std::size_t begin = 0;
     std::size_t end = 0;
-    std::optional<EmphasisKindIR> emphasis;
+    std::optional<RunStyle> style;
     const TrapTextLinkIR *link = nullptr;
   };
   std::vector<Range> ranges;
   for (const auto &highlight : paragraph.highlights)
     ranges.push_back({highlight.begin, highlight.end,
-                      emphasis_for(highlight.style), nullptr});
+                      run_style(highlight.style), nullptr});
   for (const auto &link : paragraph.links)
     ranges.push_back({link.begin, link.end, std::nullopt, &link});
   std::sort(ranges.begin(), ranges.end(), [](const auto &left,
@@ -349,10 +395,9 @@ bool paragraph_inlines(const TrapFlowParagraphIR &paragraph,
                                    range.link->target},
                                   std::move(text)},
            paragraph_origin});
-    } else if (range.emphasis) {
+    } else if (range.style) {
       content.push_back(
-          {EmphasisInlineIR{std::move(text), *range.emphasis},
-           paragraph_origin});
+          {run_node(*range.style, std::move(text)), paragraph_origin});
     } else {
       content.push_back({TextInlineIR{std::move(text)}, paragraph_origin});
     }
@@ -378,7 +423,7 @@ PreformattedBlockIR drawn_region(const TrapEmbeddedRegionIR &region,
   bool styled = false;
   for (const auto &highlights : region.line_highlights)
     for (const auto &highlight : highlights)
-      styled = styled || emphasis_for(highlight.style).has_value();
+      styled = styled || run_style(highlight.style).has_value();
   for (std::size_t line = 0; line < region.lines.size(); ++line) {
     auto line_origin = origin(line_detail);
     add_slice(line_origin, region.line_sources[line]);
@@ -400,14 +445,13 @@ PreformattedBlockIR drawn_region(const TrapEmbeddedRegionIR &region,
         at = end;
       };
       for (const auto &highlight : region.line_highlights[line]) {
-        const auto kind = emphasis_for(highlight.style);
+        const auto kind = run_style(highlight.style);
         if (!kind)
           continue;
         plain(highlight.begin);
-        row.push_back({EmphasisInlineIR{text.substr(highlight.begin,
-                                                    highlight.end -
-                                                        highlight.begin),
-                                        *kind},
+        row.push_back({run_node(*kind, text.substr(highlight.begin,
+                                                   highlight.end -
+                                                       highlight.begin)),
                        line_origin});
         at = highlight.end;
       }
@@ -1056,13 +1100,12 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
       for (const auto &run : heading.heading.line_highlights.front()) {
         if (run.begin < at)
           return reject("trap group heading runs overlap: " + entry.id);
-        const auto kind = emphasis_for(run.style);
+        const auto kind = run_style(run.style);
         if (!kind)
           continue;
         plain(run.begin);
         content.push_back(
-            {EmphasisInlineIR{text.substr(run.begin, run.end - run.begin),
-                              *kind},
+            {run_node(*kind, text.substr(run.begin, run.end - run.begin)),
              heading_origin});
         at = run.end;
       }

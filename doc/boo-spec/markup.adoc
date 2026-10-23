@@ -1760,18 +1760,19 @@ quoted in the evidence column; every rule was checked on at least two books.
 |`1` |`HP1` |`<I>` |ACPZMST1 `FRONT_1.1` `cfont 44 11 1 56 11 1` -> `<I>general-use</I> <I>programming</I>`; QSYSNEWG `2.0`
 |`2` |`HP2` |`<B>` |QSYSNEWG `2.3` `cfont 43 8 2 52 7 2` -> `<B>Security</B> <B>Officer</B>`; DREICMST `2.8.1`
 |`3` |`HP3` |`<B><I>` |ACPZMST1 `1.2.3.1` `cfont 5 5 3 11 8 3` -> `<B><I>local</B></I> <B><I>resource</B></I>`; packet `PREFACE`
+|`4` |`HP4` |`<TT>` |EAGU0MST `14.2` record 415 `cfont 18 6 4 49 7 4` -> `<TT>IRXRLT</TT>`; EDJ04MST `8.3` record 242 `cfont 38 6 4` -> `<TT>READ/2</TT>`; 18 books, see <<markup_style_code_message_entry_census>>
 |`5` |`HP5` |`<U>` |QSYSNEWG `2.3` `cfont 59 3 5` -> `<U>see</U>`; SC34-425 `1.8` `cfont 42 11 5` -> `<U>underscored</U>`
 |`7` |`HP7` |`<B><U>` |QSYSNEWG `5.1.4` `cfont 19 11 7 31 9 7 41 8 7` -> `<B><U>Operational</B></U> <B><U>Assistant</B></U> <B><U>overview</B></U>`; SG24-204 `5.2.1` `cfont 33 1 7` -> `<B><U>L</B></U>`
 |`9` |`HP9` |`<TT><U>` |OFCUSEOV `5.2` `cfont 25 1 9` -> `<TT><U>/</TT></U>`
-|`C` |`CIT` |`<cite>` |ACPZMST1 `FRONT_1.1` `cfont 3 8 C ...` -> `<cite>Managing</cite>`; DREICMST `2.8.1`
-|`E` |`XMP` |`<samp>` |GC28-183 `2.2.1` `cfont 17 1 E,` -> `<samp>.</samp>`; FA1PLMM0 `3.5.1`
-|`P` |`PK` |`<kbd>` |SC26-457 `3.4.1.2`; PRG1SORT `2.1.4`
+|`C` |`CIT` |`<cite>` |ACPZMST1 `FRONT_1.1` `cfont 3 8 C ...` -> `<cite>Managing</cite>`; DREICMST `2.8.1`; inside message entries too, see <<markup_style_code_message_entry_census>>
+|`E` |`XMP` |`<samp>` |GC28-183 `2.2.1` `cfont 17 1 E,` -> `<samp>.</samp>`; FA1PLMM0 `3.5.1`; inside message entries too, see <<markup_style_code_message_entry_census>>
+|`P` |`PK` |`<kbd>` |SC26-457 `3.4.1.2`; PRG1SORT `2.1.4`; inside message entries too, see <<markup_style_code_message_entry_census>>
 |`Q` |`PKDEF` |`<dfn>` |PRG1SORT `2.1.4` -> `<dfn>*CURLIB</dfn>`; SC26-457 `3.4.1.2` -> `<dfn>LIST</dfn>`
 |`Z` |`PVDEF` |`<dfn>` |SC26-457 `1.3` and SC26-4905-00 `1.3` `cfont 3 7 P 11 10 Z ...` -> `<kbd>COMMAND</kbd> <dfn>parameters</dfn>` (one shared sentence, see below)
 |`R` |`RK` |`<B>` |ACPZMST1 `FRONT_1.1` `cfont 4 4 R,` -> `<B>GUPI</B>`; ACPZMST1 `6.2`
 |`V` |`PV` |`<var>` |SC26-457 `3.4.1.2`; GC23-046 `6.0`
 |`K` |`H4` |`<I>` |SC09-2417-00 `PREFACE.2.1` record 28 segment 17 `cfont 3 6 K 10 3 K ...` -> `<I>Syntax</I> <I>for</I> <I>Commands,</I> ...`; SC09-2417-00 `1.1.4.2` record 62 segment 23 -> `<I>User-Defined</I> <I>Header</I> <I>File</I>`; 30 books in all, see <<markup_style_code_k_census>>
-|`X` |`XPH` |`<tt>` |SC09-2417-00 `PREFACE.2.1` record 29 segment 2 `cfont 26 9 X` -> `<tt>STATEMENT</tt>`; SC09-2417-00 `PREFACE.2.2` record 34 segment 18 -> `<tt>Example</tt>`
+|`X` |`XPH` |`<tt>` |SC09-2417-00 `PREFACE.2.1` record 29 segment 2 `cfont 26 9 X` -> `<tt>STATEMENT</tt>`; SC09-2417-00 `PREFACE.2.2` record 34 segment 18 -> `<tt>Example</tt>`; inside message entries too, see <<markup_style_code_message_entry_census>>
 |`W` |`WARNING` |`<em>` |SC26-457 `1.6.5` `cfont 3 8 W ...` -> `<em>Warning:</em>`; SC31-711 `3.3`; SH12-565 `FRONT_1.1`
 |`G` |`WARNINGTEXT` |`<em>` |GC23-046 `6.9.3`; SC26-457 `1.6.5`; SC31-711 `3.3`; SH12-565 `FRONT_1.1`
 |`_` |`UNDERSCORE` |`<u>`, blank columns drawn `_` |SC24-5527-02 `COMMENTS` record 978 `... 29 3 _ 32 3 2 37 3 _ ...` -> `<u>___</u><B>YES</B>  <u>___</u> <B>NO</B>`; SL26-0018-02 `COVER` `cfont 3 17 _` -> `<u>CMS/TSO_Pipelines</u>`; 83 books in all, see <<markup_style_code_underscore_census>>
@@ -1935,6 +1936,188 @@ elsewhere in this specification fit the same rule: SC34-425 `2.4.9`, whose
 of record 1484, is served `<I>Return</I> <I>Codes</I>`, and SC09-138 `F.1`
 record 2061 serves its `K` row between two message entries as
 `<I>Run-Time</I> <I>Error</I> <I>Messages</I> ...`.
+
+[[markup_style_code_message_entry_census]]
+Inside message entries the style codes present exactly as they do in
+running text.  An entry is everything a topic draws from its first `SRMSG`
+control on: the headline, the field labels, the field text and the rows an
+entry draws.  `E` (`XMP`) is served `<samp>`, `X` (`XPH`) `<tt>`, `P` (`PK`)
+`<kbd>`, `4` (`HP4`) `<TT>`, `C` (`CIT`) `<cite>`, and `W` (`WARNING`) and
+`G` (`WARNINGTEXT`) `<em>`, one element per span.  Every sampled book's
+`CFONTDEF` table maps each of these codes to the same name.  The one book in
+the samples whose names differ is `qb3au202`, which appends ` *` to them
+(`XMP *`, `PK *`, `CIT *`).  Its lowercase file name is not catalogued by the
+hosted shelf, so its presentation is untested.
+
+A span can stand anywhere along its row.  It is not only the run that opens
+a row, as the headline and the field labels do.  SC09-138 `F.1`
+(DT `19910321130500`) record 2048 stores `cfont 44 6 E 55 6 E` at file
+offset `0x10804a` (`3a a5 ac 70 ee 84 ac 70`) over the row
+pass:[<literal>&#160;&#160;&#160;... Use the run-time options NOSTAE and NOSPIE for</literal>].
+Hosted serves it inside the `Recovery:` paragraph as
+`options <samp>NOSTAE</samp> and <samp>NOSPIE</samp> for`.  A span's columns
+also state its own end.  A sentence stop directly after the span stays
+outside the element: record 2050's `cfont 47 8 X` over `CEESTART.` is served
+`<tt>CEESTART</tt>.`.  Headline and
+label spans take the same element.  SC09-138 `H.0` record 2229 stores the
+`EDC0845` headline control `cfont 3 7 2 ... 51 2 2 54 1 X 55 1 2` at file
+offset `0x116ef1`.  Hosted serves it as
+`... <B>value</B> <B>of</B> <tt>0</tt><B>.</B>`: the `X` word is `<tt>`
+even inside a headline, not in the `<B>` of the `2` words around it.
+
+The census drew three seeded random samples of the hosted shelf's books
+(60, 1,500 and 3,000 books, overlapping).  652 of the books carry an `SRMSG`
+topic with at least one styled span after its first `SRMSG`.  For each code,
+books were drawn at random from those whose file name is not all lowercase.
+For each book, the topic with the most spans of the code was fetched.  Each
+page's `<base href>` and its title's topic id were checked against the book
+and topic.  Every span of the code after the topic's first `SRMSG` was then
+matched in order against the page, word by word.
+
+Five pages fail the identity check and are left out.  Hosted serves another
+book under SC31-7542-01, SC31-7526-01 (both DT `19920619000100`) and
+SC24-5461-01.  It also serves a different edition of SC31-7568-00 `E.0`, whose
+cited title row the hosted page does not draw.
+
+[cols="<6,<8,<8,<8,<14",options="header"]
+|===
+|Code |Books |Topics |Spans |Served as stated
+
+|`E` |33 |34 |6,844 |6,829 `<samp>`
+|`X` |28 |29 |1,204 |1,196 `<tt>`
+|`P` |26 |26 |4,849 |4,845 `<kbd>`
+|`4` |18 |18 |652 |647 `<TT>`
+|`C` |34 |35 |1,630 |1,610 `<cite>`
+|`W` |17 |18 |855 |855 `<em>`
+|`G` |22 |23 |24,656 |24,655 `<em>`
+|===
+
+Every remaining span was checked by hand.  None is a span served another
+way; each is a fault of the word matcher.  Some matched the word in the
+page's `<title>`.  Some matched an earlier unstyled use of the same word,
+which also covers spans in a topic's introduction.  Some matched part of a
+longer word: `0` in `ARI0277E`.  Some found no match because the page spells
+a value differently, or because the word holds a character the page escapes.
+HJEA1MST `10.0` record 745 is typical.  Its `C` span `JES2` matched the
+plain `JES2` of `JES2 issues this message`.  The span's own row is served
+`<cite>JES2</cite> <cite>Initialization</cite>`.  The census did not test a
+span whose first column falls inside a word.  How such a span is presented
+is unverified.
+
+The table quotes the first span served as stated of 15 books per code.  The
+hex is the `CFONT` control's own token bytes, from the control word to the
+last style code, truncated after eight bytes.
+
+[cols="<5,<12,<11,<9,<6,<9,<26,<22",options="header"]
+|===
+|Code |Book |DT |Topic |Record |File offset |Bytes / decoded operand |Hosted
+
+|`E` |DMTCMST |`19910202190026` |`C.0` |617 |`0x30d31e` |`+33 c3 a6 8a af c2 8a b6 ...+` = `+cfont 7 12 E 20 6 E 27 2 E ...+` |`+<samp>/*----------</samp>+`
+|`E` |EAGU0MST |`19910919140108` |`14.1` |306 |`0x255b2` |`+2e d0 c6 81 b5 c6 81+` = `+cfont 7 5 E 34 5 E+` |`+<samp>WRONG</samp>+`
+|`E` |EDCGUIDE |`19910321130500` |`H.0` |2094 |`0x10bc4f` |`+3a ad ac 70 83 7f 70+` = `+cfont 7 6 E 14 10 E+` |`+<samp>my_struct{</samp>+`
+|`E` |EZ2M4101 |`19900829144932` |`8.27` |769 |`0x7b5df` |`+2b 9f c1 7c+` = `+cfont 18 7 E+` |`+<samp>DEVFCB=</samp>+`
+|`E` |GC28-1621-03 |`19930625082950` |`A.4` |408 |`0x8ebac` |`+3e d2 c0 94+` = `+cfont 5 12 E+` |`+<samp>QNAME(x'52')</samp>+`
+|`E` |GC34-5561-08 |`20060119112513` |`2.3.83` |5738 |`0x1a68b1` |`+19 ec 2f 6c 41+` = `+cfont 44 6 E+` |`+<samp>Labels</samp>+`
+|`E` |HJEA1MST |`19910329000100` |`10.0` |749 |`0x8579d` |`+2e a0 ac 82+` = `+cfont 14 25 E+` |`+<samp>STATUS=(PENDING/MINNSOTA)</samp>+`
+|`E` |ITPMCBOK |`19910628093126` |`14.0` |356 |`0x262d1` |`+26 9f 9c 7d a6 bd 7d ac ...+` = `+cfont 12 1 E 19 4 E 24 3 E+` |`+<samp>5</samp>+`
+|`E` |LAABMST |`19920211154521` |`5.3` |478 |`0x15e4c5` |`+3a aa c8 80+` = `+cfont 25 8 E+` |`+<samp>TRACERED</samp>+`
+|`E` |N2AH3MST |`19910329000100` |`20.0` |2174 |`0xc5408` |`+26 87 ae 69 90 af 69 9a ...+` = `+cfont 13 7 E 21 8 E 30 3 E ...+` |`+<samp>IOS086I</samp>+`
+|`E` |S544-3664-01 |`19921010082531` |`2.361` |924 |`0x45ec7` |`+1c b4 c4 ae a6 c6 a1 b0 ...+` = `+cfont 3 7 2 11 9 V 21 9 2 ...+` |`+<samp>*</samp>+`
+|`E` |SC09-1415-02 |`19920623161759` |`A.6` |1147 |`0x5fac2` |`+3b bf 95 84 9b c5 84 a4 ...+` = `+cfont 5 10 E 16 7 E 24 7 E ...+` |`+<samp>EVHGET001E</samp>+`
+|`E` |SC09-2133-01 |`19960905095532` |`E.2` |983 |`0xacc22` |`+39 ce d0 8a ab ab 8a ba ...+` = `+cfont 5 7 E 13 13 E 27 6 E ...+` |`+<samp>DSPMSGD</samp>+`
+|`E` |SC09-2137-01 |`19950506230143` |`APPENDIX1.6.2.443` |1896 |`0x94014` |`+3a b5 ae 7e b9 b5 7e+` = `+cfont 5 3 E 9 5 E+` |`+<samp>int</samp>+`
+|`E` |SC21-8297-01 |`19951215103751` |`C.7` |690 |`0x7e56e` |`+34 cb ca 94 ba b9 94+` = `+cfont 5 4 E 10 1 E+` |`+<samp>0</samp>+`
+|`X` |DALH2MST |`19910726012604` |`APPENDIX1.3.5` |456 |`0x2857e` |`+34 bf d5 a8 ae d2 a8 b6 ...+` = `+cfont 3 9 X 13 6 X 20 7 X ...+` |`+<tt>ifconfig:</tt>+`
+|`X` |EAGU0MST |`19910919140108` |`14.2` |396 |`0x2cab8` |`+2e 9d cd 97+` = `+cfont 12 6 X+` |`+<tt>result</tt>+`
+|`X` |EDCGUIDE |`19910321130500` |`H.0` |2129 |`0x10eaa2` |`+3a 93 94 7c 98 89 7c 9b ...+` = `+cfont 29 3 X 33 2 X 36 1 X ...+` |`+<tt>int</tt>+`
+|`X` |ESE5MSTR |`19910917144705` |`B.2.2` |152 |`0x26dfc` |`+32 c5 b4 ad+` = `+cfont 3 13 X+` |`+<tt>KEYWORD=VALUE</tt>+`
+|`X` |GC30-3746-00 |`19950801144430` |`A.2` |449 |`0x2e4ae` |`+37 ee 88 d2 b8+` = `+cfont 47 6 X+` |`+<tt>DXME0$</tt>+`
+|`X` |GC31-8320-00 |`19960813010735` |`H.2` |610 |`0x54126` |`+30 b8 d3 ed 81 c1 b9 ed ...+` = `+cfont 19 7 X 27 2 X+` |`+<tt>netstat</tt>+`
+|`X` |GX27-4011-00 |`19951024185341` |`B.0` |164 |`0x1edac` |`+3b b6 b6 ee 30 c1 b5 ee ...+` = `+cfont 10 10 X 21 1 X 23 7 X+` |`+<tt>Drivername</tt>+`
+|`X` |ICNM3MST |`19910827182759` |`2.0` |195 |`0x1aaa2` |`+22 aa 9a 81 ef 00 8f 81 ...+` = `+cfont 46 3 X 50 2 X 53 14 X+` |`+<tt>SYM</tt>+`
+|`X` |IEAH1MST |`19920124000100` |`19.3` |3330 |`0x1746eb` |`+1b d6 94 48 d1 3f 50 49 ...+` = `+cfont 16 10 X 30 11 X+` |`+<tt>PARM=value</tt>+`
+|`X` |SC09-1415-02 |`19920623161759` |`A.6` |1146 |`0x5f984` |`+3b aa 99 8f 9d 99 8f ae ...+` = `+cfont 3 14 V 18 14 V 33 8 V ...+` |`+<tt>(</tt>+`
+|`X` |SC24-5466-02 |`19921218094657` |`A.0` |767 |`0x4f2ed` |`+40 c3 a8 8f+` = `+cfont 53 3 X+` |`<tt>{plus}{plus}{plus}</tt>`
+|`X` |SC24-5620-00 |`19911220143756` |`B.1.1` |480 |`0x2d98d` |`+39 b5 d1 a3 bd d1 a3+` = `+cfont 24 6 X 31 6 X+` |`+<tt>LANRES</tt>+`
+|`X` |SC24-5698-00 |`19940325172417` |`2.4.3.59` |1090 |`0x5ebec` |`+3c c3 c9 bb b1 b1 bb be ...+` = `+cfont 3 6 2 10 10 2 21 9 2 ...+` |`+<tt>RMVNWPSFPQ</tt>+`
+|`X` |SC26-3071-00 |`19930528212701` |`2.2.2634` |4204 |`0x129888` |`+17 e0 84 4b c3 4e e2 b9 ...+` = `+cfont 33 4 X 38 7 X 49 4 X ...+` |`+<tt>INQY</tt>+`
+|`X` |SC31-6159-02 |`19941007151437` |`9.16` |3755 |`0x10a1af` |`+1c 74 7e 69 8a 8b 69 ed ...+` = `+cfont 3 4 2 8 9 2 51 4 X ...+` |`+<tt>HELP</tt>+`
+|`P` |EKCMCMST |`19911217093927` |`2.4` |91 |`0xf6e3` |`+26 a8 d1 ac ae d5 ac b5 ...+` = `+cfont 14 6 2 21 8 2 30 9 2 ...+` |`+<kbd>0</kbd>+`
+|`P` |EZ2M3105 |`19920313000100` |`16.12` |1926 |`0xb5342` |`+1d 61 73 51 65 77 51 6b ...+` = `+cfont 13 3 P 17 4 P 22 10 P+` |`+<kbd>JES</kbd>+`
+|`P` |EZ2M4101 |`19900829144932` |`8.27` |761 |`0x7a95e` |`+2b 99 b7 87+` = `+cfont 12 4 P+` |`+<kbd>TR=P</kbd>+`
+|`P` |EZ2T2104 |`19920313000100` |`4.0` |340 |`0xa6b0a` |`+1b 7f 6c bf 29+` = `+cfont 37 2 P+` |`+<kbd>AB</kbd>+`
+|`P` |GC23-0510-00 |`19930330101909` |`2.8.56.1` |514 |`0x6a451` |`+33 9b a4 78+` = `+cfont 3 5 P+` |`+<kbd>volid</kbd>+`
+|`P` |GC24-5850-00 |`19980119204602` |`23.3.26` |2135 |`0xa57fe` |`+20 a4 91 99 ae b6 73 ec ...+` = `+cfont 3 12 2 39 5 P 48 5 P+` |`+<kbd>SETUP</kbd>+`
+|`P` |GC28-1020-03 |`19930326100647` |`2.0` |361 |`0x2bea5` |`+2c b5 d0 94+` = `+cfont 22 6 P+` |`+<kbd>[n]nnn</kbd>+`
+|`P` |GC28-1656-04 |`19930625115009` |`4.2` |1297 |`0xdf57d` |`+22 6d 7e 5e 6f 8b 5e 76 ...+` = `+cfont 12 3 P 16 5 P 22 7 P ...+` |`+<kbd>THE</kbd>+`
+|`P` |GC31-6555-00 |`19950413155021` |`1.9.4.3.5` |708 |`0x57ac4` |`+3e d0 cd e0 bd c5 d1 e0 ...+` = `+cfont 7 4 P 12 8 P 21 7 P ...+` |`+<kbd>SERVICES</kbd>+`
+|`P` |GC33-0790-03 |`19990427094648` |`2.14.7` |1299 |`0x5a844` |`+20 8e 9a 6b 7a 9a 6b df ...+` = `+cfont 3 6 P 10 6 P 17 1 P ...+` |`+<kbd>SYSTEM</kbd>+`
+|`P` |HJEA1MST |`19910329000100` |`10.0` |758 |`0x86447` |`+2e 9f bc 8d+` = `+cfont 12 4 P+` |`+<kbd>AUTH</kbd>+`
+|`P` |N2AH1MST |`19910329000100` |`2.0` |152 |`0x1e914` |`+25 85 a2 78 8a 8f 78 8d ...+` = `+cfont 10 4 P 15 2 P 18 2 P ...+` |`+<kbd>THIS</kbd>+`
+|`P` |N2AH3MST |`19910329000100` |`20.0` |2130 |`0xc176a` |`+26 84 8e 76+` = `+cfont 10 2 P+` |`+<kbd>**</kbd>+`
+|`P` |N2AH6MST |`19910329000100` |`13.14` |909 |`0x42711` |`+29 87 98 74 8b b7 74 93 ...+` = `+cfont 14 3 P 18 6 P 25 2 P ...+` |`+<kbd>BAD</kbd>+`
+|`P` |S85G-8678-00 |`19950223205812` |`8.1` |613 |`0x5697e` |`+45 a9 a8 b0 ee d3 cf 8f+` = `+cfont 13 12 2 61 9 P+` |`+<kbd>VHAPI.OS2</kbd>+`
+|`4` |DSNMC23 |`19920327164515` |`3.6.2` |822 |`0x5b4d4` |`+1e 87 94 82 7e 80 82 ed ...+` = `+cfont 3 7 2 11 14 2 49 3 4+` |`+<TT>SQL</TT>+`
+|`4` |EAGU0MST |`19910919140108` |`14.2` |415 |`0x2e436` |`+2e a3 cd bc c5 d0 bc+` = `+cfont 18 6 4 49 7 4+` |`+<TT>IRXRLT</TT>+`
+|`4` |EDJ04MST |`19911211162241` |`8.3` |242 |`0x19809` |`+2b c2 d7 c4+` = `+cfont 38 6 4+` |`+<TT>READ/2</TT>+`
+|`4` |EKXRFMST |`19910930142134` |`APPENDIX1.2` |1250 |`0x664f0` |`+3c ee f1 ae b3+` = `+cfont 57 3 4+` |`+<TT>API</TT>+`
+|`4` |EVGUGMST |`19910810224336` |`GLOSSARY` |1348 |`0x709a3` |`+32 ac b9 a4+` = `+cfont 47 6 4+` |`+<TT>SYSTEM</TT>+`
+|`4` |GC33-0790-03 |`19990427094648` |`2.15.18` |1347 |`0x5e10a` |`+20 8e 95 95+` = `+cfont 3 4 4+` |`+<TT>X'8'</TT>+`
+|`4` |GX27-3999-00 |`19950730184057` |`B.0` |128 |`0x15172` |`+40 d7 bf d4 c5 d0 d4 e8 ...+` = `+cfont 5 10 4 16 3 4 20 3 4 ...+` |`+<TT>INCLUDING,</TT>+`
+|`4` |SB35-0801-02 |`19920527141359` |`C.0` |559 |`0xaa59a` |`+2c ee 96 d3 d3+` = `+cfont 40 4 4+` |`+<TT>OS/2</TT>+`
+|`4` |SC09-1415-02 |`19920623161759` |`A.3` |1140 |`0x5f2c6` |`+3b aa c4 9f ed 9c c4 b6+` = `+cfont 3 6 2 49 6 4+` |`+<TT>adafmt</TT>+`
+|`4` |SC23-0449-01 |`19940915143905` |`E.0` |1148 |`0x68142` |`+3c c7 c7 ca c2 bc ca c9 ...+` = `+cfont 3 3 4 25 2 4 32 3 4 ...+` |`+<TT>AT</TT>+`
+|`4` |SC23-0450-01 |`19940907134200` |`D.0` |408 |`0x2b3e4` |`+3f c5 d4 d0+` = `+cfont 24 6 4+` |`+<TT>64,000</TT>+`
+|`4` |SC26-9049-04 |`19990113230517` |`2.2.3.5` |1125 |`0x88372` |`+2c 8f 7c 84 ed 01 a2 9a+` = `+cfont 3 12 2 63 6 4+` |`+<TT>COBOL2</TT>+`
+|`4` |SC31-7560-02 |`19940708161834` |`6.0` |385 |`0x2639d` |`+27 94 95 9d a3 95 b3+` = `+cfont 11 12 2 25 12 4+` |`+<TT>AOEXPERT/MVS</TT>+`
+|`4` |SC33-6640-00 |`19950224163443` |`2.55` |218 |`0x31132` |`+1a 49 44 48 e6 22 4c 4a ...+` = `+cfont 3 12 2 40 6 4 47 8 4 ...+` |`+<TT>ERROR,</TT>+`
+|`4` |SC33-6798-00 |`19990426164739` |`2.1.55` |233 |`0x340c9` |`+17 46 42 45 e5 65 49 47 ...+` = `+cfont 3 12 2 40 6 4 47 8 4 ...+` |`+<TT>ERROR,</TT>+`
+|`C` |DALH2MST |`19910726012604` |`APPENDIX1.4` |534 |`0x2e819` |`+34 d3 ca 88 ad d4 88 b7 ...+` = `+cfont 7 4 C 12 8 C 21 8 C+` |`+<cite>User</cite>+`
+|`C` |DFHKT101 |`19920327000100` |`5.1.4.1` |744 |`0x73d33` |`+36 ca cb 83 a1 cb 83 ab ...+` = `+cfont 7 8 C 16 8 C 25 3 C ...+` |`+<cite>CICS/ESA</cite>+`
+|`C` |DMTCMST |`19910202190026` |`B.0` |586 |`0x30a7e2` |`+33 c2 c4 ae a9 c5 ae bc ...+` = `+cfont 6 8 2 15 9 2 34 6 C ...+` |`+<cite>VM/ESA</cite>+`
+|`C` |EDCGUIDE |`19910321130500` |`H.0` |2084 |`0x10af91` |`+3a 97 ad 6e a2 80 6e ab ...+` = `+cfont 32 7 C 40 11 C 52 12 C ...+` |`+<cite>Systems</cite>+`
+|`C` |EKCMCMST |`19911217093927` |`2.4` |87 |`0xf15c` |`+26 aa b4 75 af b4 75 b2 ...+` = `+cfont 18 3 C 22 3 C 26 9 C ...+` |`+<cite>IBM</cite>+`
+|`C` |EZ2M4101 |`19900829144932` |`8.27` |767 |`0x7b209` |`+2b be b7 79 ed 86 c2 79+` = `+cfont 49 4 C 54 8 C+` |`+<cite>JES2</cite>+`
+|`C` |FA1MCVL1 |`19910927202310` |`2.14.18` |1476 |`0x816bd` |`+18 5d 5f 3f d7 5b 52 3f ...+` = `+cfont 7 9 C 17 10 C 28 6 C ...+` |`+<cite>Operating</cite>+`
+|`C` |GA27-3909-02 |`19931101172348` |`1.9` |78 |`0xec83` |`+38 b9 c5 87 e3 f8 c8 87 ...+` = `+cfont 10 3 C 14 4 C 19 6 C ...+` |`+<cite>IBM</cite>+`
+|`C` |GA27-4160-02 |`19980216110000` |`D.5` |283 |`0x3c889` |`+33 ef ac c7 80+` = `+cfont 73 3 C+` |`+<cite>IBM</cite>+`
+|`C` |GC23-3663-07 |`19971107070041` |`5.3` |109 |`0xd7dc` |`+35 e5 c2 cf 89 e5 c9 c0 ...+` = `+cfont 54 3 C 58 10 C 69 7 C+` |`+<cite>Extensions</cite>+`
+|`C` |HJEA1MST |`19910329000100` |`10.0` |742 |`0x84eb8` |`+2e ef 67 bc 7f ef 72 b1 ...+` = `+cfont 54 4 C 59 3 C 63 10 C+` |`+<cite>that</cite>+`
+|`C` |ITPMCBOK |`19910628093126` |`14.0` |360 |`0x2675c` |`+26 c0 bd 7a c5 cc 7a ee ...+` = `+cfont 42 4 C 47 8 C 56 9 C+` |`+<cite>Language</cite>+`
+|`C` |N2AH3MST |`19910329000100` |`20.0` |2132 |`0xc1aab` |`+26 ee db 99 64 ee e0 a4 ...+` = `+cfont 55 3 C 59 4 C 64 10 C+` |`+<cite>3990</cite>+`
+|`C` |S85G-8678-00 |`19950223205812` |`8.1` |745 |`0x6188e` |`+45 ba cf 81 c4 cd 81 ee ...+` = `+cfont 29 9 C 39 7 C 47 3 C ...+` |`+<cite>&pc3270f.</cite>+`
+|`C` |SC21-8291-01 |`19951116080056` |`3.115` |248 |`0x16cdf` |`+26 c3 d8 89 cd d8 89 d2 ...+` = `+cfont 27 7 C 35 7 C 43 4 C ...+` |`+<cite>Problem</cite>+`
+|`W` |DFHKT101 |`19920327000100` |`5.1.4.1` |743 |`0x73c42` |`+36 af cb eb 62 9e af d9 ...+` = `+cfont 3 8 W 13 3 G 17 4 G ...+` |`+<em>Warning:</em>+`
+|`W` |DVH3MST |`19910930143401` |`12.3` |1033 |`0x58a53` |`+2d b6 c5 e6 ba a4 ab d4 ...+` = `+cfont 3 8 W 12 2 G 15 3 G ...+` |`+<em>Warning:</em>+`
+|`W` |EKCMCMST |`19911217093927` |`2.4` |95 |`0xfc2c` |`+26 a8 d5 eb 96 ee ba a6 ...+` = `+cfont 14 8 W 23 12 G 36 4 G ...+` |`+<em>Warning:</em>+`
+|`W` |GA27-3909-02 |`19931101172348` |`1.9` |76 |`0xea04` |`+38 c5 da e3 5f bc d4 df ...+` = `+cfont 3 8 W 13 6 G 20 3 G ...+` |`+<em>Warning:</em>+`
+|`W` |GC35-0152-00 |`19950124095224` |`1.6.2.65` |458 |`0x50e9a` |`+31 78 a8 dc 2f 65 83 c2 ...+` = `+cfont 3 8 W 12 4 G 17 3 G ...+` |`+<em>Warning:</em>+`
+|`W` |GC35-0271-02 |`19980714150144` |`37.23` |5740 |`0x17ac62` |`+16 4e 69 c3 17 58 57 9d ...+` = `+cfont 10 8 W 20 2 G 23 3 G ...+` |`+<em>Warning:</em>+`
+|`W` |ICNM3MST |`19910827182759` |`2.0` |953 |`0x5a080` |`+22 88 c0 7f 93 a4 69 98 ...+` = `+cfont 13 8 W 23 4 G 28 5 G ...+` |`+<em>Warning:</em>+`
+|`W` |IFCMSTR |`19910927163851` |`3.10.2.73` |2287 |`0xc7d2c` |`+33 83 a4 dc be 71 8e b9 ...+` = `+cfont 3 8 W 12 4 G 17 3 G ...+` |`+<em>Warning:</em>+`
+|`W` |ITPMCBOK |`19910628093126` |`14.0` |437 |`0x2c8c3` |`+26 9d cc ed 1e a6 a7 d7 ...+` = `+cfont 10 8 W 19 2 G 22 3 G ...+` |`+<em>Warning:</em>+`
+|`W` |SC24-5529-04 |`19930507175325` |`3.3.55` |5423 |`0x1b74d1` |`+1a a4 dd 43 9e d6 ae 48 ...+` = `+cfont 11 8 W 20 3 G 24 7 G ...+` |`+<em>Warning:</em>+`
+|`W` |SC24-5623-01 |`19930625150835` |`2.3.96` |1335 |`0x8a18f` |`+33 9a b5 e3 2c 86 8e cb ...+` = `+cfont 3 8 W 12 2 G 15 8 G ...+` |`+<em>Warning:</em>+`
+|`W` |SC30-3169-11 |`19920612071133` |`10.0` |908 |`0x5729c` |`+23 86 be 7e 91 8d 6a 94 ...+` = `+cfont 13 8 W 23 2 G 26 3 G ...+` |`+<em>Warning:</em>+`
+|`W` |SC30-3169-13 |`19931020170631` |`1.11` |966 |`0x5d8ff` |`+23 87 ba 7f 91 8d 6b 94 ...+` = `+cfont 13 8 W 23 2 G 26 3 G ...+` |`+<em>Warning:</em>+`
+|`W` |SC31-6138-01 |`19930331122759` |`1.1.9` |3269 |`0x11d425` |`+1f a1 a2 eb 50 77 91 d3 ...+` = `+cfont 7 8 W 16 4 G 21 7 G ...+` |`+<em>Warning:</em>+`
+|`W` |SC31-6140-00 |`19921015144730` |`3.2` |372 |`0x3f93d` |`+35 bb d0 ec 51 a8 c4 83 ...+` = `+cfont 3 8 W 12 4 G 17 8 G ...+` |`+<em>Warning:</em>+`
+|`G` |DFHKT101 |`19920327000100` |`5.1.4.1` |743 |`0x73c42` |`+36 af cb eb 62 9e af d9 ...+` = `+cfont 3 8 W 13 3 G 17 4 G ...+` |`+<em>The</em>+`
+|`G` |DVH3MST |`19910930143401` |`12.3` |1033 |`0x58a53` |`+2d b6 c5 e6 ba a4 ab d4 ...+` = `+cfont 3 8 W 12 2 G 15 3 G ...+` |`+<em>Do</em>+`
+|`G` |EKCMCMST |`19911217093927` |`2.4` |95 |`0xfc2c` |`+26 a8 d5 eb 96 ee ba a6 ...+` = `+cfont 14 8 W 23 12 G 36 4 G ...+` |`+<em>Transactions</em>+`
+|`G` |GA27-3909-02 |`19931101172348` |`1.9` |76 |`0xea04` |`+38 c5 da e3 5f bc d4 df ...+` = `+cfont 3 8 W 13 6 G 20 3 G ...+` |`+<em>Notify</em>+`
+|`G` |GC35-0152-00 |`19950124095224` |`1.6.2.65` |458 |`0x50e9a` |`+31 78 a8 dc 2f 65 83 c2 ...+` = `+cfont 3 8 W 12 4 G 17 3 G ...+` |`+<em>Move</em>+`
+|`G` |GC35-0271-02 |`19980714150144` |`37.23` |5740 |`0x17ac62` |`+16 4e 69 c3 17 58 57 9d ...+` = `+cfont 10 8 W 20 2 G 23 3 G ...+` |`+<em>If</em>+`
+|`G` |ICNM3MST |`19910827182759` |`2.0` |953 |`0x5a080` |`+22 88 c0 7f 93 a4 69 98 ...+` = `+cfont 13 8 W 23 4 G 28 5 G ...+` |`+<em>This</em>+`
+|`G` |IFCMSTR |`19910927163851` |`3.10.2.73` |2287 |`0xc7d2c` |`+33 83 a4 dc be 71 8e b9 ...+` = `+cfont 3 8 W 12 4 G 17 3 G ...+` |`+<em>Move</em>+`
+|`G` |ITPMCBOK |`19910628093126` |`14.0` |437 |`0x2c8c3` |`+26 9d cc ed 1e a6 a7 d7 ...+` = `+cfont 10 8 W 19 2 G 22 3 G ...+` |`+<em>Do</em>+`
+|`G` |SC24-5529-04 |`19930507175325` |`3.3.1002` |6716 |`0x20d58b` |`+1a 42 43 9e d6 aa b4 3d ...+` = `+cfont 7 8 W 16 2 G 19 6 G ...+` |`+<em>If</em>+`
+|`G` |SC24-5623-01 |`19930625150835` |`2.3.96` |1335 |`0x8a18f` |`+33 9a b5 e3 2c 86 8e cb ...+` = `+cfont 3 8 W 12 2 G 15 8 G ...+` |`+<em>By</em>+`
+|`G` |SC24-5698-00 |`19940325172417` |`2.4.3.100` |1142 |`0x62229` |`+3c c3 c5 d7 f5 cb bb d7 ...+` = `+cfont 3 4 G 8 2 G 11 4 G ...+` |`+<em>NLMs</em>+`
+|`G` |SC30-3169-11 |`19920612071133` |`10.0` |908 |`0x5729c` |`+23 86 be 7e 91 8d 6a 94 ...+` = `+cfont 13 8 W 23 2 G 26 3 G ...+` |`+<em>If</em>+`
+|`G` |SC30-3169-13 |`19931020170631` |`1.11` |966 |`0x5d8ff` |`+23 87 ba 7f 91 8d 6b 94 ...+` = `+cfont 13 8 W 23 2 G 26 3 G ...+` |`+<em>If</em>+`
+|`G` |SC31-6138-01 |`19930331122759` |`1.1.9` |3269 |`0x11d425` |`+1f a1 a2 eb 50 77 91 d3 ...+` = `+cfont 7 8 W 16 4 G 21 7 G ...+` |`+<em>Your</em>+`
+|===
 
 `HP5`..`HP9` form a family: each is the underscored form of the code five
 below it, so `5` underscores `H0` (plain), `6` `HP1`, `7` `HP2`, `8` `HP3` and

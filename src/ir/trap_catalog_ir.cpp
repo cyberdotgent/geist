@@ -2074,6 +2074,191 @@ chain_highlight_ranges(const std::vector<TrapStyledSpanIR> &spans,
   return ranges;
 }
 
+// Every `CFONT` run of an entry row, wherever along the row it stands, as
+// byte ranges over the row's projected `body` text. The leading-chain rules
+// above only read the run that opens a row; a span later in the row styles a
+// word in running text, and hosted BookServer serves it there. SC09-138 F.1
+// record 2048 line 2 is `cfont 44 6 E 55 6 E` over `... the run-time
+// options NOSTAE and NOSPIE for`, and hosted (DT 19910321130500) serves
+// `options <samp>NOSTAE</samp> and <samp>NOSPIE</samp> for`.
+//
+// The spans name the display row directly below the `cfont` line -- the next
+// line of the record, or the next record's first line when the control ends
+// its record (SC09-138 F.1 records 2050-2051). Each span is placed through
+// the row cells it covers and the ledger glyph the body projected from each
+// of them, never by searching the text. A span is admitted only where its
+// first column is a drawn glyph that opens its word -- the row's edge, a
+// blank or the end of an abutting span stands before it -- and its last
+// column is a drawn glyph that no letter or digit outside a span follows: a
+// sentence stop the columns leave out stays outside the run (hosted
+// `<tt>CEESTART</tt>.`), but a span that opens or closes inside a word is
+// not a run of that word. One unproven span leaves the whole row unstyled.
+std::vector<TrapBodyHighlightIR>
+row_font_runs(const std::vector<DecodedLogicalRecordSource> &records,
+              const DecodedLogicalRecordSource &font_record,
+              const ControlSegmentIR &font_segment,
+              const FontControlSpansIR &font, const TrapTextIR &body,
+              const std::vector<TrapSourceCellIR> &cells) {
+  if (font_segment.source_tokens.empty() || body.text.empty())
+    return {};
+  const auto *font_line =
+      display_line_of_token(font_record, font_segment.source_tokens.front());
+  if (font_line == nullptr)
+    return {};
+  const auto &lines = font_record.ir.display_lines;
+  const DecodedLogicalRecordSource *row_record = &font_record;
+  const DisplayLineIR *row_line = nullptr;
+  const auto font_index = static_cast<std::size_t>(font_line - lines.data());
+  if (font_index + 1 < lines.size()) {
+    row_line = &lines[font_index + 1];
+  } else {
+    row_record = find_record(records, font_record.logical_record + 1);
+    if (row_record == nullptr || row_record->ir.display_lines.empty())
+      return {};
+    row_line = &row_record->ir.display_lines.front();
+  }
+  const auto row_cells = display_line_cells(*row_record, *row_line);
+  const auto offsets = display_line_column_offsets(*row_record, *row_line);
+  const auto row_text = display_line_text(*row_record, *row_line);
+  if (row_cells.empty() || offsets.size() != row_cells.size() + 1)
+    return {};
+
+  // Flat body offset of every glyph the body projected, keyed by its cell.
+  std::map<CellKey, std::size_t> glyphs;
+  {
+    std::size_t base = 0;
+    bool exact = true;
+    const auto walk = [&](const auto &self,
+                          const std::vector<TrapFlowBlockIR> &blocks) -> void {
+      for (const auto &block : blocks) {
+        if (const auto *paragraph =
+                std::get_if<TrapFlowParagraphIR>(&block.value)) {
+          for (const auto &projection : paragraph->projection) {
+            if (projection.kind != TrapTextProjectionKindIR::source_glyph)
+              continue;
+            if (projection.cell_begin + 1 != projection.cell_end ||
+                projection.cell_begin >= cells.size()) {
+              exact = false;
+              continue;
+            }
+            const auto &cell = cells[projection.cell_begin];
+            glyphs[{cell.logical_record, cell.token_index, cell.word_index}] =
+                base + projection.begin;
+          }
+          base += paragraph->text.size() + 1;
+        } else if (const auto *list =
+                       std::get_if<TrapFlowListIR>(&block.value)) {
+          for (const auto &item : list->items)
+            self(self, item.blocks);
+        } else if (const auto *footnote =
+                       std::get_if<TrapFlowFootnoteIR>(&block.value)) {
+          self(self, footnote->blocks);
+        }
+      }
+    };
+    walk(walk, body.flow.blocks);
+    if (!exact)
+      return {};
+  }
+
+  std::vector<FontSpanIR> spans;
+  for (const auto &span : font.spans)
+    if (span.length != 0)
+      spans.push_back(span);
+  std::sort(spans.begin(), spans.end(),
+            [](const auto &left, const auto &right) {
+              return left.column < right.column;
+            });
+  const auto drawn = [&](std::size_t column) {
+    return column < row_cells.size() && row_cells[column].word > ' ';
+  };
+  const auto word_glyph = [&](std::size_t column) {
+    if (!drawn(column))
+      return false;
+    const auto glyph = row_text.substr(offsets[column],
+                                       offsets[column + 1] - offsets[column]);
+    return glyph.size() != 1 ||
+           std::isalnum(static_cast<unsigned char>(glyph.front())) != 0;
+  };
+  std::vector<TrapBodyHighlightIR> mapped;
+  for (std::size_t index = 0; index < spans.size(); ++index) {
+    const auto &span = spans[index];
+    const auto last = span.column + span.length - 1;
+    if (last >= row_cells.size() || !drawn(span.column) || !drawn(last))
+      return {};
+    if (index != 0 && span.column < spans[index - 1].column +
+                                        spans[index - 1].length)
+      return {};
+    const auto abuts_before =
+        index != 0 &&
+        spans[index - 1].column + spans[index - 1].length == span.column;
+    const auto abuts_after = index + 1 < spans.size() &&
+                             spans[index + 1].column == last + 1;
+    if (span.column != 0 && drawn(span.column - 1) && !abuts_before)
+      return {};
+    if (word_glyph(last + 1) && !abuts_after)
+      return {};
+    std::optional<std::size_t> begin;
+    std::size_t end = 0;
+    std::string spelled;
+    for (auto column = span.column; column <= last; ++column) {
+      const auto &cell = row_cells[column];
+      if (cell.word <= ' ')
+        continue;
+      const auto glyph = row_text.substr(
+          offsets[column], offsets[column + 1] - offsets[column]);
+      const auto found =
+          glyphs.find({row_record->logical_record, cell.token, cell.word_index});
+      if (found == glyphs.end() || glyph.empty() ||
+          body.text.compare(found->second, glyph.size(), glyph) != 0 ||
+          (begin && found->second < end))
+        return {};
+      if (!begin)
+        begin = found->second;
+      end = found->second + glyph.size();
+      spelled += glyph;
+    }
+    if (!begin)
+      return {};
+    // Between the run's own glyphs the text holds only separator spaces.
+    std::string text;
+    for (const auto ch : body.text.substr(*begin, end - *begin))
+      if (ch != ' ')
+        text.push_back(ch);
+    if (text != spelled)
+      return {};
+    mapped.push_back({*begin, end, span.style});
+  }
+  for (std::size_t at = 1; at < mapped.size(); ++at)
+    if (mapped[at].begin < mapped[at - 1].end)
+      return {};
+  return mapped;
+}
+
+// `runs` (from `row_font_runs`) less the ranges the row's label, headline or
+// opening chain already claims. A run that repeats a claimed range is that
+// range; one that overlaps a claimed range any other way leaves the row's
+// further runs out.
+std::vector<TrapBodyHighlightIR>
+further_row_runs(const std::vector<TrapBodyHighlightIR> &runs,
+                 const std::vector<TrapBodyHighlightIR> &claimed) {
+  std::vector<TrapBodyHighlightIR> result;
+  for (const auto &run : runs) {
+    bool same = false;
+    for (const auto &range : claimed) {
+      if (range.begin == run.begin && range.end == run.end) {
+        same = true;
+        break;
+      }
+      if (range.begin < run.end && run.begin < range.end)
+        return {};
+    }
+    if (!same)
+      result.push_back(run);
+  }
+  return result;
+}
+
 bool starts_with_word(const std::string &text, const std::string &prefix) {
   return !prefix.empty() && text.size() >= prefix.size() &&
          text.compare(0, prefix.size(), prefix) == 0 &&
@@ -3993,6 +4178,10 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
             return std::nullopt;
         }
         line.body.cell_end = entry.cells.size();
+        // Every run the row's CFONT proves, wherever along the row it stands;
+        // the branches below keep those their own label or chain does not.
+        const auto row_runs = row_font_runs(records, *ref.record, segment,
+                                            *spans, line.body, entry.cells);
         if (after_bare_anchor && footnote_line == nullptr &&
             !line.body.text.empty())
           return reject("trap entry draws a styled row after a bare SRMSG: " +
@@ -4228,6 +4417,29 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
                           entry.id);
           if (!label_column)
             label_column = chain.front().column;
+          // Runs after the label are runs of the field's own text: N2AH1MST
+          // record 1464 line 16 styles `Explanation:  ctcname ...` with
+          // `cfont 10 12 2 24 7 V ...`, served
+          // `<B>Explanation:</B>  <var>ctcname</var>` (DT 19910329000100).
+          {
+            const auto label = chain_highlight_ranges(line.spans,
+                                                      line.spans_text, 0);
+            auto further = label.empty() ? std::vector<TrapBodyHighlightIR>{}
+                                         : further_row_runs(row_runs, label);
+            if (!further.empty()) {
+              auto flow = line.body.flow;
+              if (add_highlights(flow, further)) {
+                line.body.flow = std::move(flow);
+                line.body.highlights.insert(line.body.highlights.end(),
+                                            further.begin(), further.end());
+                std::sort(line.body.highlights.begin(),
+                          line.body.highlights.end(),
+                          [](const auto &left, const auto &right) {
+                            return left.begin < right.begin;
+                          });
+              }
+            }
+          }
           TrapFieldIR field;
           field.label_text = line.spans_text;
           field.line = std::move(line);
@@ -4307,6 +4519,32 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
             if (!add_highlights(line.body.flow, local))
               return reject("trap entry highlighted run crosses a paragraph: " +
                             entry.id);
+          }
+          // The row's runs past its opening chain, placed the same way.
+          {
+            const auto base = body.text.empty() || line.body.text.empty()
+                                  ? body.text.size()
+                                  : body.text.size() + 1;
+            auto claimed = highlights;
+            for (auto &highlight : claimed) {
+              highlight.begin -= base;
+              highlight.end -= base;
+            }
+            auto further = further_row_runs(row_runs, claimed);
+            auto flow = line.body.flow;
+            if (!further.empty() && add_highlights(flow, further)) {
+              line.body.flow = std::move(flow);
+              for (auto &highlight : further) {
+                highlight.begin += base;
+                highlight.end += base;
+              }
+              highlights.insert(highlights.end(), further.begin(),
+                                further.end());
+              std::sort(highlights.begin(), highlights.end(),
+                        [](const auto &left, const auto &right) {
+                          return left.begin < right.begin;
+                        });
+            }
           }
           body.highlights.insert(body.highlights.end(), highlights.begin(),
                                  highlights.end());

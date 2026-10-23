@@ -4301,7 +4301,8 @@ int main() {
   // where cell 36 is the standalone `o` and cells 24--34 `orientation`;
   // hosted (DT 19910329000100) serves `orientation <var>o</var>`. Reading
   // the run from the first drawn cell put it on the `o` of `orientation`,
-  // which the cell check let through because both spell `o`.
+  // which the cell check let through because both spell `o`. Read from its
+  // own cells the span is a run of the standalone `o`, as hosted serves it.
   {
     auto tokens = header("Sample", "Messages");
     append(tokens, entry("731", 650));
@@ -4322,9 +4323,79 @@ int main() {
         const auto html =
             geist::detail::render_document_html_blocks(*document, {});
         require(html.find(">o</em>rientation") == std::string::npos &&
-                    html.find("orientation o more.") != std::string::npos,
+                    html.find("orientation <em class=\"geist-emphasis\">o"
+                              "</em> more.") != std::string::npos,
                 "a run was placed on a word its columns do not name: " +
                     html);
+      }
+    }
+  }
+
+  // Style codes inside a field body present as hosted BookServer serves
+  // them, which is how the prose family already lowers the same codes: `E`
+  // (XMP, hosted `<samp>`), `X` (XPH, `<tt>`), `P` (PK, `<kbd>`) and `4`
+  // (HP4, `<TT>`) are monospace, `C` (CIT, `<cite>`) is emphasis. A run is
+  // placed wherever its row's cells prove it -- opening the row or in the
+  // middle of it, as SC09-138 F.1 record 2048 line 2's `cfont 44 6 E 55 6 E`
+  // over `... options NOSTAE and NOSPIE ...` is (hosted
+  // `<samp>NOSTAE</samp> and <samp>NOSPIE</samp>`). A span that opens
+  // inside a word is not a run of that word: the row stays plain.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("740", 800));
+    // Mid-row XMP: `   Use the NOSTAE option.`, NOSTAE at columns 11-16.
+    append(tokens, line({t("cfont", 111), t("11", 801), t("6", 181),
+                         t("E", 802)}));
+    append(tokens, line({origin(), t("Use", 803), t("the", 804),
+                         t("NOSTAE", 805), t("option.", 806)}));
+    // Row-opening XPH: `   main is missing.`
+    append(tokens, line({t("cfont", 111), t("3", 112), t("4", 160),
+                         t("X", 807)}));
+    append(tokens, line({origin(), t("main", 808), t("is", 809),
+                         t("missing.", 810)}));
+    // A PK span opening on the `S` of `NOSTAE` (columns 9-12).
+    append(tokens, line({t("cfont", 111), t("9", 811), t("4", 160),
+                         t("P", 812)}));
+    append(tokens, line({origin(), t("Set", 813), t("NOSTAE", 805),
+                         t("now.", 814)}));
+    // Mid-row CIT and PK on one row: `   See Sample and ENTER.`
+    append(tokens, line({t("cfont", 111), t("7", 815), t("6", 181),
+                         t("C", 145), t("18", 816), t("6", 181),
+                         t("P", 812)}));
+    append(tokens, line({origin(), t("See", 817), t("Sample", 146),
+                         t("and", 818), t("ENTER.", 819)}));
+    const auto built = build({make_source(150, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "body style codes declined: " + built.error);
+    if (built.catalog) {
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(), "body style codes did not lower: " + error);
+      if (document) {
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        const std::string code = "<code class=\"geist-monospace\">";
+        for (const std::string expected : std::vector<std::string>{
+             "Use the " + code + "NOSTAE</code> option.",
+              code + "main</code> is missing.",
+              "Set NOSTAE now.",
+              "See <em class=\"geist-emphasis\">Sample</em> and " + code +
+                  "ENTER.</code>"})
+          require(html.find(expected) != std::string::npos,
+                  "body style code was not presented: [" + expected +
+                      "] in " + html);
+        for (const std::string expected :
+             {"Use the `NOSTAE` option\\.", "`main` is missing\\.",
+              "Set NOSTAE now\\.", "See *Sample* and `ENTER.`"})
+          require(markdown.find(expected) != std::string::npos,
+                  "body style code was not presented: [" + expected +
+                      "] in " + markdown);
+        require(html.find(">STAE<") == std::string::npos &&
+                    html.find("NO<") == std::string::npos,
+                "a span opening inside a word was presented: " + html);
       }
     }
   }
