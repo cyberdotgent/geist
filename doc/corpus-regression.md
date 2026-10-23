@@ -49,9 +49,9 @@ one topic cannot excuse losing a different word or regressing another topic's
 route. Improvements are enumerated without changing the baseline. Unknown or
 inconsistent report schemas fail instead of being interpreted as clean output.
 At the same severity, changing the lowering family or degradation details also
-requires explicit review rather than silently passing. Exact rendered output
-diffs remain a separate verification step; a passing gate does not imply
-byte-identical output.
+requires explicit review rather than silently passing. A schema 3 baseline
+also fingerprints every topic's rendered output (see below); a passing gate
+still does not imply byte-identical output.
 
 Conservation emits an identity row even for a clean or genuinely empty topic;
 the gate requires its topic set and source identities to equal coverage exactly.
@@ -76,6 +76,56 @@ occurrence-count check, not a proof of correct word order or geometry; exact
 rendered-output comparisons are still required.
 The text projections accept only the serializers' supported syntax and fail
 on unsupported or malformed markup rather than guessing its visible text.
+
+## Rendered fingerprints
+
+Word conservation cannot see a bold run turn italic, emphasis slide onto the
+wrong letters (`*o*rientation o`), a list lose its alphabetic markers, or an
+anchor move. Baseline schema 3 records, per topic, compact fingerprints of the
+rendered output. The gate obtains them from the same pass as conservation:
+`bootrace --conservation --rendered` adds a `# rendered` row per topic with
+the Markdown visible-text projection (from the serializer's byte-range trace,
+so an escaped `\<name\>` is text, never a tag) and the HTML fragment. No
+Markdown grammar is guessed; style and structure are read from the HTML,
+whose markup is unambiguous, with Python's standard `html.parser`. Malformed
+or unbalanced HTML fails the run.
+
+| Category | Recorded | On change |
+|---|---|---|
+| characters | letter/digit multiset, case-sensitive, of the HTML text (text nodes and image alternatives) and, only where it differs, of the Markdown projection | any lost character in either format is a **regression**; a gain needs review |
+| mid-word | count of style boundaries between two adjacent letters/digits in one block | any increase is a **regression**; a decrease is an improvement |
+| style | hash of the ordered (style kind, covered text) runs, plus run counts per kind | needs review |
+| structure | hash of the ordered block elements (tag, first `geist-` class, `type`, `value`, `start`, depth and empty-item attributes, nesting depth), plus counts per block kind | needs review |
+| anchors | hash and count of `id` attributes, in order | needs review |
+| links | hash and count of link destinations and image sources, in order | needs review |
+
+A style run is a maximal stretch of one block's text under the same set of
+open `em`, `strong`, `u`, `code` (or opaque inline code) elements; nested
+`strong`/`em` is the kind `em+strong`. Blocks, `<br>` and images end a run and
+a word. A link does not: `<em>a</em><a>b</a>` is a mid-word boundary.
+Existing mid-word boundaries (for example `` `CLIST`s ``) are recorded, not
+judged; only new ones fail.
+
+The gate prints one `REVIEW` line per changed topic and category, with a
+short summary such as `style: em 0->3, strong 3->0`, followed by a per-book
+`CHANGED TOPICS` count per category. Review changes are not fatal by default;
+`--fail-on-review` makes them regressions too. For an exact diff, keep the
+capture's `--raw-dir`: it holds `<book>.fingerprint.json` with the full
+ordered lists, and passing it back as `--baseline-raw DIR` adds the first
+differing entries to each `REVIEW` line, for example
+`{-'strong:K' +'em:K'}`. The fingerprint detail contains book text, so like
+the other raw reports it stays outside the repository.
+
+Rendering fingerprints adds no decoder pass: the conservation run already
+renders both formats. The extra cost is the transfer and Python parsing of
+the HTML.
+
+A schema 2 baseline remains valid: the gate checks it exactly as before,
+without requesting or comparing fingerprints, and says so. Captures are
+always schema 3. Migrating is an ordinary reviewed capture: run the gate
+against the schema 2 baseline, capture a schema 3 snapshot at the same
+revision, and confirm its route and conservation fields match the old one
+before replacing it.
 
 ## Reviewing a baseline change
 

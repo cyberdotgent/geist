@@ -302,7 +302,8 @@ std::map<std::string, DrawnCounts> count_drawn_words(const DrawnTextIR& drawn,
 
 namespace geist {
 
-detail::DrawnWordConservationIR BooDocument::drawn_word_conservation() const {
+detail::DrawnWordConservationIR BooDocument::drawn_word_conservation(
+    const bool retain_rendered) const {
   using namespace detail;
   DrawnWordConservationIR report;
 
@@ -396,14 +397,19 @@ detail::DrawnWordConservationIR BooDocument::drawn_word_conservation() const {
     const auto prefix = marker.empty() ? std::string() :
         marker + "\n" + (markdown.empty() ? "" : "\n");
     const auto actual = entry->markdown();
+    auto markdown_visible =
+        verified_markdown_visible_text(actual, markdown, markdown_trace, prefix);
+    auto html = entry->html_fragment();
     std::map<std::string, std::size_t> markdown_counts;
-    for (const auto& word : conservation_words(
-             verified_markdown_visible_text(actual, markdown, markdown_trace, prefix)))
+    for (const auto& word : conservation_words(markdown_visible))
       ++markdown_counts[word];
     std::map<std::string, std::size_t> html_counts;
-    for (const auto& word : conservation_words(
-             html_visible_text(entry->html_fragment())))
+    for (const auto& word : conservation_words(html_visible_text(html)))
       ++html_counts[word];
+    if (retain_rendered) {
+      topic.markdown_visible_text = std::move(markdown_visible);
+      topic.html_fragment = std::move(html);
+    }
     std::map<std::string, std::size_t> emitted_counts;
     for (const auto& [word, count] : markdown_counts) {
       // Never let a correct HTML label compensate for lost Markdown text, or

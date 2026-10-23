@@ -36,7 +36,7 @@ void usage() {
                "       bootrace <book.boo> --coverage\n"
                "       bootrace <book.boo> --links\n"
                "       bootrace <book.boo> --declines\n"
-               "       bootrace <book.boo> --conservation\n"
+               "       bootrace <book.boo> --conservation [--rendered]\n"
                "       bootrace <book.boo> <topic-id> --explain-offset <n>\n";
 }
 
@@ -243,10 +243,17 @@ int main(int argc, char** argv) {
   // Everything left must survive into the Markdown.  A row per dropped word:
   // enumerating them is the point, since a count alone repeats the failure
   // this check exists to fix.
-  if (argc == 3 && std::string(argv[2]) == "--conservation") {
+  //
+  // `--rendered` adds one `# rendered` row per topic carrying the exact
+  // Markdown text projection and HTML fragment the check compared, for the
+  // corpus gate's style and structure fingerprints. The other rows are
+  // unchanged, so the rendered rows can be split off before parsing them.
+  if ((argc == 3 || (argc == 4 && std::string(argv[3]) == "--rendered")) &&
+      std::string(argv[2]) == "--conservation") {
     try {
+      const auto rendered = argc == 4;
       const auto document = geist::BooDocument::open(argv[1]);
-      const auto report = document.drawn_word_conservation();
+      const auto report = document.drawn_word_conservation(rendered);
       std::cout << "topic\troute\tword\tdrawn_opening\tdrawn_inline"
                    "\temitted\tunaccounted\tevidence\temitted_markdown"
                    "\tunaccounted_markdown\temitted_html\tunaccounted_html\n";
@@ -257,6 +264,11 @@ int main(int argc, char** argv) {
                   << topic.source_start_logical_record << "\t"
                   << topic.source_end_logical_record << "\t"
                   << tsv_escape(topic.route) << "\n";
+      if (rendered)
+        for (const auto& topic : report.topics)
+          std::cout << "# rendered\t" << tsv_escape(topic.id) << "\t"
+                    << tsv_escape(topic.markdown_visible_text) << "\t"
+                    << tsv_escape(topic.html_fragment) << "\n";
       for (const auto& topic : report.topics) {
         for (const auto& deficit : topic.deficits)
           std::cout << tsv_escape(topic.id) << "\t"

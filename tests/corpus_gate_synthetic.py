@@ -42,6 +42,15 @@ CONSERVATION = (
     "markdown-dropping=1\tmarkdown-unaccounted=2\thtml-dropping=1\thtml-unaccounted=1\n")
 
 
+RENDERED = (
+    "# rendered\t1.0\talpha \\\\<name\\\\>\t"
+    "<h2 class=\"geist-heading\">Alpha</h2><span class=\"geist-anchor\" "
+    "id=\"A1\"></span><p class=\"geist-paragraph\"><strong class=\"geist-strong\">"
+    "K</strong> key\\n&lt;name&gt;</p>\n"
+    "# rendered\t1.1\t\t\n")
+REPORTS = CONSERVATION.replace("# summary", RENDERED + "# summary")
+
+
 def sample():
     return {"identity": {"size": 3, "sha256": "abc"},
             "edition": {"Timestamp": "19930422134757"},
@@ -215,6 +224,8 @@ class CorpusGateTest(unittest.TestCase):
                 return COVERAGE
             if args == ("--conservation",):
                 return CONSERVATION
+            if args == ("--conservation", "--rendered"):
+                return REPORTS
             return "Timestamp: 19930422134757\nDocument number: synthetic\nTitle: Test\nVersion: 1.2\n"
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -239,6 +250,8 @@ class CorpusGateTest(unittest.TestCase):
                 return COVERAGE
             if args == ("--conservation",):
                 return CONSERVATION
+            if args == ("--conservation", "--rendered"):
+                return REPORTS
             return "Timestamp: 19930422134757\nDocument number: synthetic\nTitle: Test\nVersion: 1.2\n"
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -274,6 +287,233 @@ class CorpusGateTest(unittest.TestCase):
             second.write_bytes(b"two")
             with self.assertRaisesRegex(ValueError, "duplicate corpus filename"):
                 GATE.select_books(None, [first, second])
+
+
+def html_print(html, markdown=""):
+    return GATE.fingerprint(markdown, html)
+
+
+class FingerprintTest(unittest.TestCase):
+    def test_unescape(self):
+        self.assertEqual(GATE.tsv_unescape(r"a\tb\\n\n"), "a\tb\\n\n")
+        for value in (r"bad\x", "trailing\\"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                GATE.tsv_unescape(value)
+
+    def test_split_rendered_keeps_report_and_unicode_separators(self):
+        report, rendered = GATE.split_rendered(REPORTS.replace("key", "key line"))
+        self.assertEqual(report, CONSERVATION)
+        self.assertEqual(set(rendered), {"1.0", "1.1"})
+        self.assertIn(" ", rendered["1.0"][1])
+        self.assertIn("\n", rendered["1.0"][1])
+        self.assertEqual(rendered["1.0"][0], r"alpha \<name\>")
+        with self.assertRaises(ValueError):
+            GATE.split_rendered(RENDERED + RENDERED)
+
+    def test_style_runs_and_nesting(self):
+        _, detail = html_print(
+            '<p class="geist-paragraph">a <strong class="geist-strong-emphasis">'
+            '<em>both</em></strong> <code class="geist-monospace">x</code>'
+            '<code class="geist-opaque-inline" data-geist-opaque-kind="k">o</code>'
+            ' <u class="geist-underline">u</u></p>')
+        self.assertEqual(detail["style"], ["em+strong:both", "code:x", "opaque:o", "u:u"])
+        self.assertEqual(detail["midword"], ["[code]x|[opaque]o"])
+
+    def test_mid_word_spans(self):
+        for html, count in (
+                ("<p><em>o</em>rientation o</p>", 1),
+                ("<p><em>orientation</em> o</p>", 0),
+                ("<p><code>CLIST</code>s</p>", 1),
+                ("<p>a<em>b</em>c</p>", 2),
+                ("<p><em>a</em></p><p>b</p>", 0),
+                ("<p><em>a</em><br>b</p>", 0),
+                ('<p><em>a</em><a href="#x">b</a></p>', 1),
+                ('<p><em>a<a href="#x">b</a></em></p>', 0)):
+            with self.subTest(html=html):
+                self.assertEqual(html_print(html)[0].get("midword", 0), count)
+
+    def test_structure_anchors_links(self):
+        summary, detail = html_print(
+            '<h2 class="geist-heading">T</h2>'
+            '<ol class="geist-list" type="a"><li class="geist-list-item" value="2">'
+            '<a href="#t">x</a></li></ol><span class="geist-anchor" id="Z"></span>'
+            '<pre class="geist-pre">a\nb</pre><hr class="geist-rule">'
+            '<img class="geist-image" src="r.png" alt="Fig">')
+        self.assertEqual(detail["structure"], [
+            "0:h2.heading", "0:ol.list[type=a]", "1:li.list-item[value=2]",
+            "0:pre.pre", "0:hr.rule"])
+        self.assertEqual(detail["anchors"], ["Z"])
+        self.assertEqual(detail["links"], ["#t", "img:r.png"])
+        self.assertEqual(summary["blocks"],
+                         "h2.heading:1 hr.rule:1 li.list-item:1 ol.list:1 pre.pre:1")
+        self.assertEqual(GATE.parse_multiset(summary["chars"]),
+                         {"T": 1, "x": 1, "a": 1, "b": 1, "F": 1, "i": 1, "g": 1})
+
+    def test_markdown_visible_text_is_counted_as_text(self):
+        # The trace projection has already removed Markdown escapes; whatever
+        # punctuation surrounds them, the letters of `<name>` are text.
+        summary, _ = html_print("<p>&lt;name&gt;</p>", r"\<name\>")
+        self.assertNotIn("markdown_chars", summary)
+        summary, _ = html_print("<p>&lt;name&gt;</p>", r"\<nam\>")
+        self.assertEqual(GATE.parse_multiset(summary["markdown_chars"]),
+                         {"n": 1, "a": 1, "m": 1})
+
+    def test_entities_and_characters(self):
+        summary, _ = html_print("<p>&amp; caf&eacute; 2</p>")
+        self.assertEqual(GATE.parse_multiset(summary["chars"]),
+                         {"c": 1, "a": 1, "f": 1, "é": 1, "2": 1})
+
+    def test_malformed_html_fails(self):
+        for html in ("<p><em>a</p></em>", "<p>open", "</p>"):
+            with self.subTest(html=html), self.assertRaises(ValueError):
+                html_print(html)
+
+    def compare(self, before_html, after_html, strict=False, before_md="",
+                after_md=""):
+        before = html_print(before_html, before_md)
+        after = html_print(after_html, after_md)
+        tally = {}
+        result = GATE.compare_fingerprints(
+            "b.boo", {"1": before[0]}, {"1": after[0]}, {"1": before[1]},
+            {"1": after[1]}, strict, tally)
+        return result + (tally,)
+
+    def test_unchanged(self):
+        html = "<p><strong>K</strong> key</p>"
+        self.assertEqual(self.compare(html, html), ([], [], [], {}))
+
+    def test_bold_to_italic_needs_review(self):
+        before = '<p><strong class="geist-strong">K</strong> key</p>'
+        after = '<p><em class="geist-emphasis">K</em> key</p>'
+        failures, _, reviews, tally = self.compare(before, after)
+        self.assertEqual(failures, [])
+        self.assertEqual(set(tally), {"style"})
+        self.assertIn("em 0->1, strong 1->0", reviews[0])
+        self.assertIn("-'strong:K' +'em:K'", reviews[0])
+        failures, _, reviews, _ = self.compare(before, after, strict=True)
+        self.assertEqual((len(failures), reviews), (1, []))
+
+    def test_style_moved_onto_wrong_characters_fails(self):
+        failures, _, reviews, tally = self.compare(
+            "<p><em>orientation</em> o</p>", "<p><em>o</em>rientation o</p>")
+        self.assertEqual(len(failures), 1)
+        self.assertIn("mid-word", failures[0])
+        self.assertIn("[em]o|[]rientation", failures[0])
+        self.assertEqual(set(tally), {"mid-word", "style"})
+        self.assertEqual(len(reviews), 1)
+
+    def test_mid_word_recovery_is_improvement(self):
+        failures, improvements, _, _ = self.compare(
+            "<p><em>o</em>rientation o</p>", "<p><em>orientation</em> o</p>")
+        self.assertEqual(failures, [])
+        self.assertEqual(len(improvements), 1)
+
+    def test_character_loss_fails_and_gain_needs_review(self):
+        failures, _, _, _ = self.compare("<p>abc</p>", "<p>ab</p>")
+        self.assertEqual(len(failures), 1)
+        self.assertIn("HTML lost 'c'x1", failures[0])
+        failures, _, reviews, _ = self.compare("<p>ab</p>", "<p>abc</p>")
+        self.assertEqual(failures, [])
+        self.assertIn("HTML gained 'c'x1", reviews[0])
+
+    def test_markdown_character_loss_is_checked_independently(self):
+        failures, _, _, _ = self.compare("<p>ab</p>", "<p>ab</p>", before_md="ab",
+                                         after_md="a")
+        self.assertEqual(len(failures), 1)
+        self.assertIn("Markdown lost 'b'x1", failures[0])
+
+    def test_case_change_is_loss(self):
+        self.assertTrue(self.compare("<p>Ab</p>", "<p>ab</p>")[0])
+
+    def test_structure_and_anchor_changes_need_review(self):
+        failures, _, reviews, tally = self.compare(
+            '<ul class="geist-list"><li>a</li></ul><span id="X"></span>',
+            '<ol class="geist-list" type="a"><li>a</li></ol><span id="Y"></span>')
+        self.assertEqual(failures, [])
+        self.assertEqual(set(tally), {"structure", "anchors"})
+        self.assertTrue(any("ol.list:1" not in review and "ol.list 0->1" in review
+                            for review in reviews))
+        self.assertTrue(any("same count" in review and "'Y'" in review
+                            for review in reviews))
+
+    def test_link_change_needs_review(self):
+        _, _, _, tally = self.compare('<p><a href="#a">x</a></p>',
+                                      '<p><a href="#b">x</a></p>')
+        self.assertEqual(set(tally), {"links"})
+
+    def test_missing_fingerprint_fails(self):
+        summary, _ = html_print("<p>a</p>")
+        failures, _, _ = GATE.compare_fingerprints("b.boo", {"1": summary}, {})
+        self.assertTrue(failures)
+
+    def test_expand_rejects_unknown_fields(self):
+        with self.assertRaises(ValueError):
+            GATE.expand_fingerprint({"colour": "red"})
+
+    def test_capture_writes_schema_3_and_schema_2_still_checks(self):
+        calls = []
+        def reports(_executable, _book, *args):
+            calls.append(args)
+            if args == ("--coverage",):
+                return COVERAGE
+            if args == ("--conservation",):
+                return CONSERVATION
+            if args == ("--conservation", "--rendered"):
+                return REPORTS
+            return "Timestamp: 1\nDocument number: s\nTitle: T\nVersion: 1\n"
+        changed = REPORTS.replace('<strong class="geist-strong">K</strong>',
+                                  '<em class="geist-emphasis">K</em>')
+        def restyled(executable, book, *args):
+            if args == ("--conservation", "--rendered"):
+                return changed
+            return reports(executable, book, *args)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "s.boo").write_bytes(b"boo")
+            capture = root / "capture.json"
+            raw = root / "raw"
+            common = ["--corpus", str(root), "--jobs", "1"]
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                with patch.object(GATE, "run_tool", side_effect=reports):
+                    self.assertEqual(GATE.main(common + [
+                        "--capture", str(capture), "--revision", "r",
+                        "--raw-dir", str(raw)]), 0)
+                    snapshot = json.loads(capture.read_text())
+                    self.assertEqual(snapshot["schema"], 3)
+                    book = snapshot["books"]["s.boo"]
+                    self.assertNotIn("details", book)
+                    self.assertEqual(book["fingerprints"]["1.1"], {})
+                    self.assertEqual(book["fingerprints"]["1.0"]["style_runs"],
+                                     "strong:1")
+                    self.assertTrue((raw / "s.boo.fingerprint.json").is_file())
+                    self.assertEqual(GATE.main(common + [
+                        "--baseline", str(capture), "--baseline-raw", str(raw)]), 0)
+                    self.assertIn("0 fingerprint changes", out.getvalue())
+                # A changed style is reported but not fatal unless asked.
+                with patch.object(GATE, "run_tool", side_effect=restyled):
+                    self.assertEqual(GATE.main(common + [
+                        "--baseline", str(capture), "--baseline-raw", str(raw)]), 0)
+                    self.assertIn("REVIEW s.boo: 1.0: style: em 0->1, strong 1->0 "
+                                  "{-'strong:K' +'em:K'}", out.getvalue())
+                    self.assertIn("CHANGED TOPICS s.boo: style 1", out.getvalue())
+                    self.assertEqual(GATE.main(common + [
+                        "--baseline", str(capture), "--fail-on-review"]), 1)
+                # A schema 2 baseline is checked without rendering fingerprints.
+                legacy = root / "legacy.json"
+                del book["fingerprints"]
+                legacy.write_text(json.dumps({"schema": 2, "books": {"s.boo": book}}))
+                calls.clear()
+                with patch.object(GATE, "run_tool", side_effect=reports):
+                    self.assertEqual(GATE.main(common + ["--baseline", str(legacy)]), 0)
+                    self.assertIn(("--conservation",), calls)
+                    self.assertNotIn(("--conservation", "--rendered"), calls)
+                    # A schema 3 baseline must carry fingerprints.
+                    legacy.write_text(json.dumps({"schema": 3,
+                                                  "books": {"s.boo": book}}))
+                    with self.assertRaisesRegex(ValueError, "without fingerprints"):
+                        GATE.main(common + ["--baseline", str(legacy)])
 
 
 if __name__ == "__main__":

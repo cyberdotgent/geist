@@ -4,15 +4,23 @@
 """Identity-pinned maintainer corpus gate; see doc/corpus-regression.md."""
 
 import argparse
+import collections
 import concurrent.futures
+import difflib
 import hashlib
+from html.parser import HTMLParser
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 
 
 SEVERITIES = {"failed": 0, "best-effort": 1, "typed-degraded": 2, "typed": 3}
+# Schema 2 pins routes and word conservation. Schema 3 adds per-topic rendered
+# fingerprints; a schema 2 baseline is still checked, without them.
+SCHEMA = 3
+SCHEMAS = (2, 3)
 
 
 def summary_fields(line):
@@ -175,6 +183,357 @@ def parse_conservation(output):
             "format_deficits": format_deficits, "unframed": unframed}
 
 
+# ---------------------------------------------------------------------------
+# Rendered fingerprints (schema 3).
+#
+# `bootrace --conservation --rendered` adds a `# rendered` row per topic with
+# the serializer-trace projection of its Markdown (visible text only, so an
+# escaped `\<name\>` is text, never a tag) and its HTML fragment. Characters
+# are counted from both; style, structure, anchors and links come from the
+# HTML, whose markup is unambiguous.
+
+TSV_ESCAPES = {"\\": "\\", "t": "\t", "r": "\r", "n": "\n"}
+TSV_ESCAPE = re.compile(r"\\(.?)", re.DOTALL)
+
+
+def tsv_unescape(value):
+    def replace(match):
+        if match.group(1) not in TSV_ESCAPES:
+            raise ValueError("invalid TSV escape")
+        return TSV_ESCAPES[match.group(1)]
+    return TSV_ESCAPE.sub(replace, value)
+
+
+# Elements that delimit blocks: they end a style run and a word.
+BLOCK_TAGS = frozenset((
+    "address", "aside", "blockquote", "caption", "dd", "details", "div", "dl",
+    "dt", "figcaption", "figure", "h1", "h2", "h3", "h4", "h5", "h6", "hr",
+    "li", "nav", "ol", "p", "pre", "section", "summary", "table", "tbody",
+    "td", "tfoot", "th", "thead", "tr", "ul"))
+STYLE_TAGS = frozenset(("b", "code", "em", "i", "kbd", "s", "samp", "strong",
+                        "sub", "sup", "u", "var"))
+VOID_TAGS = frozenset(("br", "col", "hr", "img", "input", "link", "meta", "wbr"))
+# Inline elements that still separate the text on either side of them.
+BREAK_TAGS = frozenset(("br", "img"))
+INLINE_TAGS = frozenset(("a", "span"))
+# Attributes that are part of a block's identity in the structure fingerprint.
+STRUCTURE_ATTRIBUTES = ("type", "value", "data-geist-depth", "data-geist-empty",
+                        "start")
+
+
+def short_hash(values):
+    encoded = json.dumps(values, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:16]
+
+
+def char_multiset(text):
+    """Letters and digits only, case-sensitive, as `c:n` pairs."""
+    counts = collections.Counter(text)
+    return " ".join(f"{char}:{count}" for char, count in sorted(counts.items())
+                    if char.isalnum())
+
+
+def parse_multiset(value):
+    counts = {}
+    for item in value.split():
+        char, separator, count = item.rpartition(":")
+        if not separator or len(char) != 1 or not count.isdecimal():
+            raise ValueError("invalid character multiset: " + item)
+        counts[char] = int(count)
+    return counts
+
+
+def kind_counts(values):
+    return " ".join(f"{kind}:{count}" for kind, count in
+                    sorted(collections.Counter(values).items()))
+
+
+class FingerprintParser(HTMLParser):
+    """Style runs, block structure, ids and links of one Geist HTML fragment.
+
+    A style run is a maximal stretch of text in one block under the same set
+    of open style elements; its kind is that set, sorted and joined by `+`.
+    A mid-word boundary is two adjacent letters/digits in one block whose
+    style sets differ: a run that starts or ends inside a word.
+    """
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.stack = []
+        self.key = ""
+        self.segment = []
+        self.text = []
+        self.style = []
+        self.structure = []
+        self.anchors = []
+        self.links = []
+        self.midword = []
+
+    def restyle(self):
+        self.key = "+".join(sorted({kind for _, kind in self.stack if kind}))
+
+    def flush(self):
+        runs = []
+        for key, text in self.segment:
+            if runs and runs[-1][0] == key:
+                runs[-1][1] += text
+            else:
+                runs.append([key, text])
+        self.segment = []
+        for index, (key, text) in enumerate(runs):
+            if key:
+                self.style.append(key + ":" + text)
+            if index:
+                before_key, before = runs[index - 1]
+                if before[-1].isalnum() and text[0].isalnum():
+                    self.midword.append(f"[{before_key}]{before[-12:]}|"
+                                        f"[{key}]{text[:12]}")
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if "id" in attributes:
+            self.anchors.append(attributes["id"] or "")
+        if tag == "a" and "href" in attributes:
+            self.links.append(attributes["href"] or "")
+        if tag == "img":
+            self.links.append("img:" + (attributes.get("src") or ""))
+            self.text.append(attributes.get("alt") or "")
+        if tag in BLOCK_TAGS or tag in BREAK_TAGS:
+            self.flush()
+        if tag in BLOCK_TAGS:
+            token = tag
+            classes = (attributes.get("class") or "").split()
+            if classes:
+                token += "." + classes[0].removeprefix("geist-")
+            for name in STRUCTURE_ATTRIBUTES:
+                if name in attributes:
+                    token += f"[{name}={attributes[name]}]"
+            depth = sum(1 for open_tag, _ in self.stack if open_tag in BLOCK_TAGS)
+            self.structure.append(f"{depth}:{token}")
+        elif tag not in STYLE_TAGS and tag not in VOID_TAGS and \
+                tag not in INLINE_TAGS:
+            self.structure.append("?" + tag)
+        if tag in VOID_TAGS:
+            return
+        kind = None
+        if tag in STYLE_TAGS:
+            kind = tag
+            if tag == "code" and "geist-opaque-inline" in (
+                    attributes.get("class") or "").split():
+                kind = "opaque"
+        self.stack.append((tag, kind))
+        self.restyle()
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+        if tag not in VOID_TAGS:
+            self.handle_endtag(tag)
+
+    def handle_endtag(self, tag):
+        if tag in VOID_TAGS:
+            return
+        if not self.stack or self.stack[-1][0] != tag:
+            raise ValueError("unbalanced HTML end tag: " + tag)
+        if tag in BLOCK_TAGS:
+            self.flush()
+        self.stack.pop()
+        self.restyle()
+
+    def handle_data(self, data):
+        if data:
+            self.text.append(data)
+            self.segment.append((self.key, data))
+
+    def finish(self):
+        self.close()
+        if self.stack:
+            raise ValueError("unclosed HTML element: " + self.stack[-1][0])
+        self.flush()
+
+
+EMPTY_HASH = short_hash([])
+
+
+def fingerprint(markdown_text, html):
+    """Returns (summary for the baseline, detail for review diffs)."""
+    parser = FingerprintParser()
+    parser.feed(html)
+    parser.finish()
+    detail = {"style": parser.style, "structure": parser.structure,
+              "anchors": parser.anchors, "links": parser.links,
+              "midword": parser.midword}
+    chars = char_multiset("".join(parser.text))
+    markdown_chars = char_multiset(markdown_text)
+    summary = {"chars": chars, "markdown_chars": markdown_chars,
+               "style": short_hash(parser.style),
+               "style_runs": kind_counts(run.split(":", 1)[0] for run in parser.style),
+               "structure": short_hash(parser.structure),
+               "blocks": kind_counts(token.split(":", 1)[1].split("[", 1)[0]
+                                     for token in parser.structure),
+               "anchors": short_hash(parser.anchors),
+               "anchor_count": len(parser.anchors),
+               "links": short_hash(parser.links),
+               "link_count": len(parser.links),
+               "midword": len(parser.midword)}
+    # Compact: Markdown characters are usually the HTML characters, so they
+    # are kept only when they differ (even when empty); other empty values
+    # are left out. `expand_fingerprint` restores them.
+    compact = {key: value for key, value in summary.items()
+               if key == "markdown_chars" or value not in ("", 0, EMPTY_HASH)}
+    if markdown_chars == chars:
+        del compact["markdown_chars"]
+    return compact, detail
+
+
+def expand_fingerprint(summary):
+    full = {"chars": "", "style": EMPTY_HASH, "style_runs": "",
+            "structure": EMPTY_HASH, "blocks": "", "anchors": EMPTY_HASH,
+            "anchor_count": 0, "links": EMPTY_HASH, "link_count": 0,
+            "midword": 0}
+    unknown = set(summary) - set(full) - {"markdown_chars"}
+    if unknown:
+        raise ValueError("unknown fingerprint fields: " + repr(sorted(unknown)))
+    full.update(summary)
+    full.setdefault("markdown_chars", full["chars"])
+    return full
+
+
+def split_rendered(output):
+    """Separates `# rendered` rows from the conservation report proper.
+
+    Splits on newline only: the escaped fields may hold other characters that
+    `str.splitlines` would treat as line breaks."""
+    report, rendered = [], {}
+    for line in output.split("\n"):
+        if not line.startswith("# rendered\t"):
+            report.append(line)
+            continue
+        fields = line.split("\t")
+        if len(fields) != 4 or not fields[1] or fields[1] in rendered:
+            raise ValueError("invalid rendered row")
+        rendered[fields[1]] = (tsv_unescape(fields[2]), tsv_unescape(fields[3]))
+    return "\n".join(report), rendered
+
+
+def fingerprint_topics(rendered):
+    summaries, details = {}, {}
+    for topic, (markdown_text, html) in rendered.items():
+        try:
+            summaries[topic], details[topic] = fingerprint(markdown_text, html)
+        except ValueError as error:
+            raise ValueError(topic + ": " + str(error)) from None
+    return summaries, details
+
+
+def sequence_diff(before, after, limit=3):
+    """A short, readable account of how one ordered list changed."""
+    changes = []
+    matcher = difflib.SequenceMatcher(None, before, after, autojunk=False)
+    for operation, low, high, new_low, new_high in matcher.get_opcodes():
+        if operation == "equal":
+            continue
+        removed = " ".join(repr(value) for value in before[low:high][:2])
+        added = " ".join(repr(value) for value in after[new_low:new_high][:2])
+        more = max(high - low, new_high - new_low) > 2
+        changes.append(("-" + removed if removed else "") +
+                       (" " if removed and added else "") +
+                       ("+" + added if added else "") + (" ..." if more else ""))
+        if len(changes) == limit:
+            break
+    return "; ".join(changes)
+
+
+def count_delta(before, after):
+    old, new = parse_counts(before), parse_counts(after)
+    return ", ".join(f"{kind} {old.get(kind, 0)}->{new.get(kind, 0)}"
+                     for kind in sorted(old.keys() | new.keys())
+                     if old.get(kind, 0) != new.get(kind, 0))
+
+
+def parse_counts(value):
+    counts = {}
+    for item in value.split():
+        kind, _, count = item.rpartition(":")
+        counts[kind] = int(count)
+    return counts
+
+
+def char_delta(before, after):
+    old, new = parse_multiset(before), parse_multiset(after)
+    lost = {char: old[char] - new.get(char, 0) for char in old
+            if new.get(char, 0) < old[char]}
+    gained = {char: new[char] - old.get(char, 0) for char in new
+              if old.get(char, 0) < new[char]}
+    return lost, gained
+
+
+def describe_chars(counts):
+    return " ".join(f"{char!r}x{count}" for char, count in sorted(counts.items()))
+
+
+FINGERPRINT_CATEGORIES = ("characters", "mid-word", "style", "structure",
+                          "anchors", "links")
+
+
+def compare_fingerprints(name, baseline, current, baseline_details=None,
+                         current_details=None, strict=False, tally=None):
+    """Returns (failures, improvements, reviews) for one book's fingerprints.
+
+    Character loss and any new mid-word style boundary are regressions. Style,
+    structure, anchor and link changes, and character gains, need review;
+    `strict` makes them failures too. `tally`, if given, collects the topics
+    that changed per category."""
+    failures, improvements, reviews = [], [], []
+    tally = {} if tally is None else tally
+    for topic in sorted(baseline.keys() ^ current.keys()):
+        failures.append(f"{name}: {topic}: rendered fingerprint "
+                        f"{'missing' if topic in baseline else 'unexpected'}")
+    for topic in sorted(baseline.keys() & current.keys()):
+        old = expand_fingerprint(baseline[topic])
+        new = expand_fingerprint(current[topic])
+        if old == new:
+            continue
+        old_detail = (baseline_details or {}).get(topic)
+        new_detail = (current_details or {}).get(topic)
+        def detail(field):
+            if old_detail is None or new_detail is None:
+                return ""
+            return " {" + sequence_diff(old_detail[field], new_detail[field]) + "}"
+        fatal, notes = [], []
+        for label, field in (("HTML", "chars"), ("Markdown", "markdown_chars")):
+            lost, gained = char_delta(old[field], new[field])
+            if lost:
+                fatal.append(f"characters: {label} lost {describe_chars(lost)}")
+            if gained:
+                notes.append(f"characters: {label} gained {describe_chars(gained)}")
+        if new["midword"] > old["midword"]:
+            fatal.append(f"mid-word: style boundaries inside words "
+                         f"{old['midword']} -> {new['midword']}" + detail("midword"))
+        elif new["midword"] < old["midword"]:
+            improvements.append(f"{name}: {topic}: mid-word style boundaries "
+                                f"{old['midword']} -> {new['midword']}")
+        if old["style"] != new["style"]:
+            notes.append("style: " + (count_delta(old["style_runs"], new["style_runs"])
+                                      or "same run kinds, text or order changed")
+                         + detail("style"))
+        if old["structure"] != new["structure"]:
+            notes.append("structure: " + (count_delta(old["blocks"], new["blocks"])
+                                          or "same blocks, order or nesting changed")
+                         + detail("structure"))
+        for category, count in (("anchors", "anchor_count"), ("links", "link_count")):
+            if old[category] != new[category]:
+                notes.append(f"{category}: " + (
+                    f"{old[count]} -> {new[count]}" if old[count] != new[count]
+                    else "same count, ids or order changed") + detail(category))
+        for message in fatal + notes:
+            tally.setdefault(message.split(":", 1)[0], set()).add(topic)
+        for message in fatal:
+            failures.append(f"{name}: {topic}: {message}")
+        for message in notes:
+            (failures if strict else reviews).append(f"{name}: {topic}: {message}")
+    return failures, improvements, reviews
+
+
 def identity(path):
     digest = hashlib.sha256()
     with path.open("rb") as book:
@@ -209,10 +568,17 @@ def run_tool(executable, book, *args):
     return result.stdout
 
 
-def measure(book, bootrace, booinfo, raw_dir=None):
+def measure(book, bootrace, booinfo, raw_dir=None, fingerprints=True):
+    """Measures one book. With `fingerprints`, the result also carries
+    `fingerprints` (baseline summaries) and `details` (review-only lists that
+    are written to the raw directory, never to the baseline)."""
     before = identity(book)
     coverage = run_tool(bootrace, book, "--coverage")
-    conservation = run_tool(bootrace, book, "--conservation")
+    if fingerprints:
+        conservation, rendered = split_rendered(
+            run_tool(bootrace, book, "--conservation", "--rendered"))
+    else:
+        conservation = run_tool(bootrace, book, "--conservation")
     metadata = run_tool(booinfo, book)
     edition = {}
     for line in metadata.splitlines():
@@ -238,8 +604,32 @@ def measure(book, bootrace, booinfo, raw_dir=None):
                                  ": conservation source identity differs for " + topic)
     if (conserved["deficits"].keys() | conserved["unframed"].keys()) - topics.keys():
         raise ValueError(book.name + ": conservation names an unknown coverage topic")
-    return {"identity": before, "edition": edition, "topics": topics,
-            "conservation": conserved}
+    result = {"identity": before, "edition": edition, "topics": topics,
+              "conservation": conserved}
+    if fingerprints:
+        if set(rendered) != set(topics):
+            raise ValueError(book.name + ": rendered topic set differs from coverage")
+        try:
+            result["fingerprints"], result["details"] = fingerprint_topics(rendered)
+        except ValueError as error:
+            raise ValueError(book.name + ": " + str(error)) from None
+        if raw_dir is not None:
+            with (raw_dir / (book.name + ".fingerprint.json")).open(
+                    "x", encoding="utf-8") as output:
+                json.dump(result["details"], output, indent=1, sort_keys=True,
+                          ensure_ascii=False)
+                output.write("\n")
+    return result
+
+
+def load_details(directory, name):
+    """Review detail a previous `--raw-dir` kept for one book, if any."""
+    if directory is None:
+        return None
+    path = directory / (name + ".fingerprint.json")
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def compare_book(name, baseline, current):
@@ -322,6 +712,12 @@ def main(argv=None):
     parser.add_argument("--capture", type=Path, help="create NEW review snapshot; never overwrite")
     parser.add_argument("--revision", help="source revision for an explicit capture")
     parser.add_argument("--raw-dir", type=Path, help="NEW scratch directory for raw tool outputs")
+    parser.add_argument("--baseline-raw", type=Path,
+                        help="the --raw-dir kept when the baseline was captured; "
+                             "adds exact per-topic diffs to fingerprint reports")
+    parser.add_argument("--fail-on-review", action="store_true",
+                        help="treat style, structure, anchor, link and character-gain "
+                             "fingerprint changes as regressions")
     args = parser.parse_args(argv)
     if args.jobs < 1 or (args.capture is not None and not args.revision):
         parser.error("positive --jobs required; --capture requires --revision")
@@ -332,8 +728,12 @@ def main(argv=None):
             raise ValueError("capture output already exists; refusing overwrite")
     else:
         baseline = json.loads(args.baseline.read_text(encoding="utf-8"))
-        if baseline.get("schema") != 2 or not baseline.get("books"):
+        if baseline.get("schema") not in SCHEMAS or not baseline.get("books"):
             raise ValueError("unsupported/empty baseline")
+        if baseline["schema"] >= 3 and not all(
+                isinstance(book.get("fingerprints"), dict)
+                for book in baseline["books"].values()):
+            raise ValueError("schema 3 baseline without fingerprints")
         if set(books) != set(baseline["books"]):
             raise ValueError("corpus book set mismatch; missing=" +
                              repr(sorted(set(baseline["books"]) - set(books))) +
@@ -344,16 +744,25 @@ def main(argv=None):
                 raise ValueError(name + ": corpus identity mismatch")
     if args.raw_dir:
         args.raw_dir.mkdir(parents=True, exist_ok=False)
+    # A schema 2 baseline has nothing to compare fingerprints against, so it
+    # is checked exactly as before, without rendering them.
+    fingerprints = baseline is None or baseline["schema"] >= 3
+    if not fingerprints:
+        print("NOTE baseline schema 2 carries no rendered fingerprints; characters, "
+              "style, structure, anchors and mid-word spans are not compared. "
+              "Capture a schema 3 baseline to enable them.", file=sys.stderr)
     measured = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         pending = {pool.submit(measure, book, args.bootrace.resolve(),
-                               args.booinfo.resolve(), args.raw_dir): name
+                               args.booinfo.resolve(), args.raw_dir,
+                               fingerprints): name
                    for name, book in books.items()}
         for future in concurrent.futures.as_completed(pending):
             name = pending[future]
             measured[name] = future.result()
             print("Measured " + name, file=sys.stderr, flush=True)
-    snapshot = {"schema": 2, "revision": args.revision,
+    details = {name: book.pop("details", None) for name, book in measured.items()}
+    snapshot = {"schema": SCHEMA, "revision": args.revision,
                 "scope": "stable book topic catalog: all indexed topics plus TOC-only entries",
                 "books": measured}
     if args.capture:
@@ -362,17 +771,36 @@ def main(argv=None):
             output.write("\n")
         print("Created review snapshot " + str(args.capture))
         return 0
-    failures, improvements = [], []
+    failures, improvements, reviews, summaries = [], [], [], []
     for name in sorted(measured):
         failed, improved = compare_book(name, baseline["books"][name], measured[name])
         failures.extend(failed)
         improvements.extend(improved)
+        if not fingerprints or failed and "identity/edition" in failed[0]:
+            continue
+        tally = {}
+        failed, improved, review = compare_fingerprints(
+            name, baseline["books"][name]["fingerprints"],
+            measured[name]["fingerprints"], load_details(args.baseline_raw, name),
+            details[name], args.fail_on_review, tally)
+        failures.extend(failed)
+        improvements.extend(improved)
+        reviews.extend(review)
+        if tally:
+            summaries.append(name + ": " + ", ".join(
+                f"{category} {len(tally[category])}"
+                for category in FINGERPRINT_CATEGORIES if category in tally))
     for message in improvements:
         print("IMPROVEMENT " + message)
+    for message in reviews:
+        print("REVIEW " + message)
+    for message in summaries:
+        print("CHANGED TOPICS " + message)
     for message in failures:
         print("REGRESSION " + message, file=sys.stderr)
     print(f"Checked {len(measured)} identity-pinned books; {len(failures)} regressions; "
-          f"{len(improvements)} improvements. Baseline was not modified.")
+          f"{len(improvements)} improvements; {len(reviews)} fingerprint changes to "
+          f"review. Baseline was not modified.")
     return bool(failures)
 
 

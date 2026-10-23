@@ -109,6 +109,13 @@ struct DrawnWordTopicIR {
   // Sum of the shortfall forgiven because it stood where a control opcode
   // stands.
   std::size_t forgiven = 0;
+  // The exact outputs this check compared, retained only when the caller asks
+  // for them (the maintainer corpus gate fingerprints style and structure from
+  // them). `markdown_visible_text` is the serializer-trace projection, never a
+  // guess at Markdown syntax; `html_fragment` is the public fragment bytes.
+  // Both stay empty for a topic without a body.
+  std::string markdown_visible_text;
+  std::string html_fragment;
 };
 
 struct DrawnWordConservationIR {
