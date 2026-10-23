@@ -119,6 +119,11 @@ struct Word {
   // between segments is a hidden slot, e.g. `,` before SRETBL).
   bool covered = false;
   std::size_t segment = 0;
+  // The record's display-line framing is decided and this word belongs to
+  // a display line's length byte (`line_length`) or to its content
+  // (`line_content`).  Both false for an unframed record.
+  bool line_length = false;
+  bool line_content = false;
 };
 
 struct PlacedWord {
@@ -513,6 +518,36 @@ public:
     }
   }
 
+  // Every word the geometry hides -- a marker slot, a hidden terminal slot,
+  // a record-boundary slot, a margin glyph -- must be one the reader does
+  // not print.  The record's display-line framing decides it: a line's
+  // length byte is a slot, always and only, and a framed word of line
+  // content that spells a letter or a digit is drawn text.  Such a word
+  // read as a slot vanished from the table with nothing to say so
+  // (dfhcae43 1.9.3.1.3 record 654 line 36 `... the issuing task is not`
+  // lost its `not`; GA19-5486-16 6.3 a cell digit overflowing the right
+  // border), so the column model is refused instead and the region renders
+  // its display lines verbatim, every word kept.
+  bool hidden_words_are_slots(std::string &reason) const {
+    const auto drawn = [](const Word *word) {
+      const auto value = word->value;
+      return word->line_content && value < 0x80 &&
+             std::isalnum(static_cast<int>(value)) != 0;
+    };
+    const auto check = [&](const std::vector<const Word *> &hidden) {
+      for (const auto *word : hidden)
+        if (drawn(word)) {
+          reason = "drawn word read as a hidden slot at " + position(*word);
+          return false;
+        }
+      return true;
+    };
+    for (const auto &line : lines_)
+      if (!check(line.structural_before))
+        return false;
+    return check(trailing_);
+  }
+
   bool extract_table_geometry(const Candidate &candidate,
                               const SourcePosition &start,
                               const SourcePosition &end,
@@ -520,6 +555,8 @@ public:
     if (!has_top_rule(start, end)) {
       block.geometry = FixedTableGeometryIR::gap;
       if (!split_gap_lines(start, end, reason))
+        return false;
+      if (!hidden_words_are_slots(reason))
         return false;
       attach_font_spans(candidate, start, end);
       if (!build_gap_rows(block, reason))
@@ -531,6 +568,8 @@ public:
     if (split)
       attach_font_spans(candidate, start, end);
     if (!split)
+      return false;
+    if (!hidden_words_are_slots(reason))
       return false;
     if (!classify_lines(block, reason))
       return false;
@@ -1114,6 +1153,12 @@ private:
         word.control_only = control_only;
         word.covered = covered[token] != npos;
         word.segment = segment;
+        if (record.ir.display_lines_parse && token < record.ir.tokens.size()) {
+          word.line_length = record.ir.tokens[token].framing ==
+                             TokenFramingRole::line_length;
+          word.line_content = record.ir.tokens[token].framing ==
+                              TokenFramingRole::line_content;
+        }
         words.push_back(word);
         first = false;
       }
@@ -1188,6 +1233,10 @@ private:
                             const std::set<std::size_t> &known) {
     const auto &word = words[at];
     if (!word.token_start)
+      return false;
+    // A framed word of line content is never the next line's marker slot:
+    // that slot is the next line's length byte, always and only.
+    if (word.line_content && !word.spaces_token)
       return false;
     std::size_t glyph = npos;
     if (word.spaces_token) {
@@ -1832,6 +1881,17 @@ private:
       match.ambiguous = !match.bar;
     } else {
       match.slot_begin = at;
+    }
+    // The record's display-line framing names the slot outright: it is the
+    // next line's length byte, and every word before it is content of the
+    // current line, whatever its shape.  dfhlm207 2.7.28 record 516 line 8
+    // ends `8-character data-area`; its last token `area` (one byte, value
+    // 52) is followed by line 9's length byte (spelled as two blanks) and
+    // the three-blank origin, and the slot-shape reading above took `area`
+    // for the hidden marker slot and dropped it.
+    if (native_slot != npos && native_slot < match.origin) {
+      match.slot_begin = native_slot;
+      match.ambiguous = false;
     }
     // A control-only token directly before the slot run opens it.
     while (match.slot_begin > at && words[match.slot_begin - 1].control_only &&

@@ -783,6 +783,122 @@ void test_revision_bar_before_box_border() {
   require(table != nullptr, "revision-bar table did not lower to a table");
 }
 
+// A rule-less (gap) table whose rows end on a one-byte word, followed by the
+// next row's length byte spelled as blanks.  dfhcae43 1.9.3.1.3 record 654
+// line 36 ends `... the issuing task is not`, dfhlm207 2.7.28 record 516
+// line 8 ends `8-character data-area`: the last word and the next line's
+// length byte look exactly like an old hidden marker slot and its origin,
+// and the slot-shape reading dropped `not` and `area`.  The record's
+// display-line framing says which token is the slot.
+void test_line_end_word_before_blank_length_byte() {
+  RecordBuilder builder;
+  builder.line({words("cz"), words("OFF"), words("TABLE")});
+  builder.line({words("SRTBLWORDS")});
+  builder.narrow_line({words("   "), words("ALPHA"), words("          "),
+                       words("is"), words("not")});
+  // The next two length bytes are spelled as two blanks.
+  builder.narrow_line({words("   "), words("BETA"), words("           "),
+                       words("can"), words("area")});
+  builder.record.tokens[builder.record.tokens.size() - 6] = words("  ");
+  builder.narrow_line({words("   "), words("GAMMA"), words("          "),
+                       words("will"), words("run")});
+  builder.record.tokens[builder.record.tokens.size() - 6] = words("  ");
+  builder.line({words("SRETBL")});
+  builder.line({words("cz"), words("OFF"), words("ETABLE")});
+
+  std::vector<DecodedLogicalRecordSource> sources;
+  sources.push_back(builder.finish(654));
+  require(sources.front().ir.display_lines_parse,
+          "line-end word table: display lines do not parse");
+  const auto layout = extract_layout_ir(sources);
+  const auto ownership = build_ownership_ir(sources, layout);
+  const LayoutRowRangeIR range{0, count_layout_rows(layout)};
+  const auto blocks =
+      extract_fixed_table_blocks_ir(sources, layout, ownership, range);
+  require(blocks.declined.empty() && blocks.blocks.size() == 1,
+          "line-end word table was declined" +
+              (blocks.declined.empty()
+                   ? std::string{}
+                   : ": " + blocks.declined.front().reason));
+  if (blocks.blocks.size() != 1)
+    return;
+  const auto &block = blocks.blocks.front();
+  std::string text;
+  for (const auto &row : block.body)
+    for (std::size_t column = 0; column < row.cells.size(); ++column)
+      text += cell_text(row, column) + (column + 1 < row.cells.size() ? " " : "|");
+  // A declared table renders its cells; only a block without a column
+  // model renders its display lines.
+  if (block.body.empty())
+    for (const auto &line : block.preformatted_lines)
+      text += line.text + "|";
+  for (const auto *word : {"is not", "can area", "will run"})
+    require(text.find(word) != std::string::npos,
+            std::string("a row's last word was read as a hidden slot (") +
+                word + "): " + text);
+  std::string error;
+  require(verify_fixed_table_blocks_ir(sources, layout, ownership, range,
+                                       blocks, &error),
+          "line-end word table did not verify: " + error);
+}
+
+// A cell word that overflows the box's right border (GA19-5486-16 6.3
+// `| 128-5|2`, SV40-0093-03 4.4.38.3 `| IBM_Age|t`) is drawn text no cell
+// can hold.  The column model must not hide it as a slot: the region falls
+// back to its display lines, every word kept.
+void test_word_past_right_border_is_not_hidden() {
+  constexpr std::uint16_t vertical = 0x2502;
+  constexpr std::uint16_t horizontal = 0x2500;
+  const TokenWords join{1};
+  const auto rule = [&](std::uint16_t left, std::uint16_t middle,
+                        std::uint16_t right) {
+    return std::vector<TokenWords>{words("   "), {left},  join,
+                                   glyphs(horizontal, 6),  join,
+                                   {middle},               join,
+                                   glyphs(horizontal, 6),  join,
+                                   {right}};
+  };
+  RecordBuilder builder;
+  builder.line({words("cz"), words("OFF"), words("TABLE")});
+  builder.line({words("SRTBLOVERFLOW")});
+  builder.narrow_line(rule(0x250c, 0x252c, 0x2510));
+  builder.narrow_line({words("   "), {vertical}, words(" "), words("Ab"),
+                       words(" "), {vertical}, words(" "), words("Cd"),
+                       words(" "), {vertical}});
+  builder.narrow_line(rule(0x251c, 0x253c, 0x2524));
+  builder.narrow_line({words("   "), {vertical}, words(" "), words("Ef"),
+                       words(" "), {vertical}, words(" "), words("Gh"),
+                       words(" "), {vertical}, join, words("t")});
+  builder.narrow_line(rule(0x2514, 0x2534, 0x2518));
+  builder.line({words("SRETBL")});
+  builder.line({words("cz"), words("OFF"), words("ETABLE")});
+  std::vector<DecodedLogicalRecordSource> sources;
+  sources.push_back(builder.finish(589));
+  const auto layout = extract_layout_ir(sources);
+  const auto ownership = build_ownership_ir(sources, layout);
+  const LayoutRowRangeIR range{0, count_layout_rows(layout)};
+  const auto blocks =
+      extract_fixed_table_blocks_ir(sources, layout, ownership, range);
+  require(blocks.declined.empty() && blocks.blocks.size() == 1,
+          "overflowing box was declined");
+  if (blocks.blocks.size() != 1)
+    return;
+  const auto &block = blocks.blocks.front();
+  const auto lowered = lower_fixed_table_block_to_document_ir(block);
+  std::string text;
+  if (lowered_table(lowered) != nullptr) {
+    for (const auto &row : block.body)
+      for (std::size_t column = 0; column < row.cells.size(); ++column)
+        text += cell_text(row, column) + "|";
+  } else if (const auto *verbatim = lowered_verbatim(lowered)) {
+    for (const auto &line : verbatim->lines)
+      text += line + "|";
+  }
+  require(text.find("Gh") != std::string::npos &&
+              text.find("|t") != std::string::npos,
+          "the word past the right border vanished: " + text);
+}
+
 } // namespace
 
 int main() {
@@ -795,6 +911,8 @@ int main() {
   test_native_row_without_layout_projection();
   test_glued_one_byte_word_is_content();
   test_revision_bar_before_box_border();
+  test_line_end_word_before_blank_length_byte();
+  test_word_past_right_border_is_not_hidden();
   geist_test::exit_with_failures();
   std::cout << "fixed table block IR checks passed\n";
   return 0;
