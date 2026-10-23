@@ -142,6 +142,23 @@ DocumentIR build_document() {
       in(EmphasisInlineIR{"both<&>", EmphasisKindIR::strong_emphasis}));
   rich.push_back(in(UnderlineInlineIR{"fill_<&>___"}));
   rich.push_back(in(CodeInlineIR{"a < b && c > d"}));
+  // Runs naming a phrase take the element hosted BookServer serves.
+  rich.push_back(in(CodeInlineIR{"x<samp>", PhraseKindIR::sample}));
+  rich.push_back(in(CodeInlineIR{"PF&3", PhraseKindIR::keyboard}));
+  rich.push_back(in(EmphasisInlineIR{"Guide<&>", EmphasisKindIR::emphasis,
+                                     PhraseKindIR::citation}));
+  {
+    CrossReferenceInlineIR keyed{
+        {CrossReferenceTargetKindIR::anchor, "KEYS"}, "PF1"};
+    keyed.label_code = true;
+    keyed.label_phrase = PhraseKindIR::keyboard;
+    rich.push_back(in(std::move(keyed)));
+    CrossReferenceInlineIR cited{
+        {CrossReferenceTargetKindIR::anchor, "BIB"}, "Reference"};
+    cited.label_emphasis = EmphasisKindIR::emphasis;
+    cited.label_phrase = PhraseKindIR::citation;
+    rich.push_back(in(std::move(cited)));
+  }
   rich.push_back(in(CrossReferenceInlineIR{
       {CrossReferenceTargetKindIR::external,
        "https://example.test/a b?q=a&b=\"c\""},
@@ -516,6 +533,24 @@ int main() {
            "<code class=\"geist-monospace\">a &lt; b &amp;&amp; c &gt; d"
            "</code>",
            "code text not escaped");
+  contains(fragment,
+           "<samp class=\"geist-monospace geist-sample\">x&lt;samp&gt;"
+           "</samp>",
+           "an `E` sample phrase is not <samp>");
+  contains(fragment,
+           "<kbd class=\"geist-monospace geist-keyboard\">PF&amp;3</kbd>",
+           "a `P` keyboard phrase is not <kbd>");
+  contains(fragment,
+           "<cite class=\"geist-emphasis geist-citation\">Guide&lt;&amp;&gt;"
+           "</cite>",
+           "a `C` citation phrase is not <cite>");
+  contains(fragment,
+           "><kbd class=\"geist-monospace geist-keyboard\">PF1</kbd></a>",
+           "a keyboard link label is not <kbd>");
+  contains(fragment,
+           "><cite class=\"geist-emphasis geist-citation\">Reference</cite>"
+           "</a>",
+           "a citation link label is not <cite>");
   contains(fragment, "id=\"A&quot;&lt;&amp;&#39;x\"",
            "anchor id attribute not escaped");
   contains(fragment,

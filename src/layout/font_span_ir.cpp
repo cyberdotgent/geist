@@ -49,8 +49,8 @@ FontStyleIR style_for_code(const std::string& code) {
   case 'q':
   case 'z': return FontStyleIR::keyword_define;
   case 'x':
-  case 'e':
   case '4': return FontStyleIR::example_phrase;
+  case 'e': return FontStyleIR::sample_phrase;
   case 'p': return FontStyleIR::keyword;
   case 'v': return FontStyleIR::variable;
   case 'w': return FontStyleIR::warning;
@@ -97,6 +97,8 @@ const char* font_style_name(FontStyleIR style) {
     return "cit";
   case FontStyleIR::example_phrase:
     return "xph";
+  case FontStyleIR::sample_phrase:
+    return "xmp";
   case FontStyleIR::keyword:
     return "pk";
   case FontStyleIR::variable:
@@ -115,6 +117,11 @@ const char* font_style_name(FontStyleIR style) {
     break;
   }
   return "unknown";
+}
+
+bool font_style_is_example(FontStyleIR style) {
+  return style == FontStyleIR::example_phrase ||
+         style == FontStyleIR::sample_phrase;
 }
 
 std::optional<FontControlSpansIR>

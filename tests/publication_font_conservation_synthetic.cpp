@@ -128,10 +128,19 @@ void check(const std::string &style, bool framed, bool admitted,
       require(trace.family != "publication catalog" &&
                   html.find(expected_markup) != std::string::npos,
               "publication route flattened source styling: " + html);
-      if (style == "C")
+      // Markdown keeps its own conventions whatever element HTML chose.
+      if (style == "C" || style == "V")
         require(render_document_markdown(*document).find("*Alpha*") !=
                     std::string::npos,
-                "Markdown flattened source citation styling");
+                "Markdown flattened source " + style + " styling: " +
+                    render_document_markdown(*document));
+      if (style == "E" || style == "P" || style == "X" || style == "4")
+        require(render_document_markdown(*document).find("`Alpha`") !=
+                        std::string::npos &&
+                    render_document_markdown(*document).find('<') ==
+                        std::string::npos,
+                "Markdown did not keep " + style + " a code span: " +
+                    render_document_markdown(*document));
       // The conservation reader must see the slot as visible text.
       if (style == "blank_") {
         std::string visible;
@@ -156,7 +165,21 @@ void check(const std::string &style, bool framed, bool admitted,
 } // namespace
 
 int main() {
-  check("C", true, false, "<em class=\"geist-emphasis\">Alpha</em>");
+  // HTML serves each phrase code in the element hosted BookServer uses
+  // (doc/boo-spec/markup.adoc, the message-entry census): `C` (CIT)
+  // `<cite>`, `E` (XMP) `<samp>`, `P` (PK) `<kbd>`.  `X` (XPH) and `4` (HP4)
+  // are hosted `<tt>`, obsolete in HTML5, and stay `<code>`.  `V` (PV) is
+  // hosted `<var>` on a handful of books only, without a census, and keeps
+  // its emphasis.
+  check("C", true, false,
+        "<cite class=\"geist-emphasis geist-citation\">Alpha</cite>");
+  check("E", true, false,
+        "<samp class=\"geist-monospace geist-sample\">Alpha</samp>");
+  check("P", true, false,
+        "<kbd class=\"geist-monospace geist-keyboard\">Alpha</kbd>");
+  check("X", true, false, "<code class=\"geist-monospace\">Alpha</code>");
+  check("4", true, false, "<code class=\"geist-monospace\">Alpha</code>");
+  check("V", true, false, "<em class=\"geist-emphasis\">Alpha</em>");
   check("2", true, false, "<strong class=\"geist-strong\">Alpha</strong>");
   // `K` (H4) is italic, not bold: hosted BookServer serves every K span of
   // 30 sampled books as `<I>`, e.g. SC09-138 1.1.3 (DT 19910321130500)

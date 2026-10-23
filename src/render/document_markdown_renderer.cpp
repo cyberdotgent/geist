@@ -286,8 +286,9 @@ void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
                                    node.text.find('|') != std::string::npos;
             if (!cell_pipe && (emphasis_at(index + 1) ||
                                (index > 0 && emphasis_at(index - 1)))) {
-              sink.html(render_document_html_inlines({in}, {},
-                                                      options.resolve_cross_reference),
+              sink.html(render_document_html_inlines(
+                            {in}, {}, options.resolve_cross_reference,
+                            HtmlPhraseElements::generic),
                         "abutting emphasis", origin);
               return;
             }
@@ -299,8 +300,9 @@ void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
           } else if constexpr (std::is_same_v<T, UnderlineInlineIR>) {
             // Markdown has no underline: the run is written as the same
             // inline HTML the HTML renderer emits, as abutting emphasis is.
-            sink.html(render_document_html_inlines({in}, {},
-                                                    options.resolve_cross_reference),
+            sink.html(render_document_html_inlines(
+                          {in}, {}, options.resolve_cross_reference,
+                          HtmlPhraseElements::generic),
                       "underline", origin);
           } else if constexpr (std::is_same_v<T, CodeInlineIR>) {
             const auto parts = code_span_parts(
@@ -452,8 +454,10 @@ void append_preformatted_html_block(
       ++next_anchor;
     }
     if (!node.styled_lines.empty()) {
-      sink.html(render_document_html_inlines(node.styled_lines[index], {},
-                                              options.resolve_cross_reference),
+      sink.html(render_document_html_inlines(
+                    node.styled_lines[index], {},
+                    options.resolve_cross_reference,
+                    HtmlPhraseElements::generic),
                 "preformatted line", line_origin);
       if (index + 1 < node.lines.size())
         sink.boundary("\n", "preformatted line break", line_origin);
@@ -709,7 +713,8 @@ void append_block(RenderSink &sink, const BlockIR &block,
             sink.html(render_document_html_blocks(
                           BlockSequenceIR{block},
                           html_options_for_markdown(options),
-                          options.resolve_cross_reference),
+                          options.resolve_cross_reference,
+                          HtmlPhraseElements::generic),
                       "compound definition list HTML", block_origin);
             return;
           }
@@ -751,7 +756,8 @@ void append_block(RenderSink &sink, const BlockIR &block,
             sink.html(render_document_html_blocks(
                           BlockSequenceIR{block},
                           html_options_for_markdown(options),
-                          options.resolve_cross_reference),
+                          options.resolve_cross_reference,
+                          HtmlPhraseElements::generic),
                       "compound table HTML", block_origin);
           } else {
             append_table(sink, node, block_origin, options);

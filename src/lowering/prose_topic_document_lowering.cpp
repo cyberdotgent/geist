@@ -37,6 +37,10 @@ EmphasisKindIR emphasis_kind(FontStyleIR style) {
   return font_style_emphasis_kind(style);
 }
 
+PhraseKindIR phrase_kind(FontStyleIR style) {
+  return font_style_phrase_kind(style);
+}
+
 CrossReferenceTargetIR prose_target(
     CrossReferenceTargetKindIR kind, const std::string& value,
     const std::vector<std::string>& alternatives) {
@@ -295,7 +299,7 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
       if (node.style == FontStyleIR::unknown)
         return fail(error, "prose emphasis has no highlight style");
       if (code_style(node.style)) {
-        lowered.node = CodeInlineIR{node.text};
+        lowered.node = CodeInlineIR{node.text, phrase_kind(node.style)};
         lowered.origin = origin(node.slices, "prose CFONT example phrase");
       } else if (node.style == FontStyleIR::underscore) {
         // `_` is hosted `<u>`, not HP5's emphasis: SC24-5527-02 COMMENTS
@@ -303,7 +307,8 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
         lowered.node = UnderlineInlineIR{node.text};
         lowered.origin = origin(node.slices, "prose CFONT underscore");
       } else {
-        lowered.node = EmphasisInlineIR{node.text, emphasis_kind(node.style)};
+        lowered.node = EmphasisInlineIR{node.text, emphasis_kind(node.style),
+                                        phrase_kind(node.style)};
         lowered.origin = origin(node.slices, "prose CFONT highlight");
       }
       break;
@@ -358,6 +363,7 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
         reference.label_code = true;
       else if (node.style != FontStyleIR::unknown)
         reference.label_emphasis = emphasis_kind(node.style);
+      reference.label_phrase = phrase_kind(node.style);
       lowered.node = std::move(reference);
       lowered.origin =
           origin(node.slices,

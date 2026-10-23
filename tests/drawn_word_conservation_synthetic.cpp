@@ -134,6 +134,19 @@ void check_html_projection() {
           "non-marker attributes never supply numbers");
   require(cut("<p>before</p><hr><p>after</p>") == "before,after",
           "a rendered thematic break is structural and supplies no words");
+  // The phrase elements hosted BookServer serves for `E`, `P`, `V` and `C`
+  // are inline: they keep adjacency like `<code>` and `<em>` do.
+  std::string phrases;
+  try {
+    phrases = cut("<p>use <samp class=\"geist-monospace geist-sample\">NO"
+                  "</samp>STAE, <kbd class=\"geist-monospace geist-keyboard\">"
+                  "ENTER</kbd> <var>name</var> <cite class=\"geist-emphasis "
+                  "geist-citation\">Guide</cite>s</p>");
+  } catch (const std::exception &e) {
+    phrases = std::string("threw: ") + e.what();
+  }
+  require(phrases == "use,nostae,enter,name,guides",
+          "phrase elements are not inline visible text: " + phrases);
 }
 
 void check_projection_rejects_unsupported_html() {

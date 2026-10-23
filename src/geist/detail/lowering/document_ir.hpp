@@ -25,15 +25,31 @@ enum class EmphasisKindIR {
   strong_emphasis,
 };
 
+// The phrase a styled run names, beyond its emphasis or code kind: the
+// `CFONT` code hosted BookServer serves in an element of its own -- `E`
+// (XMP) `<samp>`, `P` (PK) `<kbd>`, `C` (CIT) `<cite>` (doc/boo-spec/
+// markup.adoc, the message-entry census).  `none` is every other run.  It
+// refines the presentation the kind already states and never changes it:
+// a sample or keyboard phrase is code, a citation is emphasis.  HTML picks
+// its element by it; Markdown has no such elements and ignores it.
+enum class PhraseKindIR {
+  none,
+  sample,
+  keyboard,
+  citation,
+};
+
 // Typed inline emphasis. The kind is a presentation fact carried from typed
 // font provenance (HP1/HP2/HP3); renderers choose the target syntax.
 struct EmphasisInlineIR {
   std::string text;
   EmphasisKindIR kind = EmphasisKindIR::emphasis;
+  PhraseKindIR phrase = PhraseKindIR::none;
 };
 
 struct CodeInlineIR {
   std::string code;
+  PhraseKindIR phrase = PhraseKindIR::none;
 };
 
 // Typed underline: a CFONT `_` (UNDERSCORE) run, which hosted BookServer
@@ -102,6 +118,8 @@ struct CrossReferenceInlineIR {
   // same target when only part of one selector label is styled.
   std::optional<EmphasisKindIR> label_emphasis;
   bool label_code = false;
+  // The phrase the label's run names, as on `CodeInlineIR`/`EmphasisInlineIR`.
+  PhraseKindIR label_phrase = PhraseKindIR::none;
   // An image drawn at the start of the link's content, before the label.  A
   // `LNK <IMAGE>` selector in running prose places one there (XWEBDEMO 1.0;
   // doc/boo-spec/markup.adoc, "LNK selector alternatives").  Like a figure's

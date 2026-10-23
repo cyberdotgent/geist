@@ -126,6 +126,7 @@ std::optional<EmphasisKindIR> emphasis_for(FontStyleIR style) {
   case FontStyleIR::highlight_8:
   case FontStyleIR::highlight_9:
   case FontStyleIR::example_phrase:
+  case FontStyleIR::sample_phrase:
   case FontStyleIR::keyword:
   case FontStyleIR::keyword_define:
   case FontStyleIR::apl_symbol:
@@ -143,10 +144,13 @@ std::optional<EmphasisKindIR> emphasis_for(FontStyleIR style) {
 // and `P` (PK, `<kbd>`) are served monospace inside message entries of every
 // sampled book (doc/boo-spec/markup.adoc, the message-entry census) and are
 // the code spans prose lowers them to; every other code keeps
-// `emphasis_for`, and a code with no verified presentation stays text.
+// `emphasis_for`, and a code with no verified presentation stays text. The
+// phrase (`E`, `P`, `C`) rides along for the HTML element; it is not part of
+// the presentation two runs are compared by.
 struct RunStyle {
   bool code = false;
   EmphasisKindIR emphasis = EmphasisKindIR::emphasis;
+  PhraseKindIR phrase = PhraseKindIR::none;
 };
 
 bool operator==(const RunStyle &left, const RunStyle &right) {
@@ -154,18 +158,26 @@ bool operator==(const RunStyle &left, const RunStyle &right) {
          (left.code || left.emphasis == right.emphasis);
 }
 
+// Two runs of one presentation join as they always have; a joined run whose
+// parts name different phrases names none.
+void join_phrase(PhraseKindIR &joined, PhraseKindIR next) {
+  if (joined != next)
+    joined = PhraseKindIR::none;
+}
+
 std::optional<RunStyle> run_style(FontStyleIR style) {
-  if (style == FontStyleIR::example_phrase || style == FontStyleIR::keyword)
-    return RunStyle{true, EmphasisKindIR::emphasis};
+  if (font_style_is_example(style) || style == FontStyleIR::keyword)
+    return RunStyle{true, EmphasisKindIR::emphasis,
+                    font_style_phrase_kind(style)};
   if (const auto kind = emphasis_for(style))
-    return RunStyle{false, *kind};
+    return RunStyle{false, *kind, font_style_phrase_kind(style)};
   return std::nullopt;
 }
 
 InlineNodeIR run_node(const RunStyle &style, std::string text) {
   if (style.code)
-    return CodeInlineIR{std::move(text)};
-  return EmphasisInlineIR{std::move(text), style.emphasis};
+    return CodeInlineIR{std::move(text), style.phrase};
+  return EmphasisInlineIR{std::move(text), style.emphasis, style.phrase};
 }
 
 // Appends `text` to the run `previous` already holds when both present the
@@ -182,6 +194,7 @@ bool extend_run(InlineNodeIR &previous, const std::optional<RunStyle> &style,
   if (style->code) {
     if (auto *code = std::get_if<CodeInlineIR>(&previous)) {
       code->code += text;
+      join_phrase(code->phrase, style->phrase);
       return true;
     }
     return false;
@@ -189,6 +202,7 @@ bool extend_run(InlineNodeIR &previous, const std::optional<RunStyle> &style,
   if (auto *emphasis = std::get_if<EmphasisInlineIR>(&previous);
       emphasis != nullptr && emphasis->kind == style->emphasis) {
     emphasis->text += text;
+    join_phrase(emphasis->phrase, style->phrase);
     return true;
   }
   return false;
@@ -305,6 +319,8 @@ bool append_body_after(InlineSequenceIR &content, const TrapTextIR &body,
       return;
     if (!pieces.empty() && pieces.back().second == kind) {
       pieces.back().first += text;
+      if (kind)
+        join_phrase(pieces.back().second->phrase, kind->phrase);
       return;
     }
     pieces.push_back({std::move(text), kind});
@@ -650,12 +666,15 @@ bool styled_introduction_inlines(const TrapIntroductionParagraphIR &paragraph,
                              std::move(label)},
                          paragraph_origin});
     } else if (font_style_is_code(range.style)) {
-      content.push_back({CodeInlineIR{std::move(label)}, paragraph_origin});
+      content.push_back({CodeInlineIR{std::move(label),
+                                      font_style_phrase_kind(range.style)},
+                         paragraph_origin});
     } else if (range.style != FontStyleIR::unknown &&
                range.style != FontStyleIR::underscore) {
       content.push_back(
           {EmphasisInlineIR{std::move(label),
-                            font_style_emphasis_kind(range.style)},
+                            font_style_emphasis_kind(range.style),
+                            font_style_phrase_kind(range.style)},
            paragraph_origin});
     } else {
       text(range.begin, range.end);

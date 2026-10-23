@@ -155,11 +155,22 @@ would be a claim the source never made.
 | `geist-strong-emphasis` | `<strong><em>` | `EmphasisInlineIR` kind `strong_emphasis` |
 | `geist-underline` | `<u>` | `UnderlineInlineIR` (CFONT `_`) |
 | `geist-monospace` | `<code>` | `CodeInlineIR` |
+| `geist-monospace geist-sample` | `<samp>` | `CodeInlineIR` phrase `sample` (CFONT `E`, XMP) |
+| `geist-monospace geist-keyboard` | `<kbd>` | `CodeInlineIR` phrase `keyboard` (CFONT `P`, PK) |
+| `geist-emphasis geist-citation` | `<cite>` | `EmphasisInlineIR` kind `emphasis`, phrase `citation` (CFONT `C`, CIT) |
 | `geist-image` | `<img>` | `ImageInlineIR` |
 | `geist-opaque-inline` | `<code>` | `OpaqueInlineIR` |
 
 Semantic elements *and* the class are used, so a consumer can restyle without
 fighting user-agent defaults.
+
+The phrase elements are the ones hosted BookServer serves for those style
+codes. Each keeps the class of its family (`geist-monospace` or
+`geist-emphasis`) beside its own, so a rule written for code or emphasis
+still applies to it; select the family class, not `code.geist-monospace` or
+`em.geist-emphasis`. `X` (XPH) and `4` (HP4) are hosted `<tt>`, which HTML5
+dropped, and stay `<code>`. Markdown output never uses the phrase elements:
+where it embeds HTML it writes the generic `<code>`/`<em>` forms.
 
 Preformatted rows may contain these inline styles and links without losing
 their literal spaces or line boundaries. All inline font sizes and families

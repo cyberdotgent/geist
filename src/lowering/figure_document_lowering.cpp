@@ -73,17 +73,20 @@ bool same_inlines(const InlineSequenceIR &left, const InlineSequenceIR &right) {
         return false;
     } else if (left_emphasis != nullptr && right_emphasis != nullptr) {
       if (left_emphasis->text != right_emphasis->text ||
-          left_emphasis->kind != right_emphasis->kind)
+          left_emphasis->kind != right_emphasis->kind ||
+          left_emphasis->phrase != right_emphasis->phrase)
         return false;
     } else if (const auto* code = std::get_if<CodeInlineIR>(&left[index].node)) {
-      if (code->code != std::get<CodeInlineIR>(right[index].node).code)
+      const auto& other = std::get<CodeInlineIR>(right[index].node);
+      if (code->code != other.code || code->phrase != other.phrase)
         return false;
     } else if (const auto* link = std::get_if<CrossReferenceInlineIR>(&left[index].node)) {
       const auto& other = std::get<CrossReferenceInlineIR>(right[index].node);
       if (link->label != other.label ||
           link->targets.size() != other.targets.size() ||
           link->label_emphasis != other.label_emphasis ||
-          link->label_code != other.label_code)
+          link->label_code != other.label_code ||
+          link->label_phrase != other.label_phrase)
         return false;
       for (std::size_t claim = 0; claim < link->targets.size(); ++claim) {
         if (link->targets[claim].control_origin.has_value() !=

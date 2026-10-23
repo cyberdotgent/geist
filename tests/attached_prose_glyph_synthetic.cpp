@@ -132,7 +132,9 @@ void attached(bool styled, bool selector, bool embedded_prefix,
     check(html.find("<em class=\"geist-emphasis\">SNA°ps</em>") !=
               std::string::npos,
           "CFONT interval split/shifted: " + html);
-    check(html.find("<code class=\"geist-monospace\">Gateway</code>") !=
+    // `E` (XMP) is hosted `<samp>`.
+    check(html.find("<samp class=\"geist-monospace geist-sample\">Gateway"
+                    "</samp>") !=
               std::string::npos,
           "CFONT after glyph shifted: " + html);
   }
@@ -204,8 +206,8 @@ void leading_native_box_glyphs() {
   if (doc) {
     const auto html = render_document_html_fragment(*doc);
     check(html.find("<pre") != std::string::npos &&
-              html.find(">   |_<code") != std::string::npos &&
-              html.find(">option</code>_|</pre>") != std::string::npos,
+              html.find(">   |_<kbd") != std::string::npos &&
+              html.find(">option</kbd>_|</pre>") != std::string::npos,
           "leading native box glyphs were not drawn: " + html);
   }
 
@@ -256,7 +258,9 @@ void native_drawing_region() {
             html.find("| tail") != std::string::npos &&
             html.find("\n\n   |") != std::string::npos,
         "native drawing rows were not composed exactly: " + html);
-  check(html.find("<code class=\"geist-monospace\">") != std::string::npos,
+  // `P` (PK) is hosted `<kbd>`.
+  check(html.find("<kbd class=\"geist-monospace geist-keyboard\">") !=
+            std::string::npos,
         "native drawing font was lost: " + html);
   check(html.find("href=\"#TARGET\"") != std::string::npos,
         "native drawing selector was lost: " + html);
@@ -992,8 +996,8 @@ void styled_table_row(bool framed, bool aligned) {
               html.find("|____________________|") != std::string::npos,
           "framed table row lost its CFONT styling or its frame: " + html);
   } else if (aligned) {
-    check(strong_a && html.find("<code") != std::string::npos &&
-              html.find(">B</code>") != std::string::npos,
+    check(strong_a && html.find("<samp") != std::string::npos &&
+              html.find(">B</samp>") != std::string::npos,
           "table row lost its CFONT styling: " + html);
   } else {
     check(html.find("geist-strong") == std::string::npos &&
@@ -1506,7 +1510,8 @@ void inline_syntax_diagram() {
     if (!doc) continue;
     const auto html = render_document_html_fragment(*doc);
     const std::string main =
-        "   &gt;&gt;__<code class=\"geist-monospace\">PARSE</code>__ ______ "
+        "   &gt;&gt;__<kbd class=\"geist-monospace geist-keyboard\">PARSE"
+        "</kbd>__ ______ "
         "__&gt;&lt;\n";
     const std::string item =
         "              |_<em class=\"geist-emphasis\">item</em>_|";
@@ -1577,8 +1582,8 @@ void arrow_drawing() {
         shaft == Shaft::rail_above
             ? "      ABCDE    |    Order\n      AB*      |\n      GEN      ↓"
             : "        TMARGIN value\n"
-              "        <code class=\"geist-monospace\">↑</code>\n"
-              "        <code class=\"geist-monospace\">|</code>";
+              "        <samp class=\"geist-monospace geist-sample\">↑</samp>\n"
+              "        <samp class=\"geist-monospace geist-sample\">|</samp>";
     check(pre_body(html) == expected,
           "vertical arrow drawing was not drawn verbatim: " + html);
     check(html.find("Sorted as follows:") < html.find("<pre") &&

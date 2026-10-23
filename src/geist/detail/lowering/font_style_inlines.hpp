@@ -14,5 +14,7 @@ namespace geist::detail {
 // `font_style_emphasis_kind` names.
 bool font_style_is_code(FontStyleIR style);
 EmphasisKindIR font_style_emphasis_kind(FontStyleIR style);
+// The phrase a style names on top of that (`E`, `P`, `C`); `none` otherwise.
+PhraseKindIR font_style_phrase_kind(FontStyleIR style);
 
 } // namespace geist::detail

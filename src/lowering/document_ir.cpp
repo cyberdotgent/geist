@@ -133,6 +133,19 @@ bool valid_cross_reference_target(const CrossReferenceTargetIR& target) {
   return false;
 }
 
+// A phrase refines the presentation a run already has and never changes it:
+// a sample or keyboard phrase is code, a citation plain emphasis.
+bool phrase_fits(PhraseKindIR phrase, bool code, EmphasisKindIR kind) {
+  switch (phrase) {
+  case PhraseKindIR::none: return true;
+  case PhraseKindIR::sample:
+  case PhraseKindIR::keyboard: return code;
+  case PhraseKindIR::citation:
+    return !code && kind == EmphasisKindIR::emphasis;
+  }
+  return false;
+}
+
 bool verify_inlines(const InlineSequenceIR& inlines, bool allow_empty,
                     std::string* error) {
   if (!allow_empty && inlines.empty())
@@ -153,14 +166,21 @@ bool verify_inlines(const InlineSequenceIR& inlines, bool allow_empty,
             return !node.text.empty() &&
                    (node.kind == EmphasisKindIR::emphasis ||
                     node.kind == EmphasisKindIR::strong ||
-                    node.kind == EmphasisKindIR::strong_emphasis);
+                    node.kind == EmphasisKindIR::strong_emphasis) &&
+                   phrase_fits(node.phrase, false, node.kind);
           } else if constexpr (std::is_same_v<T, UnderlineInlineIR>) {
             return !node.text.empty();
           } else if constexpr (std::is_same_v<T, CodeInlineIR>) {
-            return !node.code.empty();
+            return !node.code.empty() &&
+                   phrase_fits(node.phrase, true, EmphasisKindIR::emphasis);
           } else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
             if (node.targets.empty() ||
                 (node.label_emphasis && node.label_code) ||
+                (node.label_phrase != PhraseKindIR::none &&
+                 !node.label_code && !node.label_emphasis) ||
+                !phrase_fits(node.label_phrase, node.label_code,
+                             node.label_emphasis.value_or(
+                                 EmphasisKindIR::emphasis)) ||
                 (node.label_emphasis &&
                  *node.label_emphasis != EmphasisKindIR::emphasis &&
                  *node.label_emphasis != EmphasisKindIR::strong &&
@@ -622,6 +642,23 @@ const char* cross_reference_target_kind_name(
   return "invalid";
 }
 
+const char* phrase_kind_name(PhraseKindIR value) {
+  switch (value) {
+  case PhraseKindIR::none: return "none";
+  case PhraseKindIR::sample: return "sample";
+  case PhraseKindIR::keyboard: return "keyboard";
+  case PhraseKindIR::citation: return "citation";
+  }
+  return "invalid";
+}
+
+// A suffix only for a run that names a phrase, so every other dump keeps
+// the spelling it always had.
+std::string phrase_suffix(PhraseKindIR value) {
+  if (value == PhraseKindIR::none) return {};
+  return std::string("/") + phrase_kind_name(value);
+}
+
 const char* emphasis_kind_name(EmphasisKindIR value) {
   switch (value) {
   case EmphasisKindIR::emphasis: return "emphasis";
@@ -660,17 +697,20 @@ void format_inlines(std::ostringstream& out, const InlineSequenceIR& inlines) {
           if constexpr (std::is_same_v<T, TextInlineIR>)
             out << "text=" << quoted(node.text);
           else if constexpr (std::is_same_v<T, EmphasisInlineIR>)
-            out << emphasis_kind_name(node.kind) << '=' << quoted(node.text);
+            out << emphasis_kind_name(node.kind) << phrase_suffix(node.phrase)
+                << '=' << quoted(node.text);
           else if constexpr (std::is_same_v<T, UnderlineInlineIR>)
             out << "underline=" << quoted(node.text);
           else if constexpr (std::is_same_v<T, CodeInlineIR>)
-            out << "code=" << quoted(node.code);
+            out << "code" << phrase_suffix(node.phrase) << '='
+                << quoted(node.code);
           else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
             out << "xref=" << quoted(node.label);
             if (node.label_code)
               out << ":code";
             else if (node.label_emphasis)
               out << ':' << emphasis_kind_name(*node.label_emphasis);
+            out << phrase_suffix(node.label_phrase);
             if (node.label_image)
               out << " image=" << quoted(node.label_image->resource) << ':'
                   << quoted(node.label_image->alt_text);

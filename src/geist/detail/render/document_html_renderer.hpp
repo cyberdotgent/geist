@@ -55,13 +55,25 @@ std::vector<std::string> html_block_classes();
 using DocumentHtmlInlineResolver =
     std::function<std::optional<std::string>(const CrossReferenceTargetIR &)>;
 
+// The elements a run naming a phrase (`PhraseKindIR`) is wrapped in.  Native
+// HTML uses the ones hosted BookServer serves (`<samp>`, `<kbd>`,
+// `<cite>`).  Markdown embeds HTML only where its own syntax cannot follow,
+// and there keeps the generic `<code>`/`<em>` it has always written, so a
+// GitHub-flavoured reader never draws a `<kbd>` keycap.
+enum class HtmlPhraseElements {
+  hosted,
+  generic,
+};
+
 // The same inline HTML used inside native HTML and styled preformatted
 // Markdown. The optional private resolver preserves the Markdown exporter's
 // existing destination hook without introducing consumer policy into IR.
 std::string
-render_document_html_inlines(const InlineSequenceIR &inlines,
-                             const geist::HtmlRenderOptions &options = {},
-                             const DocumentHtmlInlineResolver &resolve = {});
+render_document_html_inlines(
+    const InlineSequenceIR &inlines,
+    const geist::HtmlRenderOptions &options = {},
+    const DocumentHtmlInlineResolver &resolve = {},
+    HtmlPhraseElements phrases = HtmlPhraseElements::hosted);
 
 // The blocks of a document, with no root element around them.
 std::string
@@ -74,7 +86,8 @@ render_document_html_blocks(const DocumentIR &document,
 // DocumentIR renderer and accepts the caller's destination policy.
 std::string render_document_html_blocks(
     const BlockSequenceIR &blocks, const geist::HtmlRenderOptions &options,
-    const DocumentHtmlInlineResolver &resolve = {});
+    const DocumentHtmlInlineResolver &resolve = {},
+    HtmlPhraseElements phrases = HtmlPhraseElements::hosted);
 
 // True when any block of the document was emitted verbatim because its
 // structure could not be proven, which is what makes the topic

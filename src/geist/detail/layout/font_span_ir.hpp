@@ -95,7 +95,8 @@ enum class FontStyleIR {
   highlight_9,     // 9 (HP9): underscored monospace phrase (<TT><U>)
   apl_symbol,      // A: APL code-page text (CP293, not CP037 decoration)
   citation,        // C: italic citation
-  example_phrase,  // X, E, 4: monospace example text
+  example_phrase,  // X, 4: monospace example phrase (hosted <tt>)
+  sample_phrase,   // E: monospace example (XMP, hosted <samp>)
   keyword,         // P: monospace parameter keyword (<kbd>)
   keyword_define,  // Q, Z: defined parameter keyword / variable (<dfn>)
   variable,        // V: italic programming variable (<var>)
@@ -136,5 +137,10 @@ decode_font_control_spans(const DecodedLogicalRecordSource& record,
                           std::string* error = nullptr);
 
 const char* font_style_name(FontStyleIR style);
+
+// The monospace example family: `X`/`4` and `E`.  Every geometry and
+// family decision treats them alike; only the element HTML wraps a run in
+// tells them apart.
+bool font_style_is_example(FontStyleIR style);
 
 } // namespace geist::detail

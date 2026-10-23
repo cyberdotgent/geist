@@ -725,6 +725,50 @@ int main() {
       return 1;
   }
 
+  // A run naming a phrase (`E`, `P`, `C`) is HTML's business only: Markdown
+  // writes it exactly as the same run without one, in its own syntax and
+  // in the HTML it embeds for abutting emphasis and styled literal rows.
+  {
+    const auto markdown_of = [](bool phrased) {
+      const auto phrase = [&](PhraseKindIR kind) {
+        return phrased ? kind : PhraseKindIR::none;
+      };
+      DocumentIR document;
+      document.topic.id = "PHRASE";
+      InlineSequenceIR line;
+      line.push_back(in(EmphasisInlineIR{"Guide", EmphasisKindIR::emphasis,
+                                         phrase(PhraseKindIR::citation)}));
+      line.push_back(in(EmphasisInlineIR{",", EmphasisKindIR::strong}));
+      line.push_back(in(TextInlineIR{" press "}));
+      line.push_back(in(CodeInlineIR{"ENTER", phrase(PhraseKindIR::keyboard)}));
+      line.push_back(in(TextInlineIR{" or "}));
+      line.push_back(in(EmphasisInlineIR{"Title", EmphasisKindIR::emphasis,
+                                         phrase(PhraseKindIR::citation)}));
+      document.blocks.push_back(block(ParagraphBlockIR{std::move(line)}));
+      PreformattedBlockIR rows;
+      rows.lines = {"  NOSTAE"};
+      rows.line_origins = {origin()};
+      rows.styled_lines = {{in(TextInlineIR{"  "}),
+                            in(CodeInlineIR{"NOSTAE",
+                                            phrase(PhraseKindIR::sample)})}};
+      document.blocks.push_back(block(std::move(rows)));
+      return render_document_markdown(document);
+    };
+    const auto plain = markdown_of(false);
+    const auto phrased = markdown_of(true);
+    if (!require(phrased == plain,
+                 "a phrase changed Markdown:\n" + plain + "\n---\n" +
+                     phrased) ||
+        !require(phrased.find("<em class=\"geist-emphasis\">Guide</em>") !=
+                         std::string::npos &&
+                     phrased.find("`ENTER`") != std::string::npos &&
+                     phrased.find("*Title*") != std::string::npos &&
+                     phrased.find("<code class=\"geist-monospace\">NOSTAE"
+                                  "</code>") != std::string::npos,
+                 "phrase runs lost their Markdown presentation: " + phrased))
+      return 1;
+  }
+
   std::cout << "document Markdown renderer synthetic checks passed\n";
   return 0;
 }

@@ -24,6 +24,7 @@ EmphasisKindIR font_style_emphasis_kind(FontStyleIR style) {
   case FontStyleIR::variable:
   case FontStyleIR::italic_phrase:
   case FontStyleIR::example_phrase:
+  case FontStyleIR::sample_phrase:
   case FontStyleIR::keyword:
   case FontStyleIR::keyword_define:
   case FontStyleIR::highlight_9:
@@ -42,11 +43,29 @@ EmphasisKindIR font_style_emphasis_kind(FontStyleIR style) {
 
 bool font_style_is_code(FontStyleIR style) {
   // HP9 is the underscored HP4, the monospace example phrase.
-  return style == FontStyleIR::example_phrase ||
+  return font_style_is_example(style) ||
          style == FontStyleIR::keyword ||
          style == FontStyleIR::keyword_define ||
          style == FontStyleIR::highlight_9 ||
          style == FontStyleIR::apl_symbol;
+}
+
+PhraseKindIR font_style_phrase_kind(FontStyleIR style) {
+  // Hosted BookServer serves each of these codes in its own element, inside
+  // message entries and running text alike: `E` 6,829 of 6,844 spans
+  // `<samp>` in 33 books, `P` 4,845 of 4,849 `<kbd>` in 26, `C` 1,610 of
+  // 1,630 `<cite>` in 34 (doc/boo-spec/markup.adoc, the message-entry
+  // census; every remaining span a matcher fault).  `X` and `4` are hosted
+  // `<tt>`, which HTML5 dropped; they stay plain code.  `V` is hosted
+  // `<var>` (N2AH1MST 2.0, SC26-457 3.4.1.2, GC23-046 6.0) but has no census
+  // behind it, so it keeps its plain emphasis.
+  switch (style) {
+  case FontStyleIR::sample_phrase: return PhraseKindIR::sample;
+  case FontStyleIR::keyword: return PhraseKindIR::keyboard;
+  case FontStyleIR::citation: return PhraseKindIR::citation;
+  default: break;
+  }
+  return PhraseKindIR::none;
 }
 
 } // namespace geist::detail

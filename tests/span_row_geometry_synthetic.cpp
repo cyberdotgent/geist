@@ -385,8 +385,7 @@ void consecutive_font_instructions_bind_to_distinct_native_rows() {
                 "the first row received the following row's font");
       if (inline_node.text.find("MODE") != std::string::npos ||
           inline_node.text.find("IODEV") != std::string::npos)
-        require(inline_node.style ==
-                    geist::detail::FontStyleIR::example_phrase,
+        require(geist::detail::font_style_is_example(inline_node.style),
                 "the second row retained the preceding row's font");
     }
 }
@@ -758,7 +757,7 @@ void a_two_run_gap_inside_a_spanned_row_keeps_the_row_whole() {
   const auto tail = native.size() > 74 ? native.substr(74) : std::string();
   for (const auto &block : prose->blocks)
     for (const auto &fragment : block.inlines)
-      if (fragment.style == geist::detail::FontStyleIR::example_phrase &&
+      if (geist::detail::font_style_is_example(fragment.style) &&
           (fragment.text == "*" ||
            (!tail.empty() && fragment.text.find(tail) != std::string::npos)))
         styled_star = true;
@@ -990,7 +989,7 @@ void a_glyph_glued_to_text_under_its_word_span_is_display_text() {
   bool styled = false;
   for (const auto &block : prose->blocks)
     for (const auto &fragment : block.inlines)
-      if (fragment.style == geist::detail::FontStyleIR::example_phrase &&
+      if (geist::detail::font_style_is_example(fragment.style) &&
           fragment.text.find("'.") != std::string::npos)
         styled = true;
   require(styled, "the `cfont 5 2 E` triple did not land on `'.`");

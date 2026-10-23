@@ -80,10 +80,13 @@ InlineSequenceIR styled_row(const FixedTablePreformattedLineIR &line,
     plain(run.begin);
     auto text = line.text.substr(run.begin, run.end - run.begin);
     if (font_style_is_code(run.style))
-      row.push_back({CodeInlineIR{std::move(text)}, line_origin});
+      row.push_back({CodeInlineIR{std::move(text),
+                                  font_style_phrase_kind(run.style)},
+                     line_origin});
     else
       row.push_back({EmphasisInlineIR{std::move(text),
-                                      font_style_emphasis_kind(run.style)},
+                                      font_style_emphasis_kind(run.style),
+                                      font_style_phrase_kind(run.style)},
                      line_origin});
     at = run.end;
   }

@@ -2030,9 +2030,10 @@ int main() {
                   std::string::npos,
               "the example rows did not render a Markdown hard break: " +
                   markdown);
-      require(html.find("<code class=\"geist-monospace\">HELP (where "
-                        "number</code><br><code class=\"geist-monospace\">"
-                        "and type)</code>") != std::string::npos,
+      require(html.find("<samp class=\"geist-monospace geist-sample\">HELP "
+                        "(where number</samp><br><samp class=\"geist-monospace "
+                        "geist-sample\">"
+                        "and type)</samp>") != std::string::npos,
               "the example rows did not render <br>: " + html);
     }
   }
@@ -4231,7 +4232,8 @@ int main() {
                           "plain.") != std::string::npos &&
                     markdown.find("It is *not* plain\\.") != std::string::npos,
                 "a mid-row introduction run lost its style: " + html);
-        require(html.find("<code class=\"geist-monospace\">@@PARM</code> "
+        require(html.find("<kbd class=\"geist-monospace geist-keyboard\">"
+                          "@@PARM</kbd> "
                           "value.") != std::string::npos &&
                     markdown.find("`@@PARM` value\\.") != std::string::npos,
                 "an introduction keyword run lost its style: " + html);
@@ -4377,13 +4379,16 @@ int main() {
             geist::detail::render_document_html_blocks(*document, {});
         const auto markdown =
             geist::detail::render_document_markdown(*document);
+        // HTML takes the element hosted serves for each code; `X`'s `<tt>`
+        // is obsolete in HTML5 and stays `<code>`.  Markdown is unchanged.
         const std::string code = "<code class=\"geist-monospace\">";
         for (const std::string expected : std::vector<std::string>{
-             "Use the " + code + "NOSTAE</code> option.",
+             "Use the <samp class=\"geist-monospace geist-sample\">NOSTAE"
+             "</samp> option.",
               code + "main</code> is missing.",
               "Set NOSTAE now.",
-              "See <em class=\"geist-emphasis\">Sample</em> and " + code +
-                  "ENTER.</code>"})
+              "See <cite class=\"geist-emphasis geist-citation\">Sample</cite>"
+              " and <kbd class=\"geist-monospace geist-keyboard\">ENTER.</kbd>"})
           require(html.find(expected) != std::string::npos,
                   "body style code was not presented: [" + expected +
                       "] in " + html);

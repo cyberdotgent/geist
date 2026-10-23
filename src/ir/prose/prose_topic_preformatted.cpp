@@ -76,7 +76,7 @@ bool styled_example(const std::vector<DecodedLogicalRecordSource> &records,
     // A flat cross-reference cannot retain an overlapping emphasis font.
     // Example fonts remain representable through the surrounding monospace
     // region, but do not promise lossless styling for other link decoration.
-    if (span.style != FontStyleIR::example_phrase)
+    if (!font_style_is_example(span.style))
       for (const auto &link : line.links)
         for (auto cell = first; cell < last; ++cell)
           if (!line.cells[cell].space && cell >= link.begin && cell < link.end)
@@ -85,7 +85,7 @@ bool styled_example(const std::vector<DecodedLogicalRecordSource> &records,
     // witnessed PL/I message examples they form the positioned diagnostic
     // arrow row between two XMP rows; retaining that native row is semantic,
     // because reflowing it moves the arrow away from the offending column.
-    example = example || span.style == FontStyleIR::example_phrase ||
+    example = example || font_style_is_example(span.style) ||
               span.style == FontStyleIR::apl_symbol;
     for (auto cell = first; cell < last; ++cell)
       covered[cell] = true;

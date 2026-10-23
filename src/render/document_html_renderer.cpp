@@ -311,10 +311,16 @@ std::string figure_alt_text(const std::string &resource) {
 class HtmlSink {
 public:
   explicit HtmlSink(const geist::HtmlRenderOptions &options,
-                    const DocumentHtmlInlineResolver* resolve = nullptr)
-      : options_(options), resolve_(resolve) {}
+                    const DocumentHtmlInlineResolver* resolve = nullptr,
+                    HtmlPhraseElements phrases = HtmlPhraseElements::hosted)
+      : options_(options), resolve_(resolve), phrases_(phrases) {}
 
   const geist::HtmlRenderOptions &options() const noexcept { return options_; }
+  // The phrase a run is wrapped as: its own, or none when the caller asked
+  // for the generic elements.
+  PhraseKindIR phrase(PhraseKindIR value) const noexcept {
+    return phrases_ == HtmlPhraseElements::hosted ? value : PhraseKindIR::none;
+  }
   std::string release() { return std::move(out_); }
 
   // Markup this renderer emits.  Never a source byte.
@@ -355,7 +361,64 @@ private:
   std::string out_;
   const geist::HtmlRenderOptions &options_;
   const DocumentHtmlInlineResolver* resolve_;
+  HtmlPhraseElements phrases_;
 };
+
+// One code run: `<code>` unless it names a phrase hosted BookServer serves
+// in an element of its own -- `E` (XMP) `<samp>`, `P` (PK) `<kbd>`.  `X`
+// and `4` are hosted `<tt>`, which HTML5 dropped; `<code>` stands for it.
+// The phrase element keeps `geist-monospace`, so every rule written for code
+// runs still applies, and adds its own class.
+void append_code(HtmlSink &sink, const std::string &text,
+                 PhraseKindIR phrase) {
+  switch (sink.phrase(phrase)) {
+  case PhraseKindIR::sample:
+    sink.markup("<samp class=\"geist-monospace geist-sample\">");
+    sink.text(text);
+    sink.markup("</samp>");
+    return;
+  case PhraseKindIR::keyboard:
+    sink.markup("<kbd class=\"geist-monospace geist-keyboard\">");
+    sink.text(text);
+    sink.markup("</kbd>");
+    return;
+  case PhraseKindIR::none:
+  case PhraseKindIR::citation:
+    break;
+  }
+  sink.markup("<code class=\"geist-monospace\">");
+  sink.text(text);
+  sink.markup("</code>");
+}
+
+// One emphasis run.  `C` (CIT) is hosted `<cite>`, which keeps
+// `geist-emphasis` beside its own class as the code phrases keep theirs.
+void append_emphasis(HtmlSink &sink, const std::string &text,
+                     EmphasisKindIR kind, PhraseKindIR phrase) {
+  switch (kind) {
+  case EmphasisKindIR::emphasis:
+    if (sink.phrase(phrase) == PhraseKindIR::citation) {
+      sink.markup("<cite class=\"geist-emphasis geist-citation\">");
+      sink.text(text);
+      sink.markup("</cite>");
+    } else {
+      sink.markup("<em class=\"geist-emphasis\">");
+      sink.text(text);
+      sink.markup("</em>");
+    }
+    break;
+  case EmphasisKindIR::strong:
+    sink.markup("<strong class=\"geist-strong\">");
+    sink.text(text);
+    sink.markup("</strong>");
+    break;
+  case EmphasisKindIR::strong_emphasis:
+    sink.markup("<strong class=\"geist-strong-emphasis\"><em>");
+    sink.text(text);
+    sink.markup("</em></strong>");
+    break;
+  }
+}
 
 void append_anchor(HtmlSink &sink, const HrefIR &href,
                    geist::HtmlLinkKind kind, const std::string &label) {
@@ -376,31 +439,13 @@ void append_inline(HtmlSink &sink, const InlineIR &node) {
         if constexpr (std::is_same_v<T, TextInlineIR>) {
           sink.text(value.text);
         } else if constexpr (std::is_same_v<T, EmphasisInlineIR>) {
-          switch (value.kind) {
-          case EmphasisKindIR::emphasis:
-            sink.markup("<em class=\"geist-emphasis\">");
-            sink.text(value.text);
-            sink.markup("</em>");
-            break;
-          case EmphasisKindIR::strong:
-            sink.markup("<strong class=\"geist-strong\">");
-            sink.text(value.text);
-            sink.markup("</strong>");
-            break;
-          case EmphasisKindIR::strong_emphasis:
-            sink.markup("<strong class=\"geist-strong-emphasis\"><em>");
-            sink.text(value.text);
-            sink.markup("</em></strong>");
-            break;
-          }
+          append_emphasis(sink, value.text, value.kind, value.phrase);
         } else if constexpr (std::is_same_v<T, UnderlineInlineIR>) {
           sink.markup("<u class=\"geist-underline\">");
           sink.text(value.text);
           sink.markup("</u>");
         } else if constexpr (std::is_same_v<T, CodeInlineIR>) {
-          sink.markup("<code class=\"geist-monospace\">");
-          sink.text(value.code);
-          sink.markup("</code>");
+          append_code(sink, value.code, value.phrase);
         } else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
           const auto resolved = sink.inline_reference(value.targets);
           const auto& href = resolved.href;
@@ -434,22 +479,10 @@ void append_inline(HtmlSink &sink, const InlineIR &node) {
             if (!value.label_emphasis && !value.label_code) {
               sink.text(label);
             } else if (value.label_code) {
-              sink.markup("<code class=\"geist-monospace\">");
-              sink.text(label);
-              sink.markup("</code>");
-            } else if (*value.label_emphasis == EmphasisKindIR::strong) {
-              sink.markup("<strong class=\"geist-strong\">");
-              sink.text(label);
-              sink.markup("</strong>");
-            } else if (*value.label_emphasis ==
-                       EmphasisKindIR::strong_emphasis) {
-              sink.markup("<strong class=\"geist-strong-emphasis\"><em>");
-              sink.text(label);
-              sink.markup("</em></strong>");
+              append_code(sink, label, value.label_phrase);
             } else {
-              sink.markup("<em class=\"geist-emphasis\">");
-              sink.text(label);
-              sink.markup("</em>");
+              append_emphasis(sink, label, *value.label_emphasis,
+                              value.label_phrase);
             }
             sink.markup("</a>");
           }
@@ -1022,8 +1055,8 @@ bool document_has_degraded_block(const DocumentIR &document) {
 
 std::string render_document_html_inlines(
     const InlineSequenceIR& inlines, const geist::HtmlRenderOptions& options,
-    const DocumentHtmlInlineResolver& resolve) {
-  HtmlSink sink(options, &resolve);
+    const DocumentHtmlInlineResolver& resolve, HtmlPhraseElements phrases) {
+  HtmlSink sink(options, &resolve, phrases);
   append_inlines(sink, inlines);
   return sink.release();
 }
@@ -1036,8 +1069,8 @@ render_document_html_blocks(const DocumentIR &document,
 
 std::string render_document_html_blocks(
     const BlockSequenceIR &blocks, const geist::HtmlRenderOptions &options,
-    const DocumentHtmlInlineResolver &resolve) {
-  HtmlSink sink(options, &resolve);
+    const DocumentHtmlInlineResolver &resolve, HtmlPhraseElements phrases) {
+  HtmlSink sink(options, &resolve, phrases);
   for (std::size_t index = 0; index < blocks.size(); ++index) {
     if (index != 0)
       sink.newline();

@@ -129,7 +129,8 @@ int main() {
   // Only markup the renderer emits for a recognised typed record reaches the
   // page. Anything else here would mean source bytes became markup.
   const std::set<std::string> allowed = {
-      "a",   "aside", "body",       "br",    "code",  "dd",   "div",
+      "a",   "aside", "body",       "br",    "cite",  "code", "dd",
+      "div", "kbd",   "samp",
       "dl",  "dt",    "em",         "figcaption", "figure", "h1", "h2",
       "h3",  "h4",    "h5",         "h6",    "head",  "html", "img",
       "li",  "meta",  "nav",        "ol",    "p",     "pre",  "section",

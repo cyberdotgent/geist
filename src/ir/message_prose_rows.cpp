@@ -220,12 +220,12 @@ std::optional<ProseRowGeometry> prose_row_geometry(
                  column - candidate.column < candidate.length;
         });
     if (span == font->spans.end() ||
-        (span->style != FontStyleIR::example_phrase &&
+        (!font_style_is_example(span->style) &&
          span->style != FontStyleIR::variable)) {
       covered = false;
       break;
     }
-    example_span = example_span || span->style == FontStyleIR::example_phrase;
+    example_span = example_span || font_style_is_example(span->style);
   }
   geometry.example = covered && example_span;
   return geometry;

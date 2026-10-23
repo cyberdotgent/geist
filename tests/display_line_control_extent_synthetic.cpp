@@ -656,7 +656,7 @@ void a_parenthetic_word_at_a_native_line_end_stays_text(bool styled = false,
                   example->styled_lines.size() == expected.size(),
               "native styled example spacing/rows were changed: " + html);
       if (linked == 1)
-        require(html.find("href=\"#HDRLINK\"><code class=\"geist-monospace\">many   words</code></a>") !=
+        require(html.find("href=\"#HDRLINK\"><samp class=\"geist-monospace geist-sample\">many   words</samp></a>") !=
                     std::string::npos,
                 "native whitespace split one selector into separate anchors: " +
                     html);
@@ -669,7 +669,7 @@ void a_parenthetic_word_at_a_native_line_end_stays_text(bool styled = false,
       require(html.find("<table") == std::string::npos &&
                   html.find("<em class=\"geist-emphasis\">LEFT()</em>") !=
                       std::string::npos &&
-                  html.find("Use <code class=\"geist-monospace\">TOKEN</code> "
+                  html.find("Use <samp class=\"geist-monospace geist-sample\">TOKEN</samp> "
                             "when needed. and") != std::string::npos,
               "native styled example or ordinary wrapped code prose "
               "misclassified: " +
