@@ -185,7 +185,9 @@ void append_spans(InlineSequenceIR &content,
 std::string after_prefix(const std::string &text, const std::string &prefix) {
   if (text.size() <= prefix.size())
     return {};
-  return trim_ascii(text.substr(prefix.size()));
+  // Blanks only: a `?` is a glyph the row draws (SC09-138 H.0 `EDC0347`'s
+  // headline ends `&2?`, served by hosted H.0 as `<B>?</B>`).
+  return trim_ascii_whitespace(text.substr(prefix.size()));
 }
 
 // The body text after `prefix`, split at the highlighted runs the entry drew

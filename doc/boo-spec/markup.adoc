@@ -1982,6 +1982,13 @@ stands between `(` (token 92) and `)` (token 96), with an attach control
 (`'??????' for an unknown volser`) and `SC24-546` `A.0`
 (`@ # $ ¢ . ? ! _`).  Hosted serves the question marks in each.
 
+A `?` that ends a row is drawn too.  `SC09-138` record 2165 line 12 is
+`   EDC0347 30 Syntax Error: possible missing &1 or &2?`.  The `?` is token
+131 (`B1 80` at `0x111A5A`, word `0x3F`), attached to `2` by the attach
+control at `0x111A59`, and the headline `cfont` styles it.  Hosted `H.0`
+(DT `19910321130500`) serves `<B><I>&amp;2</B></I><B>?</B>`.  `EDC0348`
+(line 24, `&1?`) is the same.
+
 [[markup_sub_word_span_boundaries]]
 ==== Sub-word span boundaries
 

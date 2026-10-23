@@ -3718,6 +3718,48 @@ int main() {
                 closed.error);
   }
 
+  // A `?` the headline's `CFONT` styles at the end of its row is the row's
+  // last glyph, in the text as in the flow. SC09-138 H.0 record 2165 line 12
+  // is `   EDC0347 30 Syntax Error: possible missing &1 or &2?`, the `?`
+  // (token 131, `B1 80` at 0x111A5A) glued to `&2`; hosted H.0
+  // (DT 19910321130500) serves `<B><I>&amp;2</B></I><B>?</B>`.
+  {
+    const Token glue{TokenWords{1}, 0};
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({t("SRMSG", 110), t("773", 719)}));
+    append(tokens, line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113),
+                         t("7", 665), t("5", 506), t("2", 113)}));
+    append(tokens, line({origin(), t("773", 719), t("What", 720), glue,
+                         t("?", 721)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(tokens, line({origin(), t("Description:", 115), t("first", 117),
+                         t("field", 118)}));
+    const auto built = build({make_source(165, tokens)}, "Sample Messages");
+    require(built.catalog.has_value() && built.catalog->entries.size() == 1 &&
+                built.catalog->entries.front().headline.body.text ==
+                    "773 What?",
+            "a headline's closing question mark was lost: " + built.error);
+    if (built.catalog) {
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "a headline's closing question mark failed verification: " +
+                  error);
+      require(built.catalog->entries.front().headline.spans_text ==
+                  "773 What?",
+              "the headline run lost its closing question mark: [" +
+                  built.catalog->entries.front().headline.spans_text + "]");
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value() &&
+                  geist::detail::render_document_markdown(*document).find(
+                      "**What?**") != std::string::npos,
+              "the lowered headline lost its closing question mark");
+    }
+  }
+
   // An introduction row whose length byte spells a control word is prose.
   // SC31-711 4.3.5 record 151 line 13 opens at 0x146F1 with `2D` (45), the
   // row's length, whose dictionary word is `cbacklevel`; the row is

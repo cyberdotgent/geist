@@ -59,6 +59,25 @@ std::string collapse(std::string value) {
   return collapse_ascii_whitespace(trim_ascii(std::move(value)));
 }
 
+// Collapses each run of blanks to one space, keeping every other byte.
+std::string collapse_blank_runs(std::string value) {
+  std::string output;
+  output.reserve(value.size());
+  bool in_space = false;
+  for (const auto ch : value) {
+    const auto byte = static_cast<unsigned char>(ch);
+    if (std::isspace(byte) != 0 || byte < 0x20) {
+      in_space = true;
+      continue;
+    }
+    if (in_space && !output.empty())
+      output.push_back(' ');
+    output.push_back(ch);
+    in_space = false;
+  }
+  return output;
+}
+
 std::string first_word(std::string value) {
   value = trim_ascii(std::move(value));
   const auto end = value.find_first_of(" \t\r\n");
@@ -1321,7 +1340,11 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
       display += piece.display_gap;
     display += piece.text;
   }
-  text = collapse(std::move(text));
+  // Only blanks are trimmed: every piece is a drawn cell, so a `?` at
+  // either end is a glyph of the row (`collapse` would drop it). SC09-138
+  // H.0 record 2165 line 12 ends `&2?`, and hosted H.0 (DT 19910321130500)
+  // serves the `?`.
+  text = trim_ascii_whitespace(collapse_blank_runs(std::move(text)));
   std::vector<TrapTextLinkIR> local_links;
   for (const auto &selector : selectors) {
     auto local_link = project_trap_selector_link(selector.selector, text,
@@ -1338,7 +1361,7 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
   if (!out.text.empty() && !text.empty())
     out.text.push_back(' ');
   out.text += text;
-  display = trim_ascii(std::move(display));
+  display = trim_ascii_whitespace(std::move(display));
   if (!out.display_text.empty() && !display.empty())
     out.display_text.push_back(' ');
   out.display_text += display;
@@ -1369,7 +1392,8 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
   const auto finish_paragraph = [&]() {
     if (!paragraph_first_token || !paragraph_last_token)
       return;
-    paragraph.display_text = trim_ascii(std::move(paragraph.display_text));
+    paragraph.display_text =
+        trim_ascii_whitespace(std::move(paragraph.display_text));
     paragraph.cell_end = paragraph.projection.back().cell_end;
     paragraph.source_slices.push_back(token_slice(
         record, segment.segment_index, *paragraph_first_token,
