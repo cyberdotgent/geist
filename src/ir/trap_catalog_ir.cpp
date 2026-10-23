@@ -4546,24 +4546,76 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
   // highlighted continuation of the entry rather than a field.
   // A headline-only entry carries no labels of its own; the entry whose
   // fields it shares is held to the vocabulary instead.
-  const auto first_labelled = std::find_if(
-      catalog.entries.begin(), catalog.entries.end(),
-      [](const auto &entry) { return !entry.fields.empty(); });
-  for (const auto &field : first_labelled->fields) {
-    const auto everywhere = std::all_of(
-        catalog.entries.begin(), catalog.entries.end(), [&](const auto &entry) {
-          return entry.fields.empty() ||
-                 std::any_of(entry.fields.begin(), entry.fields.end(),
-                             [&](const auto &candidate) {
-                               return candidate.label_text == field.label_text;
-                             });
-        });
-    if (everywhere)
-      catalog.label_vocabulary.push_back(field.label_text);
+  //
+  // Where no label is repeated by every entry, an entry whose labels are a
+  // proven subset of another entry's -- the same labels, in the same order,
+  // with some left out -- does not narrow the vocabulary: the vocabulary is
+  // then the ordered labels every other labelled entry repeats. N2AH1MST
+  // 23.0 draws `ICH408I`'s `LOGON/JOB INITIATION - NOT AUTHORIZED TO
+  // APPLICATION` with only `System Action:` and `User Response:` (record
+  // 2027 lines 23-28, `cfont 10 6 2 17 7 2` and `cfont 10 4 2 15 9 2` at the
+  // label column 10, as every other label of the topic), the sequence other
+  // `ICH408I` entries draw after `Explanation:` and `Source:`; hosted 23.0
+  // (DT 19910329000100) serves exactly those two fields. Every label is
+  // still proven by its own `CFONT` run; only the requirement that each
+  // entry draw them all is relaxed, and only where it would leave no
+  // vocabulary at all.
+  const auto label_list = [](const TrapEntryIR &entry) {
+    std::vector<std::string> labels;
+    for (const auto &field : entry.fields)
+      if (labels.empty() || labels.back() != field.label_text)
+        labels.push_back(field.label_text);
+    return labels;
+  };
+  std::vector<std::vector<std::string>> label_lists;
+  for (const auto &entry : catalog.entries)
+    label_lists.push_back(label_list(entry));
+  const auto strict_subsequence = [](const std::vector<std::string> &part,
+                                     const std::vector<std::string> &whole) {
+    if (part.size() >= whole.size())
+      return false;
+    std::size_t at = 0;
+    for (const auto &label : whole)
+      if (at < part.size() && part[at] == label)
+        ++at;
+    return at == part.size();
+  };
+  const auto vocabulary_of = [&](const std::vector<bool> &excluded) {
+    std::vector<std::string> vocabulary;
+    std::size_t first = 0;
+    while (first < catalog.entries.size() &&
+           (catalog.entries[first].fields.empty() || excluded[first]))
+      ++first;
+    if (first == catalog.entries.size())
+      return vocabulary;
+    for (const auto &field : catalog.entries[first].fields) {
+      bool everywhere = true;
+      for (std::size_t at = 0; at < catalog.entries.size() && everywhere; ++at)
+        if (!catalog.entries[at].fields.empty() && !excluded[at])
+          everywhere = std::find(label_lists[at].begin(), label_lists[at].end(),
+                                 field.label_text) != label_lists[at].end();
+      if (everywhere)
+        vocabulary.push_back(field.label_text);
+    }
+    return vocabulary;
+  };
+  std::vector<bool> proven_subset(catalog.entries.size(), false);
+  catalog.label_vocabulary = vocabulary_of(proven_subset);
+  if (catalog.label_vocabulary.empty()) {
+    for (std::size_t at = 0; at < catalog.entries.size(); ++at)
+      for (std::size_t other = 0;
+           other < catalog.entries.size() && !proven_subset[at] &&
+           !label_lists[at].empty();
+           ++other)
+        proven_subset[at] = other != at &&
+                            strict_subsequence(label_lists[at], label_lists[other]);
+    catalog.label_vocabulary = vocabulary_of(proven_subset);
   }
   if (catalog.label_vocabulary.empty())
     return reject("trap catalog has no label repeated by every entry");
-  for (auto &entry : catalog.entries) {
+  for (std::size_t entry_index = 0; entry_index < catalog.entries.size();
+       ++entry_index) {
+    auto &entry = catalog.entries[entry_index];
     if (entry.fields.empty())
       continue;
     std::vector<std::string> labels;
@@ -4581,7 +4633,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           (at == 0 || entry.fields[at - 1].label_text != field.label_text))
         labels.push_back(field.label_text);
     }
-    if (labels != catalog.label_vocabulary)
+    if (labels != catalog.label_vocabulary && !proven_subset[entry_index])
       return reject("trap entry does not repeat the catalog label vocabulary: " +
                     entry.id);
   }

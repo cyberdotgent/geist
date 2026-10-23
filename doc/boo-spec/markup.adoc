@@ -453,6 +453,33 @@ that label once in its sequence.  `N2AH1MST` entry `AVM035I` draws
 again on line 41, with no other label between.  Hosted `11.0`
 (DT `19910329000100`) serves two `<B>System</B> <B>Action:</B>` paragraphs.
 No label is observed to return after a different field.
+
+Some catalogues have no label that every entry repeats.  Their entries then
+fall into two kinds.  Some draw a label sequence that is a strict ordered
+subsequence of another entry's sequence (the same labels, in the same order,
+with some left out).  The rest repeat a common sequence.  `N2AH1MST` topic
+`23.0` (DT `19910329000100`) has 130 entries:
+
+[cols="<22,<38,<40",options="header"]
+|===
+|Entry |Source |Labels
+
+|`ICH404I` |`SRMSG` at `0xBA8D9` (record 2003 line 4); label `cfont` lines at `0xBA947` (line 11), `0xBAA06` (line 24), `0xBAA21`, `0xBAA4D`, `0xBAA67` (record 2004 lines 2, 6, 9) |`Explanation:`, `System Action:`, `Operator Response:`, `Application Programmer Response:`, `Problem Determination:`; no `Source:`
+|`ICH408I` (`LOGON/JOB INITIATION - NOT AUTHORIZED TO APPLICATION`) |`SRMSG` at `0xBCAF3` (record 2027 line 18); `cfont 10 6 2 17 7 2` at `0xBCB2F` (line 23), `cfont 10 4 2 15 9 2` at `0xBCB52` (line 27) |`System Action:`, `User Response:`; no `Explanation:`
+|other `ICH408I` entries |  |`Explanation:`, `Source:`, `System Action:`, `User Response:`
+|===
+
+Each label is drawn the way every other label in the topic is drawn: a
+`cfont` run at column 10 that ends in `:`, followed by the value.  Hosted
+`23.0` serves exactly those fields for each entry.  The second `ICH408I`
+entry is a subsequence of the last row.  `ICH404I` is a subsequence of no
+entry, since no other entry draws `Problem Determination:`.  Without the
+subsequence entries, every entry still repeats `Explanation:`, and that is
+the vocabulary.  `SC09-138` topic `H.0` (DT `19910321130500`) is the same
+case: 72 entries draw only `Recovery:` and 15 only `Explanation:`, against
+266 with `Explanation:` and `Recovery:`.  A catalogue whose entries share
+no label even this way, such as an entry whose only label no other entry
+draws, has no vocabulary.
 A `CFONT` with an empty payload at a
 record end takes the next record's leading text segment as its payload (topic
 `4.4` logical records 153/154 `LNM for AIX Response:` and 154/155 `7 (fddiControlCartridgeError)`).

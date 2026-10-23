@@ -3674,6 +3674,84 @@ int main() {
             "a headline-only run with no entry to end it was admitted");
   }
 
+  // Where no label is drawn by every entry, an entry whose labels are a
+  // proven subset of another entry's -- the same labels in the same order,
+  // some left out -- does not narrow the vocabulary. N2AH1MST 23.0
+  // (DT 19910329000100): ICH404I draws no `Source:` and the ICH408I
+  // `LOGON/JOB INITIATION` entry only `System Action:` and `User Response:`
+  // (record 2027 lines 23-28), each as a `CFONT` run at the label column
+  // like every other label, and hosted serves exactly those fields.
+  {
+    const auto headline = [](const std::string &id, std::uint16_t id_word) {
+      std::vector<Token> tokens;
+      append(tokens, line({t("SRMSG", 110), t(id, id_word)}));
+      append(tokens,
+             line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
+      append(tokens, line({origin(), t(id, id_word)}));
+      return tokens;
+    };
+    const auto description = [] {
+      std::vector<Token> tokens;
+      append(tokens,
+             line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+      append(tokens, line({origin(), t("Description:", 115), t("first", 117),
+                           t("field", 118)}));
+      return tokens;
+    };
+    const auto labelled = [](const std::string &label, std::uint16_t word,
+                             const std::string &length, std::uint16_t length_word) {
+      std::vector<Token> tokens;
+      append(tokens, line({t("cfont", 111), t("3", 112), t(length, length_word),
+                           t("2", 113)}));
+      append(tokens, line({origin(), t(label, word), t("text.", 251)}));
+      return tokens;
+    };
+    const auto action = [&] { return labelled("Action:", 703, "7", 665); };
+    const auto note = [&] { return labelled("Note:", 704, "5", 506); };
+
+    auto tokens = header("Sample", "Messages");
+    append(tokens, headline("763", 705));
+    append(tokens, description());
+    append(tokens, action());
+    append(tokens, headline("764", 706));
+    append(tokens, action());
+    append(tokens, headline("765", 707));
+    append(tokens, description());
+    const auto built = build({make_source(161, tokens)}, "Sample Messages");
+    require(built.catalog.has_value() && built.catalog->entries.size() == 3,
+            "entries whose labels are a proven subset declined: " +
+                built.error);
+    if (built.catalog && built.catalog->entries.size() == 3) {
+      require(built.catalog->label_vocabulary ==
+                      std::vector<std::string>{"Description:", "Action:"} &&
+                  built.catalog->entries[1].fields.size() == 1 &&
+                  built.catalog->entries[2].fields.size() == 1,
+              "the subset entries' vocabulary or fields are wrong");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the subset-label catalogue failed verification: " + error);
+    }
+
+    // Mutation: an entry whose label no other entry draws is no subset, so
+    // nothing is repeated and the catalogue still declines.
+    auto stray = header("Sample", "Messages");
+    append(stray, headline("766", 708));
+    append(stray, description());
+    append(stray, action());
+    append(stray, headline("767", 709));
+    append(stray, action());
+    append(stray, headline("768", 710));
+    append(stray, note());
+    const auto declined = build({make_source(162, stray)}, "Sample Messages");
+    require(!declined.catalog.has_value() &&
+                declined.error.find("no label repeated by every entry") !=
+                    std::string::npos,
+            "an entry with an unshared label set was admitted: " +
+                declined.error);
+  }
+
   // A run of `?` glyphs drawn between other cells of its own display line is
   // text. Unmapped dictionary words decode to U+FFFF, not `?`. N2AH1MST
   // record 2014 line 9 is `              begins, the message includes
