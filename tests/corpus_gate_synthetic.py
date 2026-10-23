@@ -319,6 +319,15 @@ class FingerprintTest(unittest.TestCase):
         self.assertEqual(detail["style"], ["em+strong:both", "code:x", "opaque:o", "u:u"])
         self.assertEqual(detail["midword"], ["[code]x|[opaque]o"])
 
+    def test_phrase_elements_are_style_kinds(self):
+        summary, detail = html_print(
+            '<p><samp class="geist-monospace geist-sample">s</samp> '
+            '<kbd class="geist-monospace geist-keyboard">k</kbd> <var>v</var> '
+            '<cite class="geist-emphasis geist-citation">c</cite></p>')
+        self.assertEqual(detail["style"], ["samp:s", "kbd:k", "var:v", "cite:c"])
+        self.assertEqual(detail["structure"], ["0:p"])
+        self.assertEqual(summary["style_runs"], "cite:1 kbd:1 samp:1 var:1")
+
     def test_mid_word_spans(self):
         for html, count in (
                 ("<p><em>o</em>rientation o</p>", 1),
