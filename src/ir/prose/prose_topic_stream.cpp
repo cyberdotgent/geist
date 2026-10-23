@@ -2301,9 +2301,6 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           std::string link_error;
           const auto link = parse_selector_link(tokens, &link_error);
           if (!link) return fail(error, "selector rejected: " + link_error);
-          if (link->kind == SelectorLinkKindIR::external_image)
-            return fail(error,
-                        "inline external image selector outside a figure");
           alternative_tokens = alternative_source_tokens.size();
           item.target = link->alternatives[5];
           switch (link->kind) {
@@ -2317,11 +2314,14 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             item.target_kind = CrossReferenceTargetKindIR::book_spot;
             break;
           case SelectorLinkKindIR::external_link:
+          // An `<IMAGE>` selector outside a figure is the same external link
+          // with an image leading its selected columns: hosted BookServer
+          // serves XWEBDEMO 1.0 (DT 19970423182524) as `<a href="<alt 4>">
+          // <img src="<alt 3>">IBM BookManager BookServer</a>`.  The tuple
+          // rides on the target; lowering draws the image.
+          case SelectorLinkKindIR::external_image:
             item.target_kind = CrossReferenceTargetKindIR::external;
             break;
-          case SelectorLinkKindIR::external_image:
-            return fail(error,
-                        "inline external image selector outside a figure");
           }
           item.target_alternatives = link->alternatives;
         }

@@ -611,7 +611,8 @@ foreach(synthetic_test
     source_rows_document_ir_synthetic
     trap_catalog_ir_synthetic
     layout_row_coverage_synthetic
-    spot_selector_link_synthetic)
+    spot_selector_link_synthetic
+    image_selector_link_synthetic)
   geist_add_test(${synthetic_test})
 endforeach()
 

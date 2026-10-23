@@ -111,7 +111,10 @@ struct HtmlRenderOptions {
   std::function<std::optional<std::string>(const std::string& anchor_id)>
       resolve_anchor;
   // An object stored in this book, e.g. the `69` of `resource:69`, or the
-  // whole reference when it is not a stored object.
+  // whole reference when it is not a stored object.  The latter is an image
+  // URL the book spells, such as the `/bookmgr/...` path of an external
+  // figure or of the image that leads an image link; check the book's
+  // resources before treating a value as one of its objects.
   std::function<std::optional<std::string>(const std::string& resource)>
       resolve_resource;
   // An absolute URL the source spells out.  Supplied so a consumer can

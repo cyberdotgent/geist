@@ -73,6 +73,11 @@ struct CrossReferenceTargetClaimIR {
   std::optional<DocumentNodeOriginIR> control_origin;
 };
 
+struct ImageInlineIR {
+  std::string resource;
+  std::string alt_text;
+};
+
 struct CrossReferenceInlineIR {
   CrossReferenceInlineIR() = default;
   CrossReferenceInlineIR(CrossReferenceTargetIR target_value,
@@ -90,11 +95,11 @@ struct CrossReferenceInlineIR {
   // same target when only part of one selector label is styled.
   std::optional<EmphasisKindIR> label_emphasis;
   bool label_code = false;
-};
-
-struct ImageInlineIR {
-  std::string resource;
-  std::string alt_text;
+  // An image drawn at the start of the link's content, before the label.  A
+  // `LNK <IMAGE>` selector in running prose places one there (XWEBDEMO 1.0;
+  // doc/boo-spec/markup.adoc, "LNK selector alternatives").  Like a figure's
+  // external image, `resource` is the URL the source spells.
+  std::optional<ImageInlineIR> label_image;
 };
 
 struct HardBreakInlineIR {};

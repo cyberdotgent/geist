@@ -118,7 +118,7 @@ these diagnostics; use `boorender --raw` or `bootrace` when analyzing them.
 |`CSELECT <col> <len> <target> [text]` l|:pinline.<before> :hdref refid='<target>'.<selected>:ehdref. <after> |Selectable link/cross-reference. The target may be a topic id, anchor id, or footnote id. `col` is an absolute zero-based display-cell column and `len` is the selected display-cell count; neither is relative to the end of the decoded fragment. |Verified against `GG24-4302-00.boo` topic `NOTICES` and `packet.boo` topic `1.1`.
 |`CSELECT <col> <len> PIC<n> [text]` inside a figure |`:image resource='<n>'.` plus `:figcap.<caption>` |Selectable embedded picture placeholder. The `PIC<n>` selection is replaced by the rendered picture; surrounding figure caption text remains ordinary caption text. A leading generated `PICTURE <n>` label is reader metadata and is not part of the visible caption. Markdown keeps the BOO resource as `resource:<n>` so exporters can resolve it. |Verified against `packet.boo` topic `1.3`, where BookServer renders `PIC1` as pass:[<literal>/bookmgr/</literal><literal>pictures/</literal><literal>packet.20260614112503.</literal><literal>P1.GIF</literal>], followed by caption `Figure 1. VHF/UHF LMR audio frequency range`.
 |`CSELECT <col> <len> PIC<n> [text]` inside `SRTBL` |`:image resource='<n>'.` plus the visible table text |Some generated product-overview layouts use a table solely to place a picture beside prose. `PIC<n>` still denotes the BOO resource; `PICTURE <n>` and adjacent `SI` keys are non-visible metadata. Visible text can continue in the next logical record and after `SRETBL`, so neither boundary ends the paragraph. The selector's `<col> <len>` are the columns the image replaces on the following display line; see "Selectors inside a table envelope". |Verified against `GG24-395.boo` logical records 528 (`PIC68`, topic `3.3.7`), 581--582 (`PIC81`, topic `3.3.11`), and 635 (`PIC91`, topic `3.3.15`), compared with BookServer DT `19941215160749`.
-|`CSELECT <col> <len> LNK <kind> ... <target> ... [text]` |Inline image or external Markdown link |`LNK` alternatives describe presentation and transport. An `IMAGE` first alternative embeds the path; `OTHER`/`INTERNET` selects the display-cell span as a link. Observed targets include BOO-relative `/bookmgr/...`, `http://`, and `ftp://` paths. Empty `<>` alternatives and symbolic names are metadata, not visible prose. |Verified against `XWEBDEMO.boo` topics `1.0`, `1.4.1`--`1.4.4`: pass:[<literal>/bookmgr/</literal><literal>product.</literal><literal>gif</literal>], pass:[<literal>/bookmgr/</literal><literal>monetley.</literal><literal>jpg</literal>], pass:[<literal>/bookmgr/</literal><literal>*.avi\|*.</literal><literal>mpg\|*.wav</literal>], FTP, and HTTP targets; BookServer DT `19970423182524`.
+|`CSELECT <col> <len> LNK <kind> ... <target> ... [text]` |Inline image or external Markdown link |`LNK` alternatives describe presentation and transport. An `IMAGE` first alternative draws an image at the start of the selected cells and links image and cells (see "LNK selector alternatives"); `OTHER`/`INTERNET` selects the display-cell span as a link. Observed targets include BOO-relative `/bookmgr/...`, `http://`, and `ftp://` paths. Empty `<>` alternatives and symbolic names are metadata, not visible prose. |Verified against `XWEBDEMO.boo` topics `1.0`, `1.4.1`--`1.4.4`: pass:[<literal>/bookmgr/</literal><literal>product.</literal><literal>gif</literal>], pass:[<literal>/bookmgr/</literal><literal>monetley.</literal><literal>jpg</literal>], pass:[<literal>/bookmgr/</literal><literal>*.avi\|*.</literal><literal>mpg\|*.wav</literal>], FTP, and HTTP targets; BookServer DT `19970423182524`.
 |`CMENU` |`:ul type='menu'.` |Start of generated selectable menu/list. |hosted BookServer emits a `Subtopics:` heading and an HTML `<ul>` for PACKET topic `1.0`; raw output keeps it distinct from ordinary source `:ul.` lists.
 |`CMITEM <id> <text>` |`:li refid='<id>'.<id> <text>` |Menu item target and visible label. |Verified against `packet.boo` topic `1.0`: hosted BookServer emits pass:[<literal>&lt;li&gt;&#160;&#160;&lt;a href="1.1?..."&gt; 1.1 Original Packet Radio&lt;/a&gt;</literal>], so the first token is both the href target and the leading words of the visible label.
 |`CEMENU` |`:eul.` |End of menu/list. |Observed menu/list terminator.
@@ -2321,7 +2321,7 @@ selector's column/length address the next display row, which the following
 |`<HDR>` |`SC41-485.boo` `1.2.3` |`<HDR> <FMTRTVI> <> <SC41-4801> <> <4801>` l|../../DOCNUM/SC41-4801/HDRFMTRTVI?ScrollTOP=HDRFMTRTVI#HDRFMTRTVI
 |`<SPT>` |`dfhle513.boo` (GC33-1162-02) `1.6.9.1` |`<SPT> <XDLIPRE> <> <SC33-1165> <00> <DFHA300>` l|../../DOCNUM/SC33-1165/SPTXDLIPRE?ScrollTOP=SPTXDLIPRE#SPTXDLIPRE?DocnumLevel=00
 |`<OTHER>` |`XWEBDEMO.boo` `1.4.4` |`<OTHER> <INTERNET> <> <http://www.ibm.com/> <> <IBMHOME>` |`http://www.ibm.com/`
-|`<IMAGE>` |`XWEBDEMO.boo` `1.4.1` |`<IMAGE> <INTERNET> <> </bookmgr/monetcoq.jpg> <> <MONET1>` l|<img src="/bookmgr/monetcoq.jpg">
+|`<IMAGE>` |`XWEBDEMO.boo` `1.4.1` |`<IMAGE> <INTERNET> <> </bookmgr/monetcoq.jpg> <> <MONET1>` l|<a href="/bookmgr/monetcoq.jpg"><img src="/bookmgr/monetcoq.jpg" ...>.</a>
 |`<IMAGE>` |`XWEBDEMO.boo` `1.0` |`<IMAGE> <INTERNET> </bookmgr/product.gif> <http://booksrv2.raleigh.ibm.com/cgi-bin/bookmgr/bookmgr.cmd/library> <> <ICON>` l|<a href="http://booksrv2.raleigh.ibm.com/cgi-bin/bookmgr/bookmgr.cmd/library"><img src="/bookmgr/product.gif" ...>IBM BookManager BookServer</a>
 |===
 
@@ -2347,6 +2347,45 @@ image of alternative 3 at the start of those columns and links the image
 and the covered words to alternative 4, inside one `<a href>`, with the
 image URL as its `alt` text.  When alternative 3 is empty
 (`1.4.1`) alternative 4 is the image itself, shown as a figure.
+
+The `1.4.1` figure is the same construction with one URL.  Logical record
+11 stores `cselect 3 1 LNK` from `0x10AED` (`38` `cselect`, `CF` `3`, `BB`
+`1`, `A5` `LNK`, `0B` `<IMAGE>`, `0C` `<INTERNET>`, `09` `<>`, `DC 12`
+`</bookmgr/monetcoq.jpg>`, `09` `<>`, `DC 2B` `<MONET1>`), then the
+display line whose length byte `03` is at `0x10AF9`: `06` (three blanks)
+and `DC 0F` (`.`), the one column the selector names.  Hosted serves
+`<a href="/bookmgr/monetcoq.jpg"><img src="/bookmgr/monetcoq.jpg"
+alt="/bookmgr/monetcoq.jpg">.</a>` above the caption: the image at the
+start of the selected column, and image and column inside one link to
+alternative 4.
+
+The reading for every `<IMAGE>` tuple is therefore one rule:
+
+[cols="<20,<40,<40",options="header"]
+|===
+|Alternative 3 |Image drawn |Link
+|a URL |alternative 3 |alternative 4
+|empty |alternative 4 |alternative 4
+|===
+
+The image is drawn once, before the first selected column, and the
+selected columns stay the link's text.  Both observed images are rooted at
+the BookServer's own `/bookmgr/` directory; neither is an object stored in
+the book.  A tuple whose chosen alternative is not a URL (a `/`-rooted path
+or an `http://`, `https://` or `ftp://` URL) has not been observed and
+should be rejected.
+
+`XWEBDEMO.boo` carries no audio or video.  Its `1.4.2` "Multi-media" topic
+(logical record 12) holds three ordinary `<OTHER>` links whose fourth
+alternative is a server path: `</bookmgr/dce1.avi>` (token `DC 10` at
+`0x10B7B`, kind `<VIDEO>`), `</bookmgr/entprise.mpg>` (`DC 11` at
+`0x10B9B`, `<VIDEO2>`) and `</bookmgr/scream1.wav>` (`DC 15` at `0x10BC3`,
+`<SCREAM>`).  Hosted serves each as a plain `<a href>` on the selected
+words (`<a href="/bookmgr/dce1.avi">Music</a> (AVI video)`), with no
+player, no embedding and no MIME hint: the files are separate objects of
+the BookServer installation (served from its `/bookmgr/` directory as
+`video/x-msvideo`, `video/mpeg` and `audio/x-wav`), not part of the book.
+The book's object catalog holds only its two GIF pictures.
 
 `<SPT>` is common in the CICS books: `DFHP7A00` `2.2.1.2.2` (record 117
 segment 14, `cselect 7 32 LNK <SPT> <DFHA26O> <> <SC34-6226> <> <DFHA200>`

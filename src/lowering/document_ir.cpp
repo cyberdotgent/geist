@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "geist/detail/lowering/document_ir.hpp"
+#include "geist/detail/ir/selector_link_ir.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -119,7 +120,9 @@ bool valid_cross_reference_target(const CrossReferenceTargetIR& target) {
            target.heading_anchor.empty() && target.spot_anchor == tuple[1] &&
            target.url.empty();
   case CrossReferenceTargetKindIR::external:
-    return (kind == "other" || kind == "internet") && !tuple[3].empty() &&
+    return (kind == "other" || kind == "internet" ||
+            (kind == "image" && !selector_link_image(tuple).empty())) &&
+           !tuple[3].empty() &&
            target.document_number.empty() && target.document_level.empty() &&
            target.heading_anchor.empty() && target.url == tuple[3];
   case CrossReferenceTargetKindIR::topic:
@@ -159,7 +162,13 @@ bool verify_inlines(const InlineSequenceIR& inlines, bool allow_empty,
                 (node.label_emphasis &&
                  *node.label_emphasis != EmphasisKindIR::emphasis &&
                  *node.label_emphasis != EmphasisKindIR::strong &&
-                 *node.label_emphasis != EmphasisKindIR::strong_emphasis))
+                 *node.label_emphasis != EmphasisKindIR::strong_emphasis) ||
+                (node.label_image &&
+                 (node.targets.size() != 1 ||
+                  node.label_image->resource.empty() ||
+                  node.label_image->resource !=
+                      selector_link_image(
+                          node.targets.front().target.alternatives))))
               return false;
             return std::all_of(node.targets.begin(), node.targets.end(),
                                [](const auto& claim) {
@@ -657,6 +666,9 @@ void format_inlines(std::ostringstream& out, const InlineSequenceIR& inlines) {
               out << ":code";
             else if (node.label_emphasis)
               out << ':' << emphasis_kind_name(*node.label_emphasis);
+            if (node.label_image)
+              out << " image=" << quoted(node.label_image->resource) << ':'
+                  << quoted(node.label_image->alt_text);
             for (const auto& claim : node.targets) {
               out << " claim={kind="
                   << cross_reference_target_kind_name(claim.target.kind)

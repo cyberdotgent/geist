@@ -4,6 +4,7 @@
 #include "geist/detail/lowering/prose_topic_document_lowering.hpp"
 
 #include "geist/detail/ir/figure_block_ir.hpp"
+#include "geist/detail/ir/selector_link_ir.hpp"
 #include "geist/detail/lowering/figure_document_lowering.hpp"
 #include "geist/detail/lowering/fixed_table_document_lowering.hpp"
 #include "geist/detail/lowering/font_style_inlines.hpp"
@@ -271,6 +272,7 @@ bool link_table_cells(const ProseTopicIR& prose, std::size_t span,
 bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
                    std::size_t end, InlineSequenceIR& content,
                    std::string* error, bool flatten_emphasis = false) {
+  std::vector<DocumentSourceSliceIR> imaged;
   for (auto index = begin; index < end && index < block.inlines.size();
        ++index) {
     const auto& node = block.inlines[index];
@@ -319,6 +321,29 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
         reference.targets.push_back(
             {prose_target(target.kind, target.value, target.alternatives),
              origin({target.source}, "prose CSELECT target")});
+      // A `LNK <IMAGE>` selector draws its image once, at the start of the
+      // columns it selects; a label split into several runs (a font change
+      // inside it) carries the image on its first run only.  The image is
+      // drawn inside one link, so it may not share the label with another
+      // selector claim.
+      for (const auto& target : node.targets) {
+        const auto image = target.kind == CrossReferenceTargetKindIR::external
+                               ? selector_link_image(target.alternatives)
+                               : std::string{};
+        if (image.empty()) continue;
+        if (node.targets.size() != 1)
+          return fail(error, "image link label carries several selector "
+                             "claims");
+        const auto same_selector = [&](const DocumentSourceSliceIR& seen) {
+          return seen.logical_record == target.source.logical_record &&
+                 seen.segment_index == target.source.segment_index &&
+                 seen.token_begin == target.source.token_begin &&
+                 seen.token_end == target.source.token_end;
+        };
+        if (std::any_of(imaged.begin(), imaged.end(), same_selector)) continue;
+        imaged.push_back(target.source);
+        reference.label_image = ImageInlineIR{image, image};
+      }
       if (code_style(node.style))
         reference.label_code = true;
       else if (node.style != FontStyleIR::unknown)

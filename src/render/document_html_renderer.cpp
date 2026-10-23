@@ -403,7 +403,8 @@ void append_inline(HtmlSink &sink, const InlineIR &node) {
           const auto label =
               value.label.empty() ? value.targets.front().target.value
                                   : value.label;
-          if (!value.label_emphasis && !value.label_code) {
+          if (!value.label_emphasis && !value.label_code &&
+              !value.label_image) {
             append_anchor(sink, href, link_kind(resolved.kind), label);
           } else {
             sink.markup("<a");
@@ -411,7 +412,24 @@ void append_inline(HtmlSink &sink, const InlineIR &node) {
                                                 href.unresolved));
             sink.attribute("href", href.href);
             sink.markup(">");
-            if (value.label_code) {
+            if (value.label_image) {
+              // The image leads the link's content, as hosted BookServer
+              // serves an `<IMAGE>` selector; its URL is the consumer's to
+              // resolve exactly like an external figure image's.
+              const auto image =
+                  resource_href(value.label_image->resource, sink.options());
+              sink.markup("<img");
+              sink.attribute("class",
+                             image.unresolved
+                                 ? "geist-image geist-image--unresolved"
+                                 : "geist-image");
+              sink.attribute("src", image.href);
+              sink.attribute("alt", value.label_image->alt_text);
+              sink.markup(">");
+            }
+            if (!value.label_emphasis && !value.label_code) {
+              sink.text(label);
+            } else if (value.label_code) {
               sink.markup("<code class=\"geist-monospace\">");
               sink.text(label);
               sink.markup("</code>");

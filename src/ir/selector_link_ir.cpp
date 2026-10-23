@@ -22,7 +22,25 @@ bool bracketed(const std::string& token) {
   return token.size() >= 2 && token.front() == '<' && token.back() == '>';
 }
 
+bool url_like(const std::string& value) {
+  return (!value.empty() && value.front() == '/') ||
+         ascii_starts_with_case_insensitive(value, "http://") ||
+         ascii_starts_with_case_insensitive(value, "https://") ||
+         ascii_starts_with_case_insensitive(value, "ftp://");
+}
+
 } // namespace
+
+std::string selector_link_image(const std::vector<std::string>& alternatives) {
+  if (alternatives.size() < 6 || ascii_lower(alternatives[0]) != "image")
+    return {};
+  // Alternative 3 when the selector names one (XWEBDEMO 1.0
+  // `</bookmgr/product.gif>`), else alternative 4, the link itself
+  // (XWEBDEMO 1.4.1 `<> </bookmgr/monetcoq.jpg>`).
+  const auto& image = alternatives[2].empty() ? alternatives[3]
+                                              : alternatives[2];
+  return url_like(image) ? image : std::string{};
+}
 
 std::optional<SelectorLinkIR> parse_selector_link(
     const std::vector<std::string>& alternative_tokens, std::string* error) {
@@ -75,6 +93,11 @@ std::optional<SelectorLinkIR> parse_selector_link(
     link.kind = kind == "image" ? SelectorLinkKindIR::external_image
                                 : SelectorLinkKindIR::external_link;
     link.destination = fourth;
+    if (kind == "image") {
+      link.image = selector_link_image(link.alternatives);
+      if (link.image.empty())
+        return reject("LNK <IMAGE> selector names no image URL");
+    }
     return link;
   }
   return reject("LNK selector kind '" + link.alternatives[0] +

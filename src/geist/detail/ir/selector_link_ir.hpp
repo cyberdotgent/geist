@@ -33,7 +33,11 @@ struct DecodedLogicalRecordSource;
 //   <OTHER> <INTERNET> <> <http://www.ibm.com/> <> <IBMHOME>  XWEBDEMO 1.4.4
 //           hosted `<a href="http://www.ibm.com/">`
 //   <IMAGE> <INTERNET> <> </bookmgr/monetcoq.jpg> <> <MONET1> XWEBDEMO 1.4.1
-//           hosted `<img src="/bookmgr/monetcoq.jpg">`
+//           hosted `<a href="/bookmgr/monetcoq.jpg"><img
+//           src="/bookmgr/monetcoq.jpg" ...>.</a>`
+//   <IMAGE> <INTERNET> </bookmgr/product.gif> <http://.../library> <> <ICON>
+//           XWEBDEMO 1.0, hosted `<a href="http://.../library"><img
+//           src="/bookmgr/product.gif" ...>IBM BookManager BookServer</a>`
 //   <SPT>   <XDLIPRE> <> <SC33-1165> <00> <DFHA300>  GC33-1162-02 1.6.9.1
 //           hosted `<a href="../../DOCNUM/SC33-1165/SPTXDLIPRE?ScrollTOP=
 //           SPTXDLIPRE#SPTXDLIPRE?DocnumLevel=00">` (`GC33-116`, DT
@@ -43,14 +47,16 @@ struct DecodedLogicalRecordSource;
 // `<HDR>` link (the reader prefixes `HDR`) or of a `<SPT>` link (prefixed
 // `SPT`: the `SRSPT<id>` spot of the other book), alternative 4 the document
 // number of a `<BOOK>`/`<HDR>`/`<SPT>` link or the URL of an `<OTHER>`/`<IMAGE>`
-// one, and alternative 6 the target's own identifier.  Nothing else is
-// displayed: the alternatives never appear on the hosted page.
+// one, and alternative 6 the target's own identifier.  An `<IMAGE>` link
+// draws an image at the start of its selected columns: alternative 3 when it
+// names one, else alternative 4, which is then both image and link.  Nothing
+// else is displayed: the alternatives never appear on the hosted page.
 enum class SelectorLinkKindIR {
   book_contents,  // another book's table of contents
   book_heading,   // a heading inside another book
   book_spot,      // a spot (`SRSPT<id>`) inside another book
   external_link,  // a URL the reader opens
-  external_image, // a URL the reader shows inline as an image
+  external_image, // a link whose content starts with an image
 };
 
 struct SelectorLinkIR {
@@ -70,6 +76,8 @@ struct SelectorLinkIR {
   // It is not addressing inside the target book, and it is empty for the
   // references that name no level (ITPPIBOK 1.3.3).
   std::string document_level;
+  // The image an `<IMAGE>` selector draws at the start of its link.
+  std::string image;
 };
 
 // Parses the alternative list of a `LNK` selector from the decoded text of
@@ -78,6 +86,12 @@ struct SelectorLinkIR {
 // forms.
 std::optional<SelectorLinkIR> parse_selector_link(
     const std::vector<std::string>& alternative_tokens, std::string* error);
+
+// The image an `<IMAGE>` selector draws, from its alternatives without their
+// angle brackets: alternative 3, or alternative 4 when 3 is empty.  Empty
+// when the tuple is not an `<IMAGE>` one or the chosen alternative is not a
+// URL (a `/`-rooted path or an `http://`, `https://` or `ftp://` URL).
+std::string selector_link_image(const std::vector<std::string>& alternatives);
 
 // The record-local tokens a `LNK` selector spends on its alternative list.
 //

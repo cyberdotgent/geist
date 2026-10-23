@@ -307,6 +307,17 @@ void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
               node.label.empty() ? node.targets.front().target.value
                                  : node.label;
             sink.syntax("[", "link syntax", origin);
+            if (node.label_image) {
+              sink.syntax("![", "image syntax", origin);
+              sink.content(escape_markdown_text_impl(node.label_image->alt_text),
+                           "image alt text", origin);
+              sink.syntax("](", "image syntax", origin);
+              sink.syntax(markdown_destination(node.label_image->resource),
+                          "image destination", origin);
+              // An image is a replaced element: its alt text is a word run
+              // of its own, never glued to the label that follows it.
+              sink.boundary(")", "image syntax", origin);
+            }
             if (node.label_code) {
               const auto parts = code_span_parts(
                   label, context == InlineContext::table_cell);
