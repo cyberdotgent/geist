@@ -4672,6 +4672,20 @@ its display line -- directly before `cz OFF EMSGL`. It is the anchor
 (DT `19980422095213`) serves `<a name="MSG"></a>` and then
 `<a name="MSG ILU901A"><hr>`.
 
+*An announced list.* A topic whose menu lists one topic per message ends with
+the opener pair and nothing after it; the messages and the list's
+`cz OFF EMSGL` are in the topics that follow. `GC35-0271-02.boo` `6.0` record
+628 segments 18--21 are `cemenu`, `cz BREAK 3`, `cz FLOW MSGL 3 3`,
+`cz OFF MSGL`, the last directives of the topic, and hosted
+(DT `19980714150144`) serves the pair as an empty `<pre width="80"></pre>`
+after the menu. `SC33-6740-00.boo` `A.0`, `SC31-8129-01.boo` `APPENDIX1.5`,
+`SC26-4834-03.boo` `3.0` and `GC33-1694-01.boo` `1.8` end the same way.
+
+*Unresolved.* The individually indexed message topics that follow such an
+announcement (`GC35-0271-02` `6.1`: `SRMSG ANR0800I` in the metadata, then the
+headline rows before the first `cz` directive, then `cz FLOW XPL` ...) are
+not described here.
+
 [[markup_footnotes_in_the_flattened_dialect]]
 ==== Footnotes in the flattened dialect
 

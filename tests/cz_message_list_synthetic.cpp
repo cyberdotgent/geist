@@ -330,6 +330,35 @@ void back_to_back_lists_keep_the_closing_anchor_in_place() {
           "the last closing `MSG` is not at the end");
 }
 
+// A list announced at the end of a menu topic (GC35-0271-02 6.0) is closed
+// by a later topic and draws nothing here.  Anything after the announcement
+// would belong to a list this topic never closes.
+void a_trailing_announcement_draws_nothing() {
+  const auto topic = [](bool trailing_row) {
+    RecordBuilder builder;
+    builder.heading();
+    builder.line({words("cz"), words("FLOW"), words("P"), words("3"),
+                  words("3"), words("   "), words("Messages"),
+                  words("follow.")});
+    builder.line({words("cz"), words("BREAK"), words("3")});
+    builder.line({words("cz"), words("FLOW"), words("MSGL"), words("3"),
+                  words("3")});
+    builder.line({words("cz"), words("OFF"), words("MSGL")});
+    if (trailing_row) builder.line({words("   "), words("Stray.")});
+    return builder.build(628);
+  };
+  auto announced = run(topic(false));
+  require(announced.topic.has_value(),
+          "a trailing message-list announcement was rejected: " +
+              announced.error);
+  if (announced.topic)
+    require(announced.topic->blocks.size() == 1,
+            "the trailing announcement drew a block of its own");
+  auto stray = run(topic(true));
+  require(!stray.topic.has_value(),
+          "a row after an unclosed message-list announcement was admitted");
+}
+
 }  // namespace
 
 int main() {
@@ -338,5 +367,6 @@ int main() {
   a_message_anchor_outside_a_message_list_declines();
   a_message_list_opener_without_its_off_declines();
   back_to_back_lists_keep_the_closing_anchor_in_place();
+  a_trailing_announcement_draws_nothing();
   return 0;
 }

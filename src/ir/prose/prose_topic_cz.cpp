@@ -1314,6 +1314,24 @@ struct CzBuilder {
         return false;
       }
     }
+    // A message list announced at the very end of a topic holds the messages
+    // of the topics that follow: GC35-0271-02 6.0 ends its menu of the
+    // seventy-three message topics 6.1 .. 6.73 with `cemenu`, `cz BREAK 3`,
+    // `cz FLOW MSGL 3 3`, `cz OFF MSGL` (record 628 segments 18-21) and
+    // nothing after, and hosted (DT 19980714150144) serves only an empty
+    // `<pre width="80">` for the pair.  The list is closed elsewhere, so the
+    // pair draws nothing here; any row or directive after it would be
+    // content of a list this topic never closes, and still fails.
+    if (stack.size() == 1 && stack.back().tag == "msgl" &&
+        build.directives.size() >= 2) {
+      const auto last = build.directives.size() - 1;
+      const auto& opener = build.directives[last - 1];
+      const auto& off = build.directives[last];
+      if (opener.mode == "flow" && opener.tag == "msgl" &&
+          off.mode == "off" && off.tag == "msgl" &&
+          ranges[last].first == npos)
+        stack.pop_back();
+    }
     if (!stack.empty())
       return fail(error, "cz list " + stack.back().tag + " is not closed");
     const auto leading_anchors = topic.anchors.size();
