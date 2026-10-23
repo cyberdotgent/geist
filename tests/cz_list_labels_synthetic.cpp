@@ -33,6 +33,7 @@
 #include <cstdint>
 #include <iostream>
 #include <optional>
+#include <tuple>
 #include <string>
 #include <utility>
 #include <vector>
@@ -430,6 +431,100 @@ void a_head_with_a_word_before_its_ordinal_is_a_label() {
           "the step list's HTML did not carry its labels: " + html);
 }
 
+// A revision flag in front of an ordered item's label.  The row stores a
+// one-cell blank, the flag at column 1 and the label at the item's `left`
+// column, with the text resuming at `indent`: SC33-1169-00 A.1 record 1840
+// `cz FLOW LI 3 7` + ` # 1.  Create the keys`, which hosted (DT
+// 19990319122050) serves as `<li> <br> #     Create the keys`.  The label
+// columns are blank, as for any `OL` head, and the flag stays visible on
+// the line the break opens; `+`, `|` and `g` flags are served the same way
+// (doc/boo-spec/markup.adoc, "A revision flag before an ordered item").
+void a_revision_flag_before_an_ordinal_opens_the_item_line() {
+  RecordBuilder builder;
+  metadata(builder);
+  directive(builder, "FLOW", "OL", "3", "3");
+  directive(builder, "FLOW", "LI", "3", "7");
+  builder.line({words(" "), words("#"), words("1."), words(" "),
+                words("Create"), words("the"), words("keys")});
+  directive(builder, "FLOW", "OL", "5", "5");
+  directive(builder, "FLOW", "LI", "5", "9");
+  builder.line({words(" "), words("+"), words("  "), words("a."),
+                words(" "), words("Read"), words("a"), words("record")});
+  directive(builder, "OFF", "EOL", "0", "0");
+  directive(builder, "FLOW", "LI", "3", "7");
+  builder.line({words("   "), words("2."), words(" "), words("Sort"),
+                words("the"), words("data")});
+  directive(builder, "OFF", "EOL", "0", "0");
+
+  const auto extracted = extract_record(std::move(builder), 21);
+  require(extracted.prose.has_value(),
+          "the flagged list was declined: " + extracted.error);
+  if (!extracted.prose) return;
+  for (const auto &[needle, flag, label] :
+       std::vector<std::tuple<std::string, std::string, std::string>>{
+           {"Create", "#", "1."}, {"Read", "+", "a."}}) {
+    const auto *item =
+        find_block(*extracted.prose, ProseBlockKindIR::list_item, needle);
+    require(item != nullptr && item->ordered && item->ordinal == label,
+            "the flagged head '" + label + "' is not the item's ordinal");
+    if (item == nullptr) continue;
+    require(!item->inlines.empty() &&
+                item->inlines.front().kind ==
+                    geist::detail::ProseInlineKindIR::line_break,
+            "the flagged item does not open with a line break: '" +
+                block_text(*item) + "'");
+    require(block_text(*item).rfind(flag + " " + needle, 0) == 0 &&
+                block_text(*item).find(label) == std::string::npos,
+            "the flagged item is not flag + text: '" + block_text(*item) +
+                "'");
+  }
+  const auto *plain =
+      find_block(*extracted.prose, ProseBlockKindIR::list_item, "Sort");
+  require(plain != nullptr && plain->ordinal == "2." &&
+              plain->inlines.front().kind !=
+                  geist::detail::ProseInlineKindIR::line_break,
+          "an unflagged item gained a line break");
+  const auto document = lower_document(extracted);
+  if (!document) return;
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "1. <br>\\# Create the keys") &&
+              contains(markdown, "a. <br>\\+ Read a record") &&
+              contains(markdown, "2. Sort the data") &&
+              !contains(markdown, "1\\.") && !contains(markdown, "a\\."),
+          "the flagged items did not render as hosted serves them: " +
+              markdown);
+  const auto html = geist::detail::render_document_html_blocks(*document, {});
+  require(contains(html, "<br># Create the keys") &&
+              contains(html, "<br>+ Read a record") &&
+              !contains(html, "geist-list-label"),
+          "the flagged items' HTML is not break + flag + text: " + html);
+}
+
+// A flag whose row carries no ordinal label at `left` proves nothing about
+// a head: the row is left as it is stored, flag and words as text.
+void a_flag_without_an_ordinal_stays_text() {
+  RecordBuilder builder;
+  metadata(builder);
+  directive(builder, "FLOW", "OL", "3", "3");
+  directive(builder, "FLOW", "LI", "3", "7");
+  builder.line({words(" "), words("#"), words("Create"), words("the"),
+                words("keys")});
+  directive(builder, "OFF", "EOL", "0", "0");
+
+  const auto extracted = extract_record(std::move(builder), 21);
+  require(extracted.prose.has_value(),
+          "the unlabelled flagged list was declined: " + extracted.error);
+  if (!extracted.prose) return;
+  const auto *item =
+      find_block(*extracted.prose, ProseBlockKindIR::list_item, "Create");
+  require(item != nullptr && item->ordinal.empty() &&
+              block_text(*item).rfind("# Create", 0) == 0 &&
+              item->inlines.front().kind !=
+                  geist::detail::ProseInlineKindIR::line_break,
+          "an unlabelled flagged row was rewritten: '" +
+              (item == nullptr ? std::string() : block_text(*item)) + "'");
+}
+
 } // namespace
 
 int main() {
@@ -438,6 +533,8 @@ int main() {
   a_note_list_keeps_its_numbers_as_text();
   a_parenthesis_ordinal_is_the_item_label();
   a_head_with_a_word_before_its_ordinal_is_a_label();
+  a_revision_flag_before_an_ordinal_opens_the_item_line();
+  a_flag_without_an_ordinal_stays_text();
   geist_test::exit_with_failures();
   std::cout << "cz_list_labels_synthetic: ok\n";
   return 0;

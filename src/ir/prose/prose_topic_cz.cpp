@@ -415,6 +415,73 @@ struct CzBuilder {
     return clip_spans_before(line, error);
   }
 
+  // A revision flag in front of an ordered item's head
+  // (doc/boo-spec/markup.adoc, "A revision flag before an ordered item"):
+  // the row's first word is one visible cell at column 1, after the
+  // one-cell blank the margin opens with, and the next word is a one-word
+  // ordinal label (`1.`, `a.`, `7)`) standing at the item's `left` with the
+  // text resuming exactly at `indent`.  SC33-1169-00 A.1 record 1840
+  // `cz FLOW LI 3 7` + ` # 1.  Create the keys` is served (DT
+  // 19990319122050) as `<li> <br> #     Create the keys`; `+`, `|` and `g`
+  // flags in 14 more books are served the same way.  Hosted blanks the
+  // label and keeps the flag, on the line its `<br>` opens.  Any other
+  // shape -- a flag before a several-word head, a head off `left`, text
+  // not at `indent` -- leaves the row as stored.
+  bool revision_flag(const Line& line,
+                     const LayoutDirective& directive) const {
+    const auto [flag, flag_end] = first_word(line, line.text_begin);
+    if (flag != 1 || flag_end != 2 || directive.left <= flag_end ||
+        line.cells.empty() || !line.cells[0].space)
+      return false;
+    const auto& cell = line.cells[flag];
+    if (cell.record == npos ||
+        ledger.at(cell.record, cell.token).role != ProseTokenRoleIR::text)
+      return false;
+    for (auto column = flag_end; column < directive.left; ++column)
+      if (column >= line.cells.size() || !line.cells[column].space)
+        return false;
+    const auto [begin, end] = first_word(line, flag_end);
+    if (begin != directive.left || end >= line.cells.size()) return false;
+    const auto label = cells_text(line, begin, end);
+    if (!ordinal_word(label, '.') && !ordinal_word(label, ')')) return false;
+    // The label is a word of its own: no token it shares with the flag or
+    // the text, and no link or font run that crosses into it.
+    const auto resume = first_word(line, end).first;
+    if (resume != directive.indent || resume >= line.cells.size())
+      return false;
+    for (auto column = begin; column < end; ++column) {
+      const auto& source = line.cells[column];
+      if (source.record == npos ||
+          (source.record == cell.record && source.token == cell.token) ||
+          ledger.at(source.record, source.token).role !=
+              ProseTokenRoleIR::text)
+        return false;
+      for (auto other = resume; other < line.cells.size(); ++other)
+        if (line.cells[other].record == source.record &&
+            line.cells[other].token == source.token)
+          return false;
+    }
+    // A font run or link covers the flag alone, the label alone (bk9b5001
+    // 5.5 sets its labels bold; hosted GC30-3675-02, DT 19960606151611,
+    // serves `<li> <br> | <B>  </B>  At the OS/2 prompt ...`), or starts at
+    // the text; one that crosses between them leaves the row as stored.
+    for (const auto* spans : {&line.fonts, &line.links})
+      for (const auto& span : *spans) {
+        auto from = span.begin;
+        auto to = span.end;
+        while (from < to && from < line.cells.size() && line.cells[from].space)
+          ++from;
+        while (to > from && to - 1 < line.cells.size() &&
+               line.cells[to - 1].space)
+          --to;
+        if (from >= to || from >= resume) continue;
+        if (from >= flag && to <= flag_end) continue;
+        if (from >= begin && to <= end) continue;
+        return false;
+      }
+    return true;
+  }
+
   // Blanks the first word [begin, end) of a several-word OL head whose last
   // word ends at `head_end`; the words between stay as the item's label.  A
   // token the blanked word shares with the label, or a link that crosses
@@ -508,8 +575,38 @@ struct CzBuilder {
     ++frame.items;
     auto& first = lines[groups.front().first];
     auto label_end = npos;
+    Line flag_line;
+    const auto flagged = block.ordered && revision_flag(first, directive);
+    if (flagged) {
+      flag_line = first;
+      const auto flag_end = first.text_begin + 1;
+      flag_line.cells.resize(flag_end);
+      if (!clip_spans_after(flag_line, flag_end, error)) return false;
+      first.text_begin = directive.left;
+    }
     if (block.ordered && !take_ordinal(first, directive, block, label_end))
       return false;
+    if (flagged) {
+      if (block.ordinal.empty() || label_end != npos)
+        return fail(error, "cz FLOW LI revision flag has no ordinal label");
+      // The flag's row opens on the line hosted's break starts: a row
+      // boundary first, then the flag, then the item's text.
+      const auto [begin, end] = groups.front();
+      std::vector<Line> parts{std::move(flag_line), first};
+      for (auto index = begin + 1; index < end; ++index)
+        parts.push_back(lines[index]);
+      const auto block_index = topic.blocks.size();
+      block.origin = lines[begin].origin;
+      ProseInlineIR boundary;
+      boundary.kind = ProseInlineKindIR::line_break;
+      block.inlines.push_back(std::move(boundary));
+      if (!build_block(records, parts, 0, parts.size(), block, ledger,
+                       block_index, error))
+        return false;
+      append(std::move(block), begin);
+      frame.body_owner = block_index;
+      return paragraphs(groups, 1);
+    }
     if (frame.tag == "ul" && !take_bullet(first, directive)) return false;
     if (!has_text(first)) return fail(error, "cz FLOW LI has no text");
     const auto block_index = topic.blocks.size();

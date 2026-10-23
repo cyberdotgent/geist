@@ -356,8 +356,14 @@ void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
                         "image destination", origin);
             sink.syntax(")", "image syntax", origin);
           } else if constexpr (std::is_same_v<T, HardBreakInlineIR>) {
-            sink.boundary(context == InlineContext::prose ? "  \n" : "<br>",
-                        "hard break", origin);
+            // Trailing spaces break a line only after text: a break that
+            // opens the sequence (an ordered item whose flagged row starts
+            // on a line of its own) has nothing before it to end, and the
+            // newline alone would leave the list marker on an empty line.
+            sink.boundary(context == InlineContext::prose && index > 0
+                              ? "  \n"
+                              : "<br>",
+                          "hard break", origin);
           } else if constexpr (std::is_same_v<T, OpaqueInlineIR>) {
             const auto payload = node.content.empty()
                                      ? node.kind
