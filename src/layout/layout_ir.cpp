@@ -519,7 +519,46 @@ LayoutIR extract_layout_ir(
           // Other fixed-layout consumers still use compact physical fragments
           // rather than whole native rows. Preserve that compatibility model:
           // its framing pass only fills uncovered leading display lines.
-          if (!authoritative && (!run.rows.empty() || marker >= opened))
+          //
+          // A markerless control-payload row opened on this very line's
+          // length byte and holding only the revision bar does not cover the
+          // line: it is the speculative claim
+          // the replacement below exists for, made because the byte is
+          // spelled as a blank.  Left standing, it ends at the first
+          // heuristic boundary inside the line, and the word that boundary
+          // calls a marker is lost.  ICHA6MST 3.1.2 record 561 line 26
+          // ` | 1    Master Console Action` (length byte 9 spelled ` `) was
+          // cut at the routing code `1`, which vanished, and the `cfont`
+          // above it then styled `M` instead of `1`; hosted (DT
+          // 19910801172557) serves ` | <B>1</B>    <B>Master</B> ...`.
+          //
+          // Only a row that holds nothing but the line's margin revision bar
+          // is replaced: the bar is margin, not a row of its own.  Other
+          // compact fragments of a first line (a glossary term before its
+          // `.`) are what their consumers read.
+          const auto margin_bar_only = [&](const PhysicalRowIR& row) {
+            bool bar = false;
+            for (auto token = row.token_begin;
+                 token < row.token_end && token < record.tokens.size();
+                 ++token) {
+              if (visible_token(record.tokens[token]).empty()) continue;
+              if (!is_display_line_margin_revision_bar(record, token))
+                return false;
+              bar = true;
+            }
+            return bar;
+          };
+          const auto speculative_only =
+              !run.rows.empty() &&
+              std::all_of(run.rows.begin(), run.rows.end(),
+                          [&](const auto& row) {
+                            return row.start ==
+                                       PhysicalRowStartKind::control_payload &&
+                                   row.token_begin == marker &&
+                                   margin_bar_only(row);
+                          });
+          if (!authoritative &&
+              ((!run.rows.empty() && !speculative_only) || marker >= opened))
             continue;
           if (origin >= line.token_end ||
               origin >= record.tokens.size() ||
@@ -577,11 +616,18 @@ LayoutIR extract_layout_ir(
           // the framing calls line content, so it is not a row-control slot
           // and the row it opened began in the middle of a drawn line. The
           // line's own length byte replaces it.
+          //
+          // A boundary whose origin is the next line's length byte is that
+          // next line's start read one token early; the snap below moves it
+          // onto the length byte, so it is kept here (packet GLOSSARY record
+          // 366 line 21 ends on `for`, read as the slot before line 22).
           boundaries.erase(
               std::remove_if(boundaries.begin(), boundaries.end(),
                              [&](const auto& boundary) {
                                return boundary.marker > marker &&
-                                      boundary.marker < line.token_end;
+                                      boundary.marker < line.token_end &&
+                                      !is_display_line_length_token(
+                                          record, boundary.origin);
                              }),
               boundaries.end());
           boundaries.push_back({marker, origin});
