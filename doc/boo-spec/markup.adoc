@@ -5556,6 +5556,96 @@ No sampled book serves such a head differently.  The rule was not checked
 against a head whose first word is itself an ordinal (`1. Step`), nor
 against a head of four or more words; neither shape occurs in the sample.
 
+*`OL` with a one-word letter head: the list's alphabet.*  When the head of
+an `OL` list's first item is a single word, `<letter>.` or `<letter>)`,
+standing at the item's `left` column with the text resuming at its
+`indent`, hosted BookServer serves the list as `<ol type=a start=<n>>`, `<n>`
+being the letter's position in the alphabet (`a` is 1, `b` is 2), and blanks
+the head's columns in every item, as it does for `<number>.`.  The list
+alphabet therefore follows the first item's head; later items do not change
+it.  A sample of 121 books holding such heads, 89 of them in the hosted
+catalogue, was checked list by list: 243 lists whose first row is an
+ordinary row were looked up, 239 of them were found in the hosted page,
+and every one of those is served this way, with no exception.  A first head of `b.` gives `start=2` (`SC09-2133-01` `14.1`,
+DT 19960905095532), and a `<letter>)` head the same `type=a`
+(`GC35-0317-00` `C.7`, DT 19980406161309: `cz FLOW LI 15 19` +
+`               a)  <insert>`, served
+pass:[<literal>&lt;ol type=a start=1&gt;&lt;li&gt;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&amp;lt;insert&amp;gt;</literal>]).
+A later item that carries a revision change bar does not change the
+alphabet: `SC23-0455-04` `4.1.2` (DT 19941012162115) serves `c.` to `g.`,
+each behind ` | `, inside the `<ol type=a start=1>` its unbarred `a.` opened.
+No upper-case letter head (`A.`) occurs in the sample.
+
+In the rows below the head row bytes are the row's length byte, the origin
+space run, the letter token and `01`, the attached `.`, then the gap to the
+text.  Hosted columns shown as `<sp:N>` are runs of N spaces.
+
+[cols="2,2,1,1,3,3,4",options="header"]
+|===
+|Book |DT |Topic |Record |`LI` control |Head row |Hosted
+|`GA27-4079-00` |19950731152105 |`2.1` |41 |`05 4A 9A A6 D8 C4` at `0x251C1` (`LI 7 11`) |`0F 19 29 01 13` at `0x251C7` |`<ol type=a start=1>` `<li><sp:12>Mark the screw positions on the ...`
+|`GC23-3663-07` |19971107070041 |`4.1` |41 |`05 43 95 9A D9 C1` at `0x8134` (`LI 7 11`) |`0C 15 28 01 0F` at `0x813A` |`<ol type=a start=1>` `<li><sp:12>Ask before overwriting existing files ...`
+|`GC26-9047-00` |19970501135509 |`5.0` |66 |`05 51 9C A7 D9 C1` at `0xACED` (`LI 7 11`) |`16 19 37 01 13` at `0xACF5` |`<ol type=a start=1>` `<li><sp:12>Scan forward from the address of ...`
+|`GC28-1566-02` |19981006150754 |`3.3.2.1` |170 |`05 4C 89 8D B5 A5` at `0x11B0BF` (`LI 7 11`) |`19 11 31 01 0B` at `0x11B0C5` |`<ol type=a start=1>` `<li><sp:12>Copy your AOC/MVS release 2 database ...`
+|`GC30-3706-01` |19960403092752 |`2.1.2.1` |96 |`05 46 86 8E B5 A5` at `0x72C3D` (`LI 7 11`) |`1E 14 2C 01 0E` at `0x72C43` |`<ol type=a start=1>` `<li><sp:12>Click on the "DLC - Token-ring ...`
+|`GC30-3746-00` |19950801144430 |`3.2.3` |100 |`05 45 91 9C D3 BE` at `0x13CB1` (`LI 7 11`) |`14 16 2A 01 10` at `0x13CB7` |`<ol type=a start=1>` `<li><sp:12>If you plan to run the ...`
+|`GC30-3826-00` |19960124125713 |`6.3.8` |100 |`05 45 8B 96 D8 B7` at `0x1DAC8` (`LI 7 11`) |`15 17 2C 01 11` at `0x1DACE` |`<ol type=a start=1>` `<li><sp:12>You will be prompted to insert ...`
+|`GC35-0317-00` |19980406161309 |`FRONT_1.4` |31 |`05 52 9F A4 D3 BC` at `0x1C51BE` (`LI 7 11`) |`12 1A 32 01 14` at `0x1C51C4` |`<ol type=a start=1>` `<li><sp:12>Initializing and defining database and recovery ...`
+|`GK2T-0334-06` |19960727013155 |`1.4.2.2` |392 |`05 41 86 8F B7 A7` at `0x19E676` (`LI 7 11`) |`15 10 21 01 0A` at `0x19E67E` |`<ol type=a start=1>` `<li><sp:12>Record the type of adapter. Use ...`
+|`GX27-3993-01` |19960227124815 |`5.1.8` |109 |`05 45 90 9A D9 C0` at `0x206DE` (`LI 7 11`) |`16 17 2B 01 11` at `0x206E4` |`<ol type=a start=1>` `<li><sp:12>You will be prompted to insert ...`
+|`GX27-3996-00` |19950730183906 |`2.10.2` |68 |`05 47 89 94 D8 B9` at `0x16AF2` (`LI 7 11`) |`0E 16 2B 01 10` at `0x16AF8` |`<ol type=a start=1>` `<li><sp:12>Back up your hard disk. ...`
+|`S544-5349-01` |19971203133507 |`2.1.3` |101 |`05 4F 91 96 B2 B6` at `0x66390` (`LI 12 16`) |`16 1C 33 01 11` at `0x66396` |`<ol type=a start=1>` `<li><sp:17>Position the cursor on the screen ...`
+|`SC09-1624-02` |19950908104431 |`3.6.5` |217 |`05 4A 91 97 D5 B5` at `0xDA1D6` (`LI 7 11`) |`0F 1A 30 01 14` at `0xDA1DC` |`<ol type=a start=1>` `<li><sp:12>Defining CPI-C side information ...`
+|`SC09-2067-00` |19950918172230 |`15.0` |1170 |`05 4F 8D 91 BE A5` at `0x84FD7` (`LI 7 11`) |`12 18 37 01 12` at `0x84FDD` |`<ol type=a start=1>` `<li><sp:12>MVS/SP JES2 (SNA) ...`
+|`SC09-2070-00` |19951016164203 |`1.10.78.2` |1644 |`05 3F 64 68 A2 76` at `0x825D1` (`LI 7 11`) |`16 10 2C 01 0A` at `0x825D7` |`<ol type=a start=1>` `<li><sp:12>Calendar time is the number of ...`
+|`SC09-2072-00` |19951005195627 |`4.2.6` |1115 |`05 42 6C 71 BB 85` at `0x73A80` (`LI 7 11`) |`10 0F 2D 01 09` at `0x73A86` |`<ol type=a start=1>` `<li><sp:12>ACCESS IS SEQUENTIAL is specified for ...`
+|`SC09-2195-00` |19951025140503 |`3.3` |126 |`05 43 A0 A7 C1 C5` at `0x50542` (`LI 11 15`) |`19 10 1E 01 0A` at `0x50548` |`<ol type=a start=1>` `<li><sp:16>Double-click on the part to open ...`
+|`SC09-2441-00` |19961114141524 |`2.96` |623 |`05 45 7D 84 CE 97` at `0x3EE49` (`LI 7 11`) |`14 12 2E 01 0C` at `0x3EE4F` |`<ol type=a start=1>` `<li><sp:12>Calendar time is the number of ...`
+|`SC09-2451-01` |19971211171132 |`4.1.1.28` |1429 |`05 51 81 85 B0 8E` at `0xA7101` (`LI 7 11`) |`12 1C 3A 01 16` at `0xA7107` |`<ol type=a start=1>` `<li><sp:12>An error will occur with status ...`
+|`SC09-2605-00` |19971114124733 |`3.8` |95 |`05 4F 9B 9F D5 C0` at `0x1053F` (`LI 7 11`) |`14 1A 35 01 14` at `0x10545` |`<ol type=a start=1>` `<li><sp:12>If you have changed the source ...`
+|`SC09-2625-00` |19971215135220 |`4.2.1.2` |143 |`06 44 A4 AC C8 EB 5E` at `0x241642` (`LI 11 15`) |`13 0D 1A 01 07` at `0x241649` |`<ol type=a start=1>` `<li><sp:16>Select the drive and directory where ...`
+|`SC09-2671-00` |19990222160950 |`G.2` |1704 |`05 4B 89 8E BE A6` at `0xDFFEA` (`LI 7 11`) |`13 19 31 01 13` at `0xE0005` |`<ol type=a start=1>` `<li><sp:12>There is no support for the ...`
+|`SC21-8295-03` |19970409135933 |`C.5.1` |812 |`05 4D 9C A2 D4 C0` at `0x67A1B` (`LI 7 11`) |`09 17 38 01 11` at `0x67A23` |`<ol type=a start=1>` `<li><sp:12>Enter the following: ...`
+|`SC23-0455-04` |19941012162115 |`2.2.1` |51 |`05 3A 82 87 D8 9E` at `0xBC5D` (`LI 7 11`) |`0B 0D 1E 01 07` at `0xBC63` |`<ol type=a start=1>` `<li><sp:12>Locate the segment numbers. ...`
+|===
+
+*A first item behind a revision change bar: unresolved.*  When the list's
+first row carries the change bar (the row is `<length> <space run> | <space
+run> <letter> 01 ...`, the bar a one-cell `|` or `U+2502` word in the margin),
+hosted does not serve one shape.  79 such lists occur in 27 sampled books,
+14 of those books in the hosted catalogue.  Most are served `<ol type=1 start=1>`,
+so a browser numbers the lettered items `1.`, `2.`; the rest are served with
+an alphabet and start that neither the head nor the list explains:
+
+[cols="2,2,1,1,3,4",options="header"]
+|===
+|Book |DT |Topic |Record |Head row |Hosted list
+|`SC21-8295-03` |19970409135933 |`E.0` |836 |`18 11 8F 19 38 01 11` at `0x697E4` (`LI 12 16`) |`<ol type=1 start=1>`; also its `a)` lists (`LI 20 24`), records 838, 842, 852
+|`SC33-1169-00` |19990319122050 |`2.7.3.6.1` |665 |`13 0C 83 0F 28 01 0C` at `0xD4821` (`LI 7 11`) |`<ol type=1 start=1>`, twice in the topic
+|`SC41-5345-00` |19980601101949 |`D.2` |1467 |`12 15 8A 18 32 01 15` at `0xBF85D` (`LI 7 11`) |`<ol type=1 start=1>`
+|`SC41-4875-00` |19950915095413 |`8.16` |1942 |`17 0F 82 12 2E 01 0F` at `0xBCADC` (`LI 7 11`) |`<ol type=1 start=1>`; the same in `8.17`
+|`SC24-5755-01` |19980124181851 |`4.1.4` |621 |`0F 07 73 0A 21 01 07` at `0x5B5BB` (`LI 7 11`) |`<ol type=1 start=1>`
+|`SC09-2451-01` |19971211171132 |`3.3.2.1` |914 |`0E 16 78 19 3A 01 16` at `0x82962` (`LI 7 11`) |`<ol type=1 start=1>`
+|`GC28-1566-02` |19981006150754 |`6.18.3.1` |822 |`1B 0B 7C 18 31 01 0B` at `0x15228D` (`LI 17 21`) |`<ol type=1 start=1>`; also `10.13.3.3`, `10.13.5.1`
+|`GC30-3830-05` |19980914123939 |`1.4.1` |38 |`0F 0A 84 0D 29 01 0A` at `0x3F826` |`<ol type=1 start=1>`
+|`SC41-4304-00` |19951006131114 |`2.2.2.2` |271 |`1D 17 86 22 36 01 17` at `0x241B2` |`<ol type=1 start=1>`
+|`SC09-2087-00` |19950915135109 |`5.3` |170 |`19 0E 7F 11 29 01 0E` at `0x13BCC` (`LI 7 11`) |`<ol type=1 start=1>`; also `5.5`, `7.3.2.1`
+|`SC09-2087-00` |19950915135109 |`2.1` |57 |`17 0E 7F 11 29 01 0E` at `0xAF7E` (`LI 7 11`) |`<ol type=i start=2>`
+|`SC41-3420-04` |19960819152659 |`4.14.15.4` |2203 |`18 0B 55 0E 24 01 0B` at `0x10D25E` (`LI 7 11`) |`<ol type=1 start=1>`; `APPENDIX1.5.3` the same
+|`SC41-3420-04` |19960819152659 |`APPENDIX1.5.7.1` |3263 |`19 0B 55 0E 24 01 0B` at `0x166293` (`LI 7 11`) |`<ol type=a start=3>`
+|`SC41-3420-04` |19960819152659 |`APPENDIX1.5.7.2.1` |3267 |`1B 0B 55 0E 24 01 0B` at `0x166688` (`LI 7 11`) |`<ol type=1 start=2>`
+|`GA27-3960-05` |19961015143739 |`4.5.1` |164 |`25 16 6C 19 31 01 16` at `0xA11C7` |`<ol type=a start=2>`; `5.5.2` the same
+|`S544-5349-01` |19971203133507 |`3.2` |357 |`0B 11 83 19 33 01 11` at `0x7A5A4` (`LI 12 16`) |`<ol type=a start=4>`
+|`SC24-5764-00` |19950910144627 |`1.2.42.2` |572 |`20 11 71 14 2D 01 11` at `0x4218E` |`<ol type=a start=2>`
+|===
+
+Every barred first head is `a.` (76 lists) or `a)` (3), and every such
+first item is served behind ` | ` with its head columns blank.  The odd starts do not follow the
+enclosing item's number in every case (`GA27-3960-05` `4.5.1` nests its
+`a.` list under item `3.` and is served `start=2`), so no rule over the
+stored bytes reproduces them yet, and a reader cannot match hosted for
+this shape from the stored bytes alone.
+
 *`NOTEL`: the head is a note number, and it is text.*  Every `NOTEL` item
 stores its number (`1.`, `2.`, ...) in the head columns, and hosted
 BookServer prints it: each item is served as a bare `<dd>` holding the row

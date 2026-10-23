@@ -344,6 +344,16 @@ void a_parenthesis_ordinal_is_the_item_label() {
   const auto markdown = geist::detail::render_document_markdown(*document);
   require(contains(markdown, "7. Press F3") && !contains(markdown, "7\\)"),
           "the parenthesis label was not the list number: " + markdown);
+  // A list whose first head is one letter word is lettered: GC35-0317-00
+  // C.7 `cz FLOW LI 15 19` + `               a)  <insert>` is served
+  // (DT 19980406161309) inside `<ol type=a start=1>` with the head blank,
+  // as are the `a.` lists of 89 sampled books (doc/boo-spec/markup.adoc,
+  // "List item heads").
+  const auto html = geist::detail::render_document_html_blocks(*document, {});
+  require(contains(html, "type=\"a\"><li class=\"geist-list-item\" "
+                         "value=\"1\">Exit tools.") &&
+              !contains(html, "a)"),
+          "the letter-headed list is not lettered: " + html);
 }
 
 // A head of several words whose last word is an ordinal label.  Hosted
