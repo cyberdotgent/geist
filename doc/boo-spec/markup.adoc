@@ -5829,6 +5829,85 @@ enclosing item's number in every case (`GA27-3960-05` `4.5.1` nests its
 stored bytes reproduces them yet, and a reader cannot match hosted for
 this shape from the stored bytes alone.
 
+[[markup_cz_revision_flag_before_an_ordered_item]]
+*A revision flag before an ordered item.*  The first row of an `OL` item
+may carry a revision flag in its margin: a one-cell blank at column 0, one
+visible one-cell word at column 1 (`#`, `+`, `|` or the letter `g` in the
+books sampled), blank cells up to `left`, the one-word ordinal label
+(`<number>.` or `<letter>.`) at `left`, and the item's text resuming exactly
+at `indent`.  The flag token is the row's first display word, stored
+between the one-cell blank and the label; the label's columns are counted
+from column 0 of the row as usual.  (`SC21-8295-03` `E.0` record 840 above
+stores its `|` the same way but follows it with a thirteen-space run that
+reaches the label; hosted serves both shapes identically.)
+
+`SC33-1169-00` `A.1`, logical record 1840: `05 44 8F 93 AD B2` at
+`0x12E505` (`cz FLOW LI 3 7`),
+then the row at `0x12E50B`: `0A` (length byte), `0C` (one space), `24`
+(`#`) at column 1, `9F` (`1`) at column 3, `01` (an attached `.`), `0C`
+(one space, which with the assembler's space puts the text at column 7),
+`BE 98` (`Create`).  Hosted (DT 19990319122050) serves
+pass:[<literal>&lt;ol type=1 start=1&gt;</literal>] and
+pass:[<literal>&lt;li&gt; &lt;br&gt; #&#160;&#160;&#160;&#160;&#160;Create the keys</literal>].
+
+Hosted BookServer does three things with such a row, in every book sampled:
+
+* it numbers the item with its `<ol>`, and the label's columns become
+spaces exactly as for an unflagged one-word head (a font run over the label
+is kept as an empty run, `<B>  </B>`);
+* it ends the `<li>` line straight away with `<br>`, so the list number
+stands on a line of its own;
+* the row then starts on the new line with the flag in its margin, followed
+by the blanked label columns and the item's text.
+
+The flag is therefore printed, on the line after the list number, and the
+label is not.  A reader matching hosted keeps the flag as the first word of
+the item's text, after a line break, and drops the label.  Continuation rows
+of the item that carry the same flag are untouched by this rule.
+
+Twenty-one books, each with the hosted page checked against its `<base href>`.
+Bytes run from the row's length byte to its first text word.  Hosted columns
+shown as `<sp:N>` are runs of N spaces.
+
+[cols="2,2,1,1,3,3,3",options="header"]
+|===
+|Book (hosted id) |DT |Topic |Record |Row bytes |Row |Hosted row
+|`SC33-1169-00` |19990319122050 |`A.1` |1840 |`0A 0C 24 9F 01 0C BE 98` at `0x12E50B` |` # 1.  Create the keys` |`<li> <br> #<sp:5>Create the keys`; nested `LI 7 11` rows ` #     a.  Read a record ...` are `<li> <br> #<sp:9>Read a record ...`
+|`SC33-0512-01` |19960919200925 |`1.4.6.1` |150 |`18 07 22 8E 01 E6 6B` at `0x68ABF` |` # 11. When a debugging line ...` |`<li> <br> #<sp:5>When a debugging line ...`
+|`SC33-1182-00` |19990318093951 |`3.2.6.2` |325 |`0E 07 1B C1 01 07 CE 8E` at `0x2301E` |` # 2.  Adjust the local time backwards.` |`<li> <br> #<sp:5>Adjust the local time backwards.`
+|`SC33-1184-00` |19980710144201 |`4.1` |172 |`1C 0B 21 BC 01 0B DE 6C` at `0x866FE` |` # 4.  Perform DBCTL startup. ...` |`<li> <br> #<sp:5>Perform DBCTL startup. ...`
+|`SC33-1185-00` |19990318090111 |`3.3.2.1.2` |701 |`12 0D 27 B0 01 0D E9 A3` at `0x40248` |` # 2.  Tries to validate the user ...` |`<li> <br> #<sp:5>Tries to validate the user ...`
+|`SC33-1390-01` |19990317170242 |`8.1` |230 |`1E 09 23 CC 01 09 DE 25` at `0x1A9FE` |` # 2.  Connect to a CICS region ...` |`<li> <br> #<sp:5>Connect to a CICS region ...`
+|`SC33-1654-09` |20050714075613 |`2.6` |493 |`17 0B CC E4 B4 01 0B 9F` at `0x79720` |` # 2.  The INFOANA dump exit, ...` |`<li> <br> #<sp:5>The INFOANA dump exit, ...`
+|`SC34-5765-06` |20040112134133 |`2.8.2` |217 |`0C 0D 27 BE 01 E6 78` at `0x731C5` |` # 12. Right align certain fields` |`<li> <br> #<sp:5>Right align certain fields`
+|`GC33-1645-03` |20040421112929 |`7.5.4` |473 |`18 11 D0 73 CD 01 11 E9 9F` at `0x50AC0` |` # 8.  To process ...` under `cfont 3 2 2` |`<li> <br> # <B>  </B>  To process ...`
+|`SC33-1159-00` |19980420104006 |`3.8` |117 |`1C 0A 23 C7 01 0A 93` at `0x338B6` |` # 3.  For file CAUCNTL, ...` |`<li> <br> #<sp:5>For file CAUCNTL, ...`
+|`SC33-1164-01` |19990720140317 |`2.9.2` |688 |`15 0A 21 B6 01 0A EB 41` at `0x74336` |` + 3.  XDUREQC, after the dump ...` |`<li> <br> +<sp:5>XDUREQC, after the dump ...`
+|`SC33-1165-01` |19990708115107 |`3.3.1` |1272 |`19 0A 1B 0D 94 01 0A 7A` at `0x93644` |` +     3.  The current abend code ...` (`LI 7 11`) |`<li> <br> +<sp:9>The current abend code ...`
+|`SC33-1181-01` |19990317122801 |`1.9.3.1.2` |338 |`18 0D 1C A4 01 0D A2` at `0xDC86E` |` + 1.  You have an application-owning ...` |`<li> <br> +<sp:5>You have an application-owning ...`
+|`SC09-2133-01` |19960905095532 |`14.1` |700 |`16 0F ED 92 A7 01 0F D6 2F` at `0x954CF` |` \| 1.  At the sending system ...` |`<li> <br> \|<sp:5>At the sending system ...`
+|`SC24-5718-00` |19951023144552 |`3.11` |129 |`1C 0D E9 26 A9 01 0D 7A` at `0x4FB9A` |` \| 3.  If you are using a 3480 tape ...` |`<li> <br> \|<sp:5>If you are using a 3480 tape ...`
+|`SC24-5719-00` |19951023145544 |`3.8.1` |117 |`1E 09 EA 11 99 01 E9 8F` at `0xA7B08` |` \| 14. When OS/2 has completed ...` |`<li> <br> \|<sp:5>When OS/2 has completed ...`
+|`SC24-5760-03` |19990510150548 |`1.2.2.1` |131 |`1F 12 E6 FF AD 01 12 96` at `0x1CCBD` |` \| 7.  The number of entries ...` |`<li> <br> \|<sp:5>The number of entries ...`
+|`SC41-3523-01` |19950907061245 |`8.2.1.6` |612 |`08 09 EC FD D1 01 09 D9 7B` at `0x80B6A` |` \| 4.  AFPDS` |`<li> <br> \|<sp:5>AFPDS`
+|`SC41-5401-00` |19970421115044 |`1.3.2.1` |159 |`0B 0C E4 E7 0F A0 01 0C BF 04` at `0x415B1` |` \|     1.  Connection lists` (`LI 7 11`) |`<li> <br> \|<sp:9>Connection lists`
+|`bk9b5001` (`GC30-3675-02`) |19960606151611 |`5.5` |184 |`2E 0C 74 C3 01 0C DA B9 68` at `0x3BED46` |` \| 2.  At the OS/2 prompt, ...` under a label `cfont` |`<li> <br> \| <B>  </B>  At the OS/2 prompt, ...`
+|`SC26-4399-08` |19960126125622 |`2.1.40` |786 |`1B 1A CD 68 B9 01 1A D5 A3` at `0xD1527` |` g 4.  On MVS and VM systems, ...` |`<li> <br> g<sp:5>On MVS and VM systems, ...`
+|===
+
+The same shape occurs in 52 further rows of these books (`SC09-2133-01`
+alone has 9 more) and in 22 more books whose files are named in lower case and
+which the hosted catalog therefore does not serve (`dfhlp319`, `dfhla21a`,
+`dfhpa110`, ...).  No hosted row of the shape is served differently.
+
+Two things remain open.  First, the `type` hosted gives a nested list of
+flagged `<letter>.` items is not consistent: `SC33-1169-00` `A.1` serves
+its ` #     a.` items in `<ol type=1 start=1>`, while `SC09-2133-01`
+`14.1` serves ` |     a.` items in `<ol type=a start=2>` although they are
+the list's first items.  Second, a flag in front of a several-word head
+(` # Step 1.`) has not been observed with the flag stored as a display word;
+`SC21-8295-03` `E.0` stores that head behind a margin change bar instead.
+
 *`NOTEL`: the head is a note number, and it is text.*  Every `NOTEL` item
 stores its number (`1.`, `2.`, ...) in the head columns, and hosted
 BookServer prints it: each item is served as a bare `<dd>` holding the row
