@@ -275,6 +275,27 @@ Two of the five arrow and bullet bytes are what a CP437 console would draw for t
 (`0x1b` left arrow, `0x19` down arrow); the other three are not, so the table
 is recorded as observed rather than derived.
 
+The reader's output path accounts for all seven, and for the box-drawing
+characters that hosted pages print as ASCII.  It writes each character in
+code page 850 first, which gives the CP437/CP850 control-range glyph codes
+for the arrows and the bullet (`U+2190` `0x1b`, `U+2191` `0x18`, `U+2192`
+`0x1a`, `U+2193` `0x19`, `U+2666` `0x04`) and the CP850 box and block codes
+for the rest.  It then converts the line to ISO-8859-1, folding the
+single-line box characters to ASCII on the way: `U+2502` `│`, `U+2524` `┤`,
+`U+2514` `└`, `U+2534` `┴`, `U+251C` `├`, `U+253C` `┼` and `U+2518` `┘` become
+`|`, `U+2500` `─` becomes `_`, and `U+2510` `┐`, `U+252C` `┬` and `U+250C` `┌`
+become a blank.  Double-line and block characters have no ISO-8859-1 form in
+that conversion and keep their CP850 byte, which is why `U+255A` is served as
+`0xc8` and `U+25A0` as `0xfe`.  Finally five control-range bytes are
+replaced: `0x04` by `0xb0` (`°`, the bullet), `0x18` by `"` (served as
+`&quot;`), `0x0f` by `%`, `0x11` by `\` and `0x15` by `0xa7` (`§`); a `0x1a`
+is written as the reader's substitution byte, served as `0xff`.  The same
+conversion exchanges two Latin-1 signs: a stored `°` is served as `±`
+(SY27-0350-04 `C.1.4`, DT `19980701130105`, stores `10°C to 40.6°C` and
+serves `10±C to 40.6±C`).  These are properties of the hosted output, not of
+the book: the stored characters are the ones in the first column of the
+table above.
+
 The arrow words are ordinary dictionary words, also when they are stored as
 two-byte references, and an ASCII projection that prints every non-ASCII
 word as `?` hides that. Three rows that read as a stray `?` in such a
