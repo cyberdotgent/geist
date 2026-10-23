@@ -1650,7 +1650,7 @@ quoted in the evidence column; every rule was checked on at least two books.
 |`Z` |`PVDEF` |`<dfn>` |SC26-457 `1.3` and SC26-4905-00 `1.3` `cfont 3 7 P 11 10 Z ...` -> `<kbd>COMMAND</kbd> <dfn>parameters</dfn>` (one shared sentence, see below)
 |`R` |`RK` |`<B>` |ACPZMST1 `FRONT_1.1` `cfont 4 4 R,` -> `<B>GUPI</B>`; ACPZMST1 `6.2`
 |`V` |`PV` |`<var>` |SC26-457 `3.4.1.2`; GC23-046 `6.0`
-|`K` |`H4` |`<I>` |SC09-2417-00 `PREFACE.2.1` record 28 segment 17 `cfont 3 6 K 10 3 K ...` -> `<I>Syntax</I> <I>for</I> <I>Commands,</I> ...`; SC09-2417-00 `1.1.4.2` record 62 segment 23 -> `<I>User-Defined</I> <I>Header</I> <I>File</I>`
+|`K` |`H4` |`<I>` |SC09-2417-00 `PREFACE.2.1` record 28 segment 17 `cfont 3 6 K 10 3 K ...` -> `<I>Syntax</I> <I>for</I> <I>Commands,</I> ...`; SC09-2417-00 `1.1.4.2` record 62 segment 23 -> `<I>User-Defined</I> <I>Header</I> <I>File</I>`; 30 books in all, see <<markup_style_code_k_census>>
 |`X` |`XPH` |`<tt>` |SC09-2417-00 `PREFACE.2.1` record 29 segment 2 `cfont 26 9 X` -> `<tt>STATEMENT</tt>`; SC09-2417-00 `PREFACE.2.2` record 34 segment 18 -> `<tt>Example</tt>`
 |`W` |`WARNING` |`<em>` |SC26-457 `1.6.5` `cfont 3 8 W ...` -> `<em>Warning:</em>`; SC31-711 `3.3`; SH12-565 `FRONT_1.1`
 |`G` |`WARNINGTEXT` |`<em>` |GC23-046 `6.9.3`; SC26-457 `1.6.5`; SC31-711 `3.3`; SH12-565 `FRONT_1.1`
@@ -1687,6 +1687,67 @@ each `_` span prints three underscores, inside `<u>`, over columns the row
 leaves blank -- a fill-in slot, not a style of words.  The 87-book sample
 finds `_` in four more books (SG24-3910-01, SC31-6009-04, SC31-8234-00 and
 GC31-8189-01), none yet compared with hosted.
+
+[[markup_style_code_k_census]]
+`K` (`H4`) is italic, not bold, in every book that uses it.  Its name places
+it among the in-topic heading codes `H`..`M`, but the code carries no weight
+of its own: every book's `CFONTDEF` table maps `K` to the same name `H4`, so
+nothing in the bytes distinguishes one book's `K` from another's, and the
+presentation is fixed by the code.  A census drew 30 books that carry `K` --
+4 from the 33-book corpus and 26 from a seeded random sample of 400 further
+books -- whose hosted copy is catalogued under the same file name with the
+same title.  For each, the hosted page of one topic was fetched and every
+`K`-styled `CFONT` row in it was matched word for word against the page:
+all 119 rows are served as one `<I>` element per covered word, and none as
+`<B>` or plain text.  The table quotes the first such row of each book.  The
+hex is the `CFONT` control's own token bytes, from the control word to the
+last style code; the style-code byte differs per book because each book's
+dictionary keys its words independently.
+
+[cols="<14,<12,<10,<7,<10,<20,<27",options="header"]
+|===
+|Book |DT |Topic |Record |File offset |Bytes / decoded operand |Hosted
+
+|SC09-138 |`19910321130500` |`1.1.3` |78 |`0x6c31c` |`3a 94 ac 73 7f 81 73` = `cfont 3 6 K 10 12 K` |`<I>Online</I> <I>Publications</I>`
+|SC09-2417-00 |`19961114175628` |`PREFACE.2.1` |28 |`0x39155` |`39 a0 c1 7c 8b a0 7c 8f c5 7c ...` = `cfont 3 6 K 10 3 K 14 9 K ...` |`<I>Syntax</I> <I>for</I> <I>Commands,</I> ...`
+|SC33-033 |`19930422134757` |`4.6` |177 |`0x1ad10` |`3f ab 96 8b` = `cfont 3 10 K` |`<I>Parameters</I>`
+|SC34-425 |`19921112160049` |`2.4.1` |1462 |`0x15a348` |`39 9e a9 c9 4a` = `cfont 3 7 K` |`<I>Purpose</I>`
+|SC31-8515-01 |`19980720173924` |`3.21.1` |290 |`0x2edbe` |`40 a4 b6 80` = `cfont 3 6 K` |`<I>Syntax</I>`
+|DFHIA401 |`19920327000100` |`PREFACE` |27 |`0x6710b` |`3c be bf d6 0e c3 bf d6 0e b6 ...` = `cfont 3 4 K 8 4 K 13 4 K ...` |`<I>What</I> <I>this</I> <I>book</I> ...`
+|SC24-5521-02 |`19921218211052` |`2.6.22.1` |534 |`0x13eef4` |`31 97 9b be 48` = `cfont 3 7 K` |`<I>Purpose</I>`
+|SC33-0506-01 |`19940405095022` |`PREFACE` |18 |`0x8a684` |`2f 98 a3 dd 3e ca a3 dd 3e 86 ...` = `cfont 3 4 K 8 4 K 13 4 K ...` |`<I>What</I> <I>this</I> <I>book</I> ...`
+|S20G-0438-00 |`19920723134743` |`2.3.1.6` |245 |`0x414ed` |`33 ba c1 8f` = `cfont 3 6 K` |`<I>Format</I>`
+|SC33-1366-01 |`19961008105732` |`1.2.9.6` |153 |`0x21182` |`41 ae be 88 9a a3 88 9d c0 88 ...` = `cfont 3 7 K 11 2 K 14 9 K ...` |`<I>Example</I> <I>of</I> <I>Secondary</I> ...`
+|SC31-6808-02 |`19961016141729` |`5.11.17` |2096 |`0xe0aeb` |`3b b3 b3 d0 ac b8 b9 d0 ac eb ...` = `cfont 3 3 K 7 8 K 16 10 K ...` |`<I>BIS</I> <I>(BRACKET</I> <I>INITIATION</I> ...`
+|SB35-0801-02 |`19920527141359` |`2.2.3` |80 |`0x89e30` |`2c ca d5 98 d9 ca 98 b7 b5 98 ...` = `cfont 3 5 K 9 3 K 13 11 K ...` |`<I>Books</I> <I>and</I> <I>Bookshelves</I> ...`
+|SH19-6893-00 |`19930429064432` |`3.1.1` |493 |`0x414c1` |`47 a2 ac 85` = `cfont 3 6 K` |`<I>Syntax</I>`
+|GA27-3136-14 |`19941213162755` |`1.3.1.1` |116 |`0x1d70a` |`45 99 98 79 8b 99 79 91 8d 79` = `cfont 5 4 K 10 5 K 16 12 K` |`<I>FID2</I> <I>Field</I> <I>Descriptions</I>`
+|SC33-0658-01 |`19930625224935` |`PREFACE` |26 |`0x18f08` |`3a c9 cb de 44 cf cb de 44 bd ...` = `cfont 3 4 K 8 4 K 13 4 K ...` |`<I>What</I> <I>this</I> <I>book</I> ...`
+|SC24-5770-03 |`19990507114326` |`16.4.1` |1057 |`0x711af` |`3b a2 bb 7d` = `cfont 3 7 K` |`<I>Purpose</I>`
+|SC33-0749-01 |`19930625222214` |`PREFACE` |30 |`0xc642` |`40 c2 c8 df 02 cf c8 df 02 b1 ...` = `cfont 3 4 K 8 4 K 13 4 K ...` |`<I>What</I> <I>this</I> <I>book</I> ...`
+|SC33-1007-01 |`19940504202808` |`PREFACE.1` |57 |`0xf38b` |`43 b2 c4 da e0 a7 c4 da e0` = `cfont 3 7 K 11 7 K` |`<I>Non-IBM</I> <I>systems</I>`
+|SC33-0510-01 |`19950224102721` |`PREFACE` |26 |`0x28c052` |`35 af b7 d3 4f bc b7 d3 4f 9d ...` = `cfont 3 4 K 8 4 K 13 4 K ...` |`<I>What</I> <I>this</I> <I>book</I> ...`
+|SC31-8058-00 |`19950613121336` |`4.2.1` |222 |`0x27607` |`47 bc c3 8d c7 c6 8d b5 c4 8d` = `cfont 3 5 K 9 8 K 18 6 K` |`<I>Using</I> <I>Topology</I> <I>Fields</I>`
+|SC41-4652-00 |`19951003063221` |`9.2` |487 |`0xc9ba9` |`32 a2 8f 76 93 b0 76 9d a2 76 ...` = `cfont 3 11 K 15 9 K 25 3 K ...` |`<I>FZZMCAPTOBJ</I> <I>Structure</I> <I>for</I> ...`
+|GC33-0505-04 |`19930625155755` |`PREFACE` |21 |`0x1796a` |`32 c9 c9 a1 d6 d5 a1 b9 d2 a1 ...` = `cfont 3 3 K 7 6 K 14 4 K ...` |`<I>Who</I> <I>should</I> <I>read</I> ...`
+|SH19-6877-00 |`19930122175113` |`3.1.6` |116 |`0xfd371` |`3f d5 db e4 53 cc d5 e4 53 cf ...` = `cfont 3 9 K 13 3 K 17 3 K ...` |`<I>Selecting</I> <I>the</I> <I>MVS</I> ...`
+|SC24-5521-04 |`19940329084632` |`2.6.25.1` |526 |`0x5d3e9` |`32 93 97 bb 33` = `cfont 3 7 K` |`<I>Purpose</I>`
+|GC33-0792-00 |`19930625011508` |`3.2.1` |823 |`0x49998` |`3f b5 be d4 fb` = `cfont 3 8 K` |`<I>Function</I>`
+|GC23-3701-00 |`19930420141453` |`1.4.3.1` |89 |`0xc1e1` |`3c b5 cd 8b` = `cfont 3 6 K` |`<I>Syntax</I>`
+|DFHKE501 |`19920327000100` |`PREFACE` |23 |`0xcd7f` |`3a c5 c6 dc df cb c6 dc df bb ...` = `cfont 3 4 K 8 4 K 13 4 K ...` |`<I>What</I> <I>this</I> <I>book</I> ...`
+|SH19-4501-00 |`19980120155742` |`1.2.1` |33 |`0x9119` |`43 d3 da e3 67` = `cfont 3 8 K` |`<I>EMSSTART</I>`
+|SC09-1340-02 |`19931217124954` |`1.2.2` |29 |`0x25f2d` |`48 c9 d4 e2 67` = `cfont 3 8 K` |`<I>Keywords</I>`
+|SH19-6962-01 |`19940706155054` |`DIAGRAMS` |59 |`0x482ba` |`47 ba c1 d5 99 af ad d5 99` = `cfont 3 8 K 12 10 K` |`<I>Required</I> <I>Parameters</I>`
+|===
+
+The one sampled book left out, SC26-4723-00, has no hosted copy to compare:
+the hosted catalogue serves a different book (_QMF Planning and
+Administration Guide for VM_) under that name.  Two further rows quoted
+elsewhere in this specification fit the same rule: SC34-425 `2.4.9`, whose
+`CFONT 3 6 K 10 5 K` ends record 1483 and styles `Return Codes` at the start
+of record 1484, is served `<I>Return</I> <I>Codes</I>`, and SC09-138 `F.1`
+record 2061 serves its `K` row between two message entries as
+`<I>Run-Time</I> <I>Error</I> <I>Messages</I> ...`.
 
 `HP5`..`HP9` form a family: each is the underscored form of the code five
 below it, so `5` underscores `H0` (plain), `6` `HP1`, `7` `HP2`, `8` `HP3` and

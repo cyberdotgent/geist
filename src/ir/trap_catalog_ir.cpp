@@ -4232,7 +4232,8 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           if ((span.style != FontStyleIR::highlight_1 &&
                span.style != FontStyleIR::highlight_2 &&
                span.style != FontStyleIR::highlight_3 &&
-               span.style != FontStyleIR::bold_phrase) || offsets.empty() ||
+               span.style != FontStyleIR::bold_phrase &&
+               span.style != FontStyleIR::italic_phrase) || offsets.empty() ||
               span.column >= offsets.size() - 1 ||
               span.length > offsets.size() - 1 - span.column)
             return reject("deferred introduction font has unsupported geometry or style");

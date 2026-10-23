@@ -867,7 +867,9 @@ int main() {
       require(document.has_value(), "deferred font lowering declined: " + error);
       if (document) {
         const auto html = geist::detail::render_document_html_blocks(*document, {});
-        require(html.find(">Return</strong> <strong class=\"geist-strong\">Codes</strong>") !=
+        // `K` is hosted `<I>`: SC34-425 2.4.9 (DT 19921112160049) serves
+        // this row as `<I>Return</I> <I>Codes</I>`.
+        require(html.find("<em class=\"geist-emphasis\">Return</em> <em class=\"geist-emphasis\">Codes</em>") !=
                     std::string::npos && html.find("Unstyled afterwards.") != std::string::npos,
                 "deferred font rendering changed: " + html);
       }

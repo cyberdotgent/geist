@@ -99,6 +99,9 @@ DocumentNodeOriginIR line_origin(const TrapLineIR &line, std::string detail) {
 std::optional<EmphasisKindIR> emphasis_for(FontStyleIR style) {
   switch (style) {
   case FontStyleIR::highlight_1:
+  // `K` (H4) is hosted `<I>`: SC34-425 2.4.9 (DT 19921112160049) serves its
+  // introduction heading as `<I>Return</I> <I>Codes</I>`.
+  case FontStyleIR::italic_phrase:
     return EmphasisKindIR::emphasis;
   // A `V` (PV) span is a programming variable, hosted `<var>`: N2AH1MST 2.0
   // (DT 19910329000100) serves `<B>MEMBER</B> <var>mem</var>` inside a
@@ -120,7 +123,6 @@ std::optional<EmphasisKindIR> emphasis_for(FontStyleIR style) {
   case FontStyleIR::example_phrase:
   case FontStyleIR::keyword:
   case FontStyleIR::keyword_define:
-  case FontStyleIR::italic_phrase:
   case FontStyleIR::warning:
   case FontStyleIR::warning_text:
   case FontStyleIR::apl_symbol:

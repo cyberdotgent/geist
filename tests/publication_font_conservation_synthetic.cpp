@@ -119,6 +119,10 @@ void check(const std::string &style, bool framed, bool admitted,
 int main() {
   check("C", true, false, "<em class=\"geist-emphasis\">Alpha</em>");
   check("2", true, false, "<strong class=\"geist-strong\">Alpha</strong>");
+  // `K` (H4) is italic, not bold: hosted BookServer serves every K span of
+  // 30 sampled books as `<I>`, e.g. SC09-138 1.1.3 (DT 19910321130500)
+  // `cfont 3 6 K 10 12 K` -> `<I>Online</I> <I>Publications</I>`.
+  check("K", true, false, "<em class=\"geist-emphasis\">Alpha</em>");
   check("_", true, false, "");
   check("mixed", true, false, "");
   check("0", true, true, "");

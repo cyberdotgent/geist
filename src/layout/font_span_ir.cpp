@@ -53,8 +53,10 @@ FontStyleIR style_for_code(const std::string& code) {
   case 'h':
   case 'i':
   case 'j':
-  case 'k':
   case 'm': return FontStyleIR::bold_phrase;
+  // K (H4) is hosted `<I>` in every book sampled: 119 K rows of 30 books
+  // (SC09-138 1.1.3, SC34-425 2.4.9, DFHIA401 PREFACE, ...).
+  case 'k':
   case 'l': return FontStyleIR::italic_phrase;
   default: break;
   }
