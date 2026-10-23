@@ -76,7 +76,8 @@ bool label_is_wholly_highlighted(const ProseBlockIR& block, std::size_t begin,
        ++index) {
     const auto& node = block.inlines[index];
     if (node.kind != ProseInlineKindIR::emphasis) return false;
-    if (code_style(node.style) || node.style == FontStyleIR::unknown)
+    if (code_style(node.style) || node.style == FontStyleIR::unknown ||
+        node.style == FontStyleIR::underscore)
       return false;
   }
   return true;
@@ -277,7 +278,8 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
        ++index) {
     const auto& node = block.inlines[index];
     InlineIR lowered;
-    if (flatten_emphasis && node.kind == ProseInlineKindIR::emphasis) {
+    if (flatten_emphasis && node.kind == ProseInlineKindIR::emphasis &&
+        node.style != FontStyleIR::underscore) {
       lowered.node = TextInlineIR{node.text};
       lowered.origin = origin(node.slices, "prose CZ highlighted label");
       if (node.text.empty()) return fail(error, "prose inline has no text");
@@ -295,6 +297,11 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
       if (code_style(node.style)) {
         lowered.node = CodeInlineIR{node.text};
         lowered.origin = origin(node.slices, "prose CFONT example phrase");
+      } else if (node.style == FontStyleIR::underscore) {
+        // `_` is hosted `<u>`, not HP5's emphasis: SC24-5527-02 COMMENTS
+        // (DT 19921218151459) serves `<u>___</u><B>YES</B>`.
+        lowered.node = UnderlineInlineIR{node.text};
+        lowered.origin = origin(node.slices, "prose CFONT underscore");
       } else {
         lowered.node = EmphasisInlineIR{node.text, emphasis_kind(node.style)};
         lowered.origin = origin(node.slices, "prose CFONT highlight");
@@ -344,6 +351,9 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
         imaged.push_back(target.source);
         reference.label_image = ImageInlineIR{image, image};
       }
+      // The prose family never lets `_` share a cell with a selector.
+      if (node.style == FontStyleIR::underscore)
+        return fail(error, "prose cross-reference label is underscored");
       if (code_style(node.style))
         reference.label_code = true;
       else if (node.style != FontStyleIR::unknown)

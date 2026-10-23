@@ -32,7 +32,8 @@ EmphasisKindIR font_style_emphasis_kind(FontStyleIR style) {
   case FontStyleIR::warning:
   case FontStyleIR::warning_text:
   case FontStyleIR::apl_symbol:
-  // UNDERSCORE (`_`, hosted <u>) is the plain underscore HP5 also is.
+  // UNDERSCORE (`_`) lowers to its own underline inline in prose and is
+  // declined by every other family; it never asks for an emphasis kind.
   case FontStyleIR::underscore:
   case FontStyleIR::unknown: break;
   }

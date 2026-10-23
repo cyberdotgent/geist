@@ -36,6 +36,13 @@ struct CodeInlineIR {
   std::string code;
 };
 
+// Typed underline: a CFONT `_` (UNDERSCORE) run, which hosted BookServer
+// serves as `<u>` with every blank column of the run drawn as `_`.  The text
+// already carries those underscores; renderers choose the underline syntax.
+struct UnderlineInlineIR {
+  std::string text;
+};
+
 enum class CrossReferenceTargetKindIR {
   topic,
   anchor,
@@ -113,7 +120,7 @@ struct OpaqueInlineIR {
 using InlineNodeIR =
     std::variant<TextInlineIR, EmphasisInlineIR, CodeInlineIR,
                  CrossReferenceInlineIR, ImageInlineIR, HardBreakInlineIR,
-                 OpaqueInlineIR>;
+                 OpaqueInlineIR, UnderlineInlineIR>;
 
 struct InlineIR {
   InlineNodeIR node;

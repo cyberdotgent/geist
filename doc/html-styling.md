@@ -153,6 +153,7 @@ would be a claim the source never made.
 | `geist-emphasis` | `<em>` | `EmphasisInlineIR` kind `emphasis` |
 | `geist-strong` | `<strong>` | `EmphasisInlineIR` kind `strong` |
 | `geist-strong-emphasis` | `<strong><em>` | `EmphasisInlineIR` kind `strong_emphasis` |
+| `geist-underline` | `<u>` | `UnderlineInlineIR` (CFONT `_`) |
 | `geist-monospace` | `<code>` | `CodeInlineIR` |
 | `geist-image` | `<img>` | `ImageInlineIR` |
 | `geist-opaque-inline` | `<code>` | `OpaqueInlineIR` |

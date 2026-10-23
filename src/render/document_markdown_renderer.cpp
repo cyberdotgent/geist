@@ -296,6 +296,12 @@ void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
             sink.content(escape_markdown_text_impl(node.text), "emphasis text",
                          origin);
             sink.syntax(delimiter, "emphasis delimiter", origin);
+          } else if constexpr (std::is_same_v<T, UnderlineInlineIR>) {
+            // Markdown has no underline: the run is written as the same
+            // inline HTML the HTML renderer emits, as abutting emphasis is.
+            sink.html(render_document_html_inlines({in}, {},
+                                                    options.resolve_cross_reference),
+                      "underline", origin);
           } else if constexpr (std::is_same_v<T, CodeInlineIR>) {
             const auto parts = code_span_parts(
                 node.code, context == InlineContext::table_cell);
@@ -549,7 +555,8 @@ bool inline_sequence_ends_with_colon(const InlineSequenceIR &content) {
       [](const auto &node) {
         using T = std::decay_t<decltype(node)>;
         if constexpr (std::is_same_v<T, TextInlineIR> ||
-                      std::is_same_v<T, EmphasisInlineIR>)
+                      std::is_same_v<T, EmphasisInlineIR> ||
+                      std::is_same_v<T, UnderlineInlineIR>)
           return !node.text.empty() && node.text.back() == ':';
         else if constexpr (std::is_same_v<T, CodeInlineIR>)
           return !node.code.empty() && node.code.back() == ':';

@@ -154,6 +154,8 @@ bool verify_inlines(const InlineSequenceIR& inlines, bool allow_empty,
                    (node.kind == EmphasisKindIR::emphasis ||
                     node.kind == EmphasisKindIR::strong ||
                     node.kind == EmphasisKindIR::strong_emphasis);
+          } else if constexpr (std::is_same_v<T, UnderlineInlineIR>) {
+            return !node.text.empty();
           } else if constexpr (std::is_same_v<T, CodeInlineIR>) {
             return !node.code.empty();
           } else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {
@@ -500,7 +502,8 @@ bool verify_block(const BlockIR& block, bool nested, std::string* error) {
                 const auto valid = std::visit([&](const auto& value) {
                   using Inline = std::decay_t<decltype(value)>;
                   if constexpr (std::is_same_v<Inline, TextInlineIR> ||
-                                std::is_same_v<Inline, EmphasisInlineIR>)
+                                std::is_same_v<Inline, EmphasisInlineIR> ||
+                                std::is_same_v<Inline, UnderlineInlineIR>)
                     flattened += value.text;
                   else if constexpr (std::is_same_v<Inline, CodeInlineIR>)
                     flattened += value.code;
@@ -658,6 +661,8 @@ void format_inlines(std::ostringstream& out, const InlineSequenceIR& inlines) {
             out << "text=" << quoted(node.text);
           else if constexpr (std::is_same_v<T, EmphasisInlineIR>)
             out << emphasis_kind_name(node.kind) << '=' << quoted(node.text);
+          else if constexpr (std::is_same_v<T, UnderlineInlineIR>)
+            out << "underline=" << quoted(node.text);
           else if constexpr (std::is_same_v<T, CodeInlineIR>)
             out << "code=" << quoted(node.code);
           else if constexpr (std::is_same_v<T, CrossReferenceInlineIR>) {

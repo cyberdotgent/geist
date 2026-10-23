@@ -290,6 +290,10 @@
   font-style: italic;
 }
 
+.geist-underline {
+  text-decoration: underline;
+}
+
 .geist-monospace {
   font-family: "DejaVu Sans Mono", Consolas, monospace;
   font-size: 0.95em;

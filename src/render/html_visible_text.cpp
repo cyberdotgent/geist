@@ -34,7 +34,8 @@ bool supported_tag(const std::string_view tag) {
       "dt",    "em",    "figcaption", "figure",  "h1",   "h2",     "h3",
       "h4",    "h5",    "h6",         "hr",      "img",  "li",     "nav",
       "ol",    "p",     "pre",        "section", "span", "strong", "table",
-      "tbody", "td",    "th",         "thead",   "tr",   "ul"};
+      "tbody", "td",    "th",         "thead",   "tr",   "u",
+      "ul"};
   return std::find(std::begin(tags), std::end(tags), tag) != std::end(tags);
 }
 

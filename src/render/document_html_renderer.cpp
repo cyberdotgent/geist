@@ -393,6 +393,10 @@ void append_inline(HtmlSink &sink, const InlineIR &node) {
             sink.markup("</em></strong>");
             break;
           }
+        } else if constexpr (std::is_same_v<T, UnderlineInlineIR>) {
+          sink.markup("<u class=\"geist-underline\">");
+          sink.text(value.text);
+          sink.markup("</u>");
         } else if constexpr (std::is_same_v<T, CodeInlineIR>) {
           sink.markup("<code class=\"geist-monospace\">");
           sink.text(value.code);

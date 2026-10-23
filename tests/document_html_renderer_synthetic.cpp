@@ -140,6 +140,7 @@ DocumentIR build_document() {
   rich.push_back(in(EmphasisInlineIR{"str&ong", EmphasisKindIR::strong}));
   rich.push_back(
       in(EmphasisInlineIR{"both<&>", EmphasisKindIR::strong_emphasis}));
+  rich.push_back(in(UnderlineInlineIR{"fill_<&>___"}));
   rich.push_back(in(CodeInlineIR{"a < b && c > d"}));
   rich.push_back(in(CrossReferenceInlineIR{
       {CrossReferenceTargetKindIR::external,
@@ -508,6 +509,9 @@ int main() {
            "<strong class=\"geist-strong-emphasis\"><em>both&lt;&amp;&gt;"
            "</em></strong>",
            "strong emphasis text not escaped");
+  contains(fragment,
+           "<u class=\"geist-underline\">fill_&lt;&amp;&gt;___</u>",
+           "underline text not escaped");
   contains(fragment,
            "<code class=\"geist-monospace\">a &lt; b &amp;&amp; c &gt; d"
            "</code>",

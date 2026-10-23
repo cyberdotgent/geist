@@ -9,6 +9,7 @@
 #include "geist/detail/lowering/topic_document_lowering.hpp"
 #include "geist/detail/render/document_html_renderer.hpp"
 #include "geist/detail/render/document_markdown_renderer.hpp"
+#include "geist/detail/render/html_visible_text.hpp"
 #include "test_failures.hpp"
 
 #include <iostream>
@@ -131,6 +132,24 @@ void check(const std::string &style, bool framed, bool admitted,
         require(render_document_markdown(*document).find("*Alpha*") !=
                     std::string::npos,
                 "Markdown flattened source citation styling");
+      // The conservation reader must see the slot as visible text.
+      if (style == "blank_") {
+        std::string visible;
+        try {
+          visible = html_visible_text(html);
+        } catch (const std::exception &e) {
+          visible = std::string("threw: ") + e.what();
+        }
+        require(visible.find("Alpha ___YES") != std::string::npos,
+                "underline slot is not visible text: " + visible);
+      }
+      // Markdown has no underline; the slot is written as inline HTML.
+      if (style == "blank_")
+        require(render_document_markdown(*document).find(
+                    "<u class=\"geist-underline\">___</u>") !=
+                    std::string::npos,
+                "Markdown lost the underline of a `_` slot: " +
+                    render_document_markdown(*document));
     }
   }
 }
@@ -151,9 +170,9 @@ int main() {
   // `<u>CMS/TSO_Pipelines</u>`.
   check("blank_", true, false,
         "<strong class=\"geist-strong\">Alpha</strong> "
-        "<em class=\"geist-emphasis\">___</em>YES");
+        "<u class=\"geist-underline\">___</u>YES");
   check("worded_", true, false,
-        "<em class=\"geist-emphasis\">Alpha_(SC31-1234)</em>");
+        "<u class=\"geist-underline\">Alpha_(SC31-1234)</u>");
   // Where `_` overlaps another style, hosted underscores only the first gap
   // (SG24-3910-01 2.1, SH35-0069-06 4.1.2.2); a slot past the row's last
   // column is padded by hosted.  Neither is modelled: both fail closed.
