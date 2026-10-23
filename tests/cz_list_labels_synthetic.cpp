@@ -465,8 +465,10 @@ void a_revision_flag_before_an_ordinal_opens_the_item_line() {
            {"Create", "#", "1."}, {"Read", "+", "a."}}) {
     const auto *item =
         find_block(*extracted.prose, ProseBlockKindIR::list_item, needle);
-    require(item != nullptr && item->ordered && item->ordinal == label,
-            "the flagged head '" + label + "' is not the item's ordinal");
+    // The blanked label numbers nothing: the list keeps its own alphabet
+    // and the item its position.
+    require(item != nullptr && item->ordered && item->ordinal.empty(),
+            "the flagged head '" + label + "' became the item's ordinal");
     if (item == nullptr) continue;
     require(!item->inlines.empty() &&
                 item->inlines.front().kind ==
@@ -488,14 +490,14 @@ void a_revision_flag_before_an_ordinal_opens_the_item_line() {
   if (!document) return;
   const auto markdown = geist::detail::render_document_markdown(*document);
   require(contains(markdown, "1. <br>\\# Create the keys") &&
-              contains(markdown, "a. <br>\\+ Read a record") &&
+              contains(markdown, "1. <br>\\+ Read a record") &&
               contains(markdown, "2. Sort the data") &&
               !contains(markdown, "1\\.") && !contains(markdown, "a\\."),
           "the flagged items did not render as hosted serves them: " +
               markdown);
   const auto html = geist::detail::render_document_html_blocks(*document, {});
   require(contains(html, "<br># Create the keys") &&
-              contains(html, "<br>+ Read a record") &&
+              contains(html, "<br>+ Read a record") && !contains(html, "type=\"a\"") &&
               !contains(html, "geist-list-label"),
           "the flagged items' HTML is not break + flag + text: " + html);
 }

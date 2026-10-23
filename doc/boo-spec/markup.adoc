@@ -5900,11 +5900,16 @@ alone has 9 more) and in 22 more books whose files are named in lower case and
 which the hosted catalog therefore does not serve (`dfhlp319`, `dfhla21a`,
 `dfhpa110`, ...).  No hosted row of the shape is served differently.
 
-Two things remain open.  First, the `type` hosted gives a nested list of
-flagged `<letter>.` items is not consistent: `SC33-1169-00` `A.1` serves
-its ` #     a.` items in `<ol type=1 start=1>`, while `SC09-2133-01`
-`14.1` serves ` |     a.` items in `<ol type=a start=2>` although they are
-the list's first items.  Second, a flag in front of a several-word head
+What the blanked label does *not* settle is the list's alphabet or start.
+A flagged first row is the shape "A first item behind a revision change
+bar" above describes, and hosted serves it with no stored rule:
+`SC33-1169-00` `A.1` serves its ` #     a.` items in
+`<ol type=1 start=1>`, while `SC09-2133-01` `14.1` serves ` |     a.`
+items, the first of their list, in `<ol type=a start=2>`.  The flagged
+label therefore neither numbers its item nor chooses the list's type; the
+item is numbered by its position, as it was before the label was read.
+
+One more question remains open: a flag in front of a several-word head
 (` # Step 1.`) has not been observed with the flag stored as a display word;
 `SC21-8295-03` `E.0` stores that head behind a margin change bar instead.
 

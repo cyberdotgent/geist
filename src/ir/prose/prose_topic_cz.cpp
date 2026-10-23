@@ -423,7 +423,7 @@ struct CzBuilder {
   // text resuming exactly at `indent`.  SC33-1169-00 A.1 record 1840
   // `cz FLOW LI 3 7` + ` # 1.  Create the keys` is served (DT
   // 19990319122050) as `<li> <br> #     Create the keys`; `+`, `|` and `g`
-  // flags in 14 more books are served the same way.  Hosted blanks the
+  // flags in 20 more books are served the same way.  Hosted blanks the
   // label and keeps the flag, on the line its `<br>` opens.  Any other
   // shape -- a flag before a several-word head, a head off `left`, text
   // not at `indent` -- leaves the row as stored.
@@ -589,6 +589,13 @@ struct CzBuilder {
     if (flagged) {
       if (block.ordinal.empty() || label_end != npos)
         return fail(error, "cz FLOW LI revision flag has no ordinal label");
+      // The label is blanked, but it does not number the item or pick the
+      // list's alphabet: hosted serves a list whose first row is flagged
+      // with an alphabet and start no stored byte explains (`SC33-1169-00`
+      // A.1 ` #     a.` in `<ol type=1 start=1>`, `SC09-2133-01` 14.1
+      // ` |     a.` in `<ol type=a start=2>`; doc/boo-spec/markup.adoc, "OL
+      // with a one-word letter head").  The item keeps its position.
+      block.ordinal.clear();
       // The flag's row opens on the line hosted's break starts: a row
       // boundary first, then the flag, then the item's text.
       const auto [begin, end] = groups.front();
