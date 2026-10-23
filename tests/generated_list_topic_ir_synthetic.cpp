@@ -126,7 +126,8 @@ void framed_selection_keeps_its_payload(bool wrapped, bool ordinal,
                                        bool revision = false,
                                        bool bad_prefix = false,
                                        bool spacing_marker = false,
-                                       std::size_t revision_column = 1) {
+                                       std::size_t revision_column = 1,
+                                       const std::string& mark = "|") {
   auto source = make_source(10, {});
   const auto line = [&](std::vector<TokenWords> tokens,
                         TokenWords prefix = TokenWords{0x2500}) {
@@ -155,7 +156,7 @@ void framed_selection_keeps_its_payload(bool wrapped, bool ordinal,
           words("  "), words("6.9.3.3")},
          spacing_marker ? TokenWords{1} : words("                 "));
   else if (revision) {
-    line({words(std::string(revision_column, ' ')), words(bad_prefix ? "X" : "|"), words(" "), words("Libraries"),
+    line({words(std::string(revision_column, ' ')), words(bad_prefix ? "X" : mark), words(" "), words("Libraries"),
           words("  "), words("6.9.3.3")});
   } else
     line({words("   "), words("Libraries"), words("  "),
@@ -245,7 +246,8 @@ void framed_selection_keeps_its_payload(bool wrapped, bool ordinal,
   require_entry_partition(list->entries.back());
   if (revision) {
     const auto& row = list->entries.back().display;
-    require(row.spans.front().cell_begin == 4 && row.cells[1].word == '|' &&
+    require(row.spans.front().cell_begin == 4 &&
+                row.cells[1].word == static_cast<unsigned char>(mark.front()) &&
                 row.cells[4].word == 'L',
             "native revision margin shifted the selected caption columns");
   }
@@ -618,6 +620,12 @@ int main() {
   framed_selection_keeps_its_payload(false, false, false, true, true);
   framed_selection_keeps_its_payload(false, true, true, false, false, true);
   framed_selection_keeps_its_payload(false, false, false, true, false, false, 2);
+  // SC33-0668-02 FIGURES record 21 line 12 is ` # 39.  DFHJUP program,
+  // example 1   2.1.1.5.1` under `cselect 3 42 FIGJUPEG1`: a `#` revision
+  // mark in the same margin column.  Hosted (DT 19930625001740) serves
+  // ` # <a href=...#FIGJUPEG1>39.  DFHJUP program, example 1   2.1.1.5.1</a>`.
+  framed_selection_keeps_its_payload(false, false, false, true, false, false, 1,
+                                     "#");
   verify_synthetic_contract();
 #ifdef GEIST_FIXTURE_DIR
   verify_corpus_inventory();

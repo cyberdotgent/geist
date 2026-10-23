@@ -141,11 +141,21 @@ std::optional<GeneratedListEntryIR> make_entry(
       is_display_line_length_token(*owner_record, row.owner.token_begin);
   if (native_geometry) {
     // A selected native row already carries its source columns. The margin
-    // before the entry may contain a revision bar, but never an ordinal or
+    // before the entry may contain a revision mark, but never an ordinal or
     // arbitrary text: do not move the first visible cell to the selection.
+    // The mark is the one cell of column 1 between blanks: the change bar
+    // `|` or `U+2502`, or another punctuation mark in the same column.
+    // SC33-0668-02 FIGURES record 21 line 12 is
+    // ` # 39.  DFHJUP program, example 1   2.1.1.5.1` under
+    // `cselect 3 42 FIGJUPEG1`; hosted (DT 19930625001740) prints the `#` in
+    // the margin, outside the link.  A letter or digit there is text.
+    const auto revision_mark = [](std::uint16_t word) {
+      return word == 0x2502 ||
+             (word < 0x80 && std::ispunct(static_cast<int>(word)) != 0);
+    };
     for (std::size_t index = 0; index < span.cell_begin; ++index)
       if (row.cells[index].word != ' ' &&
-          !(row.cells[index].word == '|' && index == 1 &&
+          !(revision_mark(row.cells[index].word) && index == 1 &&
             span.cell_begin > 2 && row.cells[0].word == ' ' &&
             row.cells[2].word == ' ')) {
         fail(error, "generated-list native selection excludes leading text");
@@ -224,6 +234,18 @@ std::optional<GeneratedListEntryIR> make_entry(
     fail(error, "generated-list entry has no source-proven label anchor");
     return std::nullopt;
   }
+  // A drawn glyph the layout read as the row's marker slot cannot stand
+  // between two label cells: the label would silently lose it.
+  // SC33-4034-16 FIGURES record 18 opens on the row ` | 34.  Output from
+  // ...`; the flattened text segment starts after `34`, so the `.` (token 4)
+  // became the marker of the row, and hosted (DT 19930326142144) serves
+  // `34.  Output from the ICETOOL DEFAULTS Job ...`.
+  for (auto index = first; index < last; ++index)
+    if (first_row_marker(row.cells[index]) && row.cells[index].word != ' ' &&
+        !decoder_artifact(records, row.cells[index])) {
+      fail(error, "generated-list label crosses the row's marker slot");
+      return std::nullopt;
+    }
 
   GeneratedListEntryIR entry;
   entry.display = row;

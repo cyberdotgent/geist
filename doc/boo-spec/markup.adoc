@@ -3641,6 +3641,18 @@ selection (and per deferred continuation), rather than allowing the generic
 `:pinline.` coalescer to merge the whole list. This is a structural-list rule,
 not a FIGURES-topic special case; the same path handles `TLIST`.
 
+A selection row may carry a revision mark in its left margin: the one cell
+of column 1, between a blank column 0 and a blank column 2, ahead of the
+selected columns. The mark is the change bar `|` or another punctuation
+mark. `SC33-0668-02` `FIGURES` record 21 line 12 is the row
+pass:[<literal>&#160;#&#160;39.&#160;&#160;DFHJUP program, example 1&#160;&#160;&#160;2.1.1.5.1</literal>]
+under `cselect 3 42 FIGJUPEG1`: its length byte `19` at file offset
+`0xD3BE4` is followed by `09` (one blank), `24` (`#`) and `B4` (`39`).
+Hosted (DT `19930625001740`) prints the `#` in front of the anchor and
+selects only `39.  DFHJUP program, example 1   2.1.1.5.1`; `TABLES` row 14
+of the same book and `dfhla313` (`+` marks) have the same shape. A letter or
+digit in that column is not a mark.
+
 [[markup_srtbl_records_with_an_inline_first_row]]
 === SRTBL records with an inline first row
 
