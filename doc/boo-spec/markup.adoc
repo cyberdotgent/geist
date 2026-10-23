@@ -1969,6 +1969,19 @@ wherever it stands, and the display line's own length byte is the
 row-control slot whatever word the dictionary spells for it and whatever is
 attached behind it.
 
+A dictionary word made only of `?` characters (`0x3F`) is not such a
+placeholder.  The decoder spells an unmapped word `U+FFFF`, never `?`.  The
+word is drawn wherever the cells around it on its display line are drawn.
+`N2AH1MST` record 2014 line 9 is
+`              begins, the message includes "NAME (???)."`.  Token 94 is
+the two-byte reference `A9 84` at `0xBB84E`, whose word is `???`.  It
+stands between `(` (token 92) and `)` (token 96), with an attach control
+(`00`, at `0xBB84D` and `0xBB850`) on each side.  Hosted `23.0` (DT `19910329000100`) serves
+`"NAME (???)."` in the `Notes:` of `ICH408I`.  The same holds in
+`N2AH1MST` `28.0` (`enter a question mark (?)`), `16.0`
+(`'??????' for an unknown volser`) and `SC24-546` `A.0`
+(`@ # $ ¢ . ? ! _`).  Hosted serves the question marks in each.
+
 [[markup_sub_word_span_boundaries]]
 ==== Sub-word span boundaries
 

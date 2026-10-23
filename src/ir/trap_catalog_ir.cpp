@@ -499,6 +499,43 @@ bool glyph_drawn_mid_line(const DecodedLogicalRecordSource &record,
   return before && after;
 }
 
+// A token of `?` glyphs only, drawn between other drawn cells of its own
+// display line, is text. The decoder spells an unmapped dictionary word as
+// U+FFFF, never `?`, so a `?` run is the dictionary's own word; read alone
+// it has the shape of a placeholder run, but the cells around it on the
+// line prove it is drawn. N2AH1MST record 2014 line 9 is `              begins,
+// the message includes "NAME (???)."`: token 94 (`A9 84` at 0xBB84E) is the
+// word `???` between `(` and `)`, and hosted 23.0 (DT 19910329000100)
+// serves `"NAME (???)."`. Requires decided framing.
+bool question_run_drawn_mid_line(const DecodedLogicalRecordSource &record,
+                                 std::size_t token) {
+  if (!record_framing_is_decided(record.ir) ||
+      token >= record.ir.tokens.size() ||
+      is_display_line_length_token(record, token))
+    return false;
+  const auto &words = record.ir.tokens[token].decoded_words;
+  if (words.empty() ||
+      !std::all_of(words.begin(), words.end(),
+                   [](const auto word) { return word == '?'; }))
+    return false;
+  const auto *line = display_line_of_token(record, token);
+  if (line == nullptr)
+    return false;
+  const auto drawn = [&](std::size_t other) {
+    const auto *cells = display_text_words(record, other);
+    return cells != nullptr &&
+           std::any_of(cells->begin(), cells->end(), [](const auto word) {
+             return word > ' ' && word <= 0xff && word != '?';
+           });
+  };
+  bool before = false, after = false;
+  for (auto other = line->prefix_token + 1; other < token; ++other)
+    before = before || drawn(other);
+  for (auto other = token + 1; other < line->token_end; ++other)
+    after = after || drawn(other);
+  return before && after;
+}
+
 struct Piece {
   std::size_t token = 0;
   std::size_t column = 0;
@@ -1071,6 +1108,11 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
                value >= 0x20 && value <= 0xff && value != ' ') {
       // Native selector columns prove these glyphs are drawn, including a
       // quote that compatibility geometry mistakes for a closing marker.
+      cell.role = TrapCellRoleIR::text;
+      emit_char(token, word, value, false);
+    } else if (value == '?' && question_run_drawn_mid_line(record, token)) {
+      if (marker != index.marker_rows.end())
+        add_row(marker->second);
       cell.role = TrapCellRoleIR::text;
       emit_char(token, word, value, false);
     } else if (marker != index.marker_rows.end() &&

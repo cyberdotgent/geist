@@ -3674,6 +3674,50 @@ int main() {
             "a headline-only run with no entry to end it was admitted");
   }
 
+  // A run of `?` glyphs drawn between other cells of its own display line is
+  // text. Unmapped dictionary words decode to U+FFFF, not `?`. N2AH1MST
+  // record 2014 line 9 is `              begins, the message includes
+  // "NAME (???)."`: token 94 (`A9 84` at 0xBB84E) is the dictionary word
+  // `???`, between `(` (token 92) and `)` (token 96). Hosted 23.0
+  // (DT 19910329000100) serves `"NAME (???)."` in ICH408I's `Notes:`.
+  {
+    const Token glue{TokenWords{1}, 0};
+    const Token question{TokenWords{'?', '?', '?'}, 713};
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("769", 715));
+    append(tokens, line({origin(), t("NAME", 711), t("(", 712), glue, question,
+                         glue, t(").", 714)}));
+    append(tokens, line({}));
+    append(tokens, entry("770", 716));
+    const auto built = build({make_source(163, tokens)}, "Sample Messages");
+    require(built.catalog.has_value() && built.catalog->entries.size() == 2,
+            "a drawn question-mark run declined: " + built.error);
+    if (built.catalog && built.catalog->entries.size() == 2) {
+      const auto text = entry_text(built.catalog->entries.front());
+      require(text == "769 Description: first field NAME (???).",
+              "a question-mark run drawn mid-line was dropped: [" + text + "]");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the question-mark run failed verification: " + error);
+    }
+
+    // Mutation: the same run closing its display line is not drawn between
+    // cells, and stays the placeholder it has always been read as.
+    auto closing = header("Sample", "Messages");
+    append(closing, entry("771", 717));
+    append(closing, line({origin(), t("NAME", 711), question}));
+    append(closing, line({}));
+    append(closing, entry("772", 718));
+    const auto closed = build({make_source(164, closing)}, "Sample Messages");
+    require(closed.catalog.has_value() && closed.catalog->entries.size() == 2 &&
+                entry_text(closed.catalog->entries.front()) ==
+                    "771 Description: first field NAME",
+            "a line-closing question-mark run changed its reading: " +
+                closed.error);
+  }
+
   // An introduction row whose length byte spells a control word is prose.
   // SC31-711 4.3.5 record 151 line 13 opens at 0x146F1 with `2D` (45), the
   // row's length, whose dictionary word is `cbacklevel`; the row is
