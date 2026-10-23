@@ -5047,9 +5047,56 @@ head's *first* word, so `Step` and `__` vanish while `1.` stays as text:
 pass:[<literal>&lt;li&gt; &lt;br&gt; |&#160;&#160;&#160;&#160;&#160;&#160;1.&#160;&#160;The new release requires 64 megabytes</literal>]
 (`E.0`, ten items `Step 1.` to `Step 10.`) and
 pass:[<literal>&lt;li&gt;&#160;&#160;&#160;&#160;&#160;&#160;&#160;1.&#160;&#160;&lt;kbd&gt;/etc/ax25/uronode.announce&lt;/kbd&gt;</literal>]
-(`packet`, DT 20260614112503, six items).  Such a head is content, not a
-label a reader may regenerate: printing it whole, without a list number of
-the reader's own, loses no word and adds no second number.
+(`packet`, DT 20260614112503, six items).
+
+The same rule holds in every book sampled.  Over 23 books, three head shapes
+occur -- `Step <n>.`, `__ <n>.` (a checkbox the reader ticks) and
+`__ Step <n>.` -- each also with a letter in place of the number at a
+nested level.  In every one hosted BookServer serves the item inside an
+`<ol type=1 start=1>`, blanks the head's first word in place (its columns
+become spaces, and a font run over it is kept as an empty run), and prints
+the remaining head words as text in front of the item's text.  The list is
+`type=1` even when the kept label is a letter (`Step a.`, `__ a.`), unlike a
+one-word `a.` head, whose list is served `<ol type=a>`.  The blanked word is
+an ordinary display word: `Step` is a plain dictionary token (`83` in
+`SC31-8052-00`), not a control, so a reader that matches hosted does not
+print a word the source draws.
+
+In the rows below, the head row bytes are the row's length byte, the
+origin space run, then the head tokens (`01` is an attached `.`).  Hosted
+columns shown as `<sp:N>` are runs of N spaces.
+
+[cols="2,2,1,1,3,3,4",options="header"]
+|===
+|Book |DT |Topic |Record |`LI` control |Head row |Hosted row
+|`SC21-8295-03` (`SC21-829`) |19970409135933 |`E.0` |836 |`05 4D 9C A2 CD C1` at `0x697B4` (`LI 3 12`) |`1B 11 8F AF BE 01` at `0x697BA`: ` \| Step 1.` |`<li> <br> \|<sp:6>1.  The new release ...`
+|`packet` |20260614112503 |`3.6.3` |142 |`05 48 7E 86 B2 9A` at `0x4C0D9` (`LI 3 10`) |`1D 0D D6 7D 99 01` at `0x4C0E4`: `__ 1.` |`<li><sp:7>1.  <kbd>/etc/ax25/uronode.announce</kbd> ...`
+|`SC31-8052-00` |19950526051701 |`2.4.1.1` |1044 |`05 42 74 7B A3 90` at `0x6E369` (`LI 3 12`) |`12 0D 83 8D 01` at `0x6E36F`: `Step 1.` |`<li><sp:9>1.  The NETVIEW stage executes ...`
+|`GA27-4220-00` |19980602144737 |`2.10` |92 |`05 4E 90 98 C7 B9` at `0x8B992` (`LI 3 12`) |`11 16 A8 B6 01` at `0x8B9A0`: `Step 1.` |`<li><sp:4><B><sp:4></B> <B>1.</B>  Remove the power supply ...`
+|`S544-5349-01` |19971203133507 |`2.1.3` |101 |`05 4F 91 96 C2 B2` at `0x66279` (`LI 3 12`) |`0E 13 E8 35 AF 01` at `0x6627F`: `Step 1.` |`<li><sp:9>1.  This is an optional step.`
+|`SC41-0570-00` |19951016144223 |`A.0` |275 |`05 4F A5 AD D1 C9` at `0x3DC11` (`LI 3 10`) |`18 15 DC CA C8 01` at `0x3DC17`: `__ 1.` |`<li><sp:7>1.  Install the Facsimile Support ...`
+|`GA27-4162-01` |19970408133412 |`2.5.3` |111 |`05 57 8A 93 C4 B7` at `0x4F656` (`LI 3 12`) |`24 1A A3 B4 01` at `0x4F672`: `Step 1.` |`<li><sp:4><B><sp:4></B> <B>1.</B>  Make a copy of the charts ...`
+|`SC24-5718-00` |19951023144552 |`3.1` |85 |`05 43 77 7D A9 98` at `0x4C8AD` (`LI 3 10`) |`18 0F BB 17 97 01` at `0x4C8B3`: `__ 1.` |`<li><sp:7>1.  Ensure you have all the required ...`
+|`SC31-8462-00` |19970225143418 |`1.2.6.2` |102 |`05 48 92 9A B8 BF` at `0xC4F27` (`LI 10 17`) |`11 1A D6 E8 2D 01` at `0xC4F41`: `__ a.` |`<ol type=1 start=1>` `<li><sp:14>a.  Select Set Options ...`
+|`GA27-4168-00` |19980531165455 |`12.0` |30 |`05 51 94 9E D1 C2` at `0x9CCE` (`LI 3 12`) |`14 1A AF BF 01` at `0x9CDC`: `Step 1.` |`<li><sp:4><B><sp:4></B> <B>1.</B>  Power ON the base machine ...`
+|`GX27-4002-00` |19950731214959 |`2.1` |37 |`05 45 86 91 C9 B5` at `0x3C5E6` (`LI 3 10`) |`1F 14 DC 9F B4 01` at `0x3C5F8`: `__ 1.` |`<li><sp:7><B>1.</B>  Read the ...`
+|`SA41-4150-01` |19951214132613 |`2.2.3` |165 |`05 4C 82 85 AC 9F` at `0x1F45B` (`LI 3 15`) |`15 1A 34 8B 99 01` at `0x1F469`: `__ Step 1.` |`<li><sp:7><B>Step</B> <B>1.</B>  Sign on the system ...`; nested `LI 15 27` `__ Step a.` items in `<ol type=1>`
+|`SC31-8056-00` |19950624052037 |`2.2.5.4` |448 |`06 49 76 7A 93 EA D6` at `0x2A2DCB` (`LI 12 21`) |`17 1E 83 32 01` at `0x2A2DD2`: `Step a.` |`<ol type=1 start=1>` `<li><sp:18>a.  Use the Tab key ...`
+|`GX27-3996-00` |19950730183906 |`2.1` |19 |`05 47 89 94 CD B8` at `0x125C6` (`LI 3 10`) |`16 12 DC 7B B7 01` at `0x125D8`: `__ 1.` |`<li><sp:7><B>1.</B>  Verify that you have ...`
+|`SC26-3119-02` |19950629113406 |`1.1` |40 |`05 55 95 9F CA B8` at `0xAC33` (`LI 3 10`) |`1E 1B D9 E3 B7 01` at `0xAC40`: `__ 1.` |`<li><sp:7>1.  Verify the product parts ...`
+|`SC31-8233-00` |19970223011512 |`2.1.4.5.3` |203/204 |`05 4E 8A 91 A8 A4` at `0x10BDA4` (`LI 3 12`) |`1E 11 E0 AB A1 01` at `0x10BDAC`: `Step 1.` |`<li><sp:9>1.  Select the object ...`
+|`GA27-4120-00` |19960419120629 |`4.0` |17 |`05 4D 99 A2 D3 C7` at `0x8131` (`LI 3 12`) |`14 16 B1 C3 01` at `0x813F`: `Step 1.` |`<li><sp:4><B><sp:4></B> <B>1.</B>  Power OFF the base machine ...`
+|`GC30-3826-00` |19960124125713 |`2.0` |25 |`05 45 8B 96 C8 B6` at `0x17B65` (`LI 3 10`) |`17 13 DC A5 B5 01` at `0x17B70`: `__ 1.` |`<li><sp:7><B>1.</B>  Before beginning installation ...`
+|`SC31-8158-01` |19951101191504 |`4.6` |220 |`05 45 A5 AF D5 CD` at `0x1C41C2` (`LI 3 12`) |`17 0E BA CA 01` at `0x1C41C8`: `Step 1.` |`<li><sp:9>1.  Create a filter. ...`
+|`SC41-3512-05` |19980528085436 |`6.3.8` |709 |`05 4B 82 87 C0 AB` at `0x58A09A` (`LI 7 14`) |`06 14 25 2B 01` at `0x58A0A5`: `__ a.` |`<ol type=1 start=1>` `<li><sp:11>a.  <B>Start</B>`
+|`SC41-5120-02` |19980625145028 |`3.2.2` |323 |`05 52 97 A0 C8 B9` at `0x2D5AD` (`LI 3 10`) |`14 19 35 B8 01` at `0x2D5B3`: `__ 1.` |`<li><sp:7>1.  Ensure that the system is powered down ...`
+|`GA27-4079-00` |19950731152105 |`2.0` |36 |`05 4A 9A A6 CF C0` at `0x24CE2` (`LI 3 10`) |`07 15 24 BE 01` at `0x24CED`: `__ 1.` |`<li><sp:7><B>1.</B>  Preparation`
+|`SC41-5430-00` |19970402081318 |`3.0` |38 |`05 51 9F A7 D2 C6` at `0xDDCF` (`LI 3 10`) |`17 11 26 C5 01` at `0xDDD5`: `__ 1.` |`<li><sp:7>1.  Identify your AS/400 ...`
+|===
+
+No sampled book serves such a head differently.  The rule was not checked
+against a head whose first word is itself an ordinal (`1. Step`), nor
+against a head of four or more words; neither shape occurs in the sample.
 
 *`NOTEL`: the head is a note number, and it is text.*  Every `NOTEL` item
 stores its number (`1.`, `2.`, ...) in the head columns, and hosted
