@@ -158,10 +158,66 @@ void test_routing_code_behind_revision_bar() {
               "the routing code `1` is not owned as visible content");
 }
 
+// The same loss without a revision bar and without a blank-spelled length
+// byte.  SC30-3347-06 C.2 record 401 lines 18-19 (hosted DT 19930330181700):
+// `cfont 26 1 2`, then a line whose length byte is spelled as a glyph run,
+// a 26-blank origin (one two-byte token), the severity code `0`, a
+// three-blank run and `Provides information only.`.  Hosted serves
+// `<B>0</B>    Provides information only.`; the code is the line's first
+// word, not its row-control slot.
+void test_first_word_after_glyph_spelled_length_byte() {
+  RecordBuilder builder;
+  builder.line({{words("cfont")}, {words("26")}, {words("1")}, {words("2")}});
+  const auto row_line = builder.line(
+      {{words(std::string(26, ' ')), 2},
+       {words("0")},
+       {words("   ")},
+       {words("Provides"), 2},
+       {words("information")},
+       {words("only.")}},
+      TokenWords(10, 0x2500));
+  builder.line({});
+  builder.line({{words("cfont")}, {words("26")}, {words("1")}, {words("2")}});
+  builder.line({{words(std::string(26, ' ')), 2},
+                {words("4")},
+                {words("   ")},
+                {words("Indicates"), 2},
+                {words("an")},
+                {words("error.")}},
+               TokenWords(10, 0x2500));
+  std::vector<DecodedLogicalRecordSource> records;
+  records.push_back(builder.build(401));
+  const auto &record = records.front();
+  require(record.ir.display_lines_parse,
+          "the glyph-spelled record's display lines do not parse");
+  const auto code = row_line + 2;
+  require(geist::detail::token_words_to_ascii(record.tokens[code]) == "0",
+          "the synthetic severity code is not where the test expects it");
+  const auto layout = geist::detail::extract_layout_ir(records);
+  bool held = false;
+  for (const auto &run : layout.runs)
+    for (const auto &row : run.rows) {
+      require(row.token_begin != code,
+              "a row opens on the severity code `0`: it was read as a "
+              "row-control slot");
+      if (row.token_begin < code && code < row.token_end &&
+          row.visible_text.find("0    Provides") != std::string::npos)
+        held = true;
+    }
+  require(held, "no row holds the severity code with its text");
+  const auto ownership = geist::detail::build_ownership_ir(records, layout);
+  for (const auto &cell : ownership.cells)
+    if (cell.logical_record == 401 && cell.token_index == code)
+      require(cell.disposition ==
+                  geist::detail::SourceDisposition::visible_content,
+              "the severity code `0` is not owned as visible content");
+}
+
 } // namespace
 
 int main() {
   test_routing_code_behind_revision_bar();
+  test_first_word_after_glyph_spelled_length_byte();
   geist_test::exit_with_failures();
   std::cout << "revision margin row checks passed\n";
   return 0;

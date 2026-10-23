@@ -680,6 +680,54 @@ LayoutIR extract_layout_ir(
           boundary = {boundary.origin, next};
           admitted = true;
         }
+        // A boundary that calls the first word of a framed display line its
+        // marker reads that word as the row-control slot, and the row it
+        // opens drops it.  The slot is the line's length byte, always and
+        // only, so such a boundary moves onto the line's own length byte.
+        // SC30-3347-06 C.2 record 401 line 19 stores its length byte as a
+        // glyph run, a 26-blank origin, then `0` and `Provides information
+        // only.`; hosted (DT 19930330181700) serves `<B>0</B>`.  ICHA6MST 3.1.2
+        // record 562 line 5 is ` | 9    System Security` behind a revision
+        // bar.  Only a word with a letter or digit counts: the punctuation
+        // slots of compact fragments (a glossary term's `.`) stay as they are.
+        for (auto& boundary : boundaries) {
+          if (is_display_line_length_token(record, boundary.marker)) continue;
+          const auto* line = display_line_of_token(record, boundary.marker);
+          if (line == nullptr || boundary.marker <= line->prefix_token + 1)
+            continue;
+          const auto origin = line->prefix_token + 1;
+          if (origin >= record.tokens.size() || !owned(origin) ||
+              !all_space_words(record.tokens[origin]))
+            continue;
+          bool leading = true;
+          for (auto token = origin + 1; token < boundary.marker; ++token)
+            if (!all_space_words(record.tokens[token]) &&
+                !is_display_line_margin_revision_bar(record, token))
+              leading = false;
+          const auto word = visible_token(record.tokens[boundary.marker]);
+          const auto drawn = std::any_of(word.begin(), word.end(), [](char ch) {
+            return std::isalnum(static_cast<unsigned char>(ch)) != 0;
+          });
+          if (!leading || !drawn) continue;
+          for (auto& row : run.rows)
+            if (row.token_begin < line->prefix_token &&
+                row.token_end > line->prefix_token) {
+              row.token_end = line->prefix_token;
+              row.visible_text = visible_slice(record, row.token_begin,
+                                               row.token_end,
+                                               row.native_origin);
+            }
+          run.rows.erase(
+              std::remove_if(run.rows.begin(), run.rows.end(),
+                             [&](const auto& row) {
+                               return row.visible_text.empty() ||
+                                      (row.token_begin >= line->prefix_token &&
+                                       row.token_begin < boundary.marker);
+                             }),
+              run.rows.end());
+          boundary = {line->prefix_token, origin};
+          admitted = true;
+        }
         if (admitted) {
           std::sort(boundaries.begin(), boundaries.end(),
                     [](const auto& left, const auto& right) {
