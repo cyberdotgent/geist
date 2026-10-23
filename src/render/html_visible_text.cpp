@@ -250,9 +250,14 @@ std::string html_visible_text(const std::string &html) {
         elements.pop_back();
       } else if (!empty)
         elements.push_back(std::string(tag));
+      // An image is a replaced element: its alt text is a word run of its
+      // own, never glued to text on either side of it.
       if (!closing && tag == "img")
-        if (const auto alt = attributes.find("alt"); alt != attributes.end())
+        if (const auto alt = attributes.find("alt"); alt != attributes.end()) {
+          out.push_back('\n');
           out += alt->second;
+          out.push_back('\n');
+        }
       // Geist emits decimal ordered lists with optional per-item `value`.
       // The browser supplies these visible markers rather than a text node.
       // It emits neither `start` nor `reversed` nor CSS counter overrides.

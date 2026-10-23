@@ -115,8 +115,10 @@ void check_html_projection() {
           "best-effort verbatim links share inline semantics");
   require(
       cut("pre<img src=\"missingword?alt='wrong'>\" alt=\"A&amp;B\">post") ==
-          "prea,bpost",
-      "only image replacement text supplies image words");
+          "pre,a,b,post",
+      "only image replacement text supplies image words, as a run of its "
+      "own: an image is a replaced element, not text that joins its "
+      "neighbours");
   require(cut("one<!-- not visible -->two<span id=\"missingword\"></span>") ==
               "onetwo",
           "anchors and comments do not invent text or spacing");
