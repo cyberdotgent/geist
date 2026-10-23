@@ -892,8 +892,8 @@ int main() {
                    "Sample Messages").catalog,
             "deferred font exceeded its target row");
     auto unknown_font = first;
-    // `T` (TP) has no verified presentation.
-    unknown_font.back().words = words("T");
+    // `U` (MD) is hosted `<strike>`, which this lowering does not model.
+    unknown_font.back().words = words("U");
     require(!build({make_source(40, unknown_font), make_source(41, second)},
                    "Sample Messages").catalog,
             "deferred font silently dropped an unsupported style");

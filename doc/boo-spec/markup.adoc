@@ -1393,8 +1393,9 @@ case-folding decoder and the reader treats them case-insensitively.
 The letters `N` and `S` are not defined by any book. The six admonition codes
 `B` `CAUTION`, `D` `DANGER`, `W` `WARNING`, `F` `CAUTIONTEXT`,
 `G` `WARNINGTEXT` and `O` `DANGERTEXT` were missing from the earlier version of
-this table; their hosted presentation has not been checked and is an open
-question below.
+this table.  All six now have a verified hosted presentation: the warning pair
+is emphasised, the caution and danger pairs are bold (see the bold-code census
+under "Style-Code Presentation Verified Against Hosted BookServer").
 
 Observed body examples:
 
@@ -1412,6 +1413,16 @@ An `APL` span must therefore decode its covered source cells with code page
 293.  Decoding the book through code page 37 first and then retaining its
 `U+00AB` projection changes visible content.  Cells outside the span remain in
 the book's ordinary code page even when they contain the same byte value.
+The hosted page presents an `APL` span as monospace, one `<code>` element per
+covered word: SH45-5547-00 `2.15.2` (DT `19950203080455`) serves its
+`cfont 5 10 A 16 2 A 19 3 A 23 4 A` row as `<code>'DASAPLPK'</code>
+<code>11</code> <code>±NA</code> <code>'AS'</code>.  That is one book, not a
+census, and its third word shows that the hosted page does not apply the
+code-page rule above: the cell decodes to the degree sign in the book's own
+code page, and the hosted page serves every degree sign as `±`, in running
+text too (SY27-0350-04 `C.1.4`, DT `19980701130105`, stores
+`10°C to 40.6°C` and serves `10±C to 40.6±C`).  The `±` is therefore an
+artefact of the hosted output, not a character of the book.
 
 The `CFONT` field layout observed so far is repeated triples:
 
@@ -1775,6 +1786,12 @@ quoted in the evidence column; every rule was checked on at least two books.
 |`X` |`XPH` |`<tt>` |SC09-2417-00 `PREFACE.2.1` record 29 segment 2 `cfont 26 9 X` -> `<tt>STATEMENT</tt>`; SC09-2417-00 `PREFACE.2.2` record 34 segment 18 -> `<tt>Example</tt>`; inside message entries too, see <<markup_style_code_message_entry_census>>
 |`W` |`WARNING` |`<em>` |SC26-457 `1.6.5` `cfont 3 8 W ...` -> `<em>Warning:</em>`; SC31-711 `3.3`; SH12-565 `FRONT_1.1`
 |`G` |`WARNINGTEXT` |`<em>` |GC23-046 `6.9.3`; SC26-457 `1.6.5`; SC31-711 `3.3`; SH12-565 `FRONT_1.1`
+|`T` |`TP` |`<B>` |GC23-0084-02 `5.4.1` record 378 `cfont 5 1 T 6 1 T 7 1 T ...` (`42 c2 b2 ac c3 b2 ac c5 b2 ac` at `0x2998b`) -> `<B>(</B><B>1</B><B>)</B>`; ADMD2MST `B.0`; 27 books, see <<markup_style_code_bold_census>>
+|`Y` |`MDQUAL` |`<B>` |SH45-5547-00 `2.5.2` record 309 `cfont 3 1 Y` (`26 8f 79 e9 d3` at `0x24e7b`) -> `<B>/</B>`; S544-3681-00 `1.1`; 23 books, see <<markup_style_code_bold_census>>
+|`B` |`CAUTION` |`<b>` |SY27-0350-04 `5.9` record 180 `cfont 7 8 B` (`46 c8 c9 cd d9` at `0x10a8cf`) -> `<b>CAUTION:</b>`; GC28-1034-05 `6.1.9`; 197 books, see <<markup_style_code_bold_census>>
+|`F` |`CAUTIONTEXT` |`<b>` |SY27-0350-04 `5.9` record 180 `cfont 7 1 F 9 5 F ...` -> `<b>A</b> <b>fully</b> <b>populated</b> ...`; GC28-1034-05 `6.1.9`; 197 books
+|`D` |`DANGER` |`<strong>` |GC30-3867-01 `1.0` record 32 `cfont 3 6 D` (`34 c8 d8 e0 41` at `0x1eb38e`) -> `<strong>DANGER</strong>`; SY27-0350-04 `4.1.2`; 82 books
+|`O` |`DANGERTEXT` |`<strong>` |GC30-3867-01 `1.0` record 32 `cfont 5 2 O 8 10 O ...` -> `<strong>An</strong> <strong>electrical</strong> ...`; SY27-0350-04 `4.1.2`; 77 books
 |`_` |`UNDERSCORE` |`<u>`, blank columns drawn `_` |SC24-5527-02 `COMMENTS` record 978 `... 29 3 _ 32 3 2 37 3 _ ...` -> `<u>___</u><B>YES</B>  <u>___</u> <B>NO</B>`; SL26-0018-02 `COVER` `cfont 3 17 _` -> `<u>CMS/TSO_Pipelines</u>`; 83 books in all, see <<markup_style_code_underscore_census>>
 |===
 
@@ -1936,6 +1953,98 @@ elsewhere in this specification fit the same rule: SC34-425 `2.4.9`, whose
 of record 1484, is served `<I>Return</I> <I>Codes</I>`, and SC09-138 `F.1`
 record 2061 serves its `K` row between two message entries as
 `<I>Run-Time</I> <I>Error</I> <I>Messages</I> ...`.
+
+[[markup_style_code_bold_census]]
+`T` (`TP`), `Y` (`MDQUAL`), `B` (`CAUTION`), `F` (`CAUTIONTEXT`), `D`
+(`DANGER`) and `O` (`DANGERTEXT`) are bold.  Hosted BookServer serves every
+word one of them covers as one bold element of its own: `<B>` for `T` and
+`Y`, `<b>` for `B` and `F`, `<strong>` for `D` and `O`.  The three spellings
+are the same presentation; which one a code gets is fixed by the code letter,
+not by the book, exactly as for `K`.  `B`/`F` and `D`/`O` are the label and
+body halves of the caution and danger notices, as `W`/`G` are of the warning
+notice, but unlike that pair they are bold rather than emphasised: GC30-3867-01
+`1.0` (DT `19970805114346`) record 32 stores `cfont 3 6 D` (`34 c8 d8 e0 41`
+at `0x1eb38e`) over `DANGER` and `cfont 5 2 O 8 10 O ...` over the notice
+text, and hosted serves `<strong>DANGER</strong>` and
+`<strong>An</strong> <strong>electrical</strong> <strong>outlet</strong> ...`.
+
+The census scanned two seeded random samples of the library (2,400 books,
+then 2,400 further books) for every `CFONT` span of these codes, and for each
+book whose file name is not all lower case (the hosted catalogue does not
+list those) fetched the hosted page of the first topic carrying the code,
+checked its `<base href>` and, where the page states it, its book path, and
+matched every span of that code in the topic against the page.  A span whose
+row the topic does not store (a `CFONT` that ends a record) has no text to
+match and was not counted.
+
+[cols="<8,<14,<10,<12,<38",options="header"]
+|===
+|Code |Name |Books |Spans matched |Not matched
+
+|`T` |`TP` |27 |529 of 529 |--
+|`Y` |`MDQUAL` |23 |75 of 75 |--
+|`B` |`CAUTION` |197 |294 of 295 |GG66-3252-00 `3.8`, a row whose triples overlap (see below)
+|`F` |`CAUTIONTEXT` |197 |9,858 of 9,859 |ADMD1MST `2.1.539` (overlap)
+|`D` |`DANGER` |82 |255 of 257 |GG66-3252-00 `3.8` (overlap)
+|`O` |`DANGERTEXT` |77 |7,082 of 7,084 |SY27-0341-02 `3.0`: two styled list-bullet cells, served `<strong> </strong>`
+|===
+
+The match compares text after the page's own escaping (`"` is served as
+`&quot;`) and the hosted degree-sign substitution described in
+encoding.adoc.  No word is served in any other element or as plain text.
+Four books (`B` in three, `D` in one) have no matchable span in the topic
+checked, all of them `CFONT` rows at a record end.  The overlap rows
+are the shape the `_` census describes: a span laid over columns another
+triple of the same control also styles, where hosted nests the elements
+(ADMD1MST `2.1.539`, DT `19910930220308`, serves
+`<B><b><B>.<</B>/b>URTHER</B>` for `... 15 1 2 15 1 F 15 7 2 ...`); the code
+is still served bold there.
+
+`T` occurs in 27 of the 4,800 sampled books, and those 27 are fewer
+independent sources than books.  Six JES2 command references (GC23-0084-02,
+GC23-0084-03, EZ2M3102, EZ2M4102, HJEA2MST, SC28-1039-01) share one example
+list; seven books (IATB6MST, EZ2M4107, IATA6MST, EZ2M3104, N1AB6MST,
+SC23-0088-00, SC23-0073-02) share one message-flow figure and five
+(HASA3MST, EZ2M3103, EZ2M4103, HJEA3MST, SC23-0082-01) another; CNMYU0MS and
+SC31-6127-01 share a figure, and SC26-4374-01/-02 are two editions of one
+book.  ADMD2MST, SH19-6924-04, GC23-0100-00, EDFUMST and GC28-1550-00 are
+independent of those and of each other: ten sources in all.  The table
+quotes the first `T` row of every book, grouped by source; the hex is the
+`CFONT` control's own token bytes from the control word to the last style
+code.
+
+[cols="<12,<12,<9,<7,<10,<26,<24",options="header"]
+|===
+|Book |DT |Topic |Record |File offset |Bytes / decoded operand |Hosted
+
+|GC23-0084-02 |`19920925130324` |`5.4.1` |378 |`0x2998b` |`42 c2 b2 ac c3 b2 ...` = `cfont 5 1 T 6 1 T 7 1 T 12 2 2 15 9 2` |`<B>(</B><B>1</B><B>)</B>`
+|GC23-0084-03 |`19930625090303` |`5.4.1` |418 |`0x2de8d` |`44 be ad a6 bf ad ...` = `cfont 5 1 T 6 1 T 7 1 T 12 2 2 15 9 2` |`<B>(</B><B>1</B><B>)</B>`
+|EZ2M3102 |`19920313000100` |`5.3.1` |315 |`0x22d23` |`41 c6 b7 af c7 b7 ...` = `cfont 5 1 T 6 1 T 7 1 T 12 2 2 15 9 2` |`<B>(</B><B>1</B><B>)</B>`
+|EZ2M4102 |`19900830074947` |`5.3.1` |331 |`0x24332` |`43 c3 b5 ae c4 b5 ...` = `cfont 5 1 T 6 1 T 7 1 T 12 2 2 15 9 2` |`<B>(</B><B>1</B><B>)</B>`
+|HJEA2MST |`19910329000100` |`5.3.1` |367 |`0x2804d` |`42 c1 b3 ad c2 b3 ...` = `cfont 5 1 T 6 1 T 7 1 T 12 2 2 15 9 2` |`<B>(</B><B>1</B><B>)</B>`
+|SC28-1039-01 |`19930326181845` |`5.3.1` |315 |`0x22f5b` |`41 c5 b6 ae c7 b6 ...` = `cfont 5 1 T 6 1 T 7 1 T 12 2 2 15 9 2` |`<B>(</B><B>1</B><B>)</B>`
+|IATB6MST |`19910830000100` |`7.1.2.3` |693 |`0x11bc19` |`34 ec 69 b0 e5 aa ...` = `cfont 33 1 T 34 1 T 35 1 T 65 1 T 66 1 T 67 1 T` |`<B>(</B><B>A</B><B>)</B> <B>(</B> ...`
+|EZ2M4107 |`19900829210456` |`7.1.2.3` |693 |`0x11bc19` |`34 ec 69 b0 e5 aa ...` = `cfont 33 1 T 34 1 T 35 1 T 65 1 T 66 1 T 67 1 T` |`<B>(</B><B>A</B><B>)</B> <B>(</B> ...`
+|IATA6MST |`19920124000100` |`6.1.2.3` |707 |`0x116dab` |`3a ed a2 be e8 a6 ...` = `cfont 33 1 T 34 1 T 35 1 T 65 1 T 66 1 T 67 1 T` |`<B>(</B><B>A</B><B>)</B> <B>(</B> ...`
+|EZ2M3104 |`19920313000100` |`7.3.3` |702 |`0x11c53e` |`34 ec 85 b2 e5 cd ...` = `cfont 33 1 T 34 1 T 35 1 T 65 1 T 66 1 T 67 1 T` |`<B>(</B><B>A</B><B>)</B> <B>(</B> ...`
+|N1AB6MST |`19910329000100` |`7.1.2.3` |693 |`0x11bc19` |`34 ec 69 b0 e5 aa ...` = `cfont 33 1 T 34 1 T 35 1 T 65 1 T 66 1 T 67 1 T` |`<B>(</B><B>A</B><B>)</B> <B>(</B> ...`
+|SC23-0088-00 |`19920925163705` |`6.1.2.3` |717 |`0x118ab8` |`3a ed ea bd e8 de ...` = `cfont 33 1 T 34 1 T 35 1 T 65 1 T 66 1 T 67 1 T` |`<B>(</B><B>A</B><B>)</B> <B>(</B> ...`
+|SC23-0073-02 |`19930625085415` |`7.1.3.3` |692 |`0x11b969` |`34 ec 48 b2 e5 8a ...` = `cfont 33 1 T 34 1 T 35 1 T 65 1 T 66 1 T 67 1 T` |`<B>(</B><B>A</B><B>)</B> <B>(</B> ...`
+|HASA3MST |`19920124000100` |`1.1.14.2` |232 |`0x7e940` |`38 ee 82 b2 ad ee ...` = `cfont 52 1 T 53 1 T 54 1 T 60 1 T 61 1 T 62 1 T` |`<B>(</B><B>A</B><B>)</B> <B>(</B> ...`
+|EZ2M3103 |`19920313000100` |`2.1.14.2` |290 |`0x1951f6` |`41 ee 09 9d e4 ee ...` = `cfont 52 1 T 53 1 T 54 1 T 60 1 T 61 1 T 62 1 T` |`<B>(</B><B>A</B><B>)</B> <B>(</B> ...`
+|EZ2M4103 |`19900829155949` |`2.1.14.2` |259 |`0x18e076` |`39 ee 43 b2 ad ee ...` = `cfont 52 1 T 53 1 T 54 1 T 60 1 T 61 1 T 62 1 T` |`<B>(</B><B>A</B><B>)</B> <B>(</B> ...`
+|HJEA3MST |`19910329000100` |`1.1.14.2` |231 |`0x17c190` |`38 ee 79 b1 ac ee ...` = `cfont 52 1 T 53 1 T 54 1 T 60 1 T 61 1 T 62 1 T` |`<B>(</B><B>A</B><B>)</B> <B>(</B> ...`
+|SC23-0082-01 |`19920925111350` |`1.1.14.2` |220 |`0x18c9dd` |`3a ee 67 b2 ad ee ...` = `cfont 52 1 T 53 1 T 54 1 T 60 1 T 61 1 T 62 1 T` |`<B>(</B><B>A</B><B>)</B> <B>(</B> ...`
+|CNMYU0MS |`19911016121205` |`1.1.7.4.1` |107 |`0x2c03b` |`41 ed c6 9c e3 84 ...` = `cfont 45 1 T 46 1 T 47 1 T` |`<B>(</B><B>1</B><B>)</B>`
+|SC31-6127-01 |`19930513195250` |`1.1.6.5.1` |144 |`0x47536` |`3a ed 39 93 e1 ef ...` = `cfont 45 1 T 46 1 T 47 1 T` |`<B>(</B><B>1</B><B>)</B>`
+|SC26-4374-01 |`19921009123240` |`7.3.5.1` |3148 |`0x234e1a` |`2b 6e 5f 7a e7 c5 ...` = `cfont 24 10 4 35 1 T 36 1 T 37 1 T` |`<TT>SUCCESSFUL</TT> <B>(</B><B>B</B><B>)</B>`
+|SC26-4374-02 |`19920327191628` |`7.5.3.5` |4050 |`0x1747e5` |`25 66 66 4a 54 5d ...` = `cfont 5 5 E 11 2 E 14 3 E 18 4 E 30 1 T 31 1 T 32 1 T 51 4 E` |`<B>(</B><B>A</B><B>)</B>`
+|ADMD2MST |`19911003080042` |`B.0` |654 |`0xb179a` |`33 95 9d 8b aa 80 d9 0e` = `cfont 3 4 2 7 1 T` |`<B>1457</B><B>8</B>`
+|SH19-6924-04 |`19940615130609` |`2.3.2.3` |1757 |`0x94701` |`29 98 85 e9 3a a3 ...` = `cfont 3 1 T 4 1 T 5 1 T` |`<B>(</B><B>1</B><B>)</B>`
+|GC23-0100-00 |`19930625090637` |`2.1.9.9` |274 |`0x62a14` |`3e a7 95 dc e3 a8 ...` = `cfont 5 1 T 6 1 T 7 1 T` |`<B>(</B><B>A</B><B>)</B>`
+|EDFUMST |`19900822195326` |`2.15.3` |685 |`0x9f432` |`3c af 97 e4 94 ee ...` = `cfont 39 1 T 40 1 T 41 1 T 47 1 T 48 1 T 49 1 T` |`<B>(</B><B>A</B><B>)</B> and <B>(</B><B>B</B><B>)</B>`
+|GC28-1550-00 |`19970416133545` |`5.1.1` |625 |`0x1173d7` |`4b ba b1 97 b3 ad e8 e6` = `cfont 3 13 L 15 1 T` |`<I>Communicatio<B>n</B></I>` (overlaid)
+|===
 
 [[markup_style_code_message_entry_census]]
 Inside message entries the style codes present exactly as they do in
@@ -3386,20 +3495,20 @@ structure irreversibly.
 [[markup_open_questions]]
 === Open Questions
 
-* Hosted presentation of the remaining font codes. Eighteen of the 35 defined
-codes now have a hosted rendering verified in "Style-Code Presentation
-Verified Against Hosted BookServer" (`1`, `2`, `3`, `5`, `7`, `9`, `C`, `E`,
-`K`, `P`, `Q`, `R`, `V`, `W`, `G`, `X`, `Z`, `_`). The unverified ones split into two
-groups with different prospects:
-** *`B` `CAUTION`, `D` `DANGER`, `F` `CAUTIONTEXT`, `O` `DANGERTEXT`* are
-the remaining halves of the admonition family whose `W`/`G` pair is
-verified as `<em>` for both the label and the body. They are the ones most
-likely to follow the same shape, and a book on the hosted shelf that uses
-`:caution.` or `:danger.` would settle them. No corpus fixture does.
-** *`T` `TP`, `U` `MD`, `Y` `MDQUAL`* have at most one
-witness each in the corpus and no second book to generalise from.
+* Hosted presentation of the remaining font codes. Twenty-four of the 35
+defined codes now have a hosted rendering verified in "Style-Code
+Presentation Verified Against Hosted BookServer" (`1`, `2`, `3`, `5`, `7`,
+`9`, `B`, `C`, `D`, `E`, `F`, `K`, `O`, `P`, `Q`, `R`, `T`, `V`, `W`, `G`,
+`X`, `Y`, `Z`, `_`). The unverified ones:
+** *`U` `MD`* is served struck through, one `<strike>` element per covered
+word, in all 14 books of the same samples whose hosted page could be checked
+(241 of 241 spans; SC31-6224-03 `GLOSSARY`, EDFUMST `2.37.4`,
+GC33-1161-02 `6.3.3.1`, ...).  Fourteen books, several of them editions of
+one another, are short of the 15-book bar the other codes met.
 `Z` `PVDEF` is verified only on one sentence that two books share
 (SC26-457 and SC26-4905-00 `1.3`).
+** *`A` `APL`* is served as `<code>` on one book only (see the code-page note
+under "Font And Highlight Controls").
 ** The remaining defined codes are the heading levels `H`..`M` and the plain
 `H0`/`4`/`6`/`8` fills, which do not appear as inline spans in the corpus.
 * Full row/column grammar for every legacy cross-reference table variant beyond

@@ -43,6 +43,16 @@ FontStyleIR style_for_code(const std::string& code) {
   // The other 8 overlay words another triple also styles; consumers decline
   // that shape (doc/boo-spec/markup.adoc, the `_` census).
   if (code == "_") return FontStyleIR::underscore;
+  // The hosted presentation is fixed per code letter, whatever CFONTDEF
+  // names it: `T` (TP) and `Y` (MDQUAL) are `<B>`, `B` (CAUTION) and `F`
+  // (CAUTIONTEXT) `<b>`, `D` (DANGER) and `O` (DANGERTEXT) `<strong>`, one
+  // element per covered word in every sampled book (doc/boo-spec/
+  // markup.adoc, the bold-code census: GC23-0084-02 5.4.1, ADMD2MST B.0,
+  // GY27-0354-03 2.1.2, ...).  Upper case only: no book stores these
+  // codes in lower case, so a lower-case one stays unmapped.
+  if (code == "T" || code == "Y" || code == "B" || code == "F" ||
+      code == "D" || code == "O")
+    return FontStyleIR::bold_phrase;
   if (code.size() != 1) return FontStyleIR::unknown;
   switch (ascii_lower_char(code[0])) {
   case 'c': return FontStyleIR::citation;

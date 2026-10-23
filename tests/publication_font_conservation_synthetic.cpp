@@ -185,6 +185,14 @@ int main() {
   // 30 sampled books as `<I>`, e.g. SC09-138 1.1.3 (DT 19910321130500)
   // `cfont 3 6 K 10 12 K` -> `<I>Online</I> <I>Publications</I>`.
   check("K", true, false, "<em class=\"geist-emphasis\">Alpha</em>");
+  // `T` (TP) and `Y` (MDQUAL) are hosted `<B>`, `B` (CAUTION) and `F`
+  // (CAUTIONTEXT) `<b>`, `D` (DANGER) and `O` (DANGERTEXT) `<strong>`: one
+  // bold element per covered word in every sampled book (doc/boo-spec/
+  // markup.adoc, the bold-code census), e.g. GC23-0084-02 5.4.1
+  // (DT 19920925130324) `cfont 5 1 T 6 1 T 7 1 T` ->
+  // `<B>(</B><B>1</B><B>)</B>`.
+  for (const auto *bold : {"T", "Y", "B", "F", "D", "O"})
+    check(bold, true, false, "<strong class=\"geist-strong\">Alpha</strong>");
   check("_", true, false, "");
   // `_` (UNDERSCORE) underscores every column it covers, blank or not: hosted
   // BookServer serves SC24-5527-02 COMMENTS (DT 19921218151459) record 978

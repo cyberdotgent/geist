@@ -100,7 +100,7 @@ enum class FontStyleIR {
   keyword,         // P: monospace parameter keyword (<kbd>)
   keyword_define,  // Q, Z: defined parameter keyword / variable (<dfn>)
   variable,        // V: italic programming variable (<var>)
-  bold_phrase,     // R, H, I, J, M: bold keyword / inline heading
+  bold_phrase,     // R, H, I, J, M, T, Y, B, F, D, O: bold phrase
   italic_phrase,   // K, L: italic inline heading (K is hosted <I>)
   warning,         // W: the `Warning:` lead of a warning block (<em>)
   warning_text,    // G: the body of a warning block (<em>)
