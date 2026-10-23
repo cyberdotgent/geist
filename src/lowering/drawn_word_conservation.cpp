@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <map>
+#include <sstream>
 #include <stdexcept>
 #include <unordered_map>
 #include <utility>
@@ -195,11 +196,145 @@ RecordControlFraming control_framing(
   return framing;
 }
 
+// Display columns `[begin, end)` of one display line that a picture's image
+// replaces.
+struct PlaceholderColumns {
+  std::size_t line = 0;
+  std::size_t begin = 0;
+  std::size_t end = 0;
+};
+
+// The `<n>` of a `PIC<n>` selector target, or empty.
+std::string picture_number(const std::string& target) {
+  if (target.size() < 4 || ascii_lower(target.substr(0, 3)) != "pic")
+    return {};
+  const auto number = target.substr(3);
+  if (!std::all_of(number.begin(), number.end(), [](const char ch) {
+        return ch >= '0' && ch <= '9';
+      }))
+    return {};
+  return number;
+}
+
+// Every placeholder row of one record: a framing-proven `cselect <col> <len>
+// PIC<n>` whose picture the document shows, and whose columns on the display
+// line directly below the selector spell exactly `<word> <n>`.  Anything else
+// -- a selector on a record's last line, a row that spells something else, a
+// picture the document lacks -- names no placeholder and its cells stay
+// drawn.
+std::vector<PlaceholderColumns> picture_placeholder_columns(
+    const DecodedLogicalRecordSource& record,
+    const std::vector<DisplayLineIR>& lines,
+    const DrawnPicturePlaceholdersIR& pictures) {
+  std::vector<PlaceholderColumns> found;
+  if (pictures.word.empty() || pictures.shown.empty()) return found;
+  std::unordered_map<std::size_t, std::size_t> line_of_opening_token;
+  for (std::size_t index = 0; index < lines.size(); ++index)
+    line_of_opening_token.emplace(lines[index].prefix_token + 1, index);
+  const auto text = token_words_to_ascii(record.assembled.words);
+  for (const auto& segment : record.control_segments) {
+    if (segment.kind != BookControlKind::select || segment.malformed ||
+        segment.display_text)
+      continue;
+    const auto words = decoded_byte_range_to_word_range(record.assembled,
+                                                        segment.opcode_range);
+    if (words.begin >= record.assembled.sources.size()) continue;
+    const auto& source = record.assembled.sources[words.begin];
+    if (source.kind != LogicalWordSourceKind::token_word) continue;
+    const auto opening = line_of_opening_token.find(source.token_index);
+    if (opening == line_of_opening_token.end() ||
+        opening->second + 1 >= lines.size())
+      continue;
+    const auto range = segment.operand_range;
+    if (range.begin > range.end || range.end > text.size()) continue;
+    std::istringstream operands(text.substr(range.begin, range.end - range.begin));
+    std::string column_word, length_word, target, extra;
+    if (!(operands >> column_word >> length_word >> target) ||
+        (operands >> extra))
+      continue;
+    const auto number = picture_number(target);
+    if (number.empty() || pictures.shown.count(number) == 0) continue;
+    std::size_t column = 0;
+    std::size_t length = 0;
+    try {
+      std::size_t used = 0;
+      column = std::stoul(column_word, &used);
+      if (used != column_word.size()) continue;
+      length = std::stoul(length_word, &used);
+      if (used != length_word.size()) continue;
+    } catch (const std::exception&) {
+      continue;
+    }
+    const auto row = opening->second + 1;
+    const auto cells = display_line_cells(record, lines[row]);
+    if (length == 0 || column + length > cells.size()) continue;
+    std::string spelled;
+    for (auto at = column; at < column + length; ++at)
+      spelled += token_words_to_ascii({cells[at].word});
+    if (spelled != pictures.word + " " + number) continue;
+    found.push_back({row, column, column + length});
+  }
+  return found;
+}
+
 } // namespace
+
+std::string picture_placeholder_word(const std::string& language) {
+  // Hosted BookServer picks the word by the first letter of `CLANGUAGE`, and
+  // for some letters the second.  `P` selects a word whose third byte the
+  // reader stores outside ASCII; it is left without a word rather than
+  // guessed, as is every letter pair the reader assigns none.  The letters
+  // are compared as stored, upper case; any other first byte takes the
+  // default word.
+  const auto first = language.empty() ? '\0' : language[0];
+  const auto second = language.size() < 2 ? '\0' : language[1];
+  switch (first) {
+  case 'B':
+    if (second == 'D') return "AFBEELDING";
+    if (second == 'F') return "IMAGE";
+    if (second == 'P') return "FIGURA";
+    return {};
+  case 'C':
+    if (second == 'A') return "IMAGEN";
+    if (second == 'E') return "PICTURE";
+    if (second == 'F') return "IMAGE";
+    return {};
+  case 'D':
+    if (second == 'A') return "ILLUSTRATION";
+    if (second == 'U') return "AFBEELDING";
+    return {};
+  case 'E':
+  case 'U':
+    return "PICTURE";
+  case 'F':
+    if (second == 'I') return "PICTURE";
+    if (second == 'R') return "IMAGE";
+    return {};
+  case 'G':
+    return "BILD";
+  case 'I':
+    if (second == 'C') return "PICTURE";
+    if (second == 'T') return "IMMAGINE";
+    return {};
+  case 'N':
+    return "BILDE";
+  case 'P':
+    return {};
+  case 'S':
+    if (second == 'F') return "IMAGE";
+    if (second == 'G' || second == 'W') return "BILD";
+    if (second == 'I') return "IMMAGINE";
+    if (second == 'P') return "IMAGEN";
+    return {};
+  default:
+    return "PICTURE";
+  }
+}
 
 DrawnTextIR project_drawn_topic_text(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const OwnershipIR& ownership, std::size_t* unframed_records) {
+    const OwnershipIR& ownership, std::size_t* unframed_records,
+    const DrawnPicturePlaceholdersIR* pictures) {
   ControlCells control;
   for (const auto& cell : ownership.cells) {
     if (cell.disposition != SourceDisposition::control_operand) continue;
@@ -220,12 +355,31 @@ DrawnTextIR project_drawn_topic_text(
     const auto& control_of_record =
         found == control.end() ? none : found->second;
     const auto framing = control_framing(record, *lines);
+    const auto placeholders =
+        pictures == nullptr
+            ? std::vector<PlaceholderColumns>{}
+            : picture_placeholder_columns(record, *lines, *pictures);
     for (std::size_t index = 0; index < lines->size(); ++index) {
       const auto& line = (*lines)[index];
       if (framing.owned_lines[index]) continue;
       const auto source = drawn.sources.size();
       drawn.sources.push_back(trim_ascii(display_line_text(record, line)));
-      for (const auto& cell : display_line_cells(record, line)) {
+      const auto cells = display_line_cells(record, line);
+      for (std::size_t column = 0; column < cells.size(); ++column) {
+        const auto& cell = cells[column];
+        // A picture's placeholder words, which its image replaces.
+        const auto placeholder = std::any_of(
+            placeholders.begin(), placeholders.end(),
+            [&](const PlaceholderColumns& columns) {
+              return columns.line == index && column >= columns.begin &&
+                     column < columns.end;
+            });
+        if (placeholder) {
+          drawn.text += ' ';
+          drawn.opening.push_back(false);
+          drawn.line.push_back(source);
+          continue;
+        }
         // The ledger's control attribution, accepted only where the framing
         // proves the control it names.
         const auto known_control =
@@ -355,9 +509,6 @@ detail::DrawnWordConservationIR BooDocument::drawn_word_conservation(
     // never hide one.
     const auto ownership = build_ownership_ir(records, layout);
 
-    const auto drawn =
-        project_drawn_topic_text(records, ownership, &topic.unframed_records);
-    const auto drawn_counts = count_drawn_words(drawn, &topic.drawn_words);
     // Independently check both serializers. The Markdown serializer records
     // exactly which emitted byte windows are labels, code, raw HTML, visible
     // markers or structural syntax: no general Markdown parser is needed.
@@ -366,6 +517,25 @@ detail::DrawnWordConservationIR BooDocument::drawn_word_conservation(
     const auto& outcome = entry->lowered().outcome;
     if (outcome && outcome->document)
       markdown = render_document_markdown(*outcome->document, {}, &markdown_trace);
+
+    // The book pictures the lowered document places, read off the image
+    // destinations its own render wrote (`<resource:<n>>`).
+    DrawnPicturePlaceholdersIR pictures;
+    pictures.word = picture_placeholder_word(book_properties_.language);
+    for (const auto& span : markdown_trace.spans) {
+      if (span.reason != "image destination") continue;
+      static const std::string open = "<resource:";
+      const auto destination = markdown.substr(
+          span.output_begin, span.output_end - span.output_begin);
+      if (destination.size() > open.size() + 1 &&
+          destination.compare(0, open.size(), open) == 0 &&
+          destination.back() == '>')
+        pictures.shown.insert(destination.substr(
+            open.size(), destination.size() - open.size() - 1));
+    }
+    const auto drawn = project_drawn_topic_text(
+        records, ownership, &topic.unframed_records, &pictures);
+    const auto drawn_counts = count_drawn_words(drawn, &topic.drawn_words);
     const auto append = [&](const std::string& bytes,
                             const MarkdownTextProjectionIR projection) {
       if (bytes.empty()) return;

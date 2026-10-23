@@ -364,6 +364,104 @@ void check_native_message_metadata() {
           "literal prose remain drawn");
 }
 
+// A `cselect <col> <len> PIC<n>` names the columns of the row below it where
+// the stored text spells the placeholder word and the picture number.
+// Hosted BookServer puts the image there and prints neither word
+// (G544-3290-04 2.0: ` | PICTURE 1` under `cselect 3 9 PIC1`), so where the
+// lowered document carries the image those cells are not drawn text.  Where
+// it does not, or the row spells anything else, they stay drawn.
+void check_picture_placeholder_rows() {
+  using namespace geist::detail;
+  const auto build = [](const std::string &operand_column,
+                        const std::string &number) {
+    DecodedLogicalRecordSource record;
+    record.logical_record = 1;
+    const auto words = [](const std::string &text) {
+      return TokenWords(text.begin(), text.end());
+    };
+    const auto line = [&](const std::vector<std::string> &text) {
+      const auto length = static_cast<std::uint16_t>(text.size() * 2);
+      record.encoded_tokens.push_back({length, 1});
+      record.tokens.push_back(words("length"));
+      for (const auto &token : text) {
+        record.encoded_tokens.push_back({0x40, 2});
+        record.tokens.push_back(words(token));
+      }
+    };
+    line({"   ", "Intro"});
+    line({"cselect", operand_column, "9", "PIC1"});
+    line({"|", "PICTURE", number, "kept"});
+    record.assembled = assemble_logical_record_with_sources(record.tokens);
+    record.ir.logical_record = record.logical_record;
+    std::uint32_t byte = 0;
+    for (std::size_t index = 0; index < record.tokens.size(); ++index) {
+      const auto encoded = record.encoded_tokens[index];
+      record.ir.tokens.push_back(
+          {index,
+           encoded,
+           record.tokens[index],
+           {byte, static_cast<std::uint32_t>(byte + encoded.width)},
+           false,
+           3});
+      byte += encoded.width;
+    }
+    record.ir.payload_range = {0, byte};
+    assign_display_line_framing(record.ir);
+    record.control_segments =
+        decode_control_segments(record.logical_record, record.assembled,
+                                record.encoded_tokens, record.ir.display_lines);
+    return record;
+  };
+  const auto drawn_words = [](const DecodedLogicalRecordSource &record,
+                              const DrawnPicturePlaceholdersIR *pictures) {
+    OwnershipIR ownership;
+    std::size_t unframed = 0;
+    const auto drawn =
+        project_drawn_topic_text({record}, ownership, &unframed, pictures);
+    return join(conservation_words(drawn.text));
+  };
+
+  const auto record = build("2", "1");
+  require(record.ir.display_lines_parse,
+          "picture placeholder synthetic source must have native framing");
+  DrawnPicturePlaceholdersIR shown;
+  shown.word = picture_placeholder_word("ENGL");
+  shown.shown.insert("1");
+  require(drawn_words(record, &shown) == "intro,kept",
+          "the placeholder word and number of a shown picture are not drawn");
+  require(drawn_words(record, nullptr) == "intro,picture,1,kept",
+          "without the picture ledger the placeholder stays drawn");
+  DrawnPicturePlaceholdersIR absent;
+  absent.word = "PICTURE";
+  absent.shown.insert("2");
+  require(drawn_words(record, &absent) == "intro,picture,1,kept",
+          "a picture the document does not carry keeps its placeholder");
+  require(drawn_words(build("2", "2"), &shown) == "intro,picture,2,kept",
+          "a row spelling another number is not the placeholder");
+  require(drawn_words(build("3", "1"), &shown) == "intro,picture,1,kept",
+          "columns that do not spell exactly the placeholder stay drawn");
+  DrawnPicturePlaceholdersIR german;
+  german.word = picture_placeholder_word("GERM");
+  german.shown.insert("1");
+  require(drawn_words(record, &german) == "intro,picture,1,kept",
+          "the placeholder word is the book language's word only");
+
+  require(picture_placeholder_word("ENGL") == "PICTURE" &&
+              picture_placeholder_word("UK") == "PICTURE" &&
+              picture_placeholder_word("GERM") == "BILD" &&
+              picture_placeholder_word("FRAN") == "IMAGE" &&
+              picture_placeholder_word("ITAL") == "IMMAGINE" &&
+              picture_placeholder_word("DANS") == "ILLUSTRATION" &&
+              picture_placeholder_word("NORW") == "BILDE" &&
+              picture_placeholder_word("SPAN") == "IMAGEN" &&
+              picture_placeholder_word("XX") == "PICTURE",
+          "the placeholder word follows the reader's language letters");
+  require(picture_placeholder_word("PORT").empty() &&
+              picture_placeholder_word("BX").empty() &&
+              picture_placeholder_word("C").empty(),
+          "a language the reader gives no plain word selects none");
+}
+
 void check_styled_preformatted_rows() {
   using namespace geist::detail;
   const auto in = [](InlineNodeIR node) {
@@ -578,6 +676,7 @@ int main() {
   check_projection_rejects_unsupported_html();
   check_markdown_projection();
   check_native_message_metadata();
+  check_picture_placeholder_rows();
   check_styled_preformatted_rows();
   check_packet_conserves_every_drawn_word();
   return 0;

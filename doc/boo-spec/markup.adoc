@@ -3192,9 +3192,9 @@ description is written as an escaped selector line: `DFHPA608` topic `1.2.6`
 record 137 line 27 is `cartdesc <?> cvselect 13 8 FIGDSTAB`, over the
 `Figure 7` that opens the next `cartdesc` line at column 13.
 
-None of the hosted BookServer editions on hand carries a BUILD 1.3 book, so
-there is no hosted rendering of the envelope to compare against.  The model
-therefore admits it on its own terms: one picture figure, whose `SRPIC<n>`
+The model was written before a hosted rendering of the envelope was on hand,
+and admits it on its own terms (`G544-3290-04` `2.0`, below, is a hosted
+BUILD 1.3 page that agrees with it): one picture figure, whose `SRPIC<n>`
 anchor is a second anchor opening the picture, whose description is carried
 as the image's alternative text, and whose five boundary controls own their
 opcode cells and nothing else.  The envelope's tail behind `SREFIG` is the
@@ -3205,6 +3205,57 @@ contributes no description text.  Before the envelope was
 read, `SRPIC1` was an unexplained structural control inside the region, the
 figure declined, and 42 of the book's 186 topics went to the verbatim
 best-effort route with `csart` and `cartdesc` printed as text.
+
+[[markup_picture_placeholder_rows]]
+===== Picture placeholder rows
+
+The display line under a picture selector stores a placeholder for the
+picture: the reader's word for "picture", a blank and the picture number,
+exactly in the columns the selector names.  `G544-3290-04` (`CBLDVERS 1.3.0`,
+`CLANGUAGE ENGL`) topic `2.0`, logical record 217, has
+
+----
+0x140c91  05                 display line 27, 5 bytes
+0x140c92  4b be c8 d8 e9     cselect 3 9 PIC1
+0x140c97  05                 display line 28, 5 bytes
+0x140c98  19 87 d8 e5 b1     ' ' U+2502 ' ' PICTURE 1
+----
+
+so columns 3--11 of line 28 spell exactly `PICTURE 1`, and line 27's `3 9`
+names them.  The hosted page (DT `19950505123110`) serves the row as
+` | <a href="picture-1?mode=zoom"><img ... alt=" | This figure shows a
+drawing ...">` and never prints `PICTURE` or `1`: the image takes the
+selected columns, and the `alt` text is the picture's `cartdesc` description.
+The placeholder cells are therefore not text of the topic.  For a picture
+without a description the reader uses `<word> <n>` itself as the `alt` text;
+that case has not been observed on a hosted page yet.  The same row shape,
+under the same selectors, is in `SC33-0668-02` `1.2.6` (DT
+`19930625001740`, pictures 3--6, each served as an image whose `alt` is its
+description and with no `PICTURE` text).
+
+The word depends on the book's `CLANGUAGE` value, by its first letter and for
+some letters its second (upper case, as stored):
+
+[cols="<12,<30",options="header"]
+|===
+|`CLANGUAGE` begins |Word
+
+|`E`, `U`, `CE`, `FI`, `IC`, any first letter not listed below |`PICTURE`
+|`G`, `SG`, `SW` |`BILD`
+|`N` |`BILDE`
+|`FR`, `BF`, `CF`, `SF` |`IMAGE`
+|`CA`, `SP` |`IMAGEN`
+|`IT`, `SI` |`IMMAGINE`
+|`DA` |`ILLUSTRATION`
+|`DU`, `BD` |`AFBEELDING`
+|`BP` |`FIGURA`
+|`P` |`GR` + byte `0x84` + `FICO` in the reader's output code page
+|===
+
+A listed first letter (`B`, `C`, `D`, `F`, `I`, `S`) with a second letter the
+table does not list gets no word from this rule.  Every sampled book states
+`ENGL`, so only the `PICTURE` row has been seen in a book; the other rows are
+the reader's table, not observations.
 
 `QS3X36CM.BOO` topic `2.2` (`SRTBLtbluniq2`) demonstrates a legacy
 cross-reference table where the decoded logical stream presents table text as
