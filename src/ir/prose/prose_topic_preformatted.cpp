@@ -61,7 +61,8 @@ bool styled_example(const std::vector<DecodedLogicalRecordSource> &records,
       first_text < line.cells.size() && drawn_box_cell(line.cells[first_text]);
   std::vector<bool> covered(line.cells.size(), false);
   for (const auto &span : line.fonts) {
-    if (span.style == FontStyleIR::unknown || span.begin >= span.end ||
+    if (span.style == FontStyleIR::unknown ||
+        span.style == FontStyleIR::underscore || span.begin >= span.end ||
         span.begin >= line.cells.size())
       return false;
     auto first = span.begin;

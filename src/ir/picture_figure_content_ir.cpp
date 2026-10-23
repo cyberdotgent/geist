@@ -477,7 +477,10 @@ struct Reader {
       }
       std::vector<Attr> attrs(row.cells.size());
       for (const auto &font : fonts) {
-        if (font.style == FontStyleIR::unknown && font.code != "0")
+        // `_` draws blank columns as underscores; not modelled here.
+        if ((font.style == FontStyleIR::unknown ||
+             font.style == FontStyleIR::underscore) &&
+            font.code != "0")
           return fail(error,
                       "unsupported font in picture region: " + font.code);
         if (font.column >= attrs.size() || font.length == 0)

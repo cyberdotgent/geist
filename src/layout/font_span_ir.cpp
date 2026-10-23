@@ -37,6 +37,12 @@ FontStyleIR style_for_code(const std::string& code) {
   if (code == "8") return FontStyleIR::highlight_8;
   if (code == "9") return FontStyleIR::highlight_9;
   if (code == "A" || code == "a") return FontStyleIR::apl_symbol;
+  // `_` (UNDERSCORE) is hosted as one `<u>` over its columns with every
+  // blank one drawn as `_`: 313 of 321 spans in 83 sampled books
+  // (SC24-5527-02 COMMENTS, GC33-0784-03 1.3.4, SL26-0018-02 COVER, ...).
+  // The other 8 overlay words another triple also styles; consumers decline
+  // that shape (doc/boo-spec/markup.adoc, the `_` census).
+  if (code == "_") return FontStyleIR::underscore;
   if (code.size() != 1) return FontStyleIR::unknown;
   switch (ascii_lower_char(code[0])) {
   case 'c': return FontStyleIR::citation;
@@ -103,6 +109,8 @@ const char* font_style_name(FontStyleIR style) {
     return "warning";
   case FontStyleIR::warning_text:
     return "warningtext";
+  case FontStyleIR::underscore:
+    return "underscore";
   case FontStyleIR::unknown:
     break;
   }

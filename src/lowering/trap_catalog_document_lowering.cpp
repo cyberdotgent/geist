@@ -126,6 +126,9 @@ std::optional<EmphasisKindIR> emphasis_for(FontStyleIR style) {
   case FontStyleIR::warning:
   case FontStyleIR::warning_text:
   case FontStyleIR::apl_symbol:
+  // `_` draws its blank columns as underscores, which only the prose family
+  // models; here it stays the unmapped code it was.
+  case FontStyleIR::underscore:
   case FontStyleIR::unknown:
     break;
   }
@@ -604,7 +607,8 @@ bool styled_introduction_inlines(const TrapIntroductionParagraphIR &paragraph,
                          paragraph_origin});
     } else if (font_style_is_code(range.style)) {
       content.push_back({CodeInlineIR{std::move(label)}, paragraph_origin});
-    } else if (range.style != FontStyleIR::unknown) {
+    } else if (range.style != FontStyleIR::unknown &&
+               range.style != FontStyleIR::underscore) {
       content.push_back(
           {EmphasisInlineIR{std::move(label),
                             font_style_emphasis_kind(range.style)},

@@ -12,6 +12,7 @@
 #include <cctype>
 #include <map>
 #include <set>
+#include <tuple>
 
 namespace geist::detail::prose_internal {
 
@@ -39,6 +40,8 @@ struct BlockChar {
   // Byte width in the source projection.  A font-selected code page can
   // produce a UTF-8 glyph whose encoded width differs from that projection.
   std::uint32_t source_width = 0;
+  // A blank cell an UNDERSCORE (`_`) span draws as `_`.
+  bool filled = false;
 };
 
 // One inline's byte range inside a token's decoded word, in source order.
@@ -213,6 +216,39 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
                              ") exceeds the display line of " +
                              std::to_string(line.cells.size()) + " cells" +
                              where());
+    // `_` (UNDERSCORE) underscores every column it covers, blank ones
+    // included: hosted BookServer draws a blank column of the span as `_`
+    // inside one `<u>`.  SC24-5527-02 COMMENTS (DT 19921218151459) record
+    // 978 `cfont ... 29 3 _ 32 3 2 37 3 _ 41 2 2` over
+    // `   Would you like a reply?      YES      NO` is served
+    // `<u>___</u><B>YES</B>  <u>___</u> <B>NO</B>`, and SL26-0018-02 COVER
+    // `cfont 3 17 _` over `CMS/TSO Pipelines` is `<u>CMS/TSO_Pipelines</u>`.
+    // The blank cells are therefore content and are not trimmed.  Two shapes
+    // are not modelled and fail closed: a span reaching past the row's last
+    // cell, which hosted pads out with underscores, and a span sharing cells
+    // with another font or a selector, where hosted underscores only the
+    // first gap (SG24-3910-01 2.1, SH35-0069-06 4.1.2.2).
+    if (!link && span.style == FontStyleIR::underscore) {
+      if (end > line.cells.size())
+        return fail(error, "underscore span runs past the row" + where());
+      if (begin < line.text_begin)
+        return fail(error, "underscore span covers the row's structure" +
+                               where());
+      auto first = begin;
+      auto last = end;
+      while (first < last && line.cells[first].space) ++first;
+      while (last > first && line.cells[last - 1].space) --last;
+      if (first < last && torn_across_a_gap(line, first, last))
+        return fail(error, "row columns are unproven: underscore span" +
+                               where());
+      for (auto cell = begin; cell < end; ++cell) {
+        auto& attr = attrs[cell];
+        if (attr.style != FontStyleIR::unknown || !attr.links.empty())
+          return fail(error, "underscore span shares a cell" + where());
+        attr.style = span.style;
+      }
+      return true;
+    }
     // A span may run past the last cell the row model materialised: the
     // stored row keeps its trailing display padding, which carries no word.
     // Hosted BookServer styles only the visible text (ACPZMST1 8.1
@@ -299,7 +335,7 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
         attr.links.push_back(target_index);
       } else {
         if (attr.style != FontStyleIR::unknown)
-          return fail(error, "overlapping font spans");
+          return fail(error, "overlapping font spans" + where());
         attr.style = span.style;
       }
     }
@@ -342,10 +378,14 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
       if (cell < line.text_begin) continue;
       auto attr = attrs[cell];
       for (auto& link : attr.links) link += target_base;
-      chars.push_back({font_cell_text(attr.style, source.text), attr,
-                       source.record, source.token,
-                       source.space, offset,
-                       static_cast<std::uint32_t>(source.text.size())});
+      const auto filled =
+          source.space && attr.style == FontStyleIR::underscore;
+      chars.push_back({filled ? std::string("_")
+                              : font_cell_text(attr.style, source.text),
+                       attr, source.record, source.token,
+                       source.space && !filled, offset,
+                       static_cast<std::uint32_t>(source.text.size()),
+                       filled});
     }
   }
   // Collapse whitespace; a space takes the attributes of its neighbours when
@@ -408,12 +448,24 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
     // The inline's cells, merged into one claim per token: contiguous byte
     // ranges of the token's decoded word, in source order.
     std::vector<TokenClaim> claims;
+    // The blank columns an underscore span draws: their space-run tokens
+    // stay layout and are not claimed, but they are the inline's provenance.
+    std::vector<TokenClaim> fills;
     for (auto index = run_begin; index < run_end; ++index) {
       const auto& ch = collapsed[index];
       inline_node.text += ch.text;
       if (ch.record == npos) continue;
-      if (ledger.at(ch.record, ch.token).role != ProseTokenRoleIR::text)
+      if (ledger.at(ch.record, ch.token).role != ProseTokenRoleIR::text) {
+        if (ch.filled) {
+          const auto end = ch.offset + ch.source_width;
+          if (!fills.empty() && fills.back().record == ch.record &&
+              fills.back().token == ch.token && fills.back().end == ch.offset)
+            fills.back().end = end;
+          else
+            fills.push_back({ch.record, ch.token, ch.offset, end});
+        }
         continue;  // space-run/origin cells keep their layout role
+      }
       const auto end = ch.offset + ch.source_width;
       if (!claims.empty() && claims.back().record == ch.record &&
           claims.back().token == ch.token) {
@@ -454,6 +506,19 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
     text_refs.erase(std::unique(text_refs.begin(), text_refs.end()),
                     text_refs.end());
     inline_node.slices = slices_for_claims(records, claims);
+    if (!fills.empty()) {
+      auto fill_slices = slices_for_claims(records, fills);
+      inline_node.slices.insert(inline_node.slices.end(), fill_slices.begin(),
+                                fill_slices.end());
+      std::stable_sort(inline_node.slices.begin(), inline_node.slices.end(),
+                       [](const auto& left, const auto& right) {
+                         return std::tie(left.logical_record, left.token_begin,
+                                         left.character_begin) <
+                                std::tie(right.logical_record,
+                                         right.token_begin,
+                                         right.character_begin);
+                       });
+    }
     block_refs.insert(block_refs.end(), text_refs.begin(), text_refs.end());
     if (inline_node.kind != ProseInlineKindIR::text &&
         inline_node.slices.empty())

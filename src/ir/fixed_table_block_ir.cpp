@@ -924,10 +924,13 @@ public:
                              display_line_column_offsets(record, view.line),
                              *pending_font)
                        : std::vector<RowFontHighlightIR>{};
-      // A style the font table does not name proves nothing either.
+      // A style the font table does not name proves nothing either, and
+      // `_` draws blank columns as underscores, which a fixed table does
+      // not model.
       if (std::any_of(highlights.begin(), highlights.end(),
                       [](const auto &run) {
-                        return run.style == FontStyleIR::unknown;
+                        return run.style == FontStyleIR::unknown ||
+                               run.style == FontStyleIR::underscore;
                       }))
         highlights.clear();
       body_highlights.push_back(std::move(highlights));
@@ -2736,7 +2739,8 @@ bool verify_fixed_table_blocks_ir(
       std::size_t previous_run_end = 0;
       for (const auto &run : line.highlights) {
         if (run.begin < previous_run_end || run.begin >= run.end ||
-            run.end > line.text.size() || run.style == FontStyleIR::unknown)
+            run.end > line.text.size() || run.style == FontStyleIR::unknown ||
+            run.style == FontStyleIR::underscore)
           return fail("fixed table row style is not a run of its text");
         previous_run_end = run.end;
       }

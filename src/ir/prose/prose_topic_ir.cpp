@@ -425,6 +425,15 @@ bool verify_prose_topic_ir(
           return fail(error, "sub-token slice spans more than one token");
         for (auto token = slice.token_begin; token < slice.token_end; ++token) {
           const auto found = by_token.find({slice.logical_record, token});
+          // An UNDERSCORE (`_`) span draws the blank columns it covers as
+          // `_`: the in-line gap run under them is that inline's source, but
+          // stays layout and is owned by no inline.
+          if (found != by_token.end() &&
+              found->second->role == ProseTokenRoleIR::gap &&
+              inline_node.kind == ProseInlineKindIR::emphasis &&
+              inline_node.style == FontStyleIR::underscore &&
+              found->second->claims.empty())
+            continue;
           if (found == by_token.end() ||
               found->second->role != ProseTokenRoleIR::text ||
               found->second->block != block)

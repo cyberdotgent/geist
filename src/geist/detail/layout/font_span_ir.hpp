@@ -103,6 +103,11 @@ enum class FontStyleIR {
   italic_phrase,   // K, L: italic inline heading (K is hosted <I>)
   warning,         // W: the `Warning:` lead of a warning block (<em>)
   warning_text,    // G: the body of a warning block (<em>)
+  // _ (UNDERSCORE): every covered column underscored, blank ones included,
+  // so a blank span is a fill-in slot drawn as `_` (hosted `<u>___</u>`).
+  // Only the prose family models it; every other consumer treats it as the
+  // unmapped code it was before and fails closed the same way.
+  underscore,
 };
 
 // One `<column> <length> <code>` operand triple of a CFONT control. Columns

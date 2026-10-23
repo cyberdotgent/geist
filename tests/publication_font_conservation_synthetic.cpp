@@ -53,9 +53,21 @@ DecodedLogicalRecordSource source(const std::string &style, bool framed) {
     // syntactically valid FONT segment. It is not an actual instruction.
     line({"3", "5", "C"});
     record.tokens[record.tokens.size() - 4] = {'c', 'f', 'o', 'n', 't'};
-  } else
+  } else if (style == "blank_")
+    // SC24-5527-02 COMMENTS record 978: `_` spans over blank columns.
+    line({"cfont", "3", "5", "2", "11", "3", "_"});
+  else if (style == "worded_")
+    line({"cfont", "3", "17", "_"});
+  else if (style == "overlap_")
+    line({"cfont", "3", "5", "2", "3", "17", "_"});
+  else if (style == "past_")
+    line({"cfont", "3", "5", "2", "14", "4", "_"});
+  else
     line({"cfont", "3", "5", style});
-  line({"   ", "Alpha", "(SC31-1234)"});
+  if (style == "blank_" || style == "past_")
+    line({"   ", "Alpha", "     ", "YES"});
+  else
+    line({"   ", "Alpha", "(SC31-1234)"});
   record.assembled = assemble_logical_record_with_sources(record.tokens);
   record.ir.logical_record = 1;
   std::uint32_t byte = 0;
@@ -95,7 +107,15 @@ void check(const std::string &style, bool framed, bool admitted,
       extract_publication_catalog_ir(records, layout, *ownership);
   require(publication.has_value() == admitted,
           "text-only publication admission lost native font code " + style);
-  if (!expected_markup.empty()) {
+  if (expected_markup == "!") {
+    // The typed route must decline rather than drop the underscores.
+    const auto document = try_lower_topic_to_document_ir(
+        {"1.0", "Related Publications", ":H2", 1, 1, 2}, records, nullptr,
+        &error, nullptr);
+    require(!document.has_value(),
+            "unmodelled font code " + style + " was typed: " +
+                (document ? render_document_html_fragment(*document) : ""));
+  } else if (!expected_markup.empty()) {
     TypedLoweringTraceIR trace;
     const auto document = try_lower_topic_to_document_ir(
         {"1.0", "Related Publications", ":H2", 1, 1, 2}, records, nullptr,
@@ -124,6 +144,21 @@ int main() {
   // `cfont 3 6 K 10 12 K` -> `<I>Online</I> <I>Publications</I>`.
   check("K", true, false, "<em class=\"geist-emphasis\">Alpha</em>");
   check("_", true, false, "");
+  // `_` (UNDERSCORE) underscores every column it covers, blank or not: hosted
+  // BookServer serves SC24-5527-02 COMMENTS (DT 19921218151459) record 978
+  // `cfont ... 29 3 _ 32 3 2 37 3 _ ...` as `<u>___</u><B>YES</B>  <u>___</u>
+  // <B>NO</B>`, and SL26-0018-02 COVER `cfont 3 17 _` as
+  // `<u>CMS/TSO_Pipelines</u>`.
+  check("blank_", true, false,
+        "<strong class=\"geist-strong\">Alpha</strong> "
+        "<em class=\"geist-emphasis\">___</em>YES");
+  check("worded_", true, false,
+        "<em class=\"geist-emphasis\">Alpha_(SC31-1234)</em>");
+  // Where `_` overlaps another style, hosted underscores only the first gap
+  // (SG24-3910-01 2.1, SH35-0069-06 4.1.2.2); a slot past the row's last
+  // column is padded by hosted.  Neither is modelled: both fail closed.
+  check("overlap_", true, false, "!");
+  check("past_", true, false, "!");
   check("mixed", true, false, "");
   check("0", true, true, "");
   check("C", false, true, "");

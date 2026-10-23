@@ -1774,6 +1774,7 @@ quoted in the evidence column; every rule was checked on at least two books.
 |`X` |`XPH` |`<tt>` |SC09-2417-00 `PREFACE.2.1` record 29 segment 2 `cfont 26 9 X` -> `<tt>STATEMENT</tt>`; SC09-2417-00 `PREFACE.2.2` record 34 segment 18 -> `<tt>Example</tt>`
 |`W` |`WARNING` |`<em>` |SC26-457 `1.6.5` `cfont 3 8 W ...` -> `<em>Warning:</em>`; SC31-711 `3.3`; SH12-565 `FRONT_1.1`
 |`G` |`WARNINGTEXT` |`<em>` |GC23-046 `6.9.3`; SC26-457 `1.6.5`; SC31-711 `3.3`; SH12-565 `FRONT_1.1`
+|`_` |`UNDERSCORE` |`<u>`, blank columns drawn `_` |SC24-5527-02 `COMMENTS` record 978 `... 29 3 _ 32 3 2 37 3 _ ...` -> `<u>___</u><B>YES</B>  <u>___</u> <B>NO</B>`; SL26-0018-02 `COVER` `cfont 3 17 _` -> `<u>CMS/TSO_Pipelines</u>`; 83 books in all, see <<markup_style_code_underscore_census>>
 |===
 
 `W` and `G` are the two halves of one GML warning block: `W` styles its
@@ -1797,16 +1798,82 @@ serves both rows (DTs `19911220191142` and `19930625182638`) as
 The two witnesses are two books serving one shared sentence, not two
 independent uses of the code.
 
-`_` (`UNDERSCORE`) has one verified row.  The sweep finds it only in
-SC24-5527-02 `COMMENTS`.  There record 978 segment 4 is `cfont 3 5 2 9 3 2
-13 4 2 18 1 2 20 6 2 29 3 _ 32 3 2 37 3 _ 41 2 2` over the row
-`   Would you like a reply?` and two blank three-column slots before `YES`
-and `NO`.  Hosted BookServer (DT `19921218151459`) serves the row as
-pass:[<literal>&lt;B&gt;reply?&lt;/B&gt;&#160;&#160;&#160;&lt;u&gt;___&lt;/u&gt;&lt;B&gt;YES&lt;/B&gt;&#160;&#160;&lt;u&gt;___&lt;/u&gt;&#160;&lt;B&gt;NO&lt;/B&gt;</literal>]:
-each `_` span prints three underscores, inside `<u>`, over columns the row
-leaves blank -- a fill-in slot, not a style of words.  The 87-book sample
-finds `_` in four more books (SG24-3910-01, SC31-6009-04, SC31-8234-00 and
-GC31-8189-01), none yet compared with hosted.
+[[markup_style_code_underscore_census]]
+`_` (`UNDERSCORE`) underscores every column its span covers, the blank ones
+included.  Hosted BookServer serves the span as one lowercase `<u>` element
+(`HP5`..`HP9` are served with an uppercase `<U>` per word) whose content is
+the covered columns with every blank column replaced by `_`.  A span over a
+row's blank columns is therefore a fill-in slot drawn as a run of
+underscores, one per column, and a span over words joins them with `_`:
+
+* SC24-5527-02 `COMMENTS` (DT `19921218151459`) record 978 segment 4 is
+  `cfont 3 5 2 9 3 2 13 4 2 18 1 2 20 6 2 29 3 _ 32 3 2 37 3 _ 41 2 2` over
+  pass:[<literal>&#160;&#160;&#160;Would you like a reply?&#160;&#160;&#160;&#160;&#160;&#160;YES&#160;&#160;&#160;&#160;&#160;&#160;NO</literal>].
+  Columns 26-31 between `reply?` and `YES` are the word separator blank
+  after `reply?` and then the five-cell space-run token 275 at file offset
+  `0x621e7` (byte `1c`); the `_` triple `29 3` covers the run's last three
+  cells.  Hosted serves
+  pass:[<literal>&lt;B&gt;reply?&lt;/B&gt;&#160;&#160;&#160;&lt;u&gt;___&lt;/u&gt;&lt;B&gt;YES&lt;/B&gt;&#160;&#160;&lt;u&gt;___&lt;/u&gt;&#160;&lt;B&gt;NO&lt;/B&gt;</literal>].
+* SL26-0018-02 `COVER` (DT `19951023164345`) record 6 segment 11 is
+  `cfont 3 17 _` over `CMS/TSO Pipelines`; hosted serves
+  `<u>CMS/TSO_Pipelines</u>`.  EOY03MST and SC23-0450-08 `2.8.2` serve
+  `cfont ... 39 24 _` over `BookMaster User's Guide.` as
+  `<u>BookMaster_User's_Guide.</u>`.
+* A span can reach past the last column the row stores.  CNMYZ0MS `1.2.3`
+  (DT `19911016130733`) record 133 stores `cfont 39 20 _` in front of the
+  row `DSIPARM data set name`, whose stored text ends at column 24; hosted
+  pads the row with blanks to column 39 and serves
+  `<u>____________________</u>` there.
+
+The census drew every book carrying `_` from a seeded random sample of 1,500
+books of the hosted shelf, plus the four books named by an earlier sample
+and SC24-5527-02 from the corpus; every book's `CFONTDEF` table maps `_` to
+the same name `UNDERSCORE`.  For one topic per book (a topic other than the
+reader's-comment form where the book has one) the hosted page was fetched,
+its `<base href>` and title checked against the book, and every `_` span of
+the topic compared with the page's lowercase `<u>` elements in order: 83
+books, 321 spans, 299 of them over blank columns only.  Every span is served
+as exactly one `<u>`, and 313 of the 321 match the rule above character for
+character.  The eight that do not are all one shape: a `_` span laid over
+words that other triples of the same control also style.  There hosted
+interleaves the per-word tags with the `<u>` and draws only the first blank
+of the span as `_`, leaving the rest as spaces: SG24-3910-01 `2.1` record 33
+`cfont 7 3 3 11 4 3 ... 47 3 3 7 43 _` is served
+`<B><I><u>IBM</B></I>_<B><I>High</B></I> <B><I>Level</B></I> ... </u>`,
+SH35-0069-06 `4.1.2.2` record 129 `cfont 6 4 2 6 5 _ ... 16 22 _` is served
+`<B><u>Name</B>_</u>` and `<B><u>Value</B>_<B>Set</B> <B>by</B> ...</u>`,
+and EOY03MST / SC23-0450-01 `2.8.2` serve their `HP3`/`HP6` sample rows the
+same way.  That shape is a property of the hosted renderer's tag nesting, not
+of the bytes, and an implementation that does not reproduce it should not
+claim to present such a row.  The table quotes the first `_` row of 20 of
+the books; the hex is the `CFONT` control's own token bytes from the control
+word to the last style code.
+
+[cols="<12,<11,<10,<6,<9,<27,<25",options="header"]
+|===
+|Book |DT |Topic |Record |File offset |Bytes / decoded operand |Hosted
+
+|SC24-5527-02 |`19921218151459` |`COMMENTS` |978 |`0x621b8` |`44 be c7 bb ce be ...` = `cfont 3 5 2 ... 29 3 _ 32 3 2 37 3 _ 41 2 2` |`<u>___</u><B>YES</B>  <u>___</u> <B>NO</B>`
+|SC24-5528-02 |`19921218165217` |`COMMENTS` |1548 |`0x115e6f` |`2a c4 c7 c1 cb c4 ...` = `cfont 3 5 2 ... 29 3 _ 32 3 2 37 3 _ 41 2 2` |`<u>___</u><B>YES</B>  <u>___</u> <B>NO</B>`
+|GC24-5550-04 |`19921218113053` |`BIBLIOGRAPHY.8.3` |1022 |`0x7a9a9` |`40 bf c5 bd ec c4 ...` = `cfont 26 5 2 ... 52 3 _ 55 3 2 60 3 _ 64 2 2` |`<u>___</u><B>YES</B>  <u>___</u> <B>NO</B>`
+|SC31-6009-04 |`19961012022117` |`COMMENTS` |1097 |`0x7f76e` |`31 ec e4 a2 ce 02` = `cfont 27 33 _` |`Your Internet Address:  <u>` + 33 `_` + `</u>`
+|GC33-0784-03 |`19990427153402` |`1.3.4` |173 |`0x23182b` |`3d a2 b1 2c` = `cfont 14 5 _` |`System:  <u>_____</u>`
+|CNMYZ0MS |`19911016130733` |`1.2.3` |133 |`0x2bfd5` |`31 ed 2c 99 a5 99` = `cfont 39 20 _` |`DSIPARM data set name ... <u>` + 20 `_` + `</u>`
+|GA27-3936-02 |`19930726151853` |`5.2.1` |220 |`0xd9cdf` |`48 b9 b8 36` = `cfont 21 20 _` |`5494 location   <u>` + 20 `_` + `</u>`
+|SC34-3050-01 |`19941011104231` |`A.1` |135 |`0x2ca76` |`3b cc cf 27` = `cfont 15 20 _` |`Style Name: <u>` + 20 `_` + `</u>`
+|GX41-0080-00 |`19931217101820` |`7.1` |17 |`0x6ea7` |`40 d2 c4 26` = `cfont 42 2 _` |`Local LAN adapter address ... <u>__</u>`
+|SC41-0006-02 |`19931217132105` |`3.3.1` |321 |`0x54cca` |`3e bb af d7 60 ec ec b6 bf fc` = `cfont 6 1 R 47 2 _` |`Local LAN adapter address ... <u>__</u>`
+|EZ2M4106 |`19900829091244` |`2.2.10` |110 |`0x71440` |`3d eb e1 ae c0 2a` = `cfont 24 10 _` |`character here:  <u>__________</u>.`
+|GA27-4105-03 |`19980701154012` |`A.3.1` |308 |`0x65d48` |`4c ed 64 be d5 b3 ee b9 d3 d5 b3` = `cfont 19 13 _ 60 8 _` |`Completed by: <u>_____________</u>`
+|SC31-7013-00 |`19920806171130` |`11.4.2` |401 |`0x36363` |`33 b0 ac 1d` = `cfont 14 10 _` |`1.  Date:  <u>__________</u>`
+|GC33-0923-00 |`19930326234715` |`INDEX` |405 |`0x2eea1` |`35 a1 ee d1 b4 98` = `cfont 24 35 _` |`Name and Job Title:  <u>` + 35 `_` + `</u>`
+|GC30-3824-01 |`19960722122942` |`2.3.4` |44 |`0x4e342` |`3e cc d8 c3 ba bb ...` = `cfont 3 7 2 11 12 2 24 8 2 34 20 _` |`<B>Address:</B>  <u>` + 20 `_` + `</u>`
+|SL26-0018-02 |`19951023164345` |`COVER` |6 |`0x168a0` |`36 9c 94 27` = `cfont 3 17 _` |`<u>CMS/TSO_Pipelines</u>`
+|EOY03MST |`19911210152013` |`2.8.2` |81 |`0x10a26` |`42 d0 af cd d1 c4 cd bc b3 d4 9c` = `cfont 7 1 4 8 3 4 21 13 _` |`produces <u>underscoring.</u>`
+|SC23-0450-08 |`19940127212853` |`2.8.2` |79 |`0x129c3` |`3e d2 af ce d3 c5 ce bc b3 d6 a3` = `cfont 7 1 4 8 3 4 21 13 _` |`produces <u>underscoring.</u>`
+|SG24-3910-01 |`19951220130146` |`2.1` |33 |`0xa26f` |`34 d9 c3 c3 b1 ca ...` = `cfont 7 3 3 ... 47 3 3 7 43 _` |`<B><I><u>IBM</B></I>_<B><I>High</B></I> <B><I>Level</B></I> ...` (overlaid)
+|SH35-0069-06 |`19920127112049` |`4.1.2.2` |129 |`0x3b487` |`32 b8 b2 a4 b8 b7 bd 2f ...` = `cfont 6 4 2 6 5 _ ... 16 22 _` |`<B><u>Name</B>_</u>` (overlaid)
+|===
 
 [[markup_style_code_k_census]]
 `K` (`H4`) is italic, not bold, in every book that uses it.  Its name places
@@ -3136,22 +3203,19 @@ structure irreversibly.
 [[markup_open_questions]]
 === Open Questions
 
-* Hosted presentation of the remaining font codes. Seventeen of the 35 defined
+* Hosted presentation of the remaining font codes. Eighteen of the 35 defined
 codes now have a hosted rendering verified in "Style-Code Presentation
 Verified Against Hosted BookServer" (`1`, `2`, `3`, `5`, `7`, `9`, `C`, `E`,
-`K`, `P`, `Q`, `R`, `V`, `W`, `G`, `X`, `Z`). The unverified ones split into two
+`K`, `P`, `Q`, `R`, `V`, `W`, `G`, `X`, `Z`, `_`). The unverified ones split into two
 groups with different prospects:
 ** *`B` `CAUTION`, `D` `DANGER`, `F` `CAUTIONTEXT`, `O` `DANGERTEXT`* are
 the remaining halves of the admonition family whose `W`/`G` pair is
 verified as `<em>` for both the label and the body. They are the ones most
 likely to follow the same shape, and a book on the hosted shelf that uses
 `:caution.` or `:danger.` would settle them. No corpus fixture does.
-** *`T` `TP`, `U` `MD`, `Y` `MDQUAL`, `_` `UNDERSCORE`* have at most one
-witness each in the corpus and no second book to generalise from. `_`
-occurs there only in SC24-5527-02 `COMMENTS`, where hosted prints
-underscores over blank columns (see above); a sample of the hosted shelf finds it in SG24-3910-01 (36
-topics), SC31-6009-04, SC31-8234-00 and GC31-8189-01, not yet compared with
-hosted. `Z` `PVDEF` is verified only on one sentence that two books share
+** *`T` `TP`, `U` `MD`, `Y` `MDQUAL`* have at most one
+witness each in the corpus and no second book to generalise from.
+`Z` `PVDEF` is verified only on one sentence that two books share
 (SC26-457 and SC26-4905-00 `1.3`).
 ** The remaining defined codes are the heading levels `H`..`M` and the plain
 `H0`/`4`/`6`/`8` fills, which do not appear as inline spans in the corpus.
