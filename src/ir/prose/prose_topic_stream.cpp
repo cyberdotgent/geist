@@ -1959,11 +1959,39 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           // `<a name="GLS Configuration description name">`).  The term
           // words are anchor identity, not display text; the following
           // `cz FLOW GD` paragraph repeats them.
+          //
+          // The term is the rest of the control's own display line and
+          // nothing more.  The flattened segment runs on to the next
+          // control, so the display lines after it are body text the reader
+          // prints: SH24-5219-00 3.0 record 371 is a bare `SRGLS` on line 0
+          // followed by the paragraph `Much of the information in this
+          // section is procedural ...` on lines 1-3, and hosted
+          // (DT 19920710083758) serves that paragraph as text with no
+          // anchor at all.  A bare `SRGLS` only makes the reader look ahead
+          // for a glossary letter box; it names nothing, so it emits no
+          // anchor here.
           const auto operands = operand_tokens(record, segment);
+          const DisplayLineIR* control_line = nullptr;
+          {
+            const auto opcode_words = decoded_byte_range_to_word_range(
+                record.assembled, segment.opcode_range);
+            const auto opcode_tokens = source_tokens_intersecting_output(
+                record.assembled, opcode_words.begin, opcode_words.end);
+            if (!opcode_tokens.empty())
+              control_line =
+                  display_line_of_token(record, opcode_tokens.front());
+          }
+          if (control_line == nullptr)
+            return fail(error, "SRGLS control is not on a framed display line");
+          std::vector<std::size_t> body_tokens;
           std::string term;
           std::size_t first = npos;
           std::size_t last = 0;
           for (const auto token : segment.source_tokens) {
+            if (token >= control_line->token_end) {
+              body_tokens.push_back(token);
+              continue;
+            }
             const auto view = view_token(records, record_index, token);
             const auto is_operand = std::binary_search(
                 operands.begin(), operands.end(), token);
@@ -1985,15 +2013,27 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           }
           if (first == npos)
             return fail(error, "SRGLS control has no source token");
-          ProseAnchorIR anchor;
-          anchor.id = "GLS";
-          if (!term.empty()) anchor.id += " " + collapse_ascii_whitespace(term);
-          anchor.source = token_slice(record, first, last + 1);
-          Item item;
-          item.kind = ItemKind::anchor;
-          item.anchor_id = anchor.id;
-          item.source = anchor.source;
-          build.items.push_back(std::move(item));
+          if (!term.empty()) {
+            ProseAnchorIR anchor;
+            anchor.id = "GLS " + collapse_ascii_whitespace(term);
+            anchor.source = token_slice(record, first, last + 1);
+            Item item;
+            item.kind = ItemKind::anchor;
+            item.anchor_id = anchor.id;
+            item.source = anchor.source;
+            build.items.push_back(std::move(item));
+          }
+          if (!body_tokens.empty()) {
+            for (const auto token : body_tokens) {
+              Item item;
+              item.kind = ItemKind::token;
+              item.token = view_token(records, record_index, token);
+              build.items.push_back(std::move(item));
+            }
+            Item end;
+            end.kind = ItemKind::segment_end;
+            build.items.push_back(std::move(end));
+          }
           break;
         }
         // A `SRFTN<id>` of the flattened dialect is an ordinary body

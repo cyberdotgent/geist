@@ -604,6 +604,7 @@ foreach(synthetic_test
     cz_message_list_synthetic
     list_closer_anchor_synthetic
     revision_bar_operand_synthetic
+    prose_glossary_anchor_synthetic
     topic_header_envelope_rule_synthetic
     topic_title_revision_marker_synthetic
     topic_heading_synthetic

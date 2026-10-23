@@ -6508,7 +6508,18 @@ token 132 `,` sits between `topic 1.3.4.` and `cmenu`, and hosted prints
 * `SRGLS <term>` is a glossary-style field anchor whose id is
 `GLS <term words>`; the term is anchor identity, not display text, and the
 following `FLOW GD` paragraph repeats it (`SC41-485` `1.2.4`, hosted
-`<a name="GLS Configuration description name">`).
+`<a name="GLS Configuration description name">`).  The term is the rest of
+the control's own display line only; the display lines after it are body
+text.  A bare `SRGLS` (nothing after the five letters on its line) names no
+anchor at all: the reader only looks ahead for a glossary letter box (a
+`U+250C` row, then `| A |`, then `U+2514`), and when a control line comes
+first it resumes reading right after the `SRGLS` line.  `SH24-5219-00` `3.0`
+record 371 stores line 0 as length byte `01` at `0x301F9E` and `SRGLS`
+(`99` at `0x301F9F`), then line 1 as length byte `14` (20) at `0x301FA0`,
+a three-blank origin (`13`) and `Much of the information in this section is
+procedural ...`; two more text lines and a blank line follow before
+`cmenu`.  Hosted (DT `19920710083758`) serves those three lines as an
+ordinary paragraph and no `GLS` anchor.
 * The decoder can glue its `,` separator onto the last `CFONT` code word
 (`packet` `3.6.1` `cfont 5 1 E,`); the style code is the letter before it.
 The single-digit style codes `5`..`9` render as hosted `<U>`: `packet`
