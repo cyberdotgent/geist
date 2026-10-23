@@ -1197,6 +1197,29 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             return false;
           continue;
         }
+        // An arrow word inside a display line is a drawn cell of that row.
+        // The flattened splitter reads it through the ASCII projection,
+        // which spells it `?`, and trims it from the end of the segment it
+        // closes, so no segment owns it (DREICMST 1.5.5.4 record 162 token
+        // 310, `U+2193` at 0x1B68D, the last cell of line 37).  The stream
+        // carries it in source order; the line builder draws it inside a
+        // proven drawing region and declines it anywhere else.
+        if (title_seen && !menu_open && !cz_seen && !view.body.empty() &&
+            std::all_of(view.body.begin(), view.body.end(),
+                        [](const auto word) {
+                          return word >= 0x2190 && word <= 0x2193;
+                        })) {
+          const auto* line = display_line_of_token(record, token);
+          if (line != nullptr && token != line->prefix_token) {
+            Item item;
+            item.kind = ItemKind::token;
+            item.token = view;
+            item.drawn_arrow = true;
+            build.items.push_back(std::move(item));
+            claimed[token] = true;
+            continue;
+          }
+        }
         if (!is_padding(view) && !is_separator(view))
           return fail(error, "unclaimed visible token '" +
                                  diagnostic_text(view) + "' (token " +

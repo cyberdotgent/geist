@@ -130,6 +130,10 @@ struct Item {
   // front of the next control: display text only where a CFONT span of its
   // own row covers its cell exactly, otherwise padding.
   bool styled_terminal = false;
+  // An arrow word claimed by no control segment.  It is a drawn cell of its
+  // display row, and only a planned drawing region proves where that row
+  // goes; outside one the line builder declines.
+  bool drawn_arrow = false;
   bool title_start = false;
   // The `ST` control carried no payload token at all, so the topic's title is
   // empty and this segment end completes it.

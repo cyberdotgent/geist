@@ -4173,6 +4173,62 @@ without a stack (`→→___statement___required_item___→←`) has no junction 
 is not covered by this reading.  A run of display lines that holds a row of
 box words alone is an open drawing (<<markup_open_drawings_in_prose>>) instead.
 
+[[markup_vertical_arrows_in_prose]]
+==== Vertical arrows in prose drawings
+
+A drawing in prose may point at a word or a row with a vertical arrow: an
+arrowhead word (`U+2191` up, `U+2193` down) whose shaft is a vertical
+stroke in the same column of the adjacent drawn row.  An up arrow's shaft
+runs down into the next display row, a down arrow's comes from the row above.
+The shaft cell is the rail `U+2502`, the ASCII `|` a book may draw the same
+stroke with, or a box word whose stroke runs on toward the head (`U+2514`,
+`U+2518`, `U+251C`, `U+2524`, `U+2534`, `U+253C` under an up arrow; `U+250C`,
+`U+2510`, `U+251C`, `U+2524`, `U+252C`, `U+253C` above a down arrow).  Such a
+drawing need not have a row of box words alone, nor a railroad junction,
+and hosted BookServer prints every row of its blank-delimited run at its
+native columns.  The arrow words and their hosted display bytes are listed
+in <<encoding_hosted_display_bytes_for_the_non_ascii_graphic_words>>; the arrows below
+are stored as two-byte dictionary references.  Offsets are absolute file
+offsets:
+
+[cols="<18,<44,<38",options="header"]
+|===
+|Topic |Bytes |Reading
+
+|`DREICMST` `1.5.5.4` |record 162 lines 29..37; line 37 has length byte
+`06` at `0x1B688` and ends with `CB 34` at `0x1B68D` |nine rows of a
+collating-order listing, each with `U+2502` at column 14; the last row,
+`      GEN     `, has `U+2193` at column 14.  Hosted (DT `19911219125856`)
+prints the nine rows, the arrow as `0x19`.
+|`SC09-138` `B.0` |record 1894 lines 5..12; line 6 has length byte `12` at
+`0xFB3FF` and six `B0 3B` words from `0xFB401` |`COPT('FL(E) SEARCH(...)')`,
+then `U+2191` at columns 11, 31, 39, 49, 62 and 64, then (after
+`cfont 34 1 R` on line 7) the rows `|`, `|__1__|_________|`, `| |`, whose
+column 11 is `U+2502`, and the closing `U+2514` bracket on line 12.  Hosted
+(DT `19910321130500`) prints lines 5, 6, 8, 10 and 12 one under the other,
+each arrow as `&quot;`.
+|`SC28-1881-05` `1.29` |record 701 lines 14..33; line 17 has length byte
+`04` at `0x65A8F`, a 41-cell space run `C8 F4` and `C8 3A` at `0x65A92`
+|`TMARGIN value`, `U+2191` at column 41, two ASCII `|` rows, the two text
+rows, three `|` rows, `U+2193`, `BMARGIN value`, with a `cfont 41 1 E` line
+before each arrow and bar row.  Hosted (DT `19930326130533`) prints all ten
+rows, the arrow and bar cells in `<samp>`.
+|===
+
+Not every arrow of a drawing meets a stroke: on `SC09-138` `B.0` line 6
+the arrows at columns 39, 49 and 64 stand two columns right of the bracket
+ends below them, and hosted prints them there.  One arrowhead that meets
+its shaft proves the drawing; the rows of the run are then printed as
+stored.  The run is delimited as an open drawing's is: by empty display
+lines, with only `cfont`, `cselect` and `SI` lines between its rows, each of
+which styles or indexes and prints nothing.  An arrow that meets no stroke
+proves nothing.
+
+In all three books the flattened decoded string puts the arrow in no
+control segment.  Its ASCII projection is `?`, and the splitter trims a
+trailing `?` from the segment the arrow ends; only the display lines place
+the arrow, in the row they frame.
+
 [[markup_verbatim_cz_regions]]
 ==== Verbatim `CZ` regions
 

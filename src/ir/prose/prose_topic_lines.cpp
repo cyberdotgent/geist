@@ -1569,6 +1569,23 @@ struct LineBuilder {
   bool token(std::size_t index) {
     const auto& item = items[index];
     const auto& view = item.token;
+    // An arrow word no control segment owns reaches here only outside every
+    // planned drawing region (`run` routes a region's tokens to `emit_box`).
+    // Read as prose it would run its drawing's rows together (see the
+    // stream's `drawn_arrow`), so the topic declines.
+    if (item.drawn_arrow) {
+      static constexpr char hex[] = "0123456789ABCDEF";
+      std::string spelled;
+      for (const auto word : view.body) {
+        spelled += "U+";
+        for (int shift = 12; shift >= 0; shift -= 4)
+          spelled += hex[(word >> shift) & 0xF];
+      }
+      return fail(error, "unclaimed visible token '" + spelled + "' (token " +
+                             std::to_string(view.token) + ") in record " +
+                             std::to_string(records[view.record].logical_record) +
+                             " outside a proven drawing");
+    }
     if (skip_until != npos) {
       if (index <= skip_until) {
         if (is_bare(view)) {

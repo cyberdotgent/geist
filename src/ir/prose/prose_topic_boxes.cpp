@@ -508,6 +508,103 @@ std::optional<BoxRegion> syntax_diagram(
   return region;
 }
 
+constexpr std::uint16_t arrow_up = 0x2191;
+constexpr std::uint16_t arrow_down = 0x2193;
+
+// A vertical stroke cell an arrowhead can sit on: the rail `U+2502`, the
+// ASCII bar a book may draw the same stroke with, or a box word whose stroke
+// runs on toward the arrowhead.
+bool vertical_stroke(std::uint16_t word, bool toward_below) {
+  if (word == box_rail || word == '|') return true;
+  return toward_below ? connects_up(word) : connects_down(word);
+}
+
+// An arrow drawing: a blank-delimited run of display rows that draws a
+// vertical arrow -- an arrowhead whose shaft is a vertical stroke in the
+// same column of the adjacent drawn row.  `U+2191` points up, so its shaft
+// runs down into the next row; `U+2193` points down, so its shaft comes from
+// the row above.  No row of such a drawing need be made of box words alone
+// (open_drawing) or carry a railroad junction (syntax_diagram), yet hosted
+// BookServer prints every row of it at its columns inside its `<pre>`, and a
+// prose reading runs the rows together.  Evidence (absolute file offsets):
+//
+//   * DREICMST 1.5.5.4 record 162 lines 29..37, a collating-order listing:
+//     each row draws `U+2502` at column 14 and the last, `      GEN     `,
+//     ends with the two-byte word `CB 34` (`U+2193`) at 0x1B68D in that
+//     column.  Hosted DT 19911219125856 prints the `|` column and ends the
+//     `GEN` row with the display byte 0x19.
+//   * SC09-138 B.0 record 1894 lines 5..12: `COPT(...)`, a row of six
+//     `B0 3B` words (`U+2191`, the first at 0xFB401, column 11), then rows of
+//     rails and `U+2514 .. U+2518` brackets; column 11 carries `U+2502` on
+//     line 8 and line 10 and the `U+2514` corner on line 12.  Hosted DT
+//     19910321130500 prints all eight rows, the arrows as `&quot;`.
+//   * SC28-1881-05 1.29 record 701 lines 15..33: `TMARGIN value`, `C8 3A`
+//     (`U+2191`) at 0x65A92 in column 41, ASCII `|` rows under it, the text
+//     rows, `|` rows and `U+2193` above `BMARGIN value`, a `cfont 41 1 E`
+//     line before each arrow and bar row.  Hosted DT 19930326130533 prints
+//     every row, the arrow and bar cells in `<samp>`.
+//
+// The run is read exactly as `open_drawing` reads one -- only `cfont`,
+// `cselect` and `SI` lines may stand between its rows, and every cell needs
+// a proven hosted glyph -- with the stroked arrowhead as the proof in place
+// of a row of box words alone.
+std::optional<BoxRegion> arrow_drawing(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const std::vector<Candidate>& candidates, std::size_t first,
+    std::size_t last) {
+  while (first <= last &&
+         hidden_drawing_line(records[candidates[first].record],
+                             candidates[first]))
+    ++first;
+  while (first <= last &&
+         hidden_drawing_line(records[candidates[last].record],
+                             candidates[last]))
+    --last;
+  if (first > last) return std::nullopt;
+  std::vector<std::size_t> rows;
+  for (auto cursor = first; cursor <= last; ++cursor) {
+    const auto& candidate = candidates[cursor];
+    const auto& record = records[candidate.record];
+    if (hidden_drawing_line(record, candidate)) continue;
+    if (candidate.blank || candidate.control_only ||
+        !display_row(record, candidate.line) ||
+        !proven_glyphs(candidate.columns))
+      return std::nullopt;
+    rows.push_back(cursor);
+  }
+  bool stroked = false;
+  for (std::size_t row = 0; row < rows.size() && !stroked; ++row) {
+    const auto& columns = candidates[rows[row]].columns;
+    for (std::size_t column = 0; column < columns.size() && !stroked;
+         ++column) {
+      const auto word = columns[column];
+      if (word != arrow_up && word != arrow_down) continue;
+      const bool up = word == arrow_up;
+      if (up ? row + 1 >= rows.size() : row == 0) continue;
+      const auto& shaft = candidates[rows[up ? row + 1 : row - 1]].columns;
+      stroked = column < shaft.size() && vertical_stroke(shaft[column], up);
+    }
+  }
+  if (!stroked) return std::nullopt;
+  BoxRegion region;
+  for (auto cursor = first; cursor <= last; ++cursor) {
+    const auto& candidate = candidates[cursor];
+    if (candidate.index) {
+      region.index_lines.push_back({candidate.record, candidate.line,
+                                    candidate.text, candidate.columns});
+      continue;
+    }
+    if (candidate.control_only) continue;
+    region.lines.push_back(
+        {candidate.record, candidate.line, candidate.text, candidate.columns});
+  }
+  region.begin_record = candidates[first].record;
+  region.begin_token = candidates[first].line.prefix_token;
+  region.end_record = candidates[last].record;
+  region.end_token = candidates[last].line.token_end - 1;
+  return region;
+}
+
 } // namespace
 
 std::vector<BoxRegion> plan_boxes(
@@ -622,6 +719,7 @@ std::vector<BoxRegion> plan_boxes(
       bool joint = false;
       box_only = box_only_row(candidates[cursor].columns, joint) && joint;
     }
+    bool diagram_seen = false;
     for (auto main = first; main <= last && !box_only; ++main) {
       std::size_t end = main;
       auto diagram = syntax_diagram(records, candidates, claimed, main, end);
@@ -629,8 +727,13 @@ std::vector<BoxRegion> plan_boxes(
       std::fill(claimed.begin() + static_cast<std::ptrdiff_t>(main),
                 claimed.begin() + static_cast<std::ptrdiff_t>(end) + 1, true);
       regions.push_back(std::move(*diagram));
+      diagram_seen = true;
       main = end;
     }
+    // A run no narrower reading claimed may still draw a vertical arrow.
+    if (!box_only && !diagram_seen)
+      if (auto drawing = arrow_drawing(records, candidates, first, last))
+        regions.push_back(std::move(*drawing));
     first = last + 1;
   }
   std::sort(regions.begin(), regions.end(),

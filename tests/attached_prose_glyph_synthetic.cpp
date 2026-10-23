@@ -145,27 +145,6 @@ void rejected(std::vector<TokenWords> content) {
   std::string error;
   check(!lower(b, error), "ambiguous or unmapped glyph was admitted");
 }
-// An arrow word at the end of a topic's display rows.  DREICMST 1.5.5.4
-// record 162 ends with line 37, `      GEN     ` and the two-byte
-// dictionary word `U+2193` (token 310, encoded 52020), the last row of an
-// aligned collating-order listing whose `|` column the rows above draw;
-// hosted DT 19911219125856 prints the arrow as the display-table byte 0x19
-// at the end of that `<pre>` row.  No segment of the record owns the token,
-// and admitting it as prose ran the listing together, so the topic declines
-// -- and the reason must name the decoded word, not the ASCII projection's
-// `?`, which reads like an undecodable byte.
-void unclaimed_arrow_declines_by_name() {
-  Builder b(false);
-  b.line({w("   "), w("Sorted"), w("as"), w("follows:")});
-  b.line({});
-  b.line({w("      "), w("ABCDE"), w("   "), {0x2502}});
-  b.line({w("      "), w("GEN"), w("     "), {0x2193}});
-  std::string error;
-  const auto doc = lower(b, error);
-  check(!doc, "an unclaimed arrow row was admitted");
-  check(error.find("unclaimed visible token 'U+2193'") != std::string::npos,
-        "unclaimed arrow is not named by its code point: " + error);
-}
 void single_column_span(bool selector) {
   Builder b;
   b.line(
@@ -1501,6 +1480,83 @@ void inline_syntax_diagram() {
           "inline syntax diagram main path reflowed in Markdown: " + markdown);
   }
 }
+// A vertical arrow drawn into prose: an arrowhead whose shaft is a stroke
+// in the same column of the adjacent drawn row.  DREICMST 1.5.5.4 record 162
+// lines 29..37 draw a collating-order listing whose rows carry `U+2502` in
+// one column, and the last row, `      GEN     `, ends with the two-byte
+// dictionary word `U+2193` (token 310, `CB 34` at 0x1B68D) in that column.
+// The flattened splitter trims the arrow (its ASCII projection is `?`) from
+// the segment it closes, so no segment owns it; hosted DT 19911219125856
+// prints every row at its columns, the arrow as the display byte 0x19.
+// How the arrow and its shaft are spelled is the test's variable; an arrow
+// row ends the topic or stands before a `cfont` line, as in the books.
+enum class Shaft { rail_above, ascii_below, shifted, none };
+void arrow_rows(Builder &b, Shaft shaft) {
+  b.line({w("   "), w("Sorted"), w("as"), w("follows:")});
+  b.line({});
+  switch (shaft) {
+  case Shaft::rail_above:
+  case Shaft::shifted:
+    // A word after a space run starts one cell further on: `|` at 15.
+    b.line({w("      "), w("ABCDE"), w("   "), {0x2502}, w("   "),
+            w("Order")});
+    b.line({w("      "), w("AB*"), w("     "), {0x2502}});
+    b.line({w("      "), w("GEN"),
+            shaft == Shaft::shifted ? w("      ") : w("     "), {0x2193}});
+    break;
+  case Shaft::ascii_below:
+    // SC28-1881-05 1.29 record 701 lines 15..21: `TMARGIN value`, `U+2191`
+    // under it, then ASCII `|` rows, each after a `cfont 41 1 E` line.
+    b.line({w("        "), w("TMARGIN"), w("value")});
+    b.line({w("cfont"), w("8"), w("1"), w("E")});
+    b.line({w("        "), {0x2191}});
+    b.line({w("cfont"), w("8"), w("1"), w("E")});
+    b.line({w("        "), w("|")});
+    b.line({});
+    b.line({w("Then continue.")});
+    break;
+  case Shaft::none:
+    b.line({w("      "), w("GEN"), w("     "), {0x2193}});
+    break;
+  }
+}
+void arrow_drawing() {
+  for (const auto shaft : {Shaft::rail_above, Shaft::ascii_below}) {
+    Builder b(false);
+    arrow_rows(b, shaft);
+    std::string error;
+    const auto doc = lower(b, error);
+    check(doc.has_value(), "vertical arrow drawing rejected: " + error);
+    if (!doc) continue;
+    const auto html = render_document_html_fragment(*doc);
+    const std::string expected =
+        shaft == Shaft::rail_above
+            ? "      ABCDE    |    Order\n      AB*      |\n      GEN      ↓"
+            : "        TMARGIN value\n"
+              "        <code class=\"geist-monospace\">↑</code>\n"
+              "        <code class=\"geist-monospace\">|</code>";
+    check(pre_body(html) == expected,
+          "vertical arrow drawing was not drawn verbatim: " + html);
+    check(html.find("Sorted as follows:") < html.find("<pre") &&
+              (shaft == Shaft::rail_above ||
+               html.find("Then continue.") > html.find("</pre>")),
+          "prose around the arrow drawing moved into it: " + html);
+  }
+}
+// An arrow whose shaft is missing proves no drawing: read as prose it would
+// run the rows together, so the topic declines, and the reason names the
+// decoded word by its code point rather than the ASCII projection's `?`.
+void unstroked_arrow_declines_by_name() {
+  for (const auto shaft : {Shaft::shifted, Shaft::none}) {
+    Builder b(false);
+    arrow_rows(b, shaft);
+    std::string error;
+    const auto doc = lower(b, error);
+    check(!doc, "an arrow without a shaft was admitted");
+    check(error.find("unclaimed visible token 'U+2193'") != std::string::npos,
+          "unclaimed arrow is not named by its code point: " + error);
+  }
+}
 // Two diagrams separated by an empty display line (SC24-546 6.2.7 record
 // 707 line 7) stay two blocks: the empty row between them is not lost.
 void consecutive_syntax_diagrams() {
@@ -1616,7 +1672,8 @@ int main() {
   frame_rows_around_prose_decline();
   list_after_table_end_marker();
   list_after_table_end_marker(w("     "));
-  unclaimed_arrow_declines_by_name();
+  arrow_drawing();
+  unstroked_arrow_declines_by_name();
   index_line_keeps_paragraph_break();
   index_line_extra_blank_keeps_paragraph();
   styled_table_row(false, true);
