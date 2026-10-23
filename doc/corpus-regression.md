@@ -275,3 +275,86 @@ currently retains one explicit loss allowance, the word `version` in
 `IBMMMSTR` topic `1.5.332`. The independently reviewed GX27 alpha-list repair
 retains the source `a.` and `b.` markers in both formats and therefore carries
 no allowance in this baseline.
+
+## Library sample (100 books)
+
+Measured 2026-10-23 at `ee046824` (Release build, `-DGEIST_BUILD_GUI=OFF`)
+outside the gate: an inventory of the wider private library, not a baseline.
+
+**Method.** Python `random.Random(20261023).sample` over the sorted
+8,236 `.boo`/`.BOO` files of the library, taking the first 100 whose name stem
+or SHA-256 is not one of the 33 maintained or four additional books (none had
+to be skipped). Per book, with hard timeouts and two books at a time:
+`booinfo` (60 s), `bootrace --coverage` (300 s) and
+`bootrace --conservation --rendered` (300 s); the reports were parsed with the
+gate's own parsers and every topic's HTML fragment fingerprinted (which
+rejects malformed HTML). The slowest single run took 26 s; the whole sample
+877 s of tool time. Two further `booinfo` prefilters (400 random books, seed
+20261024, and all 1,202 uppercase `.BOO` files) checked the patterns below.
+
+**Headline.** All 100 books open; no run crashed, hung, exited non-zero or
+wrote to stderr. One book yields no topics (below). The other 99 have 37,629
+indexed topics: 30,775 strict typed (81.8%), 6 typed-degraded, 6,848
+best-effort (all on the legacy route) and none failed. 16 books are entirely
+typed. One book, `dfhcag49` (GC33-1694-25, 5,306 topics, 4.7 MB), is 98.9%
+best-effort; without it the share is 1,598 of 32,323 topics (4.9%). All
+topics were conservation-checked with no unframed record, every HTML fragment
+parsed, and no topic rendered empty. Conservation reports 791 unaccounted word
+occurrences in 301 topics of 30 books, identical in Markdown and HTML; 764 of
+them are in 294 *typed* topics:
+
+| Loss | Occurrences | Topics | Books |
+|---|---|---|---|
+| `PICTURE n` placeholder inside an artwork envelope; the image is emitted with its description as alternative text | 507 | 252 | 14 |
+| selector or menu control operands (`cvselect`, `cmitem`) | 40 | 9 | 5 |
+| other drawn text | 244 | 50 | 19 |
+
+The first row is likely an accounting gap rather than lost text and needs
+review. The third contains confirmed silent losses in typed topics, each
+checked against the hosted BookServer: `SC33-1369-09` drops revision-barred
+table body rows (`Y` cells, 159 occurrences in 23 topics, e.g. `2.1`);
+`SH24-5219-00` `3.0` turns a 28-word paragraph into an index-term anchor
+name; `ICHA6MST` `3.1.2` loses the routing-code numbers of a definition list
+and bolds only their first letters (`**M** aster`). In `GA27-4120-00` the
+hosted server also shows `1.` for a `Step 1.` label, so its `step` count is
+not a loss there, but the typed output repeats the number (`1. **1.**`).
+
+**Broken documents.** `EDCGV1R2.BOO` (GC09-1281-02, 90,112 bytes, header
+version 1.0, timestamp `10/31/89 ????????`, no build version) opens but
+produces no TOC entry and no topic; `bootrace --coverage` then also writes a
+`# severity` line with no fields, which the gate's parser rejects. The hosted
+BookServer serves its `COVER`. The uppercase prefilter found four more
+pre-1.2 books, all with the same zero-topic result: `EDCIV1R2`, `EHMGMST`,
+`EHMPMST` (1.0) and `EDCUSER` (1.1); every other book checked is 1.2. The
+library also holds 73 zero-byte `.boo` files, which `booinfo` rejects as
+smaller than one page; none was sampled.
+
+**Patterns.** Degradation follows the CZ dialect (non-zero byte at directory
+offset `0x0009`): 49 CZ books have 6,653 best-effort topics of 23,469
+(28.3%; 7.7% without `dfhcag49`), the 50 others 195 of 14,160 (1.4%). By
+`BUILD` property: none 2.3%, 1.3.0 30.5% (41 books), 1.3.1 5.5% (3 books).
+By timestamp the share rises from 0.5% (1989-91) to 11.5% (1998-2000). Every
+sampled book is English.
+
+**Top decline classes** (numbers, quoted text and ids normalised; full
+table, 134 classes, kept with the scratch reports):
+
+| Decline | Topics | Books | Examples |
+|---|---|---|---|
+| display row precedes the first CZ directive | 2,920 (434 outside `dfhcag49`) | 16 | `SC31-8223-01` `1.1`, `GC30-3820-03` `2.4.1` |
+| cz control is incomplete | 1,791 | 1 | `dfhcag49` `EDITION` |
+| cz mode is not FLOW, OFF or BREAK (mostly a blank mode) | 771 (34) | 8 | `SG24-5314-00` `2.3.5.16`, `G544-3290-04` `GLOSSARY.2` |
+| ST title does not match the topic title | 176 (23) | 5 | `SC41-5401-00` `2.1.2.5` |
+| `c.sp` control carries visible payload | 145 | 3 | `GC41-5051-01` `1.0`, `ehxb7000` `1.2.1` |
+| placeholder run `?` followed by visible text | 119 | 16 | `SC33-4034-16` `1.1.3`, `S85G-8681-00` `8.4.1` |
+| cz OFF SYNTAX block has no display rows | 95 | 2 | `SC31-6552-00` `1.6` |
+| font style code is not a highlight phrase (mostly `T`) | 66 | 6 | `GC23-0084-02` `5.4.1` |
+| topic carries a second ST control | 58 | 2 | `SC31-8212-00` `2.3.3` |
+| placeholder glyph `°` inside prose text | 55 | 16 | `SC33-1369-09` `PREFACE.2` |
+| heading level `figlist`/`tlist` is not h1-h6 | 25 | 20 | `SC33-0668-02` `FIGURES` |
+
+The hosted BookServer renders the first uppercase-named example of each
+class shown (its `<base href>` matched the requested book and topic in every
+case); `dfhcag49`, like other all-lowercase filenames, is not in the hosted
+catalog. The six typed-degraded topics are four unmodelled `cz OFF`
+regions, one inferred table column set and one figure-body anchor position.
