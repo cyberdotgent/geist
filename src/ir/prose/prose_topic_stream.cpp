@@ -2479,21 +2479,38 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         // (GC28-183 1.3.3 record 91 `c.sp 1 c`, DT 19930625102617;
         // SC33-033 4.6 record 177 `c.sp 1 c` between the heading and
         // `<a name="SPTCHAATT">`, DT 19930422134757; SC34-425 2.4.3 record
-        // 1465, DT 19921112160049). The documented count/unit forms
-        // carry spacing only; anything else fails closed. The
+        // 1465, DT 19921112160049). The
         // trailing spacing tokens stay in the stream because they can carry
         // the paragraph break, the reading `c.cp` already uses.
+        //
+        // The reader skips every control line whose name starts with `C.`
+        // whatever its operands, so on a framed record the operands are
+        // exactly the words of the display line the opcode opens, and the rows
+        // after it are body text even where the control segment runs on
+        // into them.  GC41-5051-01 1.0 record 4 line 9 is `c.sp 1p c`;
+        // hosted (DT 19980619084541) serves no `1p`.  ehxb7000
+        // BACK_1.2.7.1 record 417 line 9 is `c.sp 0p8 c`, and the segment
+        // reaches into line 11 `   The following documents are ISO
+        // standards ...`.  An unframed record keeps the documented
+        // count/unit forms only; anything else there fails closed.
         if (!title_seen) return fail(error, "c.sp control precedes the title");
         std::string operands;
         std::size_t last_operand = npos;
         std::optional<std::size_t> opcode_token;
+        const DisplayLineIR* control_line = nullptr;
         for (const auto token : segment.source_tokens) {
           const auto view = view_token(records, record_index, token);
+          if (control_line != nullptr && token >= control_line->token_end)
+            break;
           // A length byte the segment overshot into spells a word but is the
           // next row's control slot, so it is not an operand of `c.sp`.
           if (!is_visible(view) || is_row_control_slot(records, view)) continue;
           if (!opcode_token) {
             opcode_token = token;
+            // Only a line the opcode opens is a control line.
+            control_line = display_line_of_token(records[record_index], token);
+            if (control_line != nullptr && control_line->prefix_token + 1 != token)
+              control_line = nullptr;
             continue;
           }
           if (!operands.empty()) operands.push_back(' ');
@@ -2501,7 +2518,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           last_operand = token;
         }
         if (!opcode_token) return fail(error, "c.sp control has no opcode");
-        if (!vertical_space_operands(operands))
+        if (control_line == nullptr && !vertical_space_operands(operands))
           return fail(error, "c.sp control carries visible payload '" +
                                  operands + "'");
         const auto control_end =

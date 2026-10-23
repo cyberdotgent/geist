@@ -5470,6 +5470,26 @@ bytes `b4 85` at `0x2350c` are its `:H0` operand. Its following menu names
 This verifies that the Part-level heading form can introduce a chapter menu
 with a vertical skip before its items.
 
+The five spellings are not a closed list. The reader skips every control
+line whose name begins with `C.` whatever follows the name, so the operands
+of `c.sp` are simply the rest of the display line the opcode opens, and none
+of them is drawn. Two further spellings occur outside the fixtures:
+
+[cols="<30,<45,<35",options="header"]
+|===
+|Record |Bytes |Hosted
+
+|`GC41-5051-01` `1.0` record 4 line 9 |length byte `03` at `0x437D`, then `27` (`c.sp`), `C5` (`1p`), `26` (`c`) |the heading, a paragraph break and the subtopic menu; no `1p` (DT `19980619084541`); the same line opens `2.0`..`5.0`
+|`ehxb7000` `BACK_1.2.7.1` record 417 line 9 |length byte `03` at `0x9A895`, then `41` (`c.sp`), `B0` (`0p8`), `40` (`c`) |not in the hosted catalog
+|===
+
+The line, not the flattened control segment, bounds the operands. In
+`ehxb7000` record 417 the flattened segment of that `c.sp` runs on through
+line 10 (empty, length byte `00` at `0x9A899`) into line 11, the row
+pass:[<literal>&#160;&#160;&#160;The following documents are ISO standards relating to the OSI/6000</literal>];
+those rows are body text. The same shape opens 31 topics of `ehxa2001` and
+110 of `ehxb7000`.
+
 [[markup_crev_revision_code_definitions]]
 ==== `c.rev` revision-code definitions
 

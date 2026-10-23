@@ -136,7 +136,8 @@ void chapter_menu(const std::vector<std::string>& skip, bool admitted,
   require(html.find("Preparing your application to run") != std::string::npos &&
           html.find("Language considerations") != std::string::npos,
           "chapter menu labels were lost: " + html);
-  require(html.find("1 p") == std::string::npos && html.find("c.sp") == std::string::npos,
+  require(html.find("1 p") == std::string::npos && html.find("c.sp") == std::string::npos &&
+              html.find("visible") == std::string::npos,
           "spacing operands leaked into HTML: " + html);
 }
 }
@@ -145,8 +146,11 @@ int main() {
       {"1", "p"}, {"1", "c"}, {"3p", "p", "c"}, {"8mm", "p", "c"}, {"1"}})
     for (const auto& level : {":H0", ":H1"})
       chapter_menu(skip, true, level);
-  chapter_menu({"1", "p", "visible"}, false);
-  chapter_menu({"p"}, false);
+  // BookServer skips every control line whose name starts with `C.`, so
+  // any operand on the `c.sp` line draws nothing (GC41-5051-01 1.0 record
+  // 4 `c.sp 1p c`, hosted DT 19980619084541).
+  chapter_menu({"1", "p", "visible"}, true);
+  chapter_menu({"p"}, true);
   chapter_menu({"1"}, true, ":H1", true);
   chapter_menu({"1"}, false, ":H1", true, true);
 }

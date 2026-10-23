@@ -603,6 +603,7 @@ foreach(synthetic_test
     revision_bar_operand_synthetic
     topic_header_envelope_rule_synthetic
     topic_title_revision_marker_synthetic
+    vertical_space_line_extent_synthetic
     length_byte_control_word_synthetic
     art_description_figure_synthetic
     ordered_picture_figure_synthetic
