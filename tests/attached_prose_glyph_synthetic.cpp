@@ -37,8 +37,10 @@ struct Builder {
     for (const auto &words : tokens)
       bytes += words == TokenWords{0x2666}
                    ? glyph_width
-                   : (words == TokenWords{1} || words == TokenWords{2}) ? 1
-                                                                         : 2;
+                   : (words == TokenWords{1} || words == TokenWords{2} ||
+                      words == TokenWords{1, ','})
+                         ? 1
+                         : 2;
     record.encoded_tokens.push_back({static_cast<std::uint16_t>(bytes), 1});
     record.tokens.push_back(std::move(length_word));
     for (auto &words : tokens) {
@@ -47,7 +49,9 @@ struct Builder {
               ? EncodedLogicalToken{3, 1}
               : (words == TokenWords{1} || words == TokenWords{2})
                     ? EncodedLogicalToken{0, 1}
-                    : EncodedLogicalToken{encoded++, 2});
+                    : words == TokenWords{1, ','}
+                          ? EncodedLogicalToken{2, 1}
+                          : EncodedLogicalToken{encoded++, 2});
       record.tokens.push_back(std::move(words));
     }
   }
@@ -744,7 +748,7 @@ TokenWords repeat(TokenWords head, std::uint16_t fill, std::size_t count,
 void framed_table(Builder &b, bool blank_inside_frame,
                   bool prose_inside_frame = false,
                   TokenWords after_length = w("<BOOK>"),
-                  bool styled_row = false) {
+                  bool styled_row = false, bool caption_comma = false) {
   const auto rail = [&]() {
     b.line({w("   "), {0x2502}, w(std::string(20, ' ')), {0x2502}});
   };
@@ -779,7 +783,10 @@ void framed_table(Builder &b, bool blank_inside_frame,
     b.line({});
   rail();
   b.line({w("   "), repeat({0x2514}, 0x2500, 20, 0x2518)});
-  b.line({w("   "), w("Figure 1. Caption")});
+  if (caption_comma)
+    b.line({w("   "), w("Figure 1. Caption"), {1, ','}, w("continued")});
+  else
+    b.line({w("   "), w("Figure 1. Caption")});
   b.line({w("SREFIG")});
   // An empty display line as the record stores it: the length byte `00`,
   // which a token reader spells as the bare attach control, then the next
@@ -841,6 +848,25 @@ void frame_rows_around_table(bool blank_inside_frame,
   const auto markdown = render_document_markdown(*doc);
   check(drawn_cells(markdown) >= drawn_cells(pre),
         "framed table Markdown dropped frame rows: " + markdown);
+}
+// A prose line inside the frame keeps its glued punctuation.  SC24-5527-02
+// COMMENTS frames `SRTBLTBLUNIQ549` in `SRFIGFIGUNIQ548`; record 978 line 5
+// stores `comments` (token 17), the attach-prefixed comma `?,` (token 18,
+// bytes `0x62092` = `02`) and `you` (token 19), and hosted BookServer (DT
+// 19921218151459) serves `If you wish to make comments, you may print out
+// this topic, fill in your`.  The comma sits on a line the table owns no
+// token of, so it is the stream's to lower, not the frame's padding.
+void frame_prose_line_keeps_comma() {
+  Builder b(false);
+  framed_table(b, false, false, w("<BOOK>"), false, true);
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "framed table with a captioned comma declined: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  check(html.find(">Figure 1. Caption, continued</p>") != std::string::npos,
+        "frame prose line lost its glued comma: " + html);
 }
 // The end marker of a table span is followed the same way.  GG24-395 3.3.15
 // record 635 closes `SRTBLTBLUNIQ21` with `SRETBL` alone on line 28, line 29
@@ -1687,6 +1713,7 @@ int main() {
   frame_rows_around_table(false);
   frame_rows_around_table(true);
   frame_rows_around_table(false, {0x251c});
+  frame_prose_line_keeps_comma();
   frame_rows_around_prose_decline();
   list_after_table_end_marker();
   list_after_table_end_marker(w("     "));

@@ -1613,6 +1613,19 @@ tables under one outer figure) and `GC28-183.boo` `COVER`.  A decoder that
 treats a second `SRFIG` as evidence that the first was unterminated loses the
 outer figure's anchor, its lead line and its caption.
 
+The outer region's own display lines are ordinary display lines token for
+token, including the one-byte attach-prefixed punctuation tokens that,
+between controls, are only separators.  `SC24-5527-02.boo` `COMMENTS` frames
+table `TBLUNIQ549` in figure `FIGUNIQ548`; record 978 stores `comments`
+(file offset `0x62090`, `d3 09`), the one-byte token `02` at `0x62092`
+(attach control plus `,`) and `you` (`0x62093`, `89`), and hosted BookServer
+(DT `19921218151459`) serves `If you wish to make comments, you may print
+out this topic, fill in your`.  `FA1PLMM0.boo` `2.2` (DT `19910927114801`)
+record 100 stores its caption as `VSE` (`0x2426a`, `8c`), attach (`00`),
+`/` (`23`), attach (`00`), `ESA` (`72`), served as `Figure 4. VSE/ESA
+Predefined Environments`.  Only a display line's length byte is structure
+there.
+
 *An image figure can have an unnumbered caption.* In `GA19-5486-13.boo`
 (build date `10/12/95 16:12:06`), topic `2.1` has this sequence:
 `SRFIGFIGUNIQ2`, `cz OFF FIG`, `cselect 3 9 PIC1`, the standalone display

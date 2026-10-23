@@ -871,8 +871,12 @@ bool plan_frame(const std::vector<DecodedLogicalRecordSource>& records,
           continue;
       }
       const auto view = view_token(records, record, token);
+      // Every token of such a line is the stream's, its decoder-separator
+      // shaped punctuation included: SC24-5527-02 COMMENTS record 978 token
+      // 18 is the attach-prefixed `,` of `comments, you may print`, which
+      // hosted (DT 19921218151459) prints; padding it dropped the comma.
+      if (!length_byte(token) && !line_owned_by_table(token)) continue;
       if (!region_structure(view) && !length_byte(token)) {
-        if (!line_owned_by_table(token)) continue;
         return fail(error, label + " declined: " + decline.reason +
                                " (visible token '" + body_text(view) +
                                "' outside any table)");
