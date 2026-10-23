@@ -189,7 +189,12 @@ struct Destination { std::string topic, fragment, resource; };
   if (!entry) return nil;
   geist::HtmlRenderOptions render;
   render.resolve_topic = [](const std::string &id) -> std::optional<std::string> { return topicURL(id); };
-  render.resolve_resource = [](const std::string &id) -> std::optional<std::string> { return objectURL(id); };
+  // Only stored objects are served; any other reference (an image on a server) stays as written.
+  render.resolve_resource = [document](const std::string &id) -> std::optional<std::string> {
+    for (const auto &entry : document->resources())
+      if (entry.id == id) return objectURL(id);
+    return std::nullopt;
+  };
   render.resolve_anchor = [document, links, topicID](const std::string &id) -> std::optional<std::string> {
     auto found = links.find(id);
     if (found == links.end()) {

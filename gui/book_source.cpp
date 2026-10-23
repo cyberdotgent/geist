@@ -108,9 +108,16 @@ QByteArray BookSource::topic_html(const QString& topic_id) {
   };
   // Without this every picture renders as `geist-image--unresolved`: the
   // renderer only emits a usable `src` when a consumer resolves the object.
+  // Anything that is not one of the book's stored objects -- an image on a
+  // server, say -- is the book's own reference and stays as written.
   render.resolve_resource =
-      [](const std::string& id) -> std::optional<std::string> {
-    return object_url(QString::fromStdString(id)).toStdString();
+      [this](const std::string& id) -> std::optional<std::string> {
+    for (const auto& entry : document_->resources()) {
+      if (entry.id == id) {
+        return object_url(QString::fromStdString(id)).toStdString();
+      }
+    }
+    return std::nullopt;
   };
   // A named destination the renderer cannot place on its own. Left alone it
   // becomes `#<id>`, which only reaches a destination inside the topic on

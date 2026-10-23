@@ -57,8 +57,12 @@ TopicPage::TopicPage(QObject* parent) : QWebEnginePage(parent) {}
 
 bool TopicPage::acceptNavigationRequest(const QUrl& url, NavigationType,
                                         bool is_main_frame) {
-  if (is_main_frame && (url.scheme() == QLatin1String("http") ||
-                        url.scheme() == QLatin1String("https"))) {
+  // A link out of the book -- http, ftp, mailto, whatever the book spells --
+  // goes to the system, which knows how to open it; the page cannot.
+  const auto scheme = url.scheme();
+  if (is_main_frame && scheme != QLatin1String(kBookScheme) &&
+      scheme != QLatin1String("about") && scheme != QLatin1String("data") &&
+      scheme != QLatin1String("blob")) {
     QDesktopServices::openUrl(url);
     return false;
   }

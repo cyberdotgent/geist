@@ -363,7 +363,9 @@
  decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
   (void)webView;
   NSString *scheme = action.request.URL.scheme.lowercaseString;
-  if ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"]) {
+  // A link out of the book (http, ftp, mailto, ...) goes to the system to open.
+  if (scheme.length && ![scheme isEqualToString:@"geist"] &&
+      ![scheme isEqualToString:@"about"] && ![scheme isEqualToString:@"data"] && ![scheme isEqualToString:@"blob"]) {
     [NSWorkspace.sharedWorkspace openURL:action.request.URL];
     decisionHandler(WKNavigationActionPolicyCancel);
   } else decisionHandler(WKNavigationActionPolicyAllow);

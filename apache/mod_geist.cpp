@@ -534,9 +534,15 @@ geist::HtmlRenderOptions render_options(request_rec* r, Book& book,
       [r, base](const std::string& id) -> std::optional<std::string> {
     return base + "/topic/" + seg(r, id);
   };
+  // Only the book's own stored objects live under /object/. Anything else is
+  // a reference the book spells itself -- an image on a server, say -- and is
+  // published exactly as written, as BookServer does.
   options.resolve_resource =
-      [r, base](const std::string& id) -> std::optional<std::string> {
-    return base + "/object/" + seg(r, id);
+      [r, &book, base](const std::string& id) -> std::optional<std::string> {
+    for (const auto& entry : book.document->resources()) {
+      if (entry.id == id) return base + "/object/" + seg(r, id);
+    }
+    return std::nullopt;
   };
   options.resolve_anchor =
       [r, &book, base, current_topic](
