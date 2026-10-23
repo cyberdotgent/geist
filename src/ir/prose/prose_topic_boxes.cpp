@@ -130,6 +130,22 @@ struct Candidate {
   std::vector<std::uint16_t> columns;
 };
 
+// A segment the flattened splitter opened on a display line's length byte.
+// That byte is the row-control slot, always and only, and position alone
+// decides it: whatever control name the book's dictionary spells for the
+// byte, the segment opens no control, and the line the byte frames is a row
+// of display text.  GG24-4302-00 5.3.2.2 record 446 line 17 opens with the
+// length byte `3C` (60) at 0x5DF16, which the dictionary spells
+// `cbacklevel`; the splitter read the inline syntax diagram's main path
+// after it (`>>__ _/DEQUEUE_ ...><`, `U+252C` junctions at columns 7, 18,
+// 53 and 62) as that control's operands, so the diagram rule saw no text
+// row.  Hosted DT 19950308184737 prints that row and the `|_/DEQ_____|`
+// stack row under it, column for column.
+bool length_byte_opcode(const DecodedLogicalRecordSource& record,
+                        const ControlSegmentIR& segment) {
+  return is_display_line_length_opcode(record, segment);
+}
+
 // A display line whose every token belongs to the opcode/operand range of a
 // control: the line draws nothing and may stand inside a region.  A control
 // that carries display text keeps that text in its payload tokens, which lie
@@ -158,6 +174,7 @@ bool control_only_line(const DecodedLogicalRecordSource& record,
     const auto segment_index = segment_of(record, token);
     if (segment_index >= record.control_segments.size()) return false;
     const auto& segment = record.control_segments[segment_index];
+    if (length_byte_opcode(record, segment)) return false;
     const auto operands = operand_tokens(record, segment);
     if (std::binary_search(operands.begin(), operands.end(), token)) continue;
     const auto alternatives =
@@ -217,7 +234,8 @@ bool display_row(const DecodedLogicalRecordSource& record,
     const auto segment_index = segment_of(record, token);
     if (segment_index >= record.control_segments.size()) continue;
     const auto& segment = record.control_segments[segment_index];
-    if (segment.display_text || segment.kind == BookControlKind::text)
+    if (segment.display_text || segment.kind == BookControlKind::text ||
+        length_byte_opcode(record, segment))
       continue;
     const auto operands = operand_tokens(record, segment);
     if (std::binary_search(operands.begin(), operands.end(), token))

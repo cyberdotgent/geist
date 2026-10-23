@@ -1410,7 +1410,21 @@ void labelled_rule_rows() {
 // item's row below it, with `cfont` lines between.  No row is drawn from box
 // words alone.  How the rows below the main path are spelled is the test's
 // variable.
-enum class Stack { aligned, shifted, gap, two_deep, open_end, change_bar };
+//
+// `control_length` is the aligned diagram whose main path's length byte the
+// book's dictionary spells as a control name: GG24-4302-00 5.3.2.2 record
+// 446 line 17 opens with `3C` (60) at 0x5DF16, spelled `cbacklevel`, and the
+// flattened splitter read the main path after it as that control's
+// operands.  The byte is the row-control slot by its position alone.
+enum class Stack {
+  aligned,
+  shifted,
+  gap,
+  two_deep,
+  open_end,
+  change_bar,
+  control_length
+};
 void diagram(Builder &b, Stack stack) {
   b.line({});
   b.line({w("Code it as:")});
@@ -1421,13 +1435,16 @@ void diagram(Builder &b, Stack stack) {
   b.line({w("   "), w(">>"), {1}, {0x2500, 0x2500}, {1}, w("PARSE"), {1},
           {0x2500, 0x2500}, {1}, {0x252C}, {1},
           {0x2500, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500}, {1}, {0x252C},
-          {1}, {0x2500, 0x2500}, {1}, w("><")});
+          {1}, {0x2500, 0x2500}, {1}, w("><")},
+         stack == Stack::control_length ? w("cbacklevel")
+                                        : TokenWords{0x25ba});
   if (stack == Stack::gap) b.line({});
   b.line({w("cfont"), w("16"), w("4"), w("V")});
   const auto indent = stack == Stack::shifted ? w("               ")
                                               : w("              ");
   switch (stack) {
   case Stack::aligned:
+  case Stack::control_length:
   case Stack::shifted:
   case Stack::gap:
     b.line({indent, {0x2514, 0x2500}, {1, 'i', 't', 'e', 'm'},
@@ -1453,7 +1470,8 @@ void diagram(Builder &b, Stack stack) {
   b.line({w("Then continue.")});
 }
 void inline_syntax_diagram() {
-  for (const auto stack : {Stack::aligned, Stack::two_deep}) {
+  for (const auto stack :
+       {Stack::aligned, Stack::two_deep, Stack::control_length}) {
     Builder b(false);
     diagram(b, stack);
     std::string error;
@@ -1467,8 +1485,8 @@ void inline_syntax_diagram() {
     const std::string item =
         "              |_<em class=\"geist-emphasis\">item</em>_|";
     const std::string expected =
-        stack == Stack::aligned ? main + item
-                                : main + item + "\n              |_next_|";
+        stack != Stack::two_deep ? main + item
+                                 : main + item + "\n              |_next_|";
     check(pre_body(html) == expected,
           "inline syntax diagram was not drawn as one verbatim block: " + html);
     check(html.find("Code it as:") < html.find("<pre") &&

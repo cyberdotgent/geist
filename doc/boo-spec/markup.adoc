@@ -4149,6 +4149,12 @@ at column 26 and ends with `B0 61` (`U+2500 U+2518`) at column 42.  Hosted
 (DT `19910321130500`) prints both rows verbatim, and likewise its two-row
 stacks, the upper item row of which ends in `U+251C`/`U+2524` junctions.
 SC28-1881-05 `1.2` (DT `19930326130533`) repeats the same examples.
+GG24-4302-00 `5.3.2.2` (logical record 446, DT `19950308184737`) draws
+`>>__ _/DEQUEUE_ __LUNAME__ ... ____________><` on line 17 with `U+252C` at
+columns 7, 18, 53 and 62, and `|_/DEQ_____|` / `|_PURGE1_|` on line 19 with
+`U+2514`/`U+2518` in the same columns; the main path's length byte `3C` at
+`0x5DF16` spells a control name and is still only that row's length
+(<<logical-controls_display_lines_govern_reflowed_prose_too>>).
 
 The rows that belong to the diagram follow from the strokes alone:
 

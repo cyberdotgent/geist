@@ -374,7 +374,14 @@ FA1PLMM0 `17.2.3.1` record 713 ends a line with the one-byte word `a`,
 which a geometry rule took for the slot -- hosted (DT 19910927114801)
 serves `available to a user; CEOS a subset ...`; DREICMST `1.1` ends a
 paragraph `... systems management.` and the next line's length byte spells
-`.`, which a flattening reader prints as a second full stop.
+`.`, which a flattening reader prints as a second full stop.  The spelling
+may also be a control name, and position alone still decides: GG24-4302-00
+`5.3.2.2` logical record 446 line 17 opens with the length byte `3C` (60) at
+`0x5DF16`, which the book's dictionary spells `cbacklevel`, and the 60 bytes
+after it are the main path of an inline syntax diagram
+(<<markup_inline_syntax_diagrams>>).  A splitter that opens a control on
+that byte reads the whole row as its operands; hosted (DT 19950308184737)
+prints the row and the stack row under it, column for column.
 * *An empty display line is the paragraph break*, and it is the only one:
 hosted answers it with `<p>`.  Bare spacing markers inside a line that
 draws nothing (an `SI` entry, a body control line) are not breaks.
