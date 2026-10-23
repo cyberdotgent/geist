@@ -4453,15 +4453,27 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     }
     catalog.entries.push_back(std::move(entry));
   }
-  // A headline-only entry shares the fields of the entry after it, which
-  // must carry them.
-  for (std::size_t at = 0; at < catalog.entries.size(); ++at)
-    if (catalog.entries[at].fields.empty() &&
-        !boxed_note_entry(catalog.entries[at]) &&
-        (at + 1 == catalog.entries.size() ||
-         catalog.entries[at + 1].fields.empty()))
+  // A headline-only entry shares the fields of the entry after it. A run of
+  // them shares the fields of the entry that ends the run, which must carry
+  // them: SC09-138 H.0 record 2112 draws EDC0166 to EDC0169 each as its
+  // headline alone, every next SRMSG on the line after it, and EDC0170's
+  // headline then its fields; hosted H.0 (DT 19910321130500) serves the
+  // five headlines in a row under one `<hr>`, then the fields.
+  for (std::size_t at = 0; at < catalog.entries.size(); ++at) {
+    const auto headline_only = [&](const TrapEntryIR &candidate) {
+      return candidate.fields.empty() && !boxed_note_entry(candidate);
+    };
+    if (!headline_only(catalog.entries[at]))
+      continue;
+    auto carrier = at + 1;
+    while (carrier < catalog.entries.size() &&
+           headline_only(catalog.entries[carrier]))
+      ++carrier;
+    if (carrier == catalog.entries.size() ||
+        catalog.entries[carrier].fields.empty())
       return reject("trap entry has no labelled field: " +
                     catalog.entries[at].id);
+  }
   catalog.origin_column = origin_column.value_or(0);
   // The vocabulary is the ordered label sequence every entry repeats. A
   // labelled line that some entry lacks (an entry-local `Note:`) stays a

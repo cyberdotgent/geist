@@ -505,6 +505,21 @@ byte `2D` (45) of line 25, whose dictionary word is `@`.  A severity after
 the message id (`40`) is on the `SRMSG`'s own line; neither it nor a
 following length byte is a rule row.
 
+Several headline-only entries can follow each other.  They all share the
+fields of the entry that ends the run.  `H.0` record 2112 line 3 is
+`SRMSG EDC0166` (length byte `03` at `0x10D34E`), then a rule row and the
+headline `cfont` with `   EDC0166 30 A non-lvalue array cannot be
+subscripted.` (lines 4--6).  Line 7 is `SRMSG EDC0167` (`03` at
+`0x10D387`), with no rule row, and its headline is on lines 8--9.
+`EDC0168` (lines 10--12) and `EDC0169` (lines 13--15) are the same.
+Line 16 is `SRMSG EDC0170`, and its headline (lines 17--18) is followed by
+an empty line, `cfont 3 12 2` and `Explanation:` (lines 19--21).  Hosted H.0
+(DT `19910321130500`) serves `<a name="MSG EDC0166"><hr>`, then the five
+headlines one per line, each of the last four inside its own
+`<a name="MSG EDC016n">`, then `<p>` and EDC0170's `Explanation:` and
+`Recovery:`.  A run that is not ended by an entry with fields has nothing
+to share.
+
 A headline-only entry is not this shape when anything else follows it.
 An entry can instead draw a closed box after its headline, with no
 envelope control around it.  `H.0` record 2199 line 30 to record 2200

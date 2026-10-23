@@ -3634,6 +3634,44 @@ int main() {
     append(last, headline_only("708", 528));
     require(!build({make_source(124, last)}, "Sample Messages").catalog,
             "a headline-only last entry was admitted");
+
+    // A run of headline-only entries shares the fields of the entry that
+    // ends the run. SC09-138 H.0 record 2112 lines 3-6 are `SRMSG EDC0166`,
+    // its rule row and headline; line 7 is `SRMSG EDC0167` with no rule row,
+    // and so on to EDC0170, whose `Explanation:` and `Recovery:` follow.
+    // Hosted H.0 (DT 19910321130500) serves the five headlines one after
+    // another under `<a name="MSG EDC0166"><hr>`, then the shared fields.
+    auto run = header("Sample", "Messages");
+    append(run, entry("755", 695));
+    append(run, line({}));
+    append(run, headline_only("756", 696));
+    append(run, headline_only("757", 697));
+    append(run, headline_only("758", 698));
+    append(run, entry("759", 699));
+    const auto chained = build({make_source(159, run)}, "Sample Messages");
+    require(chained.catalog.has_value() &&
+                chained.catalog->entries.size() == 5 &&
+                chained.catalog->entries[1].fields.empty() &&
+                chained.catalog->entries[2].fields.empty() &&
+                chained.catalog->entries[3].fields.empty() &&
+                chained.catalog->entries[4].fields.size() == 1,
+            "a run of headline-only entries declined: " + chained.error);
+    if (chained.catalog) {
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  chained.sources, chained.layout, *chained.ownership,
+                  *chained.catalog, &error),
+              "the headline-only run failed verification: " + error);
+    }
+
+    // Mutation: the run closes the catalogue, so no entry carries fields.
+    auto unended = header("Sample", "Messages");
+    append(unended, entry("760", 700));
+    append(unended, line({}));
+    append(unended, headline_only("761", 701));
+    append(unended, headline_only("762", 702));
+    require(!build({make_source(160, unended)}, "Sample Messages").catalog,
+            "a headline-only run with no entry to end it was admitted");
   }
 
   // An introduction row whose length byte spells a control word is prose.
