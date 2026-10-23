@@ -120,12 +120,17 @@ std::optional<TrapSelectorSource> read_trap_selector_source(
   // A selector that closes its record marks the next record's first line:
   // SC34-425 2.4.33 record 1648 ends on line 29 `cselect 13 9 FIGADAOUT`
   // and record 1649 line 0 is `   Notice in Figure 89 that ...`, served
-  // with `Figure 89` linked.
+  // with `Figure 89` linked.  A queue that closes its record waits for that
+  // row the same way: SC09-138 F.1 record 2050 ends with line 30
+  // `cselect 64 13 HDRFETCH` and line 31 `cfont 36 5 X 65 5 E`, record 2051
+  // line 0 is `   (2)  In the situation of doing a fetch to a load module,
+  // see "fetch -- Get`, and hosted F.1 (DT 19910321130500) links
+  // `"fetch -- Get`, cells 64-76 of that row.
   const auto* target_record = &record;
   const DisplayLineIR* row = nullptr;
   if (target != lines_end) {
     row = &*target;
-  } else if (!skipped && next_record != nullptr &&
+  } else if (next_record != nullptr &&
              next_record->logical_record == record.logical_record + 1) {
     const auto* next_lines = record_display_lines(*next_record);
     if (next_lines != nullptr && !next_lines->empty()) {

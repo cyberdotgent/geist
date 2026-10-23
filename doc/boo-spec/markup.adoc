@@ -1019,6 +1019,18 @@ whose cells 46--49 are ` (*)`.  Hosted (DT `19910329000100`) serves
 `VM.<a href="...#FTNFTNUNIQ32"> (*)</a> partition`.  The record's leading
 length byte here is `17` (23) at `0xB09CD`, which happens to spell `/`.
 
+A selector queued behind a `cfont` line waits across a record end in the
+same way.  `SC09-138` topic `F.1` record 2050 ends with line 30,
+`cselect 64 13 HDRFETCH` (length byte `06` at `0x10836E`, `cselect` `41` at
+`0x10836F`), and line 31, `cfont 36 5 X 65 5 E` (length byte `08` at
+`0x108375`, `cfont` `3A` at `0x108376`).  Record 2051 opens with line 0's
+length byte `22` (34) at `0x108380`, and the line is
+`   (2)  In the situation of doing a fetch to a load module, see "fetch -- Get`.
+Both controls mark that row: cells 64--76 are `"fetch -- Get`, and hosted
+`F.1` (DT `19910321130500`) serves
+`<a href="8.1.10.5?...#HDRFETCH">&quot;<samp>fetch</samp> -- Get</a>`, with
+the `cfont` runs at cells 36 and 65 (`fetch`, twice) in the same row.
+
 The important implementation rule is that this is not a hardcoded packet title
 or hardcoded three-line page rule. `:vnotice.` changes the interpretation of
 the following controls: the first body `CFONT` is the visual notice heading,

@@ -3500,14 +3500,29 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
             }
         }
         // Selectors waiting before the font line mark the row it styles.
+        // When that row opens the next record, they travel with the font's
+        // deferred payload below: SC09-138 F.1 record 2050 ends with
+        // `cselect 64 13 HDRFETCH` and `cfont 36 5 X 65 5 E`, and record
+        // 2051 line 0 is the row both mark.
+        const auto selectors_deferred =
+            !queued_selectors.empty() &&
+            std::all_of(queued_selectors.begin(), queued_selectors.end(),
+                        [&](const auto &waiting) {
+                          return waiting.source.logical_record ==
+                                     ref.record->logical_record &&
+                                 waiting.selector.target_record ==
+                                     ref.record->logical_record + 1;
+                        });
         if (!walk_payload(*ref.record, segment, index, line.body, entry.cells,
                           entry_cell_positions, error, false,
                           highlighted_columns, false, &highlight_ranges,
-                          queued_selectors.empty() ? nullptr
-                                                   : &queued_selectors,
+                          queued_selectors.empty() || selectors_deferred
+                              ? nullptr
+                              : &queued_selectors,
                           &*spans))
           return std::nullopt;
-        queued_selectors.clear();
+        if (!selectors_deferred)
+          queued_selectors.clear();
         // A font control whose payload is empty at the record end carries its
         // text in the next record's leading text segment. That segment can
         // open on the row's own length byte when the byte happens to spell
@@ -3535,8 +3550,11 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           if (!walk_payload(*ordered[at].record, *ordered[at].segment, index,
                             line.body, entry.cells, entry_cell_positions, error,
                             false, highlighted_columns, next_record_prefixed,
-                            &highlight_ranges, nullptr, &*spans))
+                            &highlight_ranges,
+                            selectors_deferred ? &queued_selectors : nullptr,
+                            &*spans))
             return std::nullopt;
+          queued_selectors.clear();
         } else if (line.body.text.empty() && at + 1 < end &&
                    ordered[at + 1].record == ref.record &&
                    segment_opcode_is_display_line_prefix(

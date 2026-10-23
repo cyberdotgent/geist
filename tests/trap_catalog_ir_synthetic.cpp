@@ -3089,6 +3089,65 @@ int main() {
             "a record-closing selector with no row to mark was admitted");
   }
 
+  // A selector queued behind a `cfont` line, both closing their record,
+  // marks the next record's first row. SC09-138 F.1 record 2050 ends with
+  // line 30 `cselect 64 13 HDRFETCH` and line 31 `cfont 36 5 X 65 5 E`;
+  // record 2051 line 0 is `   (2)  In the situation of doing a fetch to a
+  // load module, see "fetch -- Get`, and hosted F.1 (DT 19910321130500)
+  // links `"fetch -- Get` (cells 64-76) to `8.1.10.5#HDRFETCH`.
+  {
+    auto first = header("Sample", "Messages");
+    append(first, entry("740", 660));
+    append(first, line({t("cselect", 191), t("3", 112), t("3", 112),
+                        t("FTNX", 493)}));
+    append(first, line({t("cfont", 111), t("3", 112), t("3", 112),
+                        t("1", 549)}));
+    std::vector<Token> second;
+    append(second, line({origin(), t("(*)", 484), t("rest.", 494)}));
+    append(second, line({}));
+    append(second, entry("741", 661));
+    const auto built = build({make_source(150, first), make_source(151, second)},
+                             "Sample Messages");
+    require(built.catalog.has_value(),
+            "a selector queued behind a record-closing cfont declined: " +
+                built.error);
+    if (built.catalog && built.catalog->entries.size() == 2) {
+      const auto &body = built.catalog->entries.front().fields.front().line.body;
+      const auto span = [&](std::size_t begin, std::size_t end) {
+        return body.text.substr(begin, end - begin);
+      };
+      require(body.links.size() == 1 && body.links.front().target == "FTNX" &&
+                  span(body.links.front().begin, body.links.front().end) ==
+                      "(*)" &&
+                  body.highlights.size() == 1 &&
+                  span(body.highlights.front().begin,
+                       body.highlights.front().end) == "(*)",
+              "the queued selector lost its link or its run: [" + body.text +
+                  "]");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the queued record-closing selector failed verification: " +
+                  error);
+    }
+
+    // Mutation: the next record opens on a control, so the queue has no
+    // row to place and the catalogue declines.
+    std::vector<Token> controlled;
+    append(controlled,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(controlled, line({origin(), t("Description:", 115), t("(*)", 484),
+                             t("rest.", 494)}));
+    append(controlled, line({}));
+    append(controlled, entry("742", 662));
+    require(!build({make_source(152, first), make_source(153, controlled)},
+                   "Sample Messages")
+                 .catalog,
+            "a queued record-closing selector with no row to mark was "
+            "admitted");
+  }
+
   // An `SRMSG` alone on its display line names no message even when the
   // flattened splitter hands it the next line's length byte as an operand.
   // SC09-138 F.1 record 2061 line 9 is the length byte `01` and `SRMSG`
