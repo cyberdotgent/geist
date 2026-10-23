@@ -118,7 +118,16 @@ the other raw reports it stays outside the repository.
 
 Rendering fingerprints adds no decoder pass: the conservation run already
 renders both formats. The extra cost is the transfer and Python parsing of
-the HTML.
+the HTML: on the 33-book, 10,378-topic corpus at `--jobs 2` a check took
+236 s without fingerprints and 254 s with them. The schema 3 snapshot is
+about twice the size of the schema 2 one (10.7 MB against 5.1 MB), mostly
+character multisets; the capture's raw fingerprint detail is about 16 MB.
+
+At the first schema 3 capture (`2fa47926`) the corpus has 515 mid-word
+boundaries in 173 topics, for example `` `CLIST`s `` in `SC09-138`, a bold
+`APPCPM` followed by an italic `xx` in `N2AH1MST`, and a bold initial `O`
+before `scar` in `QSYSNEWG`. They are recorded so that only new ones fail;
+recording them does not establish that they are correct.
 
 A schema 2 baseline remains valid: the gate checks it exactly as before,
 without requesting or comparing fingerprints, and says so. Captures are
