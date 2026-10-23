@@ -3360,6 +3360,99 @@ int main() {
             "a partly styled group heading row was admitted");
   }
 
+  // A closed box drawn after an entry's headline is a drawn region of the
+  // entry, and an entry that draws only its headline and the box has no
+  // field of its own. SC09-138 H.0 record 2200 lines 1-14: EDC0553's
+  // headline, `cfont 16 3 2 20 8 2` over the top row `┌─── TPF Messages
+  // ───...┐`, `│` rows and the `└───...┘` row (columns 11 and 76); hosted
+  // H.0 (DT 19910321130500) serves the rows as drawn inside EDC0553, with
+  // `TPF Messages` in bold, then `MSG EDC0700`.
+  {
+    const auto glyphs = [](std::vector<std::uint16_t> values,
+                           std::uint16_t encoded) {
+      return Token{TokenWords(values.begin(), values.end()), encoded};
+    };
+    // `   ┌─ Note ─┐` / `   │ words. │` / `   └────────┘`: columns 3 and 12.
+    const auto box = [&](bool closed) {
+      std::vector<Token> tokens;
+      append(tokens, line({t("cfont", 111), t("6", 671), t("4", 566),
+                           t("2", 113)}));
+      append(tokens, line({origin(), glyphs({0x250c, 0x2500}, 682),
+                           t("Note", 683), glyphs({0x2500, 0x2510}, 684)}));
+      append(tokens, line({origin(), glyphs({0x2502}, 685), t("words.", 686),
+                           glyphs({closed ? std::uint16_t{0x2502}
+                                          : std::uint16_t{'!'}},
+                                  closed ? 685 : 687)}));
+      append(tokens,
+             line({origin(), glyphs({0x2514, 0x2500, 0x2500, 0x2500, 0x2500,
+                                     0x2500, 0x2500, 0x2500, 0x2500, 0x2518},
+                                    688)}));
+      append(tokens, line({}));
+      return tokens;
+    };
+    const auto boxed = [&](const std::string &id, std::uint16_t id_word,
+                           bool closed) {
+      std::vector<Token> tokens;
+      append(tokens, line({t("SRMSG", 110), t(id, id_word)}));
+      append(tokens,
+             line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
+      append(tokens, line({origin(), t(id, id_word)}));
+      append(tokens, line({}));
+      append(tokens, box(closed));
+      return tokens;
+    };
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("749", 689));
+    append(tokens, boxed("750", 690, true));
+    append(tokens, entry("751", 691));
+    const auto built = build({make_source(157, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "an entry with a boxed note declined: " + built.error);
+    if (built.catalog && built.catalog->entries.size() == 3) {
+      const auto &noted = built.catalog->entries[1];
+      require(noted.fields.empty() && noted.embedded_regions.size() == 1 &&
+                  noted.headline.body.text == "750",
+              "the boxed note was not kept as the entry's drawn region");
+      if (noted.embedded_regions.size() == 1) {
+        const auto &region = noted.embedded_regions.front();
+        require(region.start.kind ==
+                        geist::detail::TrapEmbeddedControlKindIR::box_top &&
+                    region.lines.size() == 3 &&
+                    region.line_highlights.front().size() == 1,
+                "the boxed note's rows are wrong");
+      }
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the boxed note failed verification: " + error);
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(), "the boxed note did not lower: " + error);
+      if (document) {
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        const auto headline = html.find(">750<");
+        const auto note = html.find("<strong class=\"geist-strong\">Note</strong>");
+        const auto next = html.find("MSG 751");
+        require(headline != std::string::npos && note > headline &&
+                    note != std::string::npos && next > note &&
+                    next != std::string::npos &&
+                    html.find("geist-preformatted", headline) < note,
+                "the boxed note is not drawn inside its entry: " + html);
+      }
+    }
+
+    // Mutation: a row whose right edge is not a rule does not close a box,
+    // and the headline then has no field to stand on.
+    auto open = header("Sample", "Messages");
+    append(open, entry("752", 692));
+    append(open, boxed("753", 693, false));
+    append(open, entry("754", 694));
+    require(!build({make_source(158, open)}, "Sample Messages").catalog,
+            "an open box after a headline was admitted as a note");
+  }
+
   // A selector line followed by a `cfont` line marks the row that `cfont`
   // styles: the font line draws nothing. N2AH1MST record 685 lines 34-36 are
   // `cselect 53 4 FTNFTNUNIQ24`, `cfont 11 7 2` and

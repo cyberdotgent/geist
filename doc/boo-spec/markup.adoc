@@ -506,11 +506,34 @@ the message id (`40`) is on the `SRMSG`'s own line; neither it nor a
 following length byte is a rule row.
 
 A headline-only entry is not this shape when anything else follows it.
-`H.0` record 2199 line 30 to record 2200 line 3 is entry `EDC0553`, a rule
-row and a two-row headline.  Line 4 is `c.cc 50`, and a boxed note
-(`___ TPF Messages ___`, `EDC0700 to EDC0715 are TPF messages ...`) follows
-before the next `SRMSG`.  Hosted serves the box after the headline.  Its
-relation to the entries around it is not established.
+An entry can instead draw a closed box after its headline, with no
+envelope control around it.  `H.0` record 2199 line 30 to record 2200
+line 3 is entry `EDC0553` (`SRMSG` at `0x1146F9`), a rule row and a
+two-row headline.  Line 4 is `c.cc 50` and line 5 is empty.  Then:
+
+[cols="<10,<30,<60",options="header"]
+|===
+|Line |Length byte |Content
+
+|6 |`07` at `0x114756` |`cfont 16 3 2 20 8 2` (`cfont` `3A` at `0x114757`)
+|7 |`0F` (15) at `0x11475E` |`┌───` (U+250C at column 11, word `B0 46` at `0x114760`), `TPF Messages` (columns 16--18 and 20--27, the two runs), U+2500 rules, and U+2510 at column 76 (`B0 44` at `0x11476C`)
+|8 |`05` at `0x11476E` |U+2502 at column 11 (`6C` at `0x114770`) and at column 76 (`6C` at `0x114773`), blanks between
+|9--13 |  |two `cfont` lines over `│ EDC0700 to EDC0715 are TPF messages and will only be generated │` and `│ by the C/370 compiler if you are running in a TPF environment. │`, and an empty `│ ... │` row
+|14 |`08` at `0x1147F9` |U+2514 at column 11 (`B0 4A` at `0x1147FB`), U+2500 rules, and `─┘` ending in U+2518 at column 76 (`B0 61` at `0x114800`)
+|15 |`00` at `0x114802` |empty line
+|16 |`03` at `0x114803` |`SRMSG EDC0700` (`SRMSG` at `0x114804`), with no rule row after it
+|===
+
+The top row starts and ends with the two upper corners, every later row
+draws U+2502 in the same two columns and nothing outside them, and the
+bottom row has the two lower corners there.  Only `cfont` lines stand
+between those rows.  Hosted H.0 (DT `19910321130500`) serves the box inside
+`EDC0553`, after its headline and a `<p>`: the rows are drawn as the record
+has them, with the box glyphs as ASCII (`___`, `|`), and with each `cfont`
+run in bold (`<B>TPF</B> <B>Messages</B>`, then every word of the note).
+`EDC0553` has no field.  The box belongs to the entry: it draws no
+`Explanation:` or `Recovery:` of its own, and the next message,
+`EDC0700`, has its own.
 
 A label does not require a non-empty value.  In `N2AH1MST` topic `10.0`,
 logical record 593 segment 2 is `cfont 10 6 2` and its complete native row is

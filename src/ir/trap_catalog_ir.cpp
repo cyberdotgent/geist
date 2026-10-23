@@ -2780,6 +2780,164 @@ read_group_heading(const std::vector<DecodedLogicalRecordSource> &records,
   return heading;
 }
 
+// An entry that draws its headline, then one closed box, and nothing else.
+bool boxed_note_entry(const TrapEntryIR &entry) {
+  if (!entry.fields.empty() || entry.embedded_regions.size() != 1 ||
+      entry.embedded_regions.front().start.kind !=
+          TrapEmbeddedControlKindIR::box_top ||
+      !entry.leading.body.flow.blocks.empty() || !entry.index_terms.empty() ||
+      entry.closing_heading || !entry.headline.body.links.empty())
+    return false;
+  const auto &blocks = entry.headline.body.flow.blocks;
+  return blocks.size() == 2 &&
+         std::holds_alternative<TrapFlowParagraphIR>(blocks.front().value) &&
+         std::holds_alternative<TrapEmbeddedRegionIR>(blocks.back().value);
+}
+
+// A closed box drawn inside an entry, opened by the `CFONT` segment `at`
+// whose next display line is the box's top row. The rows are one record's
+// consecutive display lines: the top row draws U+250C at its first drawn
+// column and U+2510 at its last; each further drawn row draws U+2502 at
+// both columns, or U+2514 and U+2518 on the bottom row, and nothing outside
+// them; between them stand only `CFONT` lines. The segments the box spans
+// must be `CFONT` lines, drawn rows and length bytes, and may run on past
+// the bottom row only over empty lines. `next_at` is the first segment
+// after the box. SC09-138 H.0 record 2200 lines 6-14: `cfont 16 3 2 20 8 2`
+// over `┌─── TPF Messages ───...┐` (columns 11 and 76), then `│` rows and
+// the `└───...┘` row; hosted H.0 (DT 19910321130500) serves the rows as
+// drawn inside EDC0553, `TPF Messages` and the note's words in bold.
+std::optional<TrapEmbeddedRegionIR>
+read_entry_box(const std::vector<DecodedLogicalRecordSource> &records,
+               const SourceIndex &index, const std::vector<SegmentRef> &ordered,
+               std::size_t at, std::size_t entry_end,
+               std::vector<TrapSourceCellIR> &cells,
+               CellPositions &cell_positions, std::size_t &next_at) {
+  const auto &opener = ordered[at];
+  const auto &record = *opener.record;
+  const auto &segment = *opener.segment;
+  if (segment.kind != BookControlKind::font || segment.malformed ||
+      segment.source_tokens.empty())
+    return std::nullopt;
+  const auto *lines = record_display_lines(record);
+  const auto *font_line =
+      display_line_of_token(record, segment.source_tokens.front());
+  if (lines == nullptr || font_line == nullptr ||
+      font_line->prefix_token + 1 != segment.source_tokens.front())
+    return std::nullopt;
+  const auto top = static_cast<std::size_t>(font_line - lines->data()) + 1;
+  if (top >= lines->size())
+    return std::nullopt;
+  // The first and last drawn columns of a row, with their glyphs.
+  struct Edges {
+    std::size_t left = 0, right = 0;
+    std::uint16_t left_word = 0, right_word = 0;
+  };
+  const auto edges = [&](const DisplayLineIR &line) -> std::optional<Edges> {
+    const auto row = display_line_cells(record, line);
+    std::optional<Edges> found;
+    for (std::size_t column = 0; column < row.size(); ++column) {
+      if (row[column].word <= ' ')
+        continue;
+      if (!found)
+        found = Edges{column, column, row[column].word, row[column].word};
+      found->right = column;
+      found->right_word = row[column].word;
+    }
+    return found;
+  };
+  // A line whose printable cells are all control operands: a `CFONT` line.
+  const auto markup_line = [&](const DisplayLineIR &line) {
+    bool printable = false;
+    for (auto token = line.prefix_token + 1;
+         token < line.token_end && token < record.ir.tokens.size(); ++token) {
+      const auto &words = record.ir.tokens[token].decoded_words;
+      for (std::size_t word = 0; word < words.size(); ++word) {
+        if (words[word] <= ' ')
+          continue;
+        printable = true;
+        const auto owned = index.cells.find({record.logical_record, token, word});
+        if (owned == index.cells.end() ||
+            owned->second->disposition != SourceDisposition::control_operand)
+          return false;
+      }
+    }
+    return printable;
+  };
+  const auto first = edges((*lines)[top]);
+  if (!first || first->left_word != 0x250c || first->right_word != 0x2510 ||
+      first->left == first->right)
+    return std::nullopt;
+  std::optional<std::size_t> bottom;
+  std::size_t drawn_rows = 1;
+  for (auto line = top + 1; line < lines->size() && !bottom; ++line) {
+    if (markup_line((*lines)[line]))
+      continue;
+    const auto row = edges((*lines)[line]);
+    if (!row || row->left != first->left || row->right != first->right)
+      return std::nullopt;
+    ++drawn_rows;
+    if (row->left_word == 0x2514 && row->right_word == 0x2518)
+      bottom = line;
+    else if (row->left_word != 0x2502 || row->right_word != 0x2502)
+      return std::nullopt;
+  }
+  if (!bottom)
+    return std::nullopt;
+  auto end_token = (*lines)[*bottom].token_end;
+  // Empty lines after the bottom row may close the segment that draws it.
+  auto after = *bottom + 1;
+  std::size_t next = at + 1;
+  for (;;) {
+    next = at + 1;
+    while (next < ordered.size() && ordered[next].record == &record &&
+           !ordered[next].segment->source_tokens.empty() &&
+           ordered[next].segment->source_tokens.front() < end_token)
+      ++next;
+    std::size_t last = 0;
+    for (auto other = at; other < next; ++other)
+      for (const auto token : ordered[other].segment->source_tokens)
+        last = std::max(last, token);
+    if (last < end_token)
+      break;
+    if (after >= lines->size() ||
+        (*lines)[after].token_end != (*lines)[after].prefix_token + 1)
+      return std::nullopt;
+    end_token = (*lines)[after].token_end;
+    ++after;
+  }
+  if (next > entry_end)
+    return std::nullopt;
+  for (auto other = at + 1; other < next; ++other) {
+    const auto &candidate = *ordered[other].segment;
+    if (!segment_is_display_line_prefix(record, candidate) &&
+        !(candidate.kind == BookControlKind::font && !candidate.malformed) &&
+        candidate.kind != BookControlKind::text &&
+        candidate.kind != BookControlKind::unknown)
+      return std::nullopt;
+  }
+  TrapEmbeddedRegionIR region;
+  std::vector<TrapSourceCellIR> claimed;
+  CellPositions claimed_positions;
+  if (!project_embedded_region(records, index, record.logical_record,
+                               font_line->prefix_token, record.logical_record,
+                               end_token, region, claimed, claimed_positions,
+                               nullptr))
+    return std::nullopt;
+  if (region.lines.size() != drawn_rows ||
+      region.line_sources.front().token_begin != (*lines)[top].prefix_token)
+    return std::nullopt;
+  region.start = {TrapEmbeddedControlKindIR::box_top, {},
+                  region.line_sources.front()};
+  region.end = {TrapEmbeddedControlKindIR::box_bottom, {},
+                region.line_sources.back()};
+  region.cell_begin = cells.size();
+  for (const auto &cell : claimed)
+    append_unique_cell(cells, cell_positions, cell);
+  region.cell_end = cells.size();
+  next_at = next;
+  return region;
+}
+
 } // namespace
 
 std::optional<TrapCatalogIR>
@@ -3644,6 +3802,23 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
         footnote.cell_end = entry.cells.size();
         footnote_line = nullptr;
       }
+      // A closed box the entry draws after its headline is a drawn region
+      // of the entry, kept as the record draws it (`read_entry_box`).
+      if (!opcode_is_line_prefix && segment.kind == BookControlKind::font &&
+          have_headline && current != nullptr && footnote_line == nullptr &&
+          queued_selectors.empty() && !walking_subject_index_rest) {
+        std::size_t next_at = 0;
+        if (auto box = read_entry_box(records, index, ordered, at, end,
+                                      entry.cells, entry_cell_positions,
+                                      next_at)) {
+          box->after_field = entry.fields.size();
+          resume_cell = box->cell_end;
+          current->body.flow.blocks.push_back({*box});
+          entry.embedded_regions.push_back(std::move(*box));
+          at = next_at - 1;
+          continue;
+        }
+      }
       if (!opcode_is_line_prefix && segment.kind == BookControlKind::font) {
         std::string font_error;
         const auto spans =
@@ -4216,6 +4391,14 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     if (!starts_with_word(entry.headline.body.text, entry.id))
       return reject("trap entry headline does not begin with its ID: " +
                     entry.id + " [" + entry.headline.body.text + "]");
+    // An entry whose headline is followed by a closed box and nothing else
+    // has no fields of its own: SC09-138 H.0 `EDC0553` draws its headline
+    // and the boxed `TPF Messages` note, and hosted H.0 (DT 19910321130500)
+    // serves no field for it before `MSG EDC0700`.
+    if (entry.fields.empty() && boxed_note_entry(entry)) {
+      catalog.entries.push_back(std::move(entry));
+      continue;
+    }
     if (entry.fields.empty()) {
       // Two messages can share one set of fields: the first entry is its
       // headline alone, and the next SRMSG follows on the very next display
@@ -4274,6 +4457,7 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
   // must carry them.
   for (std::size_t at = 0; at < catalog.entries.size(); ++at)
     if (catalog.entries[at].fields.empty() &&
+        !boxed_note_entry(catalog.entries[at]) &&
         (at + 1 == catalog.entries.size() ||
          catalog.entries[at + 1].fields.empty()))
       return reject("trap entry has no labelled field: " +

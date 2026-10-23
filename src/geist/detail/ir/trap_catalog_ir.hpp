@@ -126,11 +126,20 @@ struct TrapTextLinkIR {
 // as the entry's own display lines with `<a name="FIGFIGUNIQ20">` on the
 // first. The region's anchor is the opening opcode without `SR`: `TBL` or
 // `FIG` followed by `identifier`.
+//
+// A closed box the entry draws with no envelope control is a region too: its
+// `start` and `end` are the box's top and bottom rows (`box_top`,
+// `box_bottom`) and it names no anchor. SC09-138 H.0 record 2200 lines 7-14
+// draw `TPF Messages` in a box of U+250C/U+2510/U+2502/U+2514/U+2518 rules
+// after EDC0553's headline, and hosted H.0 (DT 19910321130500) serves the
+// rows as drawn, with their `CFONT` runs in bold, inside that entry.
 enum class TrapEmbeddedControlKindIR {
   table_start,
   table_end,
   figure_start,
   figure_end,
+  box_top,
+  box_bottom,
 };
 
 struct TrapEmbeddedControlIR {
