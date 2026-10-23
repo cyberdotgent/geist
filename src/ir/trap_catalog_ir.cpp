@@ -1648,7 +1648,9 @@ bool project_embedded_region(const std::vector<DecodedLogicalRecordSource> &reco
                              TrapEmbeddedRegionIR &region,
                              std::vector<TrapSourceCellIR> &cells,
                              CellPositions &cell_positions,
-                             std::string *error) {
+                             std::string *error,
+                             std::vector<TrapIndexTermIR> *index_terms =
+                                 nullptr) {
   const auto identity = region.identifier.empty() ? std::string{"SRTBL"}
                                                   : region.identifier;
   // The font control of the markup line just walked, waiting for the drawn
@@ -1693,6 +1695,40 @@ bool project_embedded_region(const std::vector<DecodedLogicalRecordSource> &reco
                     "trap table envelope boundary falls inside a display "
                     "line: " +
                         identity);
+      // Where the caller asks for them, `SI` lines are index terms of the
+      // region: they draw nothing, and their cells are control.
+      if (index_terms != nullptr &&
+          is_subject_index_display_line(*record, line)) {
+        const auto keyword = line.prefix_token + 1;
+        auto term = collapse(display_line_text(*record, line));
+        const auto keyword_text = token_words_to_ascii(record->tokens[keyword]);
+        term = term.compare(0, keyword_text.size(), keyword_text) == 0
+                   ? collapse(term.substr(keyword_text.size()))
+                   : std::string{};
+        if (term.empty())
+          return fail(error, "trap region subject index line names no term: " +
+                                 identity);
+        for (auto token = line.prefix_token;
+             token < line.token_end && token < record->ir.tokens.size();
+             ++token) {
+          const auto &words = record->ir.tokens[token].decoded_words;
+          for (std::size_t word = 0; word < words.size(); ++word) {
+            const auto owned = index.cells.find({logical, token, word});
+            append_unique_cell(
+                cells, cell_positions,
+                {logical, token, word, words[word],
+                 owned == index.cells.end() ? SourceDisposition::opaque
+                                            : owned->second->disposition,
+                 token == line.prefix_token ? TrapCellRoleIR::layout_marker
+                                            : TrapCellRoleIR::control});
+          }
+        }
+        index_terms->push_back(
+            {term, token_slice(*record, owner[keyword], keyword,
+                               line.token_end)});
+        pending_font.reset();
+        continue;
+      }
       // A display line whose printable cells are all control operands is the
       // region's own markup -- the `CFONT` that highlights the row below it
       // -- and draws nothing. Its cells are still ledgered; no line is.
@@ -2613,6 +2649,137 @@ bool split_introduction_list_items(
   return true;
 }
 
+// The heading a bare `SRMSG` opens between two groups of entries
+// (`TrapGroupHeadingIR`), or nothing where the source does not draw one.
+// `at` is the bare `SRMSG`, `next_entry` the next entry's `SRMSG`; every
+// segment between them must be a `CFONT`, a drawn row, an `SI` line or a
+// display-line length byte. The line directly after the `SRMSG`'s own line
+// is a `CFONT` line, the row under it is styled in full, and every later
+// drawn row opens with a styled run. SC09-138 F.1 record 2061 lines 9-25 and
+// record 2062 lines 0-6 are that shape; hosted F.1 (DT 19910321130500)
+// serves the heading row in italics after `<a name="MSG">` and the rows
+// after it in bold, each on its own line, before `MSG EDCK001`. SC24-546
+// A.0's plain row `The following are the REXX error messages:` after a bare
+// `SRMSG` is not this shape and stays entry text.
+std::optional<TrapGroupHeadingIR>
+read_group_heading(const std::vector<DecodedLogicalRecordSource> &records,
+                   const SourceIndex &index,
+                   const std::vector<SegmentRef> &ordered, std::size_t at,
+                   std::size_t next_entry,
+                   std::vector<TrapSourceCellIR> &cells,
+                   CellPositions &cell_positions) {
+  if (next_entry >= ordered.size() || at + 1 >= next_entry)
+    return std::nullopt;
+  const auto &bare = ordered[at];
+  const auto &record = *bare.record;
+  const auto &segment = *bare.segment;
+  const auto *lines = record_display_lines(record);
+  if (lines == nullptr || segment.source_tokens.empty())
+    return std::nullopt;
+  const auto *own_line = display_line_of_token(record, segment.source_tokens.front());
+  if (own_line == nullptr ||
+      own_line->prefix_token + 1 != segment.source_tokens.front() ||
+      own_line->token_end != segment.source_tokens.front() + 1)
+    return std::nullopt;
+  const auto own_index = static_cast<std::size_t>(own_line - lines->data());
+  if (own_index + 2 >= lines->size())
+    return std::nullopt;
+  const auto &font_line = (*lines)[own_index + 1];
+  const auto &heading_row = (*lines)[own_index + 2];
+  const auto &first = ordered[at + 1];
+  if (first.record != &record || first.segment->kind != BookControlKind::font ||
+      first.segment->malformed || first.segment->source_tokens.empty() ||
+      first.segment->source_tokens.front() != font_line.prefix_token + 1)
+    return std::nullopt;
+  for (auto other = at + 1; other < next_entry; ++other) {
+    const auto &ref = ordered[other];
+    const auto &candidate = *ref.segment;
+    if (segment_is_display_line_prefix(*ref.record, candidate))
+      continue;
+    if (candidate.kind == BookControlKind::font && !candidate.malformed)
+      continue;
+    if (candidate.kind == BookControlKind::text ||
+        candidate.kind == BookControlKind::unknown)
+      continue;
+    const auto *line =
+        candidate.source_tokens.empty()
+            ? nullptr
+            : display_line_of_token(*ref.record, candidate.source_tokens.front());
+    if (line != nullptr &&
+        line->prefix_token + 1 == candidate.source_tokens.front() &&
+        is_subject_index_display_line(*ref.record, *line))
+      continue;
+    return std::nullopt;
+  }
+  const auto &next = ordered[next_entry];
+  if (next.segment->source_tokens.empty())
+    return std::nullopt;
+  TrapEmbeddedRegionIR region;
+  std::vector<TrapIndexTermIR> terms;
+  std::vector<TrapSourceCellIR> claimed;
+  CellPositions claimed_positions;
+  if (!project_embedded_region(records, index, record.logical_record,
+                               font_line.prefix_token,
+                               next.record->logical_record,
+                               next.segment->source_tokens.front(), region,
+                               claimed, claimed_positions, nullptr, &terms))
+    return std::nullopt;
+  if (region.lines.empty() || region.line_highlights.size() != region.lines.size() ||
+      region.line_sources.front().logical_record != record.logical_record ||
+      region.line_sources.front().token_begin != heading_row.prefix_token)
+    return std::nullopt;
+  // The heading row is styled in full.
+  {
+    const auto &text = region.lines.front();
+    const auto &runs = region.line_highlights.front();
+    if (runs.empty())
+      return std::nullopt;
+    std::size_t covered = 0;
+    for (std::size_t byte = 0; byte < text.size(); ++byte) {
+      if (text[byte] == ' ')
+        continue;
+      if (!std::any_of(runs.begin(), runs.end(), [&](const auto &run) {
+            return byte >= run.begin && byte < run.end;
+          }))
+        return std::nullopt;
+      ++covered;
+    }
+    if (covered == 0)
+      return std::nullopt;
+  }
+  // Every later drawn row opens with a styled run.
+  for (std::size_t line = 1; line < region.lines.size(); ++line) {
+    const auto &text = region.lines[line];
+    const auto first_glyph = text.find_first_not_of(' ');
+    if (first_glyph == std::string::npos)
+      continue;
+    const auto &runs = region.line_highlights[line];
+    if (runs.empty() || runs.front().begin != first_glyph)
+      return std::nullopt;
+  }
+  TrapGroupHeadingIR heading;
+  heading.anchor = {"MSG", segment_slice(record, segment)};
+  heading.heading.lines = {region.lines.front()};
+  heading.heading.line_sources = {region.line_sources.front()};
+  heading.heading.line_highlights = {region.line_highlights.front()};
+  std::size_t rest = 1;
+  while (rest < region.lines.size() && region.lines[rest].empty())
+    ++rest;
+  heading.rows.lines.assign(region.lines.begin() + rest, region.lines.end());
+  heading.rows.line_sources.assign(region.line_sources.begin() + rest,
+                                   region.line_sources.end());
+  heading.rows.line_highlights.assign(region.line_highlights.begin() + rest,
+                                      region.line_highlights.end());
+  heading.index_terms = std::move(terms);
+  heading.cell_begin = cells.size();
+  for (const auto &cell : claimed)
+    append_unique_cell(cells, cell_positions, cell);
+  heading.cell_end = cells.size();
+  heading.heading.cell_begin = heading.rows.cell_begin = heading.cell_begin;
+  heading.heading.cell_end = heading.rows.cell_end = heading.cell_end;
+  return heading;
+}
+
 } // namespace
 
 std::optional<TrapCatalogIR>
@@ -3048,8 +3215,10 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
     // `cfont`-styled row may not: SC09-138 F.1 record 2061 draws a
     // `cfont 3 8 K ...` heading row and `Message Format:` rows after one,
     // which hosted F.1 (DT 19910321130500) serves as an italic heading and
-    // bold rows, one per line, between two groups of entries. The entry
-    // body has no form for that heading, so it declines.
+    // bold rows, one per line, between two groups of entries. Where the rows
+    // prove that heading (`read_group_heading`) it closes the entry; any
+    // other styled row there would run into the field before it, so it
+    // declines.
     bool after_bare_anchor = false;
     // The drawn rows a subject-index segment runs on into, walked as the
     // next pass of the loop over the same segment (see the SI branch).
@@ -3417,6 +3586,15 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
           if (footnote_line != nullptr)
             return reject("trap entry names a destination inside a footnote: " +
                           entry.id);
+          // A styled heading opening the next group of entries closes the
+          // entry: it claims every row up to the next entry's `SRMSG`.
+          if (queued_selectors.empty())
+            if (auto heading =
+                    read_group_heading(records, index, ordered, at, end,
+                                       entry.cells, entry_cell_positions)) {
+              entry.closing_heading = std::move(*heading);
+              break;
+            }
           current->body.flow.blocks.push_back(
               {TrapFlowAnchorIR{"MSG", segment_slice(*ref.record, segment)}});
           after_bare_anchor = true;
@@ -4530,8 +4708,18 @@ bool same_trap_catalog_ir(const TrapCatalogIR &left,
         !same_line(a.headline, b.headline) || a.fields.size() != b.fields.size() ||
         a.cells != b.cells || a.suppressed_rows.size() != b.suppressed_rows.size() ||
         a.embedded_regions.size() != b.embedded_regions.size() ||
-        a.index_terms != b.index_terms)
+        a.index_terms != b.index_terms ||
+        a.closing_heading.has_value() != b.closing_heading.has_value())
       return false;
+    if (a.closing_heading) {
+      const auto &x = *a.closing_heading;
+      const auto &y = *b.closing_heading;
+      if (x.anchor.id != y.anchor.id || !(x.anchor.source == y.anchor.source) ||
+          !same_region(x.heading, y.heading) || !same_region(x.rows, y.rows) ||
+          x.index_terms != y.index_terms || x.cell_begin != y.cell_begin ||
+          x.cell_end != y.cell_end)
+        return false;
+    }
     for (std::size_t region = 0; region < a.embedded_regions.size(); ++region) {
       if (!same_region(a.embedded_regions[region], b.embedded_regions[region]))
         return false;
@@ -4618,6 +4806,20 @@ bool verify_trap_catalog_ir(
       if (region.after_field > entry.fields.size())
         return fail(error, "trap embedded region names a missing field: " +
                                entry.id);
+    }
+    if (entry.closing_heading) {
+      const auto &heading = *entry.closing_heading;
+      if (heading.cell_begin > heading.cell_end ||
+          heading.cell_end > entry.cells.size() || heading.anchor.id != "MSG")
+        return fail(error, "trap group heading cell range is invalid: " +
+                               entry.id);
+      if (heading.heading.lines.size() != 1 ||
+          heading.heading.line_sources.size() != 1 ||
+          heading.rows.lines.size() != heading.rows.line_sources.size() ||
+          !region_highlights_fit(heading.heading) ||
+          !region_highlights_fit(heading.rows))
+        return fail(error, "trap group heading styles text it does not "
+                           "draw: " + entry.id);
     }
     for (const auto &field : entry.fields) {
       if (!check_line(field.line, "field"))
@@ -4729,6 +4931,10 @@ std::string format_trap_catalog_ir(const TrapCatalogIR &catalog) {
       out << " table='" << region.identifier
           << "' after_field=" << region.after_field
           << " lines=" << region.lines.size();
+    if (entry.closing_heading)
+      out << " group_heading='" << collapse(entry.closing_heading->heading.lines.front())
+          << "' heading_rows=" << entry.closing_heading->rows.lines.size()
+          << " heading_terms=" << entry.closing_heading->index_terms.size();
     out << '\n';
   }
   return out.str();

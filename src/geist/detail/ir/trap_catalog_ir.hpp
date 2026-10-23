@@ -324,6 +324,32 @@ inline bool operator==(const TrapIndexTermIR &left,
   return left.term == right.term && left.source == right.source;
 }
 
+// A heading the source draws between two groups of entries, inside the
+// range of the entry before it. A bare `SRMSG` alone on its display line
+// opens it, a `CFONT` line styles the next row in full -- the heading row --
+// and every row drawn after that up to the next entry's `SRMSG` opens with a
+// styled run: label rows that describe the group that follows. `SI` lines
+// among them are index terms and draw nothing.
+//
+// SC09-138 F.1 record 2061 lines 9-25 and record 2062 lines 0-6: `SRMSG`,
+// `cfont 3 8 K ...` over `   Run-Time Error Messages under CICS or in a
+// Systems Programming Environment`, nine `SI` lines, then `Message Format:`
+// and three indented `EDCK - ...` / `xxx - ...` rows. Hosted F.1
+// (DT 19910321130500) serves `<a name="MSG">` on the italic heading row and
+// the label rows in bold, each on its own line, before `MSG EDCK001`.
+//
+// `heading` holds the heading row alone and `rows` the rows after it, each
+// as the record draws them; `rows` may be empty. `cell_begin`/`cell_end`
+// are the run of the owning entry's ledger the heading claims.
+struct TrapGroupHeadingIR {
+  TrapFlowAnchorIR anchor;
+  TrapEmbeddedRegionIR heading;
+  std::vector<TrapIndexTermIR> index_terms;
+  TrapEmbeddedRegionIR rows;
+  std::size_t cell_begin = 0;
+  std::size_t cell_end = 0;
+};
+
 struct TrapEntryIR {
   std::string id;
   std::string operand;
@@ -338,6 +364,9 @@ struct TrapEntryIR {
   std::vector<TrapFieldIR> fields;
   std::vector<TrapEmbeddedRegionIR> embedded_regions;
   std::vector<TrapIndexTermIR> index_terms;
+  // The heading the entry's range draws after its last field, opening the
+  // next group of entries (`TrapGroupHeadingIR`).
+  std::optional<TrapGroupHeadingIR> closing_heading;
   // Every payload cell of the entry's segments, in source order, each with
   // exactly one role.
   std::vector<TrapSourceCellIR> cells;

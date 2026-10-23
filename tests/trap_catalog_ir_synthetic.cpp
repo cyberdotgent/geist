@@ -3243,6 +3243,123 @@ int main() {
                 built.error);
   }
 
+  // The rows after a bare `SRMSG` are a heading between two groups of
+  // entries where the bytes prove one: a `CFONT` line directly after the
+  // `SRMSG` styles the next row in full, every later drawn row up to the
+  // next entry opens with a styled run, and `SI` lines among them are index
+  // terms. SC09-138 F.1 record 2061 lines 9-25 and record 2062 lines 0-6;
+  // hosted F.1 (DT 19910321130500) serves `<a name="MSG">` on the italic
+  // heading row and the bold label rows before `MSG EDCK001`.
+  {
+    const auto heading_font = [] {
+      std::vector<Token> tokens;
+      const std::vector<Token> font = {t("cfont", 111), t("3", 112),
+                                       t("5", 506),     t("K", 507),
+                                       t("9", 664),     t("7", 665),
+                                       t("K", 507)};
+      // The font line's length byte spells `;`, as F.1's does.
+      tokens.push_back({words(";"), static_cast<std::uint16_t>(font.size())});
+      append(tokens, font);
+      return tokens;
+    };
+    const auto rows = [](bool styled_label) {
+      std::vector<Token> tokens;
+      append(tokens, line({t("SI", 313), t("group,", 668), t("SAMPLE", 315)}));
+      if (styled_label)
+        append(tokens, line({t("cfont", 111), t("3", 112), t("7", 665),
+                             t("2", 113)}));
+      append(tokens, line({origin(), t("Format:", 669), t("rows", 670)}));
+      append(tokens, line({}));
+      append(tokens, line({t("cfont", 111), t("6", 671), t("4", 566),
+                           t("2", 113)}));
+      append(tokens, line({t("      ", 672), t("EDCK", 673), t("-", 674),
+                           t("note", 675)}));
+      append(tokens, line({}));
+      return tokens;
+    };
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("743", 663));
+    append(tokens, line({t("SRMSG", 110)}));
+    append(tokens, heading_font());
+    append(tokens, line({origin(), t("Group", 666), t("heading", 667)}));
+    append(tokens, rows(true));
+    append(tokens, entry("744", 676));
+    const auto built = build({make_source(154, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "a group heading after a bare SRMSG declined: " + built.error);
+    if (built.catalog && built.catalog->entries.size() == 2) {
+      const auto &first = built.catalog->entries.front();
+      require(entry_text(first) == "743 Description: first field",
+              "the group heading ran into the entry: [" + entry_text(first) +
+                  "]");
+      require(first.closing_heading.has_value() &&
+                  !built.catalog->entries.back().closing_heading,
+              "the group heading was not read as the entry's closing heading");
+      if (first.closing_heading) {
+        const auto &heading = *first.closing_heading;
+        require(heading.heading.lines ==
+                        std::vector<std::string>{"   Group heading"} &&
+                    heading.heading.line_highlights.front().size() == 2,
+                "the group heading row is wrong");
+        require(heading.rows.lines ==
+                    std::vector<std::string>{"   Format: rows", "",
+                                             "      EDCK - note"},
+                "the group heading rows are wrong");
+        require(heading.index_terms.size() == 1 &&
+                    heading.index_terms.front().term == "group, SAMPLE",
+                "the group heading index term is wrong");
+      }
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the group heading failed verification: " + error);
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(), "group heading lowering declined: " + error);
+      if (document) {
+        const auto markdown =
+            geist::detail::render_document_markdown(*document);
+        const auto field = markdown.find("first field");
+        const auto anchor = markdown.find("<a id=\"MSG\"></a>");
+        const auto title = markdown.find("*Group* *heading*");
+        const auto format = markdown.find("Format:");
+        const auto next = markdown.find("<a id=\"MSG 744\"></a>");
+        require(field != std::string::npos && anchor > field &&
+                    anchor != std::string::npos && title > anchor &&
+                    title != std::string::npos && format > title &&
+                    format != std::string::npos && next > format &&
+                    next != std::string::npos &&
+                    markdown.find("SAMPLE") == std::string::npos,
+                "the group heading is not between the two entries: " +
+                    markdown);
+      }
+    }
+
+    // Mutation: a label row that opens unstyled is not a heading row.
+    auto plain_label = header("Sample", "Messages");
+    append(plain_label, entry("745", 677));
+    append(plain_label, line({t("SRMSG", 110)}));
+    append(plain_label, heading_font());
+    append(plain_label, line({origin(), t("Group", 666), t("heading", 667)}));
+    append(plain_label, rows(false));
+    append(plain_label, entry("746", 678));
+    require(!build({make_source(155, plain_label)}, "Sample Messages").catalog,
+            "a group heading with an unstyled row was admitted");
+
+    // Mutation: a heading row the `CFONT` styles only in part.
+    auto partial = header("Sample", "Messages");
+    append(partial, entry("747", 679));
+    append(partial, line({t("SRMSG", 110)}));
+    append(partial, heading_font());
+    append(partial, line({origin(), t("Group", 666), t("heading", 667),
+                          t("text", 680)}));
+    append(partial, rows(true));
+    append(partial, entry("748", 681));
+    require(!build({make_source(156, partial)}, "Sample Messages").catalog,
+            "a partly styled group heading row was admitted");
+  }
+
   // A selector line followed by a `cfont` line marks the row that `cfont`
   // styles: the font line draws nothing. N2AH1MST record 685 lines 34-36 are
   // `cselect 53 4 FTNFTNUNIQ24`, `cfont 11 7 2` and

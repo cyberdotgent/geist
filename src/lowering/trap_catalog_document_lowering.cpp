@@ -1014,6 +1014,63 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
       region_origin = canonical(std::move(region_origin));
       document.blocks.push_back({std::move(drawn), std::move(region_origin)});
       }
+
+    // A heading the entry's range draws for the group of entries after it
+    // stands between the two groups, outside the entry: hosted SC09-138 F.1
+    // (DT 19910321130500) serves `<a name="MSG">` on the italic heading row,
+    // then the bold label rows as drawn, then `MSG EDCK001`. The heading row
+    // is a paragraph of its own runs; the rows keep their columns.
+    if (entry.closing_heading) {
+      const auto &heading = *entry.closing_heading;
+      auto anchor_source = origin("trap group heading source anchor");
+      add_slice(anchor_source, heading.anchor.source);
+      document.blocks.push_back({AnchorBlockIR{heading.anchor.id},
+                                 canonical(std::move(anchor_source))});
+      auto heading_origin = origin("trap group heading");
+      add_slice(heading_origin, heading.heading.line_sources.front());
+      heading_origin = canonical(std::move(heading_origin));
+      const auto &text = heading.heading.lines.front();
+      const auto first = text.find_first_not_of(' ');
+      if (first == std::string::npos)
+        return reject("trap group heading draws nothing: " + entry.id);
+      InlineSequenceIR content;
+      std::size_t at = first;
+      const auto plain = [&](std::size_t to) {
+        if (to <= at)
+          return;
+        if (!content.empty() &&
+            std::holds_alternative<TextInlineIR>(content.back().node))
+          std::get<TextInlineIR>(content.back().node).text +=
+              text.substr(at, to - at);
+        else
+          content.push_back({TextInlineIR{text.substr(at, to - at)},
+                             heading_origin});
+        at = to;
+      };
+      for (const auto &run : heading.heading.line_highlights.front()) {
+        if (run.begin < at)
+          return reject("trap group heading runs overlap: " + entry.id);
+        const auto kind = emphasis_for(run.style);
+        if (!kind)
+          continue;
+        plain(run.begin);
+        content.push_back(
+            {EmphasisInlineIR{text.substr(run.begin, run.end - run.begin),
+                              *kind},
+             heading_origin});
+        at = run.end;
+      }
+      plain(text.size());
+      document.blocks.push_back(
+          {ParagraphBlockIR{std::move(content)}, heading_origin});
+      if (!heading.rows.lines.empty()) {
+        auto rows_origin = origin("trap group heading rows");
+        PreformattedBlockIR drawn =
+            drawn_region(heading.rows, "trap group heading row", rows_origin);
+        document.blocks.push_back(
+            {std::move(drawn), canonical(std::move(rows_origin))});
+      }
+    }
   }
 
   // Every container names at least the BOO bytes its own content names
