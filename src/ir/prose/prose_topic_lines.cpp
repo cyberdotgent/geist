@@ -167,6 +167,19 @@ struct LineBuilder {
     return nullptr;
   }
 
+  // True when `view` is a single word standing in the title's revision
+  // column: its display line opens with the two cells `ST` and the word is
+  // the cell directly after them, glued to the opcode.  False for an
+  // unframed record.
+  bool in_title_revision_column(const TokenView& view) {
+    const auto* line = display_line_of(view.record, view.token);
+    if (line == nullptr || view.body.size() != 1) return false;
+    const auto cells = display_line_cells(records[view.record], *line);
+    return cells.size() > 2 && (cells[0].word == 'S' || cells[0].word == 's') &&
+           (cells[1].word == 'T' || cells[1].word == 't') &&
+           cells[2].token == view.token;
+  }
+
   // A displayed word already stands in front of `view` on its own display
   // line, so `view` is inside a drawn row rather than in front of one.  This
   // is the same corroboration `demote_display_line_owned_controls` applies to
@@ -2061,8 +2074,19 @@ struct LineBuilder {
     // ACPZMST1 5.4 and 5.5 store `ST` + spacing + a placeholder slot + `/` +
     // `etc` + `/` + `inittab`, and the catalog title is
     // `/etc/inittab File Definitions`.
+    // A one-byte slot is read as before.  A two-byte token is the slot only
+    // by its column: the cell directly after the opcode is the title's
+    // revision column, and a mark there is the revision bar whatever width
+    // the record stores it at.  SC41-5401-00 2.1.2.5 record 240 line 9 is `ST| CSLBUFSIZE
+    // (Console buffer size)` with a two-byte `|` (token 30), and dfheca01
+    // 2.1.4 record 452 is `ST# CICS enables ...`; hosted (DT
+    // 19970421115044) serves `<H3>| 2.1.2.5   CSLBUFSIZE (Console buffer
+    // size)</H3>`, the bar ahead of the number and never in the title.  A
+    // mark after a space is title text (SC24-5520-00 6.11.3
+    // `ST  *ACCOUNT System Service`).
     if (in_title && !title_marker_seen && out.title.empty() &&
-        view.width == 1 && punctuation_glyph(view)) {
+        punctuation_glyph(view) &&
+        (view.width == 1 || in_title_revision_column(view))) {
       title_marker_seen = true;
       return assign(view, ProseTokenRoleIR::marker);
     }

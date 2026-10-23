@@ -1305,7 +1305,20 @@ the space that follows it: GC23-046 `7.0` record 192 token 29 is the ASCII
 change bar `|` and hosted (DT `19920330095121`) heads the topic
 pass:[<literal>Chapter 7.&#160;&#160;Online Books</literal>]; ACPZMST1 `5.4` record 284 has `U+2502` in the
 same position and hosted (DT `19920319123146`) heads it
-`/etc/inittab File Definitions`. An `ST` followed by a _space_ carries no
+`/etc/inittab File Definitions`. The slot is a display column, not a token
+width: it is the cell directly after the two opcode cells. SC41-5401-00
+`2.1.2.5` record 240 line 9 has the length byte `10` at file offset
+`0x48B26`, covering `98 00 E4 E7 C0 87 25 00 BF 18 BC 04 DA 63 00 27`:
+`ST`, the no-space prefix `00`, a _two-byte_ token `E4 E7` spelling `|`,
+then `CSLBUFSIZE`, `(`, `Console`, `buffer`, `size` and `)`. Hosted
+(DT `19970421115044`) serves
+pass:[<literal>&lt;H3&gt;|&#160;2.1.2.5&#160;&#160;&#160;CSLBUFSIZE (Console buffer size)&lt;/H3&gt;</literal>]:
+the mark in the revision column is printed in front of the topic number,
+never inside the title. The same column holds `#` in dfheca01 `2.1.4`
+(pass:[<literal>ST#&#160;CICS enables the READ TIMEOUT value</literal>]). A title read this way may differ
+from the catalog's string in letter case (the catalog has
+`CSLBUFSIZE (Console Buffer Size)`); the reader heads the topic with the
+`ST` text. An `ST` followed by a _space_ carries no
 marker, so a leading punctuation word there is title text: SC24-5520-00
 `6.11.3` is pass:[<literal>ST&#160;&#160;*ACCOUNT System Service</literal>], SH20-918 `3.1` is
 pass:[<literal>ST&#160;&#160;:ABSTRACT--Document Abstract</literal>], SC09-138 `4.7.1` is pass:[<literal>ST&#160;&#160;__amrc</literal>] and
