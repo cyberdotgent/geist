@@ -1060,13 +1060,16 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   // reconstructs its blocks from row geometry (doc/boo-spec/markup.adoc, "CZ layout
   // directives").  The two spell footnotes differently, so the dialect has
   // to be known before the first `SRFTN<id>` rather than discovered at it.
+  // A `cz` that is only a row's length byte names no block boundary.
   const auto cz_dialect = std::any_of(
       records.begin(), records.end(), [](const auto& source) {
         return std::any_of(source.control_segments.begin(),
                            source.control_segments.end(),
-                           [](const auto& segment) {
+                           [&](const auto& segment) {
                              return segment.kind ==
-                                    BookControlKind::layout_directive;
+                                        BookControlKind::layout_directive &&
+                                    !is_display_line_length_opcode(source,
+                                                                   segment);
                            });
       });
   // `SRFTN<id>` of the CZ dialect names the footnote the next `cz FLOW FN`
@@ -1584,6 +1587,19 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                               view_token(records, record_index, token));
                         }))
           continue;
+        if (segment.kind == BookControlKind::layout_directive &&
+            is_display_line_length_opcode(record, segment)) {
+          // A row's length byte spelled `cz` (see the layout_directive case
+          // below): it opens no directive, and the row it frames may carry
+          // no text after the menu any more than any other row.
+          for (const auto token : segment.source_tokens) {
+            const auto view = view_token(records, record_index, token);
+            if (is_visible(view) && !is_row_control_slot(records, view) &&
+                !is_placeholder_run(view) && !is_padding(view))
+              return fail(error, "content follows the trailing menu");
+          }
+          continue;
+        }
         if (segment.kind == BookControlKind::layout_directive) {
           // The compiled menu sits inside the last open CZ list; its closer
           // and the next-level announcement follow it (SC09-2417-00 2.1
@@ -1627,6 +1643,28 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         for (auto index = before; index < build.items.size(); ++index)
           if (build.items[index].kind == ItemKind::token) ++payload;
         if (payload == 0) {
+          // The empty title is the whole `ST` display line.  The flattened
+          // splitter can instead cut that line at a title word spelled like
+          // a control: S85G-8681-00 11.1 record 1217 line 8 is
+          // `ST  SRPI Compatibility` (tokens [25,29)), and the segment after
+          // the bare `ST` opens on `SRPI`.  Hosted (DT 19950803164615) heads
+          // the topic `<H2> 11.1   SRPI Compatibility</H2>`; the cut would
+          // print the number alone and the title as the first body row, so
+          // such a topic declines.  (A title cut after its first word
+          // continues across the cut instead; see `title_line_open_after`.)
+          if (!segment.source_tokens.empty()) {
+            const auto* line =
+                display_line_of_token(record, segment.source_tokens.front());
+            if (line != nullptr)
+              for (auto token = segment.source_tokens.back() + 1;
+                   token < line->token_end; ++token) {
+                const auto view = view_token(records, record_index, token);
+                if (is_visible(view) && !is_padding(view) &&
+                    !is_placeholder_run(view))
+                  return fail(error, "empty ST title line is split at '" +
+                                         body_text(view) + "'");
+              }
+          }
           for (auto index = before; index < build.items.size(); ++index)
             if (build.items[index].kind == ItemKind::segment_end)
               build.items[index].empty_title = true;
@@ -2567,6 +2605,26 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         break;
       }
       case BookControlKind::layout_directive: {
+        // A `cz` the display-line framing proves to be a row's length byte
+        // is that row's control slot, exactly like the metadata spellings
+        // in the default case below (doc/boo-spec/markup.adoc, "Reading a
+        // CZ body"): dfhcag49 1.1 record 52 token 35 (encoded value 13, one
+        // byte) spells `cz` and is the length byte of the 13-byte row
+        // `   Message identifiers are of two types.`; read as a directive it
+        // had a space run for its mode.  The byte re-enters the token
+        // stream and the row it frames is display text.
+        if (title_seen && is_display_line_length_opcode(record, segment)) {
+          for (const auto token : segment.source_tokens) {
+            Item item;
+            item.kind = ItemKind::token;
+            item.token = view_token(records, record_index, token);
+            build.items.push_back(std::move(item));
+          }
+          Item end;
+          end.kind = ItemKind::segment_end;
+          build.items.push_back(std::move(end));
+          break;
+        }
         if (!title_seen)
           return fail(error, "layout directive precedes the title");
         if (!collect_layout_directive(records, record_index, segment,

@@ -29,6 +29,46 @@ std::size_t number(const std::string& text) {
   return value;
 }
 
+// A `cz` control line whose mode word is none of FLOW, OFF and BREAK, or a
+// bare `cz`, is inert (doc/boo-spec/markup.adoc, "Reading a CZ body"):
+// BookServer matches a control line against literal `CZ FLOW`, `CZ OFF` and
+// `CZ BREAK` prefixes, and a line that matches no prefix prints nothing and
+// changes no layout state.  SG24-5314-00 2.3.5.16 record 178 closes its
+// table with the line `cz ON TABLE 0 0`; hosted (DT 19990209152814) prints
+// nothing for it.  The whole display line of the opcode is the control; the
+// segment's later tokens are ordinary rows that continue the open layout, so
+// no layout item is pushed for them.
+bool collect_inert_directive(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    std::size_t record_index, const ControlSegmentIR& segment, Ledger& ledger,
+    std::vector<Item>& items, std::string* error) {
+  const auto& record = records[record_index];
+  if (segment.source_tokens.empty())
+    return fail(error, "cz control has no source tokens");
+  const auto* line =
+      display_line_of_token(record, segment.source_tokens.front());
+  if (line == nullptr)
+    return fail(error, "cz control with an unknown mode has no display line");
+  // The opcode itself was assigned when it was read.
+  for (const auto token : segment.source_tokens) {
+    if (token == segment.source_tokens.front()) continue;
+    if (token < line->token_end) {
+      if (!ledger.assign(record_index, token, ProseTokenRoleIR::control,
+                         error))
+        return false;
+      continue;
+    }
+    Item item;
+    item.kind = ItemKind::token;
+    item.token = view_token(records, record_index, token);
+    items.push_back(std::move(item));
+  }
+  Item end;
+  end.kind = ItemKind::segment_end;
+  items.push_back(std::move(end));
+  return true;
+}
+
 }  // namespace
 
 bool collect_layout_directive(
@@ -59,7 +99,8 @@ bool collect_layout_directive(
         stage = 1;
       } else if (stage == 1) {
         if (lower != "flow" && lower != "off" && lower != "break")
-          return fail(error, "cz mode '" + text + "' is not FLOW, OFF or BREAK");
+          return collect_inert_directive(records, record_index, segment,
+                                         ledger, items, error);
         directive.mode = lower;
         consumed = true;
         stage = lower == "break" ? 3 : 2;
@@ -97,6 +138,16 @@ bool collect_layout_directive(
     item.kind = ItemKind::token;
     item.token = view;
     payload.push_back(std::move(item));
+  }
+  // A bare `cz` matches no BookServer prefix either.  `cz FLOW` or `cz OFF`
+  // without a tag does match one (`CZ FLOW`, `CZ OFF`), but no block kind,
+  // so it still declines.
+  if (stage == 1) {
+    // Only the opcode was read, and it is already the control.
+    Item end;
+    end.kind = ItemKind::segment_end;
+    items.push_back(std::move(end));
+    return true;
   }
   if (stage < 3) return fail(error, "cz control is incomplete");
   if (directive.mode != "break" && numbers == 1)
@@ -1373,16 +1424,78 @@ struct CzBuilder {
     return !drawn || preformatted(begin, end);
   }
 
+  // The rows [0, end) that precede the topic's first directive.  They are
+  // served as the rows of a topic with no directive (see `run`): each group
+  // between empty rows is a paragraph, and a row that opens with the
+  // `U+2666` bullet slot opens a list item, as it does in the flattened
+  // dialect.  SC31-8223-01 1.1 record 26 line 29 is `   °   Filtering
+  // alerts` (tokens 250-254); hosted prints its four bulleted rows inside the
+  // body's `<pre>`, each after a `<p>`, and the flattened dialect serves the
+  // same shape as one unordered list.  Rows that continue an item stand to
+  // the right of its bullet; a bullet at another column would be a level the
+  // rows do not prove, and fails closed.
+  bool leading_rows(std::size_t end) {
+    auto list = npos;
+    std::size_t item_origin = 0;
+    for (const auto& [group_begin, group_end] : group_lines(lines, 0, end)) {
+      auto index = group_begin;
+      while (index < group_end) {
+        auto stop = index + 1;
+        while (stop < group_end && !lines[stop].bullet) ++stop;
+        ProseBlockIR block;
+        if (!lines[index].bullet) {
+          list = npos;
+          block.kind = ProseBlockKindIR::paragraph;
+        } else {
+          const auto origin = lines[index].origin;
+          if (list != npos && origin != item_origin)
+            return fail(error, "bulleted rows before the first CZ directive "
+                               "stand at columns " +
+                                   std::to_string(item_origin) + " and " +
+                                   std::to_string(origin));
+          for (auto row = index + 1; row < stop; ++row)
+            if (lines[row].origin <= origin)
+              return fail(error, "row '" + line_text(lines[row]) +
+                                     "' does not continue the bulleted row "
+                                     "above it");
+          if (list == npos) {
+            list = next_list_ordinal++;
+            item_origin = origin;
+          }
+          block.kind = ProseBlockKindIR::list_item;
+          block.list_ordinal = list;
+        }
+        if (!emit(std::move(block), index, stop)) return false;
+        index = stop;
+      }
+    }
+    return true;
+  }
+
   bool run() {
     const auto& directives = build.directives;
     // Line ranges per directive: lines follow their directive in order.
     ranges.assign(directives.size(), {npos, npos});
+    // Rows before the first directive are body rows (doc/boo-spec/
+    // markup.adoc, "Reading a CZ body"): BookServer opens the body's
+    // `<pre width="132">` after the heading and prints every row until a
+    // directive changes the layout, one `<p>` per empty row -- exactly how it
+    // serves a topic with no directive at all.  SC31-8223-01 1.1 (DT
+    // 19980528101033), whose only directive is its closing
+    // `cz OFF EFIG 0 0`, is served that way from `The program-to-program
+    // (PPI) interface ...` on.  See `leading_rows`.
+    std::size_t leading_end = 0;
     for (std::size_t index = 0; index < lines.size(); ++index) {
       const auto directive = lines[index].directive;
       if (directive == npos) {
-        if (has_text(lines[index]))
-          return fail(error, "display row '" + line_text(lines[index]) +
-                                 "' precedes the first CZ directive");
+        if (index == leading_end) {
+          leading_end = index + 1;
+        } else if (has_text(lines[index])) {
+          return fail(error, "internal: display row '" +
+                                 line_text(lines[index]) +
+                                 "' follows the first CZ directive without "
+                                 "one");
+        }
         continue;
       }
       if (directive >= directives.size())
@@ -1393,6 +1506,7 @@ struct CzBuilder {
         return fail(error, "internal: directive lines are not contiguous");
       range.second = index + 1;
     }
+    if (!leading_rows(leading_end)) return false;
     for (std::size_t index = 0; index < directives.size(); ++index) {
       const auto& directive = directives[index];
       const auto range = ranges[index];

@@ -48,7 +48,8 @@ std::vector<CzVerbatimRegion> cz_verbatim_regions(
   for (std::size_t index = 0; index < records.size(); ++index) {
     for (const auto& segment : records[index].control_segments) {
       if (segment.kind != BookControlKind::layout_directive ||
-          segment.malformed || segment.source_tokens.empty())
+          segment.malformed || segment.source_tokens.empty() ||
+          is_display_line_length_opcode(records[index], segment))
         continue;
       std::vector<std::string> words;
       for (const auto token : segment.source_tokens) {
