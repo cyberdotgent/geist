@@ -323,7 +323,8 @@ struct ProseTopicIR {
   std::string heading_level;
   // The raw lower-cased CHDLEVEL operand this level was proven from: `h1`..
   // `h6`, or one of the front-matter forms (`cover`, `toc`, `preface`, ...)
-  // the reader serves as a level-1 heading.
+  // the reader serves as a level-1 heading.  Empty when the topic carries no
+  // CHDLEVEL, which the reader also serves at level 1.
   std::string heading_form;
   std::string title;
   DocumentSourceSliceIR title_source;

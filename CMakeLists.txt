@@ -600,6 +600,7 @@ foreach(synthetic_test
     cz_message_list_synthetic
     list_closer_anchor_synthetic
     revision_bar_operand_synthetic
+    topic_header_envelope_rule_synthetic
     length_byte_control_word_synthetic
     art_description_figure_synthetic
     ordered_picture_figure_synthetic

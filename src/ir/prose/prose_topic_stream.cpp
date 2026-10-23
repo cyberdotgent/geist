@@ -634,26 +634,70 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
                              records[cursor.record], token);
                        });
   };
-  {
-    // The topic must still open with its metadata run: enough segments must
-    // follow the start control for the eight required controls.  The title is
-    // not counted here: `csourcefn` can carry the `ST` control glued into its
-    // own segment (the `st_seen` branch below), so a well-formed topic can
-    // spend its whole envelope -- title and body included -- in exactly
-    // `required.size()` segments.  SC26-457 FRONT_2.1.1, FRONT_2.1.2 and
-    // FRONT_3.2 are that shape: eight segments, the last of which is
-    // `csourcefn DE1V4SOC ... ST? <title> <body>`.  Whether the title is
-    // really there is decided by the walk, which reports the exact control it
-    // stopped on rather than this arity guess.
-    std::size_t available = 0;
-    for (const auto& record : records)
-      available += record.control_segments.size();
-    if (records.front().control_segments.empty() ||
-        available < required.size())
-      return fail(error, "first record lacks the topic metadata envelope");
-  }
+  // The envelope is read the way the reader consumes a topic header
+  // (doc/boo-spec/topics.adoc, "Reading The Envelope"): it opens with the
+  // topic-start control, and the seven metadata controls that follow it are
+  // each optional and carry no order.  None of them draws anything; only
+  // `CHDLEVEL` changes what is served, by naming the heading level, and a
+  // topic without one is headed at the top level.  10,501 of the 10,502
+  // declared topics of the `BOO/` fixtures write all seven in one fixed
+  // order -- the walk below admits exactly that sequence as before -- and
+  // SC09-138 FRONT record 2 writes five of them (no `chdlevel`, no
+  // `csourcefn`) before an empty `ST`; hosted BookServer serves it
+  // (DT 19910321130500) as `<h1> FRONT </h1>` and an empty body.
+  //
+  // The envelope ends at the first segment that is not one of its controls
+  // -- the title, a body control, or text -- and the body stream, which
+  // declines visible text and metadata controls ahead of the title, decides
+  // whether the topic is well formed from there.  Still fail-closed: a
+  // metadata control written twice is declined (which one is meant would be
+  // a guess the corpus never needs), and so is any envelope that does not
+  // open with the topic-start control.
+  if (records.front().control_segments.empty())
+    return fail(error, "first record lacks the topic metadata envelope");
+  std::vector<BookControlKind> seen;
+  const auto metadata_kind = [&](const BookControlKind kind) {
+    return std::find(required.begin() + 1, required.end(), kind) !=
+           required.end();
+  };
+  const auto already_seen = [&](const BookControlKind kind) {
+    return std::find(seen.begin(), seen.end(), kind) != seen.end();
+  };
+  // Where the next metadata control stands once the envelope interleavings
+  // the walk consumes ahead of a control -- row slots, one `SRMSG`, `SR<id>`
+  // anchors and revision-code definitions, in that order -- are passed over.
+  // Non-mutating: the walk itself consumes them only when a metadata control
+  // follows, so the ones that stand directly in front of the title stay with
+  // the body stream, where they are read exactly as in a complete envelope.
+  const auto next_metadata_kind = [&]() -> std::optional<BookControlKind> {
+    const auto saved = cursor;
+    const auto skip_slots = [&]() {
+      while (!at_end() && row_control_slot_segment()) ++cursor.segment;
+    };
+    skip_slots();
+    if (!at_end() && current().kind == BookControlKind::message_start)
+      ++cursor.segment;
+    while (!at_end() && envelope_anchor_segment(current())) ++cursor.segment;
+    while (!at_end() &&
+           (row_control_slot_segment() ||
+            current().kind == BookControlKind::revision_definition))
+      ++cursor.segment;
+    skip_slots();
+    std::optional<BookControlKind> kind;
+    if (!at_end() && metadata_kind(current().kind)) kind = current().kind;
+    cursor = saved;
+    return kind;
+  };
   Cursor heading_cursor;
-  for (std::size_t index = 0; index < required.size(); ++index) {
+  bool heading_seen = false;
+  for (std::size_t index = 0;; ++index) {
+    if (index != 0) {
+      if (envelope.glued_title || seen.size() + 1 == required.size()) break;
+      const auto next = next_metadata_kind();
+      if (!next) break;
+      if (already_seen(*next))
+        return fail(error, "a topic metadata control is repeated");
+    }
     if (at_end())
       return fail(error, "topic metadata controls are incomplete");
     // A record can break immediately before the optional SRMSG envelope
@@ -722,10 +766,12 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
         return false;
       envelope.leading_anchors.push_back(std::move(anchor));
     }
-    // Revision-code definitions are envelope metadata, wherever they occur
-    // between the fixed controls. SC09-138 FRONT record 2 carries eleven
-    // `c.rev <id> <bar>` lines between CSUMMARY and CHDLEVEL. Each occupies
-    // its own native display line and draws no body text.
+    // Revision-code definitions are envelope metadata wherever they occur
+    // between the metadata controls; each occupies its own native display
+    // line and draws no body text.  Definitions after the last metadata
+    // control are left to the body stream, which reads them the same way:
+    // SC09-138 FRONT record 2 carries eleven `c.rev <id> <bar>` lines
+    // between `csummary` and its empty `ST`.
     while (!at_end()) {
       if (row_control_slot_segment()) {
         const auto &slot = current();
@@ -772,11 +818,14 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
     const auto& segment = current();
     const auto& record = records[cursor.record];
     const auto record_index = cursor.record;
-    if (segment.kind != required[index]) {
+    const auto expected =
+        index == 0 ? segment.kind == BookControlKind::topic_start
+                   : metadata_kind(segment.kind) && !already_seen(segment.kind);
+    if (!expected) {
       // The one admissible substitution: a record-leading non-numeric topic
       // id whose `CTOPICN` corroboration sits in the next record.
       const auto corroborated_topic_start = [&]() {
-        if (required[index] != BookControlKind::topic_start ||
+        if (index != 0 ||
             !leading_topic_identifier_segment(records, record_index, segment))
           return false;
         Cursor probe = cursor;
@@ -804,8 +853,11 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
       }
       continue;
     }
-    if (segment.kind == BookControlKind::heading_level)
+    if (index != 0) seen.push_back(segment.kind);
+    if (segment.kind == BookControlKind::heading_level) {
       heading_cursor = cursor;
+      heading_seen = true;
+    }
     ++cursor.segment;
     if (segment.malformed && segment.kind != BookControlKind::forward_level &&
         segment.kind != BookControlKind::back_level &&
@@ -942,6 +994,20 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
     envelope.glued_title_record = anchor_record;
     ++cursor.segment;
   }
+  // Without `CHDLEVEL` the topic is headed at the top level, under its title
+  // or -- for an empty `ST` -- its topic id alone; the source form stays
+  // empty, since the book declared none.
+  at_end();
+  envelope.body_record = std::min(cursor.record, records.size() - 1);
+  envelope.body_segment_begin =
+      cursor.record < records.size()
+          ? cursor.segment
+          : records.back().control_segments.size();
+  if (!heading_seen) {
+    envelope.heading_form.clear();
+    envelope.heading_level = "h1";
+    return true;
+  }
   const auto& heading_record = records[heading_cursor.record];
   auto heading_level = ascii_lower(trim_ascii(operand_text(
       heading_record,
@@ -961,12 +1027,6 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
     heading_level = "h1";
   }
   envelope.heading_level = heading_level;
-  at_end();
-  envelope.body_record = std::min(cursor.record, records.size() - 1);
-  envelope.body_segment_begin =
-      cursor.record < records.size()
-          ? cursor.segment
-          : records.back().control_segments.size();
   return true;
 }
 

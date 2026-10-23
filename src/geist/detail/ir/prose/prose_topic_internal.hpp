@@ -321,7 +321,8 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
 struct Envelope {
   std::string heading_level;
   // The raw lower-cased CHDLEVEL operand: `h1`..`h6`, or a front-matter form
-  // such as `cover`/`toc`/`preface` that the reader serves as `h1`.
+  // such as `cover`/`toc`/`preface` that the reader serves as `h1`; empty
+  // when the envelope carries no CHDLEVEL.
   std::string heading_form;
   // First body segment.  The metadata run may span logical records, so the
   // body starts at (body_record, body_segment_begin).
