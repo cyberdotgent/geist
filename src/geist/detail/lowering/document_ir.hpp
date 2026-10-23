@@ -184,6 +184,13 @@ struct ListItemIR {
   // boundaries or nested block structure, `blocks` owns that structure and
   // `content` is empty.  The verifier enforces the exclusive representation.
   BlockSequenceIR blocks = {};
+  // Text the source printed in front of the item as its own label, kept
+  // apart from the list's generated number.  A CZ ordered-list head of
+  // several words (`Step 1.`, `__ Step a.`) loses its first word in the
+  // reader and keeps the rest as text in front of the item's content
+  // (doc/boo-spec/markup.adoc, "List item heads").  Empty for every other
+  // item; when set, it is serialized before `content` or the first block.
+  InlineSequenceIR label = {};
 };
 
 enum class OrderedListMarkerIR {

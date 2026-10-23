@@ -11,8 +11,9 @@
 //    bullet glyph, a nested level a plain `-` (SC21-8295-03 3.1.3.2 record
 //    405 `cz FLOW LI 7 11` + `       -   Change management (DSNX)`), and
 //    hosted serves both as `<li>` with no character in front of the text.
-//  * `OL`: the head is the item's ordinal label (`1.`, `a.`, `7)`, `h)`,
-//    `Step 1.`), which hosted's `<ol>` replaces.
+//  * `OL`: the head is the item's ordinal label (`1.`, `a.`, `7)`, `h)`),
+//    which hosted's `<ol>` replaces.  A head of several words (`Step 1.`,
+//    `__ 1.`) loses its first word and keeps the rest as the item's label.
 //  * `NOTEL`: the head is a stored note number that hosted keeps as text,
 //    each item a bare `<dd>` (SC21-8295-03 2.2, 3.1.3.2; SC09-2417-00 2.2.4).
 //
@@ -345,13 +346,24 @@ void a_parenthesis_ordinal_is_the_item_label() {
           "the parenthesis label was not the list number: " + markdown);
 }
 
-// SC21-8295-03 E.0 record 836: `cz FLOW OL 3 3`, `cz FLOW LI 3 12` and
-// ` | Step 1.  The new release requires ...`; packet 3.6.3 record 142:
-// `cz FLOW LI 3 10` and `   __ 1.  /etc/ax25/uronode.announce ...`.  The
-// head columns hold a word in front of the ordinal, which a list number
-// cannot carry.  The items keep their whole head as text and the list adds
-// no number of its own, so neither `1. Step 1.` nor a lost `Step` results.
-void a_head_with_a_word_before_its_ordinal_stays_text() {
+// A head of several words whose last word is an ordinal label.  Hosted
+// BookServer blanks the head's first word, numbers the item with its `<ol>`
+// and keeps the rest of the head as text (doc/boo-spec/markup.adoc, "List
+// item heads"):
+//
+//  * SC21-8295-03 E.0 record 836: `cz FLOW LI 3 12` + ` | Step 1.  The new
+//    release ...`, served (`SC21-829`, DT 19970409135933) as `<li> <br> |
+//    1.  The new release ...`;
+//  * packet 3.6.3 record 142: `cz FLOW LI 3 10` + `   __ 1.  /etc/...`,
+//    served as `<li>       1.  <kbd>/etc/ax25/uronode.announce</kbd>`;
+//  * SA41-4150-01 2.2.3 record 165: `cz FLOW LI 3 15` + `   __ Step 1.  Sign
+//    on ...`, served (DT 19951214132613) as `<li>       <B>Step</B>
+//    <B>1.</B>  Sign on ...`; its nested `__ Step a.` items stand in an
+//    `<ol type=1>`, as do SC31-8462-00's `__ a.` items.
+//
+// The kept words are the item's label: the list numbers the item by its
+// position, decimally, and the label prints in front of the text.
+void a_head_with_a_word_before_its_ordinal_is_a_label() {
   RecordBuilder builder;
   metadata(builder);
   directive(builder, "FLOW", "OL", "3", "3");
@@ -361,25 +373,51 @@ void a_head_with_a_word_before_its_ordinal_stays_text() {
   directive(builder, "FLOW", "LI", "3", "12");
   builder.line({words("   "), words("Step"), words("2."), words(" "),
                 words("Start"), words("it.")});
+  directive(builder, "FLOW", "OL", "12", "12");
+  directive(builder, "FLOW", "LI", "12", "24");
+  builder.line({words("            "), words("__"), words("Step"),
+                words("a."), words(" "), words("Check"), words("it.")});
+  directive(builder, "OFF", "EOL", "0", "0");
   directive(builder, "OFF", "EOL", "0", "0");
 
   const auto extracted = extract_record(std::move(builder), 21);
   require(extracted.prose.has_value(),
           "the step list was declined: " + extracted.error);
   if (!extracted.prose) return;
-  for (const auto *needle : {"Step 1. Install", "Step 2. Start"}) {
+  for (const auto &[needle, label] :
+       std::vector<std::pair<std::string, std::string>>{
+           {"Install", "1."}, {"Start", "2."}, {"Check", "Step a."}}) {
     const auto *item =
         find_block(*extracted.prose, ProseBlockKindIR::list_item, needle);
-    require(item != nullptr && !item->ordered && item->ordinal.empty(),
-            std::string("the step head of '") + needle +
-                "' did not stay the item's text");
+    std::string head;
+    if (item != nullptr)
+      for (std::size_t index = 0;
+           index < item->term_inline_count && index < item->inlines.size();
+           ++index)
+        head += item->inlines[index].text;
+    require(item != nullptr && item->ordered && item->ordinal.empty() &&
+                head == label,
+            "the head of '" + needle + "' is not the label '" + label +
+                "': '" + head + "'");
+    require(item == nullptr || label == "Step a." ||
+                block_text(*item).find("Step") == std::string::npos,
+            "the blanked head word survived in '" + needle + "'");
   }
   const auto document = lower_document(extracted);
   if (!document) return;
   const auto markdown = geist::detail::render_document_markdown(*document);
-  require(contains(markdown, "- Step 1\\. Install it") &&
-              !contains(markdown, "1. Step"),
-          "the step list numbered its own step heads: " + markdown);
+  require(contains(markdown, "1. 1\\. Install it") &&
+              contains(markdown, "2. 2\\. Start it") &&
+              contains(markdown, "1. Step a\\. Check it") &&
+              !contains(markdown, "Step 1"),
+          "the step list did not carry its labels: " + markdown);
+  const auto html = geist::detail::render_document_html_blocks(*document, {});
+  require(contains(html,
+                   "<span class=\"geist-list-label\">1.</span> Install") &&
+              contains(html, "<span class=\"geist-list-label\">Step "
+                             "a.</span> Check") &&
+              !contains(html, "type=\"a\"") && !contains(html, "Step 1"),
+          "the step list's HTML did not carry its labels: " + html);
 }
 
 } // namespace
@@ -389,7 +427,7 @@ int main() {
   a_dash_outside_the_bullet_columns_stays_text();
   a_note_list_keeps_its_numbers_as_text();
   a_parenthesis_ordinal_is_the_item_label();
-  a_head_with_a_word_before_its_ordinal_stays_text();
+  a_head_with_a_word_before_its_ordinal_is_a_label();
   geist_test::exit_with_failures();
   std::cout << "cz_list_labels_synthetic: ok\n";
   return 0;

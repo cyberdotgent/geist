@@ -749,6 +749,13 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
           return fail(error,
                       "prose ordered list mixes marker alphabets");
         ListItemIR lowered;
+        // An ordered item's kept head words (`1.` of `Step 1.`) are its
+        // label; the list still numbers it by position.
+        if (item.term_inline_count != 0 &&
+            (!item.ordered || !item.ordinal.empty() ||
+             !lower_inlines(item, 0, item.term_inline_count, lowered.label,
+                            error)))
+          return fail(error, "prose list item label is invalid");
         if (item.body_blocks.empty()) {
           if (!lower_inlines(item, lowered.content, error)) return false;
         } else {

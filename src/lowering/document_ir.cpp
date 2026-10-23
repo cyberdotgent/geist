@@ -221,6 +221,7 @@ void collect_child_origins(const BlockNodeIR& node,
         } else if constexpr (std::is_same_v<T, ListBlockIR>) {
           for (const auto& item : block.items) {
             out.push_back(&item.origin);
+            collect_inline_origins(item.label, out);
             collect_inline_origins(item.content, out);
             collect_block_origins(item.blocks, out);
           }
@@ -334,6 +335,12 @@ bool verify_block(const BlockIR& block, bool nested, std::string* error) {
                 (!item.content.empty() || !item.blocks.empty()))
               return fail(error, "empty list item carries content");
             if (!verify_origin(item.origin, error)) return false;
+            // A label stands in front of the item's own text, so an item
+            // that declares itself empty cannot carry one.
+            if (!item.label.empty() &&
+                (item.empty_content ||
+                 !verify_inlines(item.label, false, error)))
+              return fail(error, "list item label is invalid");
             if (item.blocks.empty()) {
               if (!verify_inlines(item.content, item.empty_content, error))
                 return false;
@@ -774,6 +781,7 @@ void normalize_block(BlockIR& block) {
         if constexpr (std::is_same_v<T, ListBlockIR>) {
           for (auto& item : node.items) {
             for (auto& child : item.blocks) normalize_block(child);
+            lift_inlines(item.origin, item.label);
             lift_inlines(item.origin, item.content);
             std::vector<const DocumentNodeOriginIR*> children;
             collect_block_origins(item.blocks, children);

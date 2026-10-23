@@ -333,14 +333,19 @@ struct CzBuilder {
   // served (`SC21-829`, DT 19970409135933) as `<li> <br> |
   // Press F3 three times.` inside `<ol>`.
   //
-  // A head of several words ending in such a label carries a word a list
-  // number cannot: E.0 record 836 `cz FLOW LI 3 12` + ` | Step 1.  The new
-  // release ...`, packet 3.6.3 record 142 `cz FLOW LI 3 10` + `   __ 1.
-  // /etc/ax25/uronode.announce ...`.  Hosted prints `<ol>` and drops only
-  // the first word, leaving `1.` in the text.  The item keeps its whole head
-  // as text instead and is not numbered by the list (`ordered` cleared).
+  // A head of several words ending in such a label is blanked by its first
+  // word only: hosted numbers the item with its `<ol>` and keeps the rest of
+  // the head as text.  E.0 record 836 `cz FLOW LI 3 12` + ` | Step 1.  The
+  // new release ...` is served as `<li> <br> |      1.  The new release
+  // ...`, packet 3.6.3 record 142 `cz FLOW LI 3 10` + `   __ 1.  /etc/...`
+  // as `<li>       1.  <kbd>/etc/...`, and SA41-4150-01 2.2.3 record 165
+  // `cz FLOW LI 3 15` + `   __ Step 1.  Sign on ...` (DT 19951214132613) as
+  // `<li>       <B>Step</B> <B>1.</B>  Sign on ...`; 23 books agree.  The
+  // list is always `<ol type=1>`, even when the kept label is `a.`, so the
+  // kept words become the item's label (`label_end`, the end of its last
+  // word) and the list numbers the item by position.
   bool take_ordinal(Line& line, const LayoutDirective& directive,
-                    ProseBlockIR& block) {
+                    ProseBlockIR& block, std::size_t& label_end) {
     const auto [begin, end] = first_word(line, line.text_begin);
     const auto text = cells_text(line, begin, end);
     if (end >= line.cells.size() || !line.cells[end].space) return true;
@@ -360,7 +365,7 @@ struct CzBuilder {
       const auto label = cells_text(line, last.first, last.second);
       if (head && !alone &&
           (ordinal_word(label, '.') || ordinal_word(label, ')')))
-        block.ordered = false;
+        return take_head_word(line, begin, end, last.second, label_end);
       return true;
     }
     block.ordinal = text;
@@ -375,6 +380,41 @@ struct CzBuilder {
     while (text_begin < line.cells.size() && line.cells[text_begin].space)
       ++text_begin;
     line.text_begin = text_begin;
+    return clip_spans_before(line, error);
+  }
+
+  // Blanks the first word [begin, end) of a several-word OL head whose last
+  // word ends at `head_end`; the words between stay as the item's label.  A
+  // token the blanked word shares with the label, or a link that crosses
+  // into it, leaves the head whole: no token is ever half printed.
+  bool take_head_word(Line& line, std::size_t begin, std::size_t end,
+                      std::size_t head_end, std::size_t& label_end) {
+    const auto label_begin = first_word(line, end).first;
+    for (auto cell = begin; cell < end; ++cell) {
+      const auto& source = line.cells[cell];
+      if (source.record == npos) return true;
+      for (auto other = label_begin; other < line.cells.size(); ++other)
+        if (line.cells[other].record == source.record &&
+            line.cells[other].token == source.token)
+          return true;
+      if (ledger.at(source.record, source.token).role !=
+          ProseTokenRoleIR::text)
+        return true;
+    }
+    for (const auto& link : line.links)
+      if (link.begin < label_begin && link.end > end) return true;
+    for (auto cell = begin; cell < end; ++cell) {
+      const auto& source = line.cells[cell];
+      ledger.at(source.record, source.token).role =
+          ProseTokenRoleIR::list_head;
+    }
+    // A font run over the whole head (GA27-4220-00 2.10 sets `Step 1.` bold;
+    // hosted serves `<B>    </B> <B>1.</B>`) keeps its words after the blank.
+    for (auto& font : line.fonts)
+      if (font.begin < label_begin && font.end > label_begin)
+        font.begin = label_begin;
+    line.text_begin = label_begin;
+    label_end = head_end;
     return clip_spans_before(line, error);
   }
 
@@ -435,10 +475,40 @@ struct CzBuilder {
     block.ordered = frame.tag == "ol";
     ++frame.items;
     auto& first = lines[groups.front().first];
-    if (block.ordered && !take_ordinal(first, directive, block)) return false;
+    auto label_end = npos;
+    if (block.ordered && !take_ordinal(first, directive, block, label_end))
+      return false;
     if (frame.tag == "ul" && !take_bullet(first, directive)) return false;
     if (!has_text(first)) return fail(error, "cz FLOW LI has no text");
     const auto block_index = topic.blocks.size();
+    if (label_end != npos) {
+      // The label and the text are built from a private line vector, the
+      // label first, so the shared line indices stay valid for provenance.
+      const auto [begin, end] = groups.front();
+      Line label = lines[begin];
+      label.cells.resize(label_end);
+      if (!clip_spans_after(label, label_end, error)) return false;
+      Line rest = lines[begin];
+      rest.text_begin = first_word(rest, label_end).first;
+      if (!clip_spans_before(rest, error)) return false;
+      std::vector<Line> parts{std::move(label), std::move(rest)};
+      for (auto index = begin + 1; index < end; ++index)
+        parts.push_back(lines[index]);
+      block.origin = lines[begin].origin;
+      if (!build_block(records, parts, 0, 1, block, ledger, block_index,
+                       error))
+        return false;
+      block.term_inline_count = block.inlines.size();
+      if (!build_block(records, parts, 1, parts.size(), block, ledger,
+                       block_index, error))
+        return false;
+      if (block.term_inline_count == 0 ||
+          block.term_inline_count == block.inlines.size())
+        return fail(error, "cz FLOW LI label or text is empty");
+      append(std::move(block), begin);
+      frame.body_owner = block_index;
+      return paragraphs(groups, 1);
+    }
     if (!emit(std::move(block), groups.front().first, groups.front().second))
       return false;
     frame.body_owner = block_index;

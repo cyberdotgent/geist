@@ -664,6 +664,11 @@ void append_block(RenderSink &sink, const BlockIR &block,
               }
             else
               sink.boundary("- ", "list bullet", item_origin);
+            if (!node.items[index].label.empty()) {
+              append_inlines(sink, node.items[index].label,
+                             InlineContext::single_line, options);
+              sink.boundary(" ", "list item label separator", item_origin);
+            }
             if (node.items[index].blocks.empty())
               append_inlines(sink, node.items[index].content,
                              InlineContext::single_line, options);

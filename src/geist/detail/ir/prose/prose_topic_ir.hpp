@@ -56,6 +56,7 @@ enum class ProseTokenRoleIR {
   index_structure, // hidden separators of a structured subject-index line
   menu,            // CMENU/CMITEM/CEMENU tokens (validated separately)
   ordinal,         // explicit item number of a CZ ordered-list row (`1.`)
+  list_head,       // first word of a several-word CZ ordered-list head (`Step`)
   table,           // claimed by a table span (fixed-table block)
   figure,          // claimed by a figure span (figure block)
 };
@@ -174,7 +175,9 @@ struct ProseBlockIR {
   // Footnote anchor id of a footnote block.
   std::string anchor_id;
   // The first `term_inline_count` inlines form the term (definition entry)
-  // or the label (note); the remaining inlines are the body.
+  // or the label (note, or an ordered list item whose head keeps the words
+  // after its blanked first word, `Step 1.` -> `1.`); the remaining inlines
+  // are the body.
   std::size_t term_inline_count = 0;
   // Blocks retain one global source-order index so token-ledger claims,
   // anchors and admitted spans never need a second coordinate system.  A

@@ -116,6 +116,7 @@ A block's parts are addressable too.
 | class | element | inside |
 | --- | --- | --- |
 | `geist-list-item` | `<li>` | `geist-list` |
+| `geist-list-label` | `<span>` | `geist-list-item`, or its first `geist-paragraph`: a label the source printed in front of the item (`1.` of a `Step 1.` head), separate from the list's own number |
 | `geist-definition-term` | `<dt>` | `geist-definition-list` |
 | `geist-definition-description` | `<dd>` | `geist-definition-list` |
 | `geist-table-head` | `<thead>` | `geist-table` |

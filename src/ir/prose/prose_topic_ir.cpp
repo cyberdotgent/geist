@@ -503,6 +503,7 @@ const char* prose_token_role_name(ProseTokenRoleIR role) {
   case ProseTokenRoleIR::index_structure: return "index_structure";
   case ProseTokenRoleIR::menu: return "menu";
   case ProseTokenRoleIR::ordinal: return "ordinal";
+  case ProseTokenRoleIR::list_head: return "list_head";
   case ProseTokenRoleIR::table: return "table";
   case ProseTokenRoleIR::figure: return "figure";
   }

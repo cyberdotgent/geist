@@ -644,10 +644,34 @@ void append_block(HtmlSink &sink, const BlockIR &block) {
             if (item.empty_content)
               sink.attribute("data-geist-empty", "true");
             sink.markup(">");
-            if (item.blocks.empty())
+            // The source's own label stands in front of the item's first
+            // line of text: inside its leading paragraph when it has blocks.
+            const auto append_label = [&]() {
+              if (item.label.empty()) return;
+              sink.markup("<span class=\"geist-list-label\">");
+              append_inlines(sink, item.label);
+              sink.markup("</span>");
+              sink.text(" ");
+            };
+            const auto *lead =
+                item.blocks.empty()
+                    ? nullptr
+                    : std::get_if<ParagraphBlockIR>(&item.blocks.front().node);
+            if (item.blocks.empty()) {
+              append_label();
               append_inlines(sink, item.content);
-            else
+            } else if (!item.label.empty() && lead != nullptr) {
+              const auto &first = item.blocks.front();
+              open_block(sink, "p", html_block_class(first.node), first.origin);
+              append_label();
+              append_inlines(sink, lead->content);
+              close_block(sink, "p");
+              for (std::size_t child = 1; child < item.blocks.size(); ++child)
+                append_block(sink, item.blocks[child]);
+            } else {
+              append_label();
               append_blocks(sink, item.blocks);
+            }
             sink.markup("</li>");
           }
           close_block(sink, tag);
