@@ -463,6 +463,85 @@ void check_picture_placeholder_rows() {
           "a language the reader gives no plain word selects none");
 }
 
+// Words the reader draws over or never prints, which the projection must not
+// count as drawn text:
+//   * the list-item label the reader blanks: inside a list, the word that
+//     starts at the label column of a `cz FLOW LI <label> <text>` with two
+//     different columns, on the item's first text line (GA27-4120-00 4.0
+//     `cz FLOW LI 3 12` + `   Step 1.  Power OFF ...`, hosted DT
+//     19960419120629 `<li>    <B>    </B> <B>1.</B>  Power OFF ...`).
+//     Outside a list the same directive blanks nothing.
+//   * a `cvselect` artwork-description selector line, operands only
+//     (SC33-0668-02 1.2.6 `cvselect 13 8 FIGDSTAB`, never served).
+void check_reader_blanked_words() {
+  using namespace geist::detail;
+  const auto project = [](const std::vector<std::vector<std::string>> &lines) {
+    DecodedLogicalRecordSource record;
+    record.logical_record = 17;
+    for (const auto &text : lines) {
+      record.encoded_tokens.push_back(
+          {static_cast<std::uint16_t>(text.size() * 2), 1});
+      record.tokens.push_back({0x25BA});
+      for (const auto &token : text) {
+        record.encoded_tokens.push_back({0x140, 2});
+        record.tokens.push_back(TokenWords(token.begin(), token.end()));
+      }
+    }
+    record.assembled = assemble_logical_record_with_sources(record.tokens);
+    record.ir.logical_record = record.logical_record;
+    std::uint32_t byte = 0;
+    for (std::size_t index = 0; index < record.tokens.size(); ++index) {
+      const auto encoded = record.encoded_tokens[index];
+      record.ir.tokens.push_back(
+          {index,
+           encoded,
+           record.tokens[index],
+           {byte, static_cast<std::uint32_t>(byte + encoded.width)},
+           false,
+           3});
+      byte += encoded.width;
+    }
+    record.ir.payload_range = {0, byte};
+    assign_display_line_framing(record.ir);
+    record.control_segments =
+        decode_control_segments(record.logical_record, record.assembled,
+                                record.encoded_tokens, record.ir.display_lines);
+    require(record.ir.display_lines_parse,
+            "list label synthetic source must have decided native framing");
+    OwnershipIR ownership;
+    std::size_t unframed = 0;
+    return join(conservation_words(
+        project_drawn_topic_text({record}, ownership, &unframed).text));
+  };
+  const std::vector<std::string> item{"   ", "Step", "1.", " ", "Power",
+                                      "OFF."};
+  const auto in_list = project({{"cz", "FLOW", "OL", "3", "3"},
+                                {"cz", "FLOW", "LI", "3", "12"},
+                                {"cfont", "3", "4", "2", "8", "2", "2"},
+                                item,
+                                {"   ", "Step", "2.", " ", "Continue."},
+                                {"cz", "OFF", "EOL", "0", "0"}});
+  require(in_list == "1,power,off,step,2,continue",
+          "the blanked list label `Step` (first text line only) is still "
+          "counted as drawn: " + in_list);
+  const auto outside = project({{"cz", "FLOW", "LI", "3", "12"}, item});
+  require(outside == "step,1,power,off",
+          "a label outside any list was blanked: " + outside);
+  const auto same_columns = project({{"cz", "FLOW", "UL", "3", "3"},
+                                     {"cz", "FLOW", "LI", "3", "3"},
+                                     item,
+                                     {"cz", "OFF", "EUL", "0", "0"}});
+  require(same_columns == "step,1,power,off",
+          "an item whose label and text columns agree was blanked: " +
+              same_columns);
+  const auto selector = project({{"cvselect", "13", "8", "FIGDSTAB"},
+                                 {"cartdesc", "  ", "Figure", "7", "shows."}});
+  require(selector.find("13") == std::string::npos &&
+              selector.find("figdstab") == std::string::npos,
+          "the operands of a `cvselect` line are counted as drawn: " +
+              selector);
+}
+
 void check_styled_preformatted_rows() {
   using namespace geist::detail;
   const auto in = [](InlineNodeIR node) {
@@ -678,6 +757,7 @@ int main() {
   check_markdown_projection();
   check_native_message_metadata();
   check_picture_placeholder_rows();
+  check_reader_blanked_words();
   check_styled_preformatted_rows();
   check_packet_conserves_every_drawn_word();
   return 0;

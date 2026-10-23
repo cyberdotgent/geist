@@ -97,6 +97,12 @@ using ControlCells = std::unordered_map<std::uint32_t, std::vector<CellKey>>;
 //                `ctocdef=0 1 0 2` ... `ctocdef=6 0 8`).
 //   `c.cp`       page-scope composition directives, spelled like the modelled
 //   `c.cc`       `c.sp` and carrying only operands.
+//   `cvselect`   a selector inside an artwork description (`cartdesc` lines):
+//                `<column> <length> <target>` over the description text the
+//                reader puts in the picture's `alt`, never printed itself
+//                (SC33-0668-02 1.2.6 record 141 line 39
+//                `cvselect 13 8 FIGDSTAB`; hosted DT 19930625001740 serves
+//                the description, and no `13 8 FIGDSTAB`, anywhere).
 //
 // An opcode that carries its first operand in the same token is matched on the
 // part before the `=`, which is how `ctocdef=0` is stored.
@@ -111,7 +117,8 @@ bool unmodelled_control_opcode(std::string opcode) {
   if (operand != std::string::npos) opcode.resize(operand);
   static const char* const opcodes[] = {"si",     "citerm",    "cidelm",
                                         "cgpsep", "cendindex", "ctoce",
-                                        "ctocdef", "c.cp",     "c.cc"};
+                                        "ctocdef", "c.cp",     "c.cc",
+                                        "cvselect"};
   return std::any_of(std::begin(opcodes), std::end(opcodes),
                      [&](const char* candidate) { return opcode == candidate; });
 }
@@ -277,6 +284,77 @@ std::vector<PlaceholderColumns> picture_placeholder_columns(
   return found;
 }
 
+// The list-item label the reader blanks.
+//
+// Inside a list (`cz FLOW UL`, `OL` or `SL` opened and not yet closed by
+// `cz OFF EUL`/`EOL`/`ESL`), a `cz FLOW LI <label> <text>` whose two columns
+// differ makes the reader overwrite, on the next text line, the word that
+// starts at the label column with blanks: the list element numbers or bullets
+// the item itself.  The word is drawn by the source and never printed.
+// GA27-4120-00 4.0 record 17 lines 16-18, `cz FLOW LI 3 12`,
+// `cfont 3 4 2 8 2 2` and `   Step 1.  Power OFF ...`, are served (DT
+// 19960419120629) as `<li>    <B>    </B> <B>1.</B>  Power OFF ...`: `Step`
+// is blanked and `1.` kept.  The blanked run is the label column up to the
+// first blank after it.
+struct ListLabelState {
+  std::size_t depth = 0;
+  std::size_t pending_label = static_cast<std::size_t>(-1);
+
+  // Reads a `cz` directive line; any other line is ignored.
+  void directive(const std::string& line) {
+    std::vector<std::string> fields;
+    std::string field;
+    for (const auto raw : line) {
+      if (raw == ' ') {
+        if (!field.empty()) fields.push_back(field);
+        field.clear();
+        continue;
+      }
+      field.push_back(ascii_lower_char(raw));
+    }
+    if (!field.empty()) fields.push_back(field);
+    if (fields.size() < 3 || fields[0] != "cz") return;
+    const auto& mode = fields[1];
+    const auto& tag = fields[2];
+    if (mode == "flow" && (tag == "ul" || tag == "ol" || tag == "sl")) {
+      ++depth;
+      pending_label = static_cast<std::size_t>(-1);
+    } else if (mode == "off" && (tag == "eul" || tag == "eol" || tag == "esl")) {
+      if (depth > 0) --depth;
+    } else if (mode == "flow" && tag == "li" && fields.size() >= 5 &&
+               depth > 0) {
+      const auto number = [](const std::string& text, std::size_t* value) {
+        if (text.empty() || text.size() > 4 ||
+            !std::all_of(text.begin(), text.end(), [](const char ch) {
+              return ch >= '0' && ch <= '9';
+            }))
+          return false;
+        *value = static_cast<std::size_t>(std::stoul(text));
+        return true;
+      };
+      std::size_t label = 0;
+      std::size_t indent = 0;
+      if (number(fields[3], &label) && number(fields[4], &indent) &&
+          label != indent)
+        pending_label = label;
+    }
+  }
+
+  // The columns of `cells` the reader blanks on this text line, as
+  // [begin, end); empty when no label is pending.
+  std::pair<std::size_t, std::size_t> take(
+      const std::vector<DisplayLineCellIR>& cells) {
+    const auto label = pending_label;
+    pending_label = static_cast<std::size_t>(-1);
+    if (label == static_cast<std::size_t>(-1) || label >= cells.size() ||
+        cells[label].word == ' ')
+      return {0, 0};
+    auto end = label + 1;
+    while (end < cells.size() && cells[end].word != ' ') ++end;
+    return {label, end};
+  }
+};
+
 } // namespace
 
 std::string picture_placeholder_word(const std::string& language) {
@@ -345,6 +423,7 @@ DrawnTextIR project_drawn_topic_text(
 
   static const std::vector<CellKey> none;
   DrawnTextIR drawn;
+  ListLabelState list;
   for (const auto& record : records) {
     const auto* lines = record_display_lines(record);
     if (lines == nullptr) {
@@ -361,20 +440,28 @@ DrawnTextIR project_drawn_topic_text(
             : picture_placeholder_columns(record, *lines, *pictures);
     for (std::size_t index = 0; index < lines->size(); ++index) {
       const auto& line = (*lines)[index];
-      if (framing.owned_lines[index]) continue;
+      const auto text = display_line_text(record, line);
+      if (framing.owned_lines[index]) {
+        list.directive(trim_ascii(text));
+        continue;
+      }
       const auto source = drawn.sources.size();
-      drawn.sources.push_back(trim_ascii(display_line_text(record, line)));
+      drawn.sources.push_back(trim_ascii(text));
       const auto cells = display_line_cells(record, line);
+      const auto blanked = !cells.empty() && cells.front().word == ' '
+                               ? list.take(cells)
+                               : std::pair<std::size_t, std::size_t>{0, 0};
       for (std::size_t column = 0; column < cells.size(); ++column) {
         const auto& cell = cells[column];
-        // A picture's placeholder words, which its image replaces.
+        // A picture's placeholder words, which its image replaces, and the
+        // list-item label the reader blanks.
         const auto placeholder = std::any_of(
             placeholders.begin(), placeholders.end(),
             [&](const PlaceholderColumns& columns) {
               return columns.line == index && column >= columns.begin &&
                      column < columns.end;
             });
-        if (placeholder) {
+        if (placeholder || (column >= blanked.first && column < blanked.second)) {
           drawn.text += ' ';
           drawn.opening.push_back(false);
           drawn.line.push_back(source);

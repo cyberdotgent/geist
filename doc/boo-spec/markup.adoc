@@ -6265,6 +6265,16 @@ No sampled book serves such a head differently.  The rule was not checked
 against a head whose first word is itself an ordinal (`1. Step`), nor
 against a head of four or more words; neither shape occurs in the sample.
 
+The reader's blanking is positional and does not look at the head's words.
+Inside any open list (`cz FLOW UL`, `OL` or `SL` not yet closed by
+`cz OFF EUL`, `EOL` or `ESL`), a `cz FLOW LI <left> <indent>` whose two
+columns differ arms it; on the next text row the reader overwrites with
+blanks the cells from column `<left>` up to the first blank cell after
+column `<left>`, and disarms it.  Only that one row is affected; an item
+whose two columns are equal blanks nothing.  The blanked word is drawn by the
+source and printed by no reader that matches hosted, so it does not count as
+text a rendering must keep (`GA27-4120-00` `4.0`, five `Step` words).
+
 *`OL` with a one-word letter head: the list's alphabet.*  When the head of
 an `OL` list's first item is a single word, `<letter>.` or `<letter>)`,
 standing at the item's `left` column with the text resuming at its
