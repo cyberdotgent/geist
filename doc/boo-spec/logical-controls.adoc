@@ -814,7 +814,7 @@ Literal words are read in one of two forms:
 |Dictionary text mode |Literal storage
 
 |16-bit dictionary text mode |Literal words are big-endian 16-bit values.
-|Single-byte dictionary text mode (all repository fixtures) |Literal bytes index the dictionary literal code-page table, producing 16-bit token words. For the repository version-1.2 fixtures that table is CP500, selected by directory word `0x004c` (`0x01f4`, decimal 500). The parameter's interpretation in other versions is reader-derived; see <<container_version_variants_other_than_2>>.
+|Single-byte dictionary text mode (all repository fixtures) |Literal bytes index the dictionary literal code-page table, producing 16-bit token words. For version-1.2 books that table is CP500, selected by directory word `0x004c` (`0x01f4`, decimal 500). Version 1.0 and 1.1 books use the selector-351 table instead; see <<container_version_variants_other_than_2>>.
 |===
 
 The code-page table used for dictionary literals is not an output character

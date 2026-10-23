@@ -343,40 +343,137 @@ of the 190-page file.
 [[container_version_variants_other_than_2]]
 ==== Version Variants Other Than 2
 
-All 35 fixtures carry EBCDIC `" 1.2"` at directory offset
-`0x0010`, so only directory variant 2 is exercised here.
+All 35 fixtures carry EBCDIC `" 1.2"` at directory offset `0x0010`. Outside
+the fixtures, a scan of the directory pages of 8,163 library books finds
+8,157 more `" 1.2"` books, every one storing `500` at `0x004c`, and five
+older books: four `" 1.0"` and one `" 1.1"`. They are described in
+<<container_containers_older_than_version_1_2>>.
 
-*Reader-derived evidence, not verified against files.* An independent
-reverse-engineering report of IBM Softcopy Reader,
+The fourth version byte selects how the dictionary text parameter is read.
+For versions 1.0, 1.1 and 1.2 the rules below are verified against books;
+version 1.3 is reader-derived only (an independent reverse-engineering report
+of IBM Softcopy Reader,
 https://github.com/cyberdotgent/geist/issues/97[reported by IncredulousMonk],
-identifies explicit checks for these four directory version strings. Each
-starts with bytes `40 F1 4B` (EBCDIC `" 1."`); the fourth byte selects the
-following interpretation of the dictionary text parameter:
+agrees with the BookServer reader on all four rows):
 
 [cols="12,12,76",options="header"]
 |===
-|Version |Fourth byte |Dictionary text selection reported from the reader
-|`1.0` |`F0` |Use text selector `0x015f` (351), independently of directory word `0x004c`; use format selector 1.
-|`1.1` |`F1` |Read directory word `0x004c`; substitute `0x015f` (351) when it is zero; use format selector 1.
-|`1.2` |`F2` |Read directory word `0x004c` without that substitution; use format selector 2. The observed files store `0x01f4` (500).
-|`1.3` |`F3` |Use text selector 1 and format selector 3, independently of directory word `0x004c`.
+|Version |Fourth byte |Dictionary text selector
+|`1.0` |`F0` |`0x015f` (351), independently of directory word `0x004c`. Verified: four books, all storing `0x0000` there.
+|`1.1` |`F1` |Directory word `0x004c`; `0x015f` (351) when it is zero. Verified: one book, storing `0x0000`.
+|`1.2` |`F2` |Directory word `0x004c` as stored. Every observed book stores `0x01f4` (500).
+|`1.3` |`F3` |`1`, independently of directory word `0x004c`. Not observed.
 |===
 
-The same report identifies byte `0x0015` as the prefix for an extended
+Any other fourth byte, or a version text that does not begin `40 F1 4B`, is
+rejected by the reader. Only selectors 351 and 500 are attested; a reader
+should refuse a book whose selector is anything else rather than read its
+dictionary through a guessed table. Selector 500 is the CP500 table of
+<<logical-controls_delta_operation_byte>>; selector 351 is the table in
+<<container_dictionary_text_selector_351>>.
+
+The report also identifies byte `0x0015` as the prefix for an extended
 dictionary range used by version 1.3. With its reported value `F0`, the
 extended range starts at `0xF000`; conventional two-byte dictionary keys end
-at `0xEFFF`. The version-1.2 fixtures independently keep their dictionary
-keys below `0xF000`, but do not exercise the extended form. The report does
-not establish the complete extended-reference byte grammar, dictionary
-layout, or the interpretation of selector 351 or selector 1. In particular,
-Unicode text in version 1.3 is a hypothesis, not an established fact.
+at `0xEFFF`. Every observed book keeps its dictionary keys below `0xF000` and
+none exercises the extended form, so the extended-reference byte grammar,
+the version-1.3 dictionary layout and the meaning of selector 1 are not
+established. In particular, Unicode text in version 1.3 is a hypothesis, not
+an established fact.
 
-Preserve the stored version, prefix and text parameter independently of
-their interpretation. Recognition of a version string does not establish
-support for its dictionary format. No complete layout or working decoding
-procedure is verified here for versions 1.0, 1.1 or 1.3; there is also no
-evidence that they necessarily extend the fixed fields beyond `0x0060`.
+[[container_containers_older_than_version_1_2]]
+==== Containers Older Than Version 1.2
 
+Five books in the library carry an older directory version: `EDCGV1R2.BOO`,
+`EDCIV1R2.BOO`, `EHMGMST.BOO` and `EHMPMST.BOO` are `" 1.0"`, and
+`EDCUSER.BOO` is `" 1.1"`. Version 1.1 rests on that single book; every
+statement below about version 1.1 is evidence from `EDCUSER.BOO` alone.
+
+*Same layout.* Page 0, the directory page and every directory offset in
+<<container_fixed_directory_fields>> have the same meaning as in version 1.2,
+and all five books decode through the same page runs, dictionary, record index
+and topic-start index. The directory pages differ from a version-1.2 page only
+in the version byte, the text parameter, and the time field:
+
+[cols=">10,<17,<17,<17,<17,<22",options="header"]
+|===
+|Directory offset |`EDCGV1R2.BOO` (1.0) |`EHMPMST.BOO` (1.0) |`EDCUSER.BOO` (1.1) |`OFCUSEOV.BOO` (1.2) |Meaning
+
+|page 0 `0x0000` |`00 01` |`00 28` |`00 56` |`00 01` |Directory physical page.
+|`0x0010` |`40 f1 4b f0` |`40 f1 4b f0` |`40 f1 4b f1` |`40 f1 4b f2` |Version text.
+|`0x0014` |`aa f0` |`aa f0` |`c1 f0` |`d5 f0` |Token threshold, extended-token prefix.
+|`0x003c` |`00 68 00 46` |`00 68 00 98` |`00 68 01 5a` |`00 68 00 c9` |Topic-start index offset and topic count (70, 152, 346, 201).
+|`0x0044` |`f1 f0 61 f3 f1 61 f8 f9` |`f1 f0 61 f2 f0 61 f8 f9` |`40 f5 61 f2 f3 61 f9 f0` |EBCDIC `08/05/90` |Date: `10/31/89`, `10/20/89`, `" 5/23/90"`.
+|`0x004c` |`00 00` |`00 00` |`00 00` |`01 f4` |Dictionary text parameter.
+|`0x004e` |8 zero bytes |8 zero bytes |8 zero bytes |EBCDIC `10:38:16` |Time.
+|===
+
+`EDCIV1R2.BOO` and `EHMGMST.BOO` match the two version-1.0 columns field for
+field (dates `10/31/89` and `10/19/89`).
+
+*Date and time.* These books store no build time: the time field is eight
+zero bytes. The reader decodes the date and time through the book's text
+table, turns each zero byte into a space and a leading space into `0`, so
+`EDCUSER.BOO` reads `05/23/90` and every time reads as blanks. Hosted
+BookServer serves `Build Date: 10/31/89` for `EDCGV1R2.BOO` and addresses its
+topics with the timestamp `19891031000000`.
+
+*Dictionary literals use selector 351.* The bytes the dictionary stores as
+literal letters are read through the selector-351 table, not CP500. The two
+tables agree on letters, digits and most punctuation and differ where the
+older layout puts its bars and brackets; the C-language books make the
+difference visible because their dictionaries hold the C operators:
+
+* `EDCGV1R2.BOO`, dictionary page 3, token record at file offset `0x37bb`,
+key `0xacb3`: `02 4f 4f 40 c1 50 c1 50 41 c1 7e 40 c1 5a c1 7e 40 c1 5c c1 61
+41 c1 7e`. Through selector 351 the base and its deltas spell `||`, `&`, `&&`,
+`&=`, `!`, `!=`, `*`, `*/`, `*=`. Through CP500 the same bytes spell `!!`
+and `]=`.
+* `EDCUSER.BOO`, dictionary page 2, the token block at file offset
+`0x57469` (first key `0xc1f2`) ends with the deltas `40 c1 4f`, `c1 4f`,
+`40 c1 50`: through selector 351 the tokens `|`, `||`, `&`; through CP500
+`!`, `!!`, `&`.
+* `EDCGV1R2.BOO` topic `VERSION` draws its revision bars with the token
+spelled by byte `0x4f`; hosted BookServer serves them as `|`.
+
+[[container_dictionary_text_selector_351]]
+.Dictionary literal table for selector 351
+[cols=">8,<92",options="header"]
+|===
+|Bytes |Token words for bytes `+0` .. `+F` (`----` = undefined)
+|`00` |`---- 0001 0002 ---- ---- ---- ---- ---- 2580 ---- ---- ---- ---- ---- ---- ----`
+|`10` |`25BA ---- ---- ---- ---- ---- ---- ---- 2588 ---- ---- 2510 250C ---- 2514 2518`
+|`20` |`---- ---- ---- ---- ---- ---- ---- ---- 2584 ---- ---- 00A7 253C 2500 ---- ----`
+|`30` |`---- 00B9 00B2 00B3 ---- ---- E936 ---- ---- ---- 00B6 252C ---- 251C 2534 2524`
+|`40` |`0020 ---- ---- ---- ---- ---- ---- ---- ---- ---- 00A2 002E 003C 0028 002B 007C`
+|`50` |`0026 ---- ---- ---- ---- ---- ---- ---- ---- ---- 0021 0024 002A 0029 003B 005E`
+|`60` |`002D 002F ---- ---- ---- ---- ---- ---- ---- ---- 00A6 002C 0025 005F 003E 003F`
+|`70` |`---- 00AC ---- ---- ---- ---- ---- 00B0 ---- 0060 003A 0023 0040 0027 003D 0022`
+|`80` |`---- 0061 0062 0063 0064 0065 0066 0067 0068 0069 2191 2193 ---- ---- ---- 2192`
+|`90` |`---- 006A 006B 006C 006D 006E 006F 0070 0071 0072 ---- ---- 00A4 25CB 00B1 2190`
+|`A0` |`---- 007E 0073 0074 0075 0076 0077 0078 0079 007A ---- ---- ---- 005B ---- ----`
+|`B0` |`---- ---- ---- ---- ---- 25A0 00D7 ---- 00F7 2666 25BC 25B2 ---- 005D ---- 2502`
+|`C0` |`007B 0041 0042 0043 0044 0045 0046 0047 0048 0049 ---- ---- ---- ---- ---- ----`
+|`D0` |`007D 004A 004B 004C 004D 004E 004F 0050 0051 0052 ---- ---- ---- ---- ---- ----`
+|`E0` |`005C ---- 0053 0054 0055 0056 0057 0058 0059 005A ---- ---- ---- ---- ---- ----`
+|`F0` |`0030 0031 0032 0033 0034 0035 0036 0037 0038 0039 ---- ---- ---- ---- ---- ----`
+|===
+
+*The topic-number control is `CTOPIC#`.* Version 1.0 and 1.1 topic headers
+spell the topic-number control `CTOPIC#` where version 1.2 spells it
+`CTOPICN`; operand and position are unchanged. The count of `CTOPIC#`
+controls equals the directory topic count in all five books (70, 178, 27,
+152 and 346). `EDCGV1R2.BOO` logical record 2, the first topic, decodes as
+`SHABSTRACT`, `CTOPIC# 1`, `CPARENT`, `CFORWARDLEVEL TITLE`, `CBACKLEVEL`,
+`CSUMMARY ...`, `CHDLEVEL :ABSTRACT`, `CSOURCEFN EDCGIABS`, `ST  Abstract`.
+The book header record likewise counts topics with `CTOPICS=70`. The reader
+locates topics through the topic-start index and never consults this control,
+and hosted BookServer draws nothing for it.
+
+*Contents entries carry no nesting.* A version 1.0 or 1.1 `CTOCE` line is
+`CTOCE <toc_style> <topic_id> <title>`; see <<toc_ctoce_in_older_containers>>.
+
+[[container_logical_book_header_controls]]
 [[container_logical_book_header_controls]]
 === Logical Book Header Controls
 
@@ -511,10 +608,10 @@ two books differing in one known respect, would settle it.
 cannot say whether they are reserved or simply unused here. A book whose
 build differs — a different code page, a multi-volume shelf member — would
 show which of them are live.
-* No repository fixture uses a directory version other than `" 1.2"`.
-The reader-derived distinctions in <<container_version_variants_other_than_2>>
-need real files to establish their dictionary layouts, extended references
-and text encodings.
+* Version 1.3. No observed book uses it, so its dictionary layout, extended
+references and text encoding remain reader-derived; see
+<<container_version_variants_other_than_2>>. Version 1.1 rests on a single
+book.
 * What the token-index pages hold per entry. Their framing, ordering and page
 table are documented in <<pages_the_trailing_0x0001_run_is_the_token_index>>;
 the per-token occurrence payload is not decoded. Nothing in topic rendering

@@ -389,11 +389,11 @@ version-1.2 format, directory word `0x004c` selects the dictionary literal table
 and every fixture stores `500`, so the corpus cannot
 exercise the DBCS shift-byte paths or the alternate table ranges
 (`group + 65` / `group + 97`) that the multibyte path uses. A book built for
-code page `933`, `935`, `937` or `939` is what would settle it. The
-version-dependent selectors reported in
-<<container_version_variants_other_than_2>> also need validation: they must
-not be assumed to denote the same literal table or to imply Unicode merely
-because the selector differs from `500`.
+code page `933`, `935`, `937` or `939` is what would settle it. Selector
+351, used by version 1.0 and 1.1 books, is verified and tabulated in
+<<container_version_variants_other_than_2>>; selector 1 (version 1.3) is not,
+and must not be assumed to imply Unicode merely because it differs from
+`500`.
 * Dictionary index controls `2`, `4` and `5`. Measured across all 35 fixtures:
 the control byte of the dictionary root index block named by directory word
 `0x0026` is `0x03` in every book, and the control byte of every `0x0100`

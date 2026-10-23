@@ -348,6 +348,45 @@ Examples from `OFCUSEOV.BOO` page 12 record 2:
 l|CTOCE 0 1 1.0 Chapter 1.  Using Calendar Functions |`1.0` / pass:[<literal>Chapter 1.&#160;&#160;Using Calendar Functions</literal>]
 |===
 
+[[toc_ctoce_in_older_containers]]
+==== `CTOCE` In Version 1.0 And 1.1 Containers
+
+Books whose directory version is `" 1.0"` or `" 1.1"` (see
+<<container_containers_older_than_version_1_2>>) write one field fewer:
+
+----
+CTOCE <toc_style> <topic_id> <title>
+----
+
+There is no nesting field. `EDCGV1R2.BOO` `CONTENTS` stores
+`CTOCE 1 ABSTRACT Abstract`, `CTOCE 2 1.1 Who Might Use This Book` and
+`CTOCE 3 3.3.1 VSAM Data Sets`; `EDCIV1R2.BOO` stores
+`CTOCE 0 1.0 Introduction` and `CTOCE 1 1.1 Chapter 1.  Introduction`.
+The single number is the `toc_style`, not a nesting: over all 773 entries of
+the five such books it equals the style the version-1.2 rule above derives
+from the target topic's `CHDLEVEL` (`:H0` -> `0`, `:H1` and front matter ->
+`1`, `:H2` -> `2`, `:H3` -> `3`, `:H4` -> `4`), with no exception, whereas it
+disagrees with the `CPARENT` chain length in 328 of them, all 70 in
+`EDCGV1R2.BOO`. The same seven `CTOCDEF` lines precede the entries. In all
+five books every topic has an entry, in topic order.
+
+A reader that needs the nesting derives it as the version-1.2 field is
+defined: the length of the target topic's `CPARENT` chain. A reader that
+cannot follow a chain to a top-level topic should not guess one.
+
+Hosted BookServer reads these lines with the four-field version-1.2 grammar
+and so takes the first title word for the topic id: for `EDCGV1R2.BOO` at DT
+`19891031000000` it serves `CTOCE 1 ABSTRACT Abstract` as
+
+[source,html]
+----
+<a name="Abstract">Abstract</a>      <a href="Abstract?DT=19891031000000"><strong>Abstract</strong></a>
+----
+
+and `CTOCE 2 1.1 Who Might Use This Book` as a link to a topic `Who`. Its
+contents page for these books links to topics that do not exist and is not
+evidence for the format.
+
 [[toc_independent_reader_steps]]
 === Independent Reader Steps
 

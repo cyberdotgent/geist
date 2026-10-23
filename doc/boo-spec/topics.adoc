@@ -121,7 +121,7 @@ its relationship to neighboring topics.
 |Control |Meaning
 
 |`SH<id>` |Public topic identifier. This is the identifier used by TOC entries and BookServer topic URLs.
-|`CTOPICN` |1-based topic number. This should match the ordinal used in the topic-start index. Always carries an operand.
+|`CTOPICN` |1-based topic number. This should match the ordinal used in the topic-start index. Always carries an operand. Spelled `CTOPIC#` in version 1.0 and 1.1 containers; see <<container_containers_older_than_version_1_2>>.
 |`CPARENT` |Parent topic identifier. The control is always written; the operand is absent for a top-level topic (624 of 10,502 topics).
 |`CFORWARDLEVEL` |Next topic identifier at the same navigation level. Always written; operand absent in 1,931 topics.
 |`CBACKLEVEL` |Previous topic identifier at the same navigation level. Always written; operand absent in 1,931 topics.
