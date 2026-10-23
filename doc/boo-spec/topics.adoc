@@ -157,10 +157,73 @@ may be interleaved; only three anchor opcodes occur in that position across the
 corpus — `SRHDR<id>` (3,094 lines), `SRMSG <id>` (1,664) and `SRLEN [<name>]`
 (273, in `SC24-546.boo`, `SC33-033.boo` and `SC34-425.boo` only).
 
-The single exception is `SC09-138.boo` topic `FRONT`: `SH`, `CTOPICN`,
-`CPARENT`, `CFORWARDLEVEL`, `CBACKLEVEL`, `CSUMMARY`, then eleven
-`C.REV <label>` lines, then an empty `ST`. It carries no `CHDLEVEL` and no
-`CSOURCEFN`, so a reader that requires either will lose that topic.
+The single exception among the fixtures is `SC09-138.boo` topic `FRONT`:
+`SH`, `CTOPICN`, `CPARENT`, `CFORWARDLEVEL`, `CBACKLEVEL`, `CSUMMARY`, then
+eleven `C.REV <label>` lines, then an empty `ST`. It carries no `CHDLEVEL` and
+no `CSOURCEFN`. Outside the fixtures the shape is common, so the fixed order
+is an encoder habit, not a rule a reader may depend on; see
+<<topics_reading_the_envelope>>.
+
+[[topics_reading_the_envelope]]
+==== Reading The Envelope
+
+The reference reader does not validate the envelope. It renders a topic in one
+pass over its display lines and treats the metadata controls as follows:
+
+[cols="<22,<45",options="header"]
+|===
+|Control |Effect on the served topic
+
+|`SH<id>` |Sets the topic id used for an empty title (below).
+|`CTOPICN`, `CPARENT`, `CFORWARDLEVEL`, `CBACKLEVEL`, `CSUMMARY`, `CSOURCEFN` |None. Ignored wherever they occur; their absence changes nothing.
+|`CHDLEVEL :<kind>` |Names the heading level of the title. When the topic has none, the title is served at the top level (`h1`).
+|`C.<word>` lines (`C.REV`, `C.SP`, ...) |None; nothing of the line is displayed.
+|`SI <entry>` lines |None in the body; the line is an index entry.
+|`ST [<title>]` |The topic heading. With no payload the heading is the `SH` topic id alone.
+|===
+
+So every metadata control after `SH` is optional and their order carries no
+meaning. A reader can therefore take the envelope as: the `SH` line, then any
+of the seven metadata controls (each at most once in every observed topic),
+interleaved with bare `SR<id>` anchors, `SRMSG` and `C.REV` lines, up to the
+`ST` line. Visible text before the `ST` line does not occur.
+
+Evidence, `SC09-138.boo` (`EDCGUIDE.BOO`) topic `FRONT`, logical record 2:
+
+[cols="<14,<22,<45",options="header"]
+|===
+|Token |Bytes |Meaning
+
+|1 |`0x6616e`-`0x6616f` |`SHFRONT`
+|13-16 |`0x6617c`-`0x6617f` |`CSUMMARY 0 0 0`
+|17-60 |`0x66180`-`0x661c9` |eleven `C.REV` lines (`REL2 \|` ... `DUNNO ?`)
+|61-62 |`0x661ca`-`0x661cb` |line length byte, then `ST` with nothing after it on its line
+|63-82 |`0x661cc`- |`C.SP 1`, `SI run-time, options`, `SI TSO, system services`
+|===
+
+Hosted BookServer (DT `19910321130500`) serves this topic as `<h1> FRONT </h1>`
+followed by an empty preformatted body: no `CHDLEVEL`, so level 1; empty `ST`,
+so the id; the `C.` and `SI` lines draw nothing. The same rule gives
+`<H3> 8.1.1.1 </H3>` for that book's topic `8.1.1.1`, which has `CHDLEVEL :H3`
+and an empty `ST`.
+
+`CSUMMARY 0 0 0` here agrees with the field meanings below: every display line
+of the body is a control line (`a` = `c` = 0) and no topic names `FRONT` as its
+parent (`b` = 0). The reader never consults `CSUMMARY`.
+
+A random sample of 1,500 books from a larger collection gives the same picture:
+
+* 84 books carry a `FRONT` topic shaped like the one above (`SH`, `CTOPICN`,
+  `CPARENT`, `CFORWARDLEVEL`, `CBACKLEVEL`, `CSUMMARY`, optional `C.REV` lines,
+  empty `ST`, no `CHDLEVEL`, no `CSOURCEFN`). Some have an empty body; others
+  carry a whole Licensed Program Specifications text after the `ST` line.
+  Hosted BookServer heads every one checked (40 books) `<h1> FRONT </h1>`.
+* `SC34-3164-00.boo` writes no `CSOURCEFN` in any of its 75 topics; the rest of
+  each envelope is in the usual order. Hosted serves these topics with their
+  `CHDLEVEL` levels as usual (`<H1> 4.1   Book Reader</H1>`, DT
+  `20000509175449`).
+* No sampled topic wrote a metadata control twice or out of the order above;
+  a reader that declines such a topic loses nothing observed.
 
 Any _other_ record that looks like a topic header is a false split. The
 canonical counter-example is `SH12-565.boo` record 906, described under
