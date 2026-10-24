@@ -874,7 +874,11 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
       append_spans(content, paragraph.leading_spans, paragraph_origin);
       rest = after_prefix(paragraph.text, joined);
       rest_from = paragraph.text.find_first_not_of(' ', joined.size());
-      if (!rest.empty())
+      // The remainder is set apart only where the row draws a blank there: a
+      // mark glued to the lead stays glued (SC34-4335-00 APPENDIX1.3.4.1
+      // `<TT>PICAREAS</TT>.`, hosted DT 19920131163435).
+      if (!rest.empty() && paragraph.text.size() > joined.size() &&
+          paragraph.text[joined.size()] == ' ')
         rest.insert(rest.begin(), ' ');
       if (!paragraph.line_breaks.empty()) {
         // The highlighted lead is the first row's; a break inside it, or a

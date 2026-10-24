@@ -4499,6 +4499,36 @@ int main() {
     }
   }
 
+  // A styled lead with a mark glued to it keeps the mark glued: SC34-4335-00
+  // APPENDIX1.3.4.1 record 866 lines 16-17 are `cfont 3 8 4` and
+  // `   PICAREAS.  Each bit ...` (attach `01` and `.` at 0x1F7828); hosted
+  // (DT 19920131163435) serves `<TT>PICAREAS</TT>.  Each`.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({origin(), t("Intro", 290), t("text.", 291)}));
+    append(tokens, line({}));
+    append(tokens, line({t("cfont", 111), t("3", 112), t("4", 160),
+                         t("X", 292)}));
+    append(tokens, line({origin(), t("PICA", 293), {TokenWords{1, '.'}, 0},
+                         t(" ", 294), t("Each", 295), t("bit.", 296)}));
+    append(tokens, entry("643", 297));
+    const auto built = build({make_source(73, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "glued lead catalog declined: " + built.error);
+    if (built.catalog) {
+      std::string error;
+      const auto document = geist::detail::lower_trap_catalog_to_document_ir(
+          {"12", "Sample Messages"}, *built.catalog, &error);
+      require(document.has_value(), "glued lead lowering declined: " + error);
+      if (document) {
+        const auto html =
+            geist::detail::render_document_html_blocks(*document, {});
+        require(html.find("PICA</code>. Each") != std::string::npos,
+                "a mark glued to a styled lead was parted from it: " + html);
+      }
+    }
+  }
+
   std::cout << "trap catalog IR synthetic tests passed\n";
   return 0;
 }
