@@ -1986,7 +1986,11 @@ private:
         // Before SRETBL every trailing one-byte token is a hidden slot
         // (`qquit.`, `vmfview build.`, `Guide,`); before a CFONT only the
         // placeholder/uncovered/duplicate shapes are.
+        // A display line's length byte draws nothing, whatever word it
+        // spells: GC24-5841-01 4.6 record 7871 line 19 opens `cfont` behind
+        // a length byte spelled `a`, after the last row `... to TSAF`.
         const bool hidden =
+            last.line_length ||
             (after >= words.size() && envelope_end) ||
             ((after >= words.size() || words[after].segment != last.segment) &&
              terminal_slot(words, state.last_content));

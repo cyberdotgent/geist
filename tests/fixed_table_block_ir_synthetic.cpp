@@ -899,6 +899,52 @@ void test_word_past_right_border_is_not_hidden() {
           "the word past the right border vanished: " + text);
 }
 
+// A display line's length byte draws nothing, whatever word it spells, even
+// where it stands between the last row of a gap table line and a control.
+// GC24-5841-01 4.6 record 7871 line 16 is `   025W   User userid has no
+// APPC/VM connection to TSAF`; line 19 is `cfont 23 1 V ...` and its length
+// byte (value 21, 0x3186A9) spells `a`.  Hosted (DT 19990525154647) prints
+// `connection to TSAF`.
+void test_length_byte_before_control_is_not_content() {
+  RecordBuilder builder;
+  builder.line({words("cz"), words("OFF"), words("TABLE")});
+  builder.line({words("SRTBLTBLUNIQ710")});
+  builder.sized_line({{"   ", 1}, {"009E", 2}, {"   ", 1}, {"cmd", 2},
+                      {"is", 2}, {"valid", 2}});
+  builder.sized_line({{"   ", 1}, {"025W", 2}, {"   ", 1}, {"User", 2},
+                      {"to", 2}, {"TSAF", 2}});
+  builder.sized_line({{"cfont", 2}, {"23", 2}, {"1", 2}, {"V", 2}},
+                     words("a"));
+  builder.sized_line({{"   ", 1}, {"023I", 2}, {"   ", 1}, {"VMDUMP", 2},
+                      {"taken", 2}});
+  builder.line({words("SRETBL")});
+  std::vector<DecodedLogicalRecordSource> sources;
+  sources.push_back(builder.finish(7871));
+  require(sources.front().ir.display_lines_parse,
+          "length-byte table: synthetic framing did not parse");
+  const auto layout = extract_layout_ir(sources);
+  const auto ownership = build_ownership_ir(sources, layout);
+  const LayoutRowRangeIR range{0, count_layout_rows(layout)};
+  const auto blocks =
+      extract_fixed_table_blocks_ir(sources, layout, ownership, range);
+  require(blocks.blocks.size() == 1,
+          "length-byte table did not become one block" +
+              (blocks.declined.empty()
+                   ? std::string{}
+                   : ": " + blocks.declined.front().reason));
+  if (blocks.blocks.size() != 1) return;
+  std::string text;
+  for (const auto &row : blocks.blocks.front().body)
+    for (const auto &cell : row.cells)
+      for (const auto &line : cell.lines) text += line.text + "|";
+  for (const auto &line : blocks.blocks.front().preformatted_lines)
+    text += line.text + "|";
+  require(text.find("TSAF") != std::string::npos &&
+              text.find("TSAFa") == std::string::npos &&
+              text.find("TSAF a") == std::string::npos,
+          "the next line's length byte was printed as table text: " + text);
+}
+
 // A cell whose only word is a real `?`.  SC41-5401-00 2.3.2.111 record 804
 // line 28 is ` | | ?                   | Question mark   |`: token 306 is a
 // two-byte dictionary word whose single word is 0x3F (bytes `B7 12` at
@@ -968,6 +1014,7 @@ int main() {
   test_line_end_word_before_blank_length_byte();
   test_word_past_right_border_is_not_hidden();
   test_lone_question_mark_cell();
+  test_length_byte_before_control_is_not_content();
   geist_test::exit_with_failures();
   std::cout << "fixed table block IR checks passed\n";
   return 0;
