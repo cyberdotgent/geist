@@ -670,6 +670,14 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
   const auto already_seen = [&](const BookControlKind kind) {
     return std::find(seen.begin(), seen.end(), kind) != seen.end();
   };
+  // The reader skips every `CSUMMARY` line without reading it, so a summary
+  // the source wrote across several lines is several controls of one kind.
+  // EDCGV1R2 CONTENTS record 9 lines 5 and 6 are both `CSUMMARY CONTENTS
+  // ...`; hosted BookServer serves neither (DT 19891031000000).  Every other
+  // metadata control written twice still declines.
+  const auto repeatable = [](const BookControlKind kind) {
+    return kind == BookControlKind::summary;
+  };
   // Where the next metadata control stands once the envelope interleavings
   // the walk consumes ahead of a control -- row slots, one `SRMSG`, `SR<id>`
   // anchors and revision-code definitions, in that order -- are passed over.
@@ -702,7 +710,7 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
       if (envelope.glued_title || seen.size() + 1 == required.size()) break;
       const auto next = next_metadata_kind();
       if (!next) break;
-      if (already_seen(*next))
+      if (already_seen(*next) && !repeatable(*next))
         return fail(error, "a topic metadata control is repeated");
     }
     if (at_end())
@@ -827,7 +835,8 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
     const auto record_index = cursor.record;
     const auto expected =
         index == 0 ? segment.kind == BookControlKind::topic_start
-                   : metadata_kind(segment.kind) && !already_seen(segment.kind);
+                   : metadata_kind(segment.kind) &&
+                         (!already_seen(segment.kind) || repeatable(segment.kind));
     if (!expected) {
       // The one admissible substitution: a record-leading non-numeric topic
       // id whose `CTOPICN` corroboration sits in the next record.
@@ -860,7 +869,7 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
       }
       continue;
     }
-    if (index != 0) seen.push_back(segment.kind);
+    if (index != 0 && !already_seen(segment.kind)) seen.push_back(segment.kind);
     if (segment.kind == BookControlKind::heading_level) {
       heading_cursor = cursor;
       heading_seen = true;

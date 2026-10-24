@@ -541,6 +541,26 @@ decode_control_segments(std::uint32_t logical_record,
     }
     return text.size();
   };
+  // The display line an opcode word opens: its first token must be the
+  // line's first token after the length byte.  `display_lines.end()` when the
+  // record carries no framing or the opcode stands inside a line.
+  const auto opcode_line = [&](const OutputRangeIR &opcode_range) {
+    const auto opcode_words =
+        decoded_byte_range_to_word_range(assembled, opcode_range);
+    const auto opcode_tokens = source_tokens_intersecting_output(
+        assembled, opcode_words.begin, opcode_words.end);
+    if (opcode_tokens.empty()) return display_lines.end();
+    return std::find_if(display_lines.begin(), display_lines.end(),
+                        [&](const DisplayLineIR &line) {
+                          return line.prefix_token + 1 == opcode_tokens.front() &&
+                                 opcode_tokens.front() < line.token_end;
+                        });
+  };
+  const auto opcode_line_end = [&](const OutputRangeIR &opcode_range) {
+    const auto line = opcode_line(opcode_range);
+    if (line == display_lines.end()) return text.size();
+    return display_line_end_byte(line->prefix_token + 1);
+  };
   const auto decoded = split_glued_body_controls(
       assembled, encoded_tokens, text,
       split_decoded_markup_segment_spans(text));
@@ -687,6 +707,22 @@ decode_control_segments(std::uint32_t logical_record,
                     {assembled.tokens[last_operand_token].output_end,
                      assembled.tokens[last_operand_token].output_end})
                     .begin;
+          }
+        } else if (segment.kind == BookControlKind::summary &&
+                   opcode_line(segment.opcode_range) != display_lines.end()) {
+          // The reader skips a `CSUMMARY` line whatever it carries, so on a
+          // framed record its operands are exactly the words of the display
+          // line the opcode opens.  A version 1.2 book writes three counts
+          // there; a version 1.0/1.1 book writes the topic id and the
+          // SCRIPT controls of the source (EDCGV1R2 3.4.6 record 68 line 5
+          // is `CSUMMARY 3.4.6 .SP 1#.SK 1#T7#.SK 1#T1#.SK 2`, and hosted
+          // BookServer serves none of it, DT 19891031000000).  An unframed
+          // record keeps the fixed three-operand reading.
+          const auto line_end = opcode_line_end(segment.opcode_range);
+          operand_words = 0;
+          for (std::size_t word = 1; word < words.size(); ++word) {
+            if (words[word].end > line_end) break;
+            operand_words = word;
           }
         } else if (segment.kind == BookControlKind::spacing) {
           // SCRIPT vertical spacing has five observed operand forms:

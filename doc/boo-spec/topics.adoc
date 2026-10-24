@@ -184,7 +184,9 @@ pass over its display lines and treats the metadata controls as follows:
 
 So every metadata control after `SH` is optional and their order carries no
 meaning. A reader can therefore take the envelope as: the `SH` line, then any
-of the seven metadata controls (each at most once in every observed topic),
+of the seven metadata controls (each at most once in every observed version
+1.2 topic; a version 1.0/1.1 summary can span several `CSUMMARY` lines, see
+<<topics_topic_lines_in_older_containers>>),
 interleaved with bare `SR<id>` anchors, `SRMSG` and `C.REV` lines, up to the
 `ST` line. Visible text before the `ST` line does not occur.
 
@@ -256,6 +258,44 @@ books — which is the same as the directory topic count only when every topic i
 listed in the TOC. That holds in 21 of 34 books; in the other 13 the two
 numbers differ, sometimes by a lot (`IBMMMSTR.boo` has 1,677 topics and
 `CSUMMARY 60 0 60`, `SC34-425.boo` has 822 topics and `CSUMMARY 260 0 260`).
+
+[[topics_topic_lines_in_older_containers]]
+==== Topic Lines In Older Containers
+
+The five version 1.0 and 1.1 books (see
+<<container_containers_older_than_version_1_2>>) write their topic envelopes
+and bodies with the same display-line framing as version 1.2, but several
+control lines carry different operands. The reference reader draws none of
+them; what follows is what an implementer must skip.
+
+*`CSUMMARY <id> <script>`.* The summary line repeats the topic id and then
+carries the SCRIPT formatting controls of the source topic, joined by `#`,
+instead of the three counts of version 1.2. `EDCGV1R2.BOO` topic `3.4.6`,
+logical record 68:
+
+[cols="<16,<30,<45",options="header"]
+|===
+|File offset |Bytes |Meaning
+
+|`0xc916` |`0a` |Display-line length byte: 10 payload bytes follow.
+|`0xc917` |`7a b8 d3 1f b8 3c b8 6e 90 9a` |`CSUMMARY`, `3.4.6`, `.SP`, `1#.SK`, `1#T7#.SK`, `1#T1#.SK`, `2`
+|`0xc921` |`02` |The next line's length byte, opening `CHDLEVEL :H3`.
+|===
+
+The whole line is `CSUMMARY 3.4.6 .SP 1#.SK 1#T7#.SK 1#T1#.SK 2`, and its
+operands end where its display line ends. A long summary continues on further
+lines that each open with `CSUMMARY <id>` again: `EDCGV1R2.BOO` topic
+`CONTENTS`, record 9, writes `CSUMMARY CONTENTS #1L17#1L16...` at `0x8805`
+(length byte `0x0e` at `0x8804`) and `CSUMMARY CONTENTS 1#3L52#3L27...` at
+`0x8814`. 893 `CSUMMARY` lines stand in the 773 topics of the five books.
+
+The reader recognises the line by its first eight characters and skips it
+whatever follows, wherever it stands and however often it occurs. Hosted
+BookServer serves `3.4.6` (DT `19891031000000`) as the heading
+`3.4.6   Transaction Processing Facility` and the body only; none of the
+summary text appears in any served topic of these books. A reader can
+therefore take every display line that opens with `CSUMMARY` as envelope
+metadata, as many as there are, and need not read its operands.
 
 [[topics_chdlevel_observed_values]]
 ==== `CHDLEVEL` Observed Values
