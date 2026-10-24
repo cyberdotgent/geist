@@ -349,6 +349,11 @@ struct StreamBuild {
   // Source slice of an `ST` control with no payload: an empty title still
   // needs provenance, and the control's own tokens are it.
   std::optional<DocumentSourceSliceIR> empty_title_source;
+  // Input: the number of table/figure spans the plan admitted.  A second
+  // `ST` line becomes span `span_base + n` for the n-th entry of
+  // `repeated_titles`.
+  std::size_t span_base = 0;
+  std::vector<ProseRepeatedTitleIR> repeated_titles;
 };
 
 bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,

@@ -14,6 +14,13 @@
 // (ESE4MSTR, SC31-7563-02).  A title that merely starts with the id keeps the
 // number.
 //
+// Every `ST` line heads the topic.  A second `ST` inside the body prints a
+// second heading with the same level and the same topic number.  SC31-8212-00
+// 2.3.3 (DT 19950906051034) opens with an empty `ST`, a styled row `open`,
+// the anchor `SRHDRHWEOP6` and `ST  Purpose`; hosted serves `<H2> 2.3.3
+// </H2>`, `   <B>open</B>` and `<a name="HDRHWEOP6"><H2> 2.3.3
+// Purpose</H2></a>`.
+//
 // Everything here is synthetic: the test builds whole topic records by hand.
 
 #include "geist/detail/layout/display_lines.hpp"
@@ -149,6 +156,73 @@ std::vector<Heading> headings(const std::vector<Line> &lines,
   return result;
 }
 
+// The document's blocks in order: `hN:<text>` for a heading, `a:<id>` for
+// an anchor, `p` for a paragraph and `?` for anything else.
+std::string outline(const std::vector<Line> &lines, const std::string &id,
+                    const std::string &catalog_title, std::string *rejection) {
+  std::vector<DecodedLogicalRecordSource> records;
+  records.push_back(build(lines, 2));
+  geist::detail::TopicIdentityIR identity;
+  identity.id = id;
+  identity.title = catalog_title;
+  identity.start_logical_record = 2;
+  identity.end_logical_record = 2;
+  const auto document = geist::detail::try_lower_topic_to_document_ir(
+      identity, records, nullptr, rejection);
+  if (!document) return "<declined>";
+  std::string result;
+  for (const auto &block : document->blocks) {
+    if (!result.empty()) result += '|';
+    std::visit(
+        [&](const auto &node) {
+          using T = std::decay_t<decltype(node)>;
+          if constexpr (std::is_same_v<T, geist::detail::HeadingBlockIR>)
+            result += "h" + std::to_string(node.level) + ":" +
+                      inline_text(node.content);
+          else if constexpr (std::is_same_v<T, geist::detail::AnchorBlockIR>)
+            result += "a:" + node.id;
+          else if constexpr (std::is_same_v<T,
+                                            geist::detail::ParagraphBlockIR>)
+            result += "p";
+          else
+            result += "?";
+        },
+        block.node);
+  }
+  return result;
+}
+
+void expect_outline(const std::string &label, const std::vector<Line> &lines,
+                    const std::string &id, const std::string &catalog_title,
+                    const std::string &expected) {
+  std::string rejection;
+  const auto found = outline(lines, id, catalog_title, &rejection);
+  require(found == expected, label + ": blocks '" + found + "' (" +
+                                 rejection + "), expected '" + expected + "'");
+}
+
+// A topic whose body carries a second `ST` line after an anchor.
+std::vector<Line> second_title_topic(const Line &first_title,
+                                     const Line &second_title) {
+  return {
+      {words("SH2.3.3")},
+      {words("ctopicn"), words("164")},
+      {words("cparent"), words("2.3")},
+      {words("cforwardlevel"), words("2.3.4")},
+      {words("cbacklevel"), words("2.3.2")},
+      {words("csummary"), words("9"), words("0"), words("9")},
+      {words("chdlevel"), words(":H2")},
+      {words("csourcefn"), words("DPML0O61")},
+      first_title,
+      {words("cfont"), words("3"), words("4"), words("2")},
+      {words("   "), words("open")},
+      {words("SRHDRPURPOSE")},
+      second_title,
+      {},
+      {words("   "), words("Opens"), words("a"), words("session.")},
+  };
+}
+
 void expect_heading(const std::string &label, const std::vector<Line> &lines,
                     const std::string &id, const std::string &catalog_title,
                     const std::string &expected) {
@@ -192,5 +266,19 @@ int main() {
   expect_heading("1.1 / Introduction",
                  topic("1.1", ":H2", {words("ST"), words("Introduction")}),
                  "1.1", "Introduction", "1.1 Introduction");
+
+  // A second ST heads the topic again, at the same level, after the anchor
+  // that precedes it.
+  expect_outline("empty ST, then ST Purpose",
+                 second_title_topic({words("ST")},
+                                    {words("ST"), words("  "),
+                                     words("Purpose")}),
+                 "2.3.3", "", "h2:2.3.3|p|a:HDRPURPOSE|h2:2.3.3 Purpose|p");
+  expect_outline("ST Open, then ST Purpose",
+                 second_title_topic({words("ST"), words("Open")},
+                                    {words("ST"), words("Purpose"),
+                                     words("and"), words("use")}),
+                 "2.3.3", "Open",
+                 "h2:2.3.3 Open|p|a:HDRPURPOSE|h2:2.3.3 Purpose and use|p");
   return 0;
 }

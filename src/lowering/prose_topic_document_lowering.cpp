@@ -514,6 +514,30 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
           !frame_table_rows(span, blocks, &span_error))
         return false;
       for (auto& block : blocks) destination.push_back(std::move(block));
+    } else if (span.kind == ProseSpanKindIR::title) {
+      // A further `ST` line heads the topic again, at its level and under
+      // its number (hosted SC31-8212-00 2.3.3: `<H2> 2.3.3   Purpose</H2>`),
+      // with the topic heading's own rule for a title that spells the id.
+      if (span.index >= prose.repeated_titles.size())
+        return fail(&span_error, "title span addresses no repeated ST title");
+      const auto& repeated = prose.repeated_titles[span.index];
+      if (repeated.title.empty())
+        return fail(&span_error, "repeated ST title is empty");
+      const auto repeated_origin =
+          origin({repeated.source}, "prose repeated ST heading");
+      HeadingBlockIR heading;
+      heading.level = level;
+      if (!ascii_equals_case_insensitive(trim_ascii(repeated.title),
+                                         document.topic.id)) {
+        InlineIR identity_prefix;
+        identity_prefix.node = TextInlineIR{document.topic.id + " "};
+        identity_prefix.origin.derivation = DocumentDerivationIR::synthesized;
+        identity_prefix.origin.detail = "public topic identity prefix";
+        heading.content.push_back(std::move(identity_prefix));
+      }
+      heading.content.push_back(
+          InlineIR{TextInlineIR{repeated.title}, repeated_origin});
+      destination.push_back({std::move(heading), repeated_origin});
     } else {
       if (span.index >= prose.figures.blocks.size())
         return fail(&span_error, "figure span addresses no figure block");

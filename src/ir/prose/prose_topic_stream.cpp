@@ -1628,9 +1628,95 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
 
       switch (segment.kind) {
       case BookControlKind::title: {
-        if (title_seen)
-          return fail(error, "topic carries a second ST control");
         if (segment.malformed) return fail(error, "ST control is malformed");
+        if (title_seen) {
+          // Every `ST` line heads the topic: the reader keeps no "title
+          // already printed" state, so a second one prints a second heading
+          // at the topic's level under the same number.  SC31-8212-00 2.3.3
+          // record 855 line 14 is `ST  Purpose` (tokens [43,46)) after the
+          // empty `ST` of line 10, the row `   open` and `SRHDRHWEOP6`;
+          // hosted (DT 19950906051034) serves `<H2> 2.3.3 </H2>`,
+          // `   <B>open</B>` and `<a name="HDRHWEOP6"><H2> 2.3.3
+          // Purpose</H2></a>`.  The heading's words are exactly the `ST`
+          // display line's; what the segment carries past that line is body.
+          const auto operands = operand_tokens(record, segment);
+          if (segment.source_tokens.empty() || operands.empty())
+            return fail(error, "second ST control has no opcode");
+          const auto* line =
+              display_line_of_token(record, segment.source_tokens.front());
+          if (line == nullptr)
+            return fail(error, "second ST control has no display line");
+          ProseRepeatedTitleIR repeated;
+          std::vector<std::pair<std::size_t, std::size_t>> refs;
+          std::vector<std::size_t> rest;
+          // Word spacing as the first title's (prose_topic_lines.cpp): a
+          // blank run is a space, and a word's attach prefix decides whether
+          // the next word is separated from it.
+          bool space = false;
+          bool pending_space = false;
+          bool after_opcode = false;
+          for (const auto token : segment.source_tokens) {
+            if (std::binary_search(operands.begin(), operands.end(), token)) {
+              if (!ledger.assign(record_index, token,
+                                 ProseTokenRoleIR::envelope, error))
+                return false;
+              after_opcode = true;
+              continue;
+            }
+            if (token >= line->token_end) {
+              rest.push_back(token);
+              continue;
+            }
+            const auto view = view_token(records, record_index, token);
+            if (is_padding(view) || !is_visible(view)) {
+              if (!ledger.assign(record_index, token,
+                                 ProseTokenRoleIR::padding, error))
+                return false;
+              space = space || is_space_run(view);
+              continue;
+            }
+            // A mark glued to the opcode is the revision column, which the
+            // document model does not carry; decline rather than print it
+            // as a title word.
+            if (after_opcode && repeated.title.empty() && !space &&
+                punctuation_glyph_token(view))
+              return fail(error, "second ST control carries a revision mark");
+            if (!repeated.title.empty() &&
+                (space ||
+                 (pending_space && view.prefix != 0 && view.prefix != 1)))
+              repeated.title.push_back(' ');
+            repeated.title += body_text(view);
+            space = false;
+            pending_space = view.prefix != 2;
+            refs.push_back({record_index, token});
+            if (!ledger.assign(record_index, token, ProseTokenRoleIR::title,
+                               error))
+              return false;
+          }
+          if (repeated.title.empty())
+            return fail(error, "second ST control has no title");
+          const auto slices = slices_for(records, refs);
+          if (slices.empty())
+            return fail(error, "second ST title has no source provenance");
+          repeated.source = slices.front();
+          repeated.source.token_end = slices.back().token_end;
+          repeated.source.byte_end = slices.back().byte_end;
+          Item mark;
+          mark.kind = ItemKind::span;
+          mark.span_index = build.span_base + build.repeated_titles.size();
+          build.items.push_back(std::move(mark));
+          build.repeated_titles.push_back(std::move(repeated));
+          for (const auto token : rest) {
+            Item item;
+            item.kind = ItemKind::token;
+            item.token = view_token(records, record_index, token);
+            build.items.push_back(std::move(item));
+          }
+          Item end;
+          end.kind = ItemKind::segment_end;
+          build.items.push_back(std::move(end));
+          break;
+        }
         title_seen = true;
         const auto before = build.items.size();
         if (!push_payload(ProseTokenRoleIR::envelope, true, false, false))

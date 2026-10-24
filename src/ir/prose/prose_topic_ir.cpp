@@ -67,8 +67,17 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
   StreamBuild stream;
   stream.plan = &plan;
   stream.resource_ids = resource_ids;
+  stream.span_base = topic.spans.size();
   if (!collect_stream(records, envelope, ledger, stream, error))
     return std::nullopt;
+  // Every further `ST` line is a heading span after the planned ones.
+  for (std::size_t index = 0; index < stream.repeated_titles.size(); ++index) {
+    ProseSpanIR span;
+    span.kind = ProseSpanKindIR::title;
+    span.index = index;
+    topic.spans.push_back(std::move(span));
+  }
+  topic.repeated_titles = stream.repeated_titles;
   // A plural CFONT header over repeated encoded row controls is a
   // two-column form (SC31-711 1.2 `Directory` / `Type of Files`); prose must
   // not flatten it, so the line builder keeps its rows verbatim
@@ -208,9 +217,17 @@ bool verify_prose_topic_ir(
   // source cell against the ownership ledger.
   for (std::size_t index = 0; index < topic.spans.size(); ++index) {
     const auto& span = topic.spans[index];
-    if (span_tokens[index] == 0) return fail(error, "span owns no token");
     if (span.position > topic.blocks.size())
       return fail(error, "span position is outside the block sequence");
+    if (span.kind == ProseSpanKindIR::title) {
+      // A repeated `ST` heading owns no token: its words carry the title
+      // role, and its own source slice names them.
+      if (span.index >= topic.repeated_titles.size() ||
+          topic.repeated_titles[span.index].title.empty())
+        return fail(error, "title span addresses no repeated ST title");
+      continue;
+    }
+    if (span_tokens[index] == 0) return fail(error, "span owns no token");
     if (span.kind == ProseSpanKindIR::table
             ? span.index >= topic.tables.blocks.size()
             : span.index >= topic.figures.blocks.size())
@@ -650,7 +667,9 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
   for (std::size_t index = 0; index < topic.spans.size(); ++index) {
     const auto& span = topic.spans[index];
     out << "span " << index << ' '
-        << (span.kind == ProseSpanKindIR::table ? "table" : "figure")
+        << (span.kind == ProseSpanKindIR::table
+                ? "table"
+                : span.kind == ProseSpanKindIR::figure ? "figure" : "title")
         << " index=" << span.index << " position=" << span.position
         << " anchors_before=" << span.anchors_before << '\n';
     for (const auto& row : span.frame_before)

@@ -251,6 +251,18 @@ struct ProseIndexTermIR {
 enum class ProseSpanKindIR {
   table,
   figure,
+  // A second `ST` line in the body: the topic is headed again (see
+  // ProseRepeatedTitleIR).  It owns no token; its words carry the title role.
+  title,
+};
+
+// A further `ST` line inside the topic body.  The reader heads the topic once
+// per `ST` line, every time at the topic's own level and under its own
+// number: SC31-8212-00 2.3.3 (DT 19950906051034) is served as `<H2> 2.3.3
+// </H2>` and later `<H2> 2.3.3   Purpose</H2>`.  `title` is the line's words.
+struct ProseRepeatedTitleIR {
+  std::string title;
+  DocumentSourceSliceIR source;
 };
 
 // A non-prose span of the body.  `index` addresses ProseTopicIR::tables or
@@ -337,6 +349,8 @@ struct ProseTopicIR {
   // can re-check them; an admitted topic has no declines other than figure
   // regions that lie inside an admitted table.
   std::vector<ProseSpanIR> spans;
+  // Addressed by the `title` spans.
+  std::vector<ProseRepeatedTitleIR> repeated_titles;
   std::vector<ProseTableLinkIR> table_links;
   FixedTableBlocksIR tables;
   FigureBlocksIR figures;

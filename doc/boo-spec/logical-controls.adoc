@@ -562,6 +562,34 @@ other), plus the record above; no sampled book prints the id.  The same rule
 gives the `Index`, `Preface`, `Glossary` and `Abstract` headings of
 "Front-matter heading forms" in the markup chapter.
 
+[[logical-controls_every_st_line_heads_the_topic]]
+===== Every `ST` Line Heads The Topic
+
+A topic may carry more than one `ST` line.  Each one prints a heading, at the
+topic's `CHDLEVEL` level and under the topic's own number; nothing marks the
+first as special.  `SC31-8212-00` topic `2.3.3` (logical record 855):
+
+[cols="<10,<22,<40",options="header"]
+|===
+|Line |Bytes |Decoded
+
+|10 |`01 87` at `0x57BD6` |`ST` (no payload: an empty title)
+|11--12 | |`cfont 3 4 2`, `   open`
+|13 |`02 ...` |`SRHDRHWEOP6`
+|14 |`04 87 0A D0 A7` at `0x57BE4` |`ST`, a blank, `Purpose`
+|15 |`00` at `0x57BE9` |an empty display line
+|===
+
+Hosted DT `19950906051034` serves `<H2> 2.3.3 </H2>`, then `   <B>open</B>`,
+then `<a name="HDRHWEOP6"><H2> 2.3.3   Purpose</H2></a>`: the second heading
+has the same tag and number as the first, its text is the `ST` display line,
+and the anchor in front of it is placed in front of the heading.  The same
+shape is served for `2.3.41`, `4.2.6` and `5.2.6` of that book and for
+`SV40-0093-03` `8.2.3` (DT `19951030161738`: `<H4> 8.2.3 </H4>` ...
+`<H4> 8.2.3   Automatic Correlation of Objects to a Workstation Object:  The
+MultiSystem</H4>`).  A census of 100 random library books found 58 topics with a
+second `ST` line, all in those two books.
+
 Two consequences for what stands _in front of_ such a control, both readings
 of facts already established above.
 
