@@ -2131,6 +2131,15 @@ struct CzBuilder {
       if (tag == "lp") {
         if (stack.empty())
           return fail(error, "cz FLOW LP outside an open list");
+        // Inside an item list the part continues the item before it:
+        // `CZ FLOW LP` prints `<br>` and its rows wherever it stands, so
+        // GC33-0790-04 3.49.61 (DT 19990426180546) serves its `or` between
+        // two `OL` items as `<br>   or` inside the first `<li>`, and the
+        // numbering runs on.  With no item yet there is nothing to continue.
+        if ((stack.back().tag == "ul" || stack.back().tag == "ol" ||
+             stack.back().tag == "sl") &&
+            stack.back().body_owner != npos)
+          return paragraphs(groups, 0);
         if (stack.back().tag != "dl")
           return fail(error, name + " inside a " + stack.back().tag +
                                  " needs mixed list block content");

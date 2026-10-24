@@ -6250,6 +6250,18 @@ reading in one such topic of each of thirty-five books of a random hosted
 sample (differences are words hosted splits at a style change and a
 `PICTURE` placeholder hosted replaces with its image).
 
+*A list part inside an item list.*  `CZ FLOW LP` prints `<br>` and its
+rows wherever it stands, so inside a `UL`, `OL` or `SL` it continues the
+item before it and the list runs on.  `GC33-0790-04.boo` `3.49.61`,
+logical record 3221, stores `cz FLOW OL 3 3`, `cz FLOW LI 3 7`
+`   1.  change the specified routing module,`, `cz FLOW LP 3 3` with the row
+`   or`, and the second item; hosted (DT 19990426180546) serves
+`<ol type=1 start=1>`, `<li> change ...`, `<br>   or`, `<li> associate ...`
+in one list, and the nested `a.`/`b.` list of the same topic the same way.
+Every word of the hosted body is reproduced by this reading in one such
+topic of each of twenty books of a random hosted sample.  A part before
+the list's first item continues nothing and is not described.
+
 *A list without items.*  A list opener whose closer follows with no
 `CZ FLOW LI` between them draws no item: hosted prints the list element
 around whatever blocks the source puts there.  `GA27-3960-05.boo` `5.24.4`,
