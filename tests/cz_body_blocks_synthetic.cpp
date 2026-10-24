@@ -426,9 +426,41 @@ void terms_without_a_separate_body() {
           "a term alone did not render: " + markdown);
 }
 
+// A list that never writes an item holds only its paragraphs.  BookServer
+// prints `<ul>` for `CZ FLOW SL` and `</ul>` for its closer, and the rows of
+// the `cz FLOW P` between them as text: GA27-3960-05 `5.24.4` (DT
+// 19961015143739) stores `cz FLOW SL 3 3`, `cz FLOW P 7 7` with four rows and
+// `cz OFF ESL 0 0`, served as `<ul>` and `<br> |     If, in the frame
+// received, ...`.
+void a_list_without_items_holds_its_paragraphs() {
+  RecordBuilder builder;
+  builder.heading("5.24.4", "Example");
+  builder.cz({"cz", "FLOW", "P", "3", "3"});
+  builder.row("   ", {"The", "action", "would", "be:"});
+  builder.empty();
+  builder.cz({"cz", "FLOW", "SL", "3", "3"});
+  builder.cz({"cz", "FLOW", "P", "7", "7"});
+  builder.row("       ", {"If", "the", "condition", "is", "true,"});
+  builder.row("       ", {"the", "frame", "is", "discarded."});
+  builder.empty();
+  builder.cz({"cz", "OFF", "ESL", "0", "0"});
+  auto extracted = run(builder.build(546), "Example");
+  require(extracted.topic.has_value(),
+          "an SL without items was rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto &blocks = extracted.topic->blocks;
+  require(blocks.size() == 2 &&
+              blocks[0].kind == ProseBlockKindIR::paragraph &&
+              blocks[1].kind == ProseBlockKindIR::paragraph &&
+              contains(block_text(blocks[1]), "discarded."),
+          "the item-less list is not its paragraph:\n" +
+              topic_text(*extracted.topic));
+}
+
 }  // namespace
 
 int main() {
+  a_list_without_items_holds_its_paragraphs();
   a_parameter_term_with_rows_at_its_indent();
   terms_without_a_separate_body();
   a_break_inside_a_region_is_a_blank_row();

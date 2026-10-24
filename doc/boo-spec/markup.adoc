@@ -6208,6 +6208,18 @@ without a separate body, among them `GC24-5851-01`, `GC24-5853-01`,
 `SC31-8165-00`, `SC31-8212-00` and `SH26-4077-01` (differences are words
 hosted splits at a style change).
 
+*A list without items.*  A list opener whose closer follows with no
+`CZ FLOW LI` between them draws no item: hosted prints the list element
+around whatever blocks the source puts there.  `GA27-3960-05.boo` `5.24.4`,
+logical record 546, stores `06 4A 7B DA A0 AB AB` at `0xBE48D`
+(`cz FLOW SL 3 3`, the two-byte token `DA A0` spelling `SL`), directly
+followed by `05 4A 7B 84 B8 B8` (`cz FLOW P 7 7`), four rows at column 7 and
+later `cz OFF ESL 0 0`.  Hosted (DT 19961015143739) serves `<ul>`, the four
+rows as text and `</ul>` -- an indented paragraph and no `<li>`.  A reader
+keeps the blocks and draws no list.  Every word of the hosted body is
+reproduced by this reading in one such topic of each of twenty-two books of
+a random hosted sample.
+
 ===== List parts
 
 `cz FLOW LP left indent` inside an open `DL` is a *list part*: a paragraph at

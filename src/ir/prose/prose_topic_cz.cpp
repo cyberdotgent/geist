@@ -1989,8 +1989,12 @@ struct CzBuilder {
           // A term still waiting for its body at the list's end is a term
           // alone (see `term_alone`).
           stack.back().pending_definition = npos;
-          if (list_tag(opened) && stack.back().items == 0)
-            return fail(error, "cz list " + opened + " has no items");
+          // A list that never wrote an item holds only the blocks between
+          // its opener and closer, already emitted in order: BookServer
+          // prints `<ul>`, those blocks and `</ul>`, and no list item.
+          // GA27-3960-05 5.24.4 (DT 19961015143739) serves its
+          // `cz FLOW SL 3 3` / `cz FLOW P 7 7` / `cz OFF ESL` as `<ul>` and the
+          // paragraph's rows.
           stack.pop_back();
           // Like `cz OFF EXMP`, a list closer carries the body text that
           // follows the list as ordinary paragraphs (SC09-2417-00 4.2.2
