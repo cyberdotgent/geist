@@ -416,6 +416,42 @@ std::string picture_placeholder_word(const std::string& language) {
   }
 }
 
+std::set<std::string>
+pictures_shown_in_markdown(const std::string& markdown,
+                           const DocumentRenderTraceIR& trace) {
+  std::set<std::string> shown;
+  for (const auto& span : trace.spans) {
+    // A compound block the Markdown cannot express is embedded as HTML, and
+    // a figure inside it is an `<img>` element of that block.
+    if (span.text_projection == MarkdownTextProjectionIR::html) {
+      static const std::string source = " src=\"resource:";
+      const auto html = markdown.substr(span.output_begin,
+                                        span.output_end - span.output_begin);
+      for (auto at = html.find(source); at != std::string::npos;
+           at = html.find(source, at + 1)) {
+        const auto begin = at + source.size();
+        const auto end = html.find('"', begin);
+        const auto tag = html.rfind('<', at);
+        if (end == std::string::npos || end == begin ||
+            tag == std::string::npos || html.compare(tag, 5, "<img ") != 0)
+          continue;
+        shown.insert(html.substr(begin, end - begin));
+      }
+      continue;
+    }
+    if (span.reason != "image destination") continue;
+    static const std::string open = "<resource:";
+    const auto destination = markdown.substr(
+        span.output_begin, span.output_end - span.output_begin);
+    if (destination.size() > open.size() + 1 &&
+        destination.compare(0, open.size(), open) == 0 &&
+        destination.back() == '>')
+      shown.insert(destination.substr(open.size(),
+                                      destination.size() - open.size() - 1));
+  }
+  return shown;
+}
+
 DrawnTextIR project_drawn_topic_text(
     const std::vector<DecodedLogicalRecordSource>& records,
     const OwnershipIR& ownership, std::size_t* unframed_records,
@@ -616,17 +652,7 @@ detail::DrawnWordConservationIR BooDocument::drawn_word_conservation(
     // destinations its own render wrote (`<resource:<n>>`).
     DrawnPicturePlaceholdersIR pictures;
     pictures.word = picture_placeholder_word(book_properties_.language);
-    for (const auto& span : markdown_trace.spans) {
-      if (span.reason != "image destination") continue;
-      static const std::string open = "<resource:";
-      const auto destination = markdown.substr(
-          span.output_begin, span.output_end - span.output_begin);
-      if (destination.size() > open.size() + 1 &&
-          destination.compare(0, open.size(), open) == 0 &&
-          destination.back() == '>')
-        pictures.shown.insert(destination.substr(
-            open.size(), destination.size() - open.size() - 1));
-    }
+    pictures.shown = pictures_shown_in_markdown(markdown, markdown_trace);
     const auto drawn = project_drawn_topic_text(
         records, ownership, &topic.unframed_records, &pictures);
     const auto drawn_counts = count_drawn_words(drawn, &topic.drawn_words);

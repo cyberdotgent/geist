@@ -41,6 +41,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -461,6 +462,37 @@ void check_picture_placeholder_rows() {
               picture_placeholder_word("BX").empty() &&
               picture_placeholder_word("C").empty(),
           "a language the reader gives no plain word selects none");
+
+  // The pictures a render shows are every image it writes: a Markdown image
+  // and an `<img>` inside an HTML block the Markdown embeds (a figure in a
+  // compound definition list, SC31-8573-00 13.26 picture 64).
+  {
+    const auto block = [](BlockNodeIR node) {
+      BlockIR value;
+      value.node = std::move(node);
+      value.origin.derivation = DocumentDerivationIR::semantic_lowering;
+      return value;
+    };
+    DocumentIR document;
+    document.topic.id = "PICTURES";
+    document.blocks.push_back(block(FigureBlockIR{"resource:1", {}, {}}));
+    DefinitionEntryIR entry;
+    entry.term.push_back({TextInlineIR{"POST"}, {}});
+    entry.term.back().origin.derivation =
+        DocumentDerivationIR::semantic_lowering;
+    entry.origin.derivation = DocumentDerivationIR::semantic_lowering;
+    entry.definition_blocks.push_back(
+        block(FigureBlockIR{"resource:64", {}, {}}));
+    DefinitionListBlockIR definitions;
+    definitions.entries.push_back(std::move(entry));
+    document.blocks.push_back(block(std::move(definitions)));
+    DocumentRenderTraceIR trace;
+    const auto markdown = render_document_markdown(document, {}, &trace);
+    const auto shown = pictures_shown_in_markdown(markdown, trace);
+    require(shown == std::set<std::string>{"1", "64"},
+            "a picture inside an embedded HTML block is not counted as "
+            "shown: " + markdown);
+  }
 }
 
 // Words the reader draws over or never prints, which the projection must not

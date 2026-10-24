@@ -12,6 +12,7 @@ namespace geist::detail {
 
 struct DecodedLogicalRecordSource;
 struct OwnershipIR;
+struct DocumentRenderTraceIR;
 
 // Native display text and byte provenance used by the independent source-side
 // conservation walk. Control metadata is excluded only where framing proves
@@ -48,6 +49,12 @@ struct DrawnPicturePlaceholdersIR {
 // `PICTURE`).  Empty for a value that selects no word, so a caller fails
 // closed.
 std::string picture_placeholder_word(const std::string &language);
+
+// The `<n>` of every book picture (`resource:<n>`) a Markdown render shows,
+// read off the image destinations the render itself wrote.
+std::set<std::string>
+pictures_shown_in_markdown(const std::string &markdown,
+                           const DocumentRenderTraceIR &trace);
 
 DrawnTextIR
 project_drawn_topic_text(const std::vector<DecodedLogicalRecordSource> &records,
