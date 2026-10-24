@@ -155,6 +155,33 @@ std::vector<DisplayLineCellIR> display_line_cells(
 bool is_display_line_margin_revision_bar(
     const DecodedLogicalRecordSource& record, std::size_t token);
 
+// Decides every display line's revision mark from its own cells and stores it
+// on the line (`DisplayLineIR::margin_mark`).  Called once by the record
+// decoder after the record is assembled; a test that assembles a record by
+// hand calls it too.  Two stored shapes carry a mark:
+//
+//  * a body row's margin: a one-cell blank token at cell 0, a single-word
+//    token at cell 1 holding `U+2502` or a printable ASCII punctuation
+//    character (`|`, `#`, `+`, `:`, ...), a blank cell 2 and at least one
+//    drawn cell after it (markup.adoc, "The three-column left margin").  A
+//    letter or digit there is text, never a mark;
+//  * the `ST` revision column: the line's first token is the two-word opcode
+//    `ST` and the cell glued directly after it is not blank
+//    (logical-controls.adoc, the title line).
+//
+// No-op for an unframed record.
+void assign_display_line_margin_marks(DecodedLogicalRecordSource& record);
+
+// The stored mark of the display line `token` belongs to, when `token` is
+// that mark's own token; `std::nullopt` otherwise.
+std::optional<char32_t> display_line_margin_mark_at(
+    const DecodedLogicalRecordSource& record, std::size_t token);
+
+// Checks that every stored mark agrees with the line's cells: recomputes the
+// marks of a copy and compares.
+bool verify_display_line_margin_marks(const DecodedLogicalRecordSource& record,
+                                      std::string* error = nullptr);
+
 // True when `token` is a native list bullet on its display line: the single
 // word `U+2666` after a blank run (or a blank token behind a margin revision
 // bar), followed by a two-blank token and at least one drawn cell. The

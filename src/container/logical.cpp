@@ -1021,6 +1021,7 @@ decode_logical_record_sources(const LogicalDecodeContext& context,
                                 decoded.encoded_tokens,
                                 decoded.ir.display_lines);
     demote_display_line_owned_controls(decoded);
+    assign_display_line_margin_marks(decoded);
     std::string segment_error;
     if (!verify_control_segments(decoded.assembled, decoded.control_segments,
                                  &segment_error)) {

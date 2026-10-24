@@ -75,7 +75,10 @@ std::optional<std::vector<DisplayLineIR>> token_display_lines(
     const auto boundary =
         end < tokens.size() ? tokens[end].byte_range.begin : payload_end;
     if (boundary != line_end) return std::nullopt;
-    lines.push_back({at, end});
+    DisplayLineIR line;
+    line.prefix_token = at;
+    line.token_end = end;
+    lines.push_back(line);
     at = end;
   }
   return lines;
@@ -282,6 +285,109 @@ bool is_display_line_margin_revision_bar(
     return false;
   return std::any_of(cells.begin() + 3, cells.end(),
                      [](const auto& cell) { return cell.word > ' '; });
+}
+
+namespace {
+
+// A character a row margin draws as a revision mark: the box-drawing vertical
+// or a printable ASCII punctuation character.  Letters and digits in cell 1
+// are row text (markup.adoc, "Fixed selection rows in generated lists").
+bool margin_mark_glyph(const std::uint16_t word) {
+  if (word == 0x2502) return true;
+  if (word < 0x21 || word > 0x7e) return false;
+  return !((word >= '0' && word <= '9') || (word >= 'A' && word <= 'Z') ||
+           (word >= 'a' && word <= 'z'));
+}
+
+struct MarginMarkReading {
+  std::optional<char32_t> mark;
+  std::size_t token = static_cast<std::size_t>(-1);
+  MarginMarkPlaceIR place = MarginMarkPlaceIR::none;
+};
+
+MarginMarkReading read_margin_mark(const DecodedLogicalRecordSource& record,
+                                   const DisplayLineIR& line) {
+  MarginMarkReading reading;
+  const auto& tokens = record.ir.tokens;
+  const auto first = line.prefix_token + 1;
+  if (first + 1 >= line.token_end || first + 1 >= tokens.size())
+    return reading;
+  const auto cells = display_line_cells(record, line);
+  if (cells.size() < 3) return reading;
+  // A token's displayed words: a leading spacing control (a word below 4) is
+  // not drawn.
+  const auto displayed = [&](const std::size_t token) {
+    auto words = tokens[token].decoded_words;
+    if (!words.empty() && words[0] < 4) words.erase(words.begin());
+    return words;
+  };
+  const auto opcode = displayed(first);
+  const auto next = displayed(first + 1);
+  // The `ST` revision column: the cell directly after the two opcode cells,
+  // glued to them (no inserted space), holds a non-blank word.  The cell is
+  // a display column, not a token: a bare attach prefix stored as a token of
+  // its own may stand between the opcode and the mark.
+  constexpr auto inserted = static_cast<std::size_t>(-1);
+  if ((opcode == TokenWords{'S', 'T'} || opcode == TokenWords{'s', 't'}) &&
+      cells[0].token == first && cells[1].token == first &&
+      cells[2].token != inserted && cells[2].token != first &&
+      cells[2].word > ' ') {
+    reading.mark = static_cast<char32_t>(cells[2].word);
+    reading.token = cells[2].token;
+    reading.place = MarginMarkPlaceIR::title_column;
+    return reading;
+  }
+  // A body row's margin: one blank cell, the mark, a blank, drawn cells.
+  if (cells.size() < 4 || opcode != TokenWords{' '} || next.size() != 1 ||
+      !margin_mark_glyph(next[0]) || cells[0].token != first ||
+      cells[1].token != first + 1 || cells[2].word != ' ')
+    return reading;
+  if (!std::any_of(cells.begin() + 3, cells.end(),
+                   [](const auto& cell) { return cell.word > ' '; }))
+    return reading;
+  reading.mark = static_cast<char32_t>(next[0]);
+  reading.token = first + 1;
+  reading.place = MarginMarkPlaceIR::row_margin;
+  return reading;
+}
+
+} // namespace
+
+void assign_display_line_margin_marks(DecodedLogicalRecordSource& record) {
+  if (!record.ir.display_lines_parse) return;
+  for (auto& line : record.ir.display_lines) {
+    const auto reading = read_margin_mark(record, line);
+    line.margin_mark = reading.mark;
+    line.margin_mark_token = reading.token;
+    line.margin_mark_place = reading.place;
+  }
+}
+
+std::optional<char32_t> display_line_margin_mark_at(
+    const DecodedLogicalRecordSource& record, const std::size_t token) {
+  const auto* line = display_line_of_token(record, token);
+  if (line == nullptr || !line->margin_mark || line->margin_mark_token != token)
+    return std::nullopt;
+  return line->margin_mark;
+}
+
+bool verify_display_line_margin_marks(const DecodedLogicalRecordSource& record,
+                                      std::string* error) {
+  const auto fail = [&](const char* message) {
+    if (error != nullptr) *error = message;
+    return false;
+  };
+  for (const auto& line : record.ir.display_lines) {
+    const auto reading = read_margin_mark(record, line);
+    if (reading.mark != line.margin_mark ||
+        reading.token != line.margin_mark_token ||
+        reading.place != line.margin_mark_place)
+      return fail("display line margin mark disagrees with the line's cells");
+    if (line.margin_mark.has_value() !=
+        (line.margin_mark_place != MarginMarkPlaceIR::none))
+      return fail("display line margin mark has no place");
+  }
+  return true;
 }
 
 bool is_display_line_list_bullet(const DecodedLogicalRecordSource& record,

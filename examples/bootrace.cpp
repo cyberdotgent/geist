@@ -37,6 +37,7 @@ void usage() {
                "       bootrace <book.boo> --links\n"
                "       bootrace <book.boo> --declines\n"
                "       bootrace <book.boo> --conservation [--rendered|--punctuation]\n"
+               "       bootrace <book.boo> --margin-marks\n"
                "       bootrace <book.boo> <topic-id> --explain-offset <n>\n";
 }
 
@@ -333,6 +334,37 @@ int main(int argc, char** argv) {
                 << "\thtml-dropping=" << report.topics_dropping_html
                 << "\thtml-unaccounted=" << report.unaccounted_html_words
                 << "\n";
+      return 0;
+    } catch (const std::exception& error) {
+      std::cerr << "bootrace: " << error.what() << "\n";
+      return 1;
+    }
+  }
+
+  // Every revision mark the book's display lines store, one row per mark:
+  // where it stands (a body row's margin or the `ST` revision column), the
+  // character, and the line's display text.  The marks are what the source
+  // draws; the census of what a reader does with them starts here.
+  if (argc == 3 && std::string(argv[2]) == "--margin-marks") {
+    try {
+      const auto document = geist::BooDocument::open(argv[1]);
+      const auto report = document.drawn_word_conservation(false);
+      std::cout << "topic\troute\trecord\tline\tplace\tmark\ttext\n";
+      std::size_t marks = 0;
+      for (const auto& topic : report.topics)
+        for (const auto& mark : topic.margin_marks) {
+          ++marks;
+          std::cout << tsv_escape(topic.id) << "\t" << tsv_escape(topic.route)
+                    << "\t" << mark.logical_record << "\t" << mark.line << "\t"
+                    << (mark.place == geist::detail::MarginMarkPlaceIR::title_column
+                            ? "title"
+                            : "row")
+                    << "\t"
+                    << tsv_escape(geist::detail::token_words_to_ascii(
+                           {static_cast<std::uint16_t>(mark.mark)}))
+                    << "\t" << tsv_escape(mark.source) << "\n";
+        }
+      std::cout << "# summary\tmarks=" << marks << "\n";
       return 0;
     } catch (const std::exception& error) {
       std::cerr << "bootrace: " << error.what() << "\n";

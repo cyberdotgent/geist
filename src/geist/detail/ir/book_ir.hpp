@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -91,9 +92,31 @@ struct LogicalTokenIR {
 
 // One display line of a record payload: the length byte's token and the
 // exclusive end of the line's tokens.
+// Where a display line stores its revision mark (doc/boo-spec/markup.adoc,
+// "The three-column left margin"; logical-controls.adoc, the `ST` revision
+// column).  The book compiler resolved SCRIPT revision codes and drew the
+// mark's character at a fixed position; no flag or code reference exists.
+enum class MarginMarkPlaceIR : std::uint8_t {
+  none,
+  // Cell 1 of a body row: a one-cell blank token at cell 0, the mark, a blank
+  // cell 2 and drawn cells after it.
+  row_margin,
+  // The cell glued directly after the two cells of an `ST` opcode.
+  title_column,
+};
+
 struct DisplayLineIR {
   std::size_t prefix_token = 0;  // the length byte
   std::size_t token_end = 0;     // exclusive end of the line's tokens
+  // The revision mark the line draws, as the file stores it: the character,
+  // the token that holds it and where on the line it stands.  Decided once
+  // from the line's own cells by `assign_display_line_margin_marks`
+  // (display_lines.hpp) after the record is assembled; empty for a line that
+  // draws none.  Whether a family consumes the cell as its row's margin is
+  // the family's question; the line only states what is stored.
+  std::optional<char32_t> margin_mark;
+  std::size_t margin_mark_token = static_cast<std::size_t>(-1);
+  MarginMarkPlaceIR margin_mark_place = MarginMarkPlaceIR::none;
 };
 
 struct LogicalRecordIR {

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "geist/detail/lowering/drawn_word_source.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -134,6 +136,9 @@ struct DrawnWordTopicIR {
   // `conservation_punctuation_units`).
   std::vector<DrawnPunctuationDeficitIR> punctuation_deficits;
   std::size_t unaccounted_punctuation = 0;
+  // Every revision mark the topic's framed records draw.  Each is an
+  // accounted cell of the drawn text, not a word the render must repeat.
+  std::vector<DrawnMarginMarkIR> margin_marks;
 };
 
 struct DrawnWordConservationIR {

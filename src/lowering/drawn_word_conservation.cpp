@@ -536,6 +536,10 @@ DrawnTextIR project_drawn_topic_text(
     for (std::size_t index = 0; index < lines->size(); ++index) {
       const auto& line = (*lines)[index];
       const auto text = display_line_text(record, line);
+      if (line.margin_mark)
+        drawn.margin_marks.push_back({record.logical_record, index,
+                                      line.margin_mark_token, *line.margin_mark,
+                                      line.margin_mark_place, text});
       if (framing.owned_lines[index]) {
         list.directive(trim_ascii(text));
         continue;
@@ -556,7 +560,12 @@ DrawnTextIR project_drawn_topic_text(
               return columns.line == index && column >= columns.begin &&
                      column < columns.end;
             });
-        if (placeholder || (column >= blanked.first && column < blanked.second)) {
+        // The line's revision mark: an accounted cell the reader draws in
+        // the margin, never a word of the row.
+        const auto margin_mark =
+            line.margin_mark && cell.token == line.margin_mark_token;
+        if (placeholder || margin_mark ||
+            (column >= blanked.first && column < blanked.second)) {
           drawn.text += ' ';
           drawn.opening.push_back(false);
           drawn.line.push_back(source);
@@ -738,6 +747,7 @@ detail::DrawnWordConservationIR BooDocument::drawn_word_conservation(
     const auto drawn = project_drawn_topic_text(
         records, ownership, &topic.unframed_records, &pictures);
     const auto drawn_counts = count_drawn_words(drawn, &topic.drawn_words);
+    topic.margin_marks = drawn.margin_marks;
     const auto append = [&](const std::string& bytes,
                             const MarkdownTextProjectionIR projection) {
       if (bytes.empty()) return;

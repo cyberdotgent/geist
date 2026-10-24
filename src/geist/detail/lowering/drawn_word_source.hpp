@@ -3,7 +3,10 @@
 
 #pragma once
 
+#include "geist/detail/ir/book_ir.hpp"
+
 #include <cstddef>
+#include <cstdint>
 #include <set>
 #include <string>
 #include <vector>
@@ -13,6 +16,20 @@ namespace geist::detail {
 struct DecodedLogicalRecordSource;
 struct OwnershipIR;
 struct DocumentRenderTraceIR;
+
+// One revision mark a display line stores (`DisplayLineIR::margin_mark`).
+// The mark is accounted, not skipped: the projection writes a blank in its
+// cell -- the reader draws it in the row's margin, outside the row's text --
+// and lists it here, so a report can state every mark the source draws.
+struct DrawnMarginMarkIR {
+  std::uint32_t logical_record = 0;
+  std::size_t line = 0;   // display-line index inside the record
+  std::size_t token = 0;  // the mark's own token
+  char32_t mark = 0;
+  MarginMarkPlaceIR place = MarginMarkPlaceIR::none;
+  // The line's display text, for evidence.
+  std::string source;
+};
 
 // Native display text and byte provenance used by the independent source-side
 // conservation walk. Control metadata is excluded only where framing proves
@@ -25,6 +42,8 @@ struct DrawnTextIR {
   // Per-byte index into the source-line descriptions below.
   std::vector<std::size_t> line;
   std::vector<std::string> sources;
+  // Every revision mark the framed records store, in source order.
+  std::vector<DrawnMarginMarkIR> margin_marks;
 };
 
 // A picture's placeholder row.  A `cselect <col> <len> PIC<n>` selector names
