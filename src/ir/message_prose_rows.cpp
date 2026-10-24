@@ -881,8 +881,18 @@ std::optional<MessageProseIntroductionIR> extract_message_prose_paragraphs_ir(
       // SC34-425 2.4.27 record 1627 ends on line 26 ` |     invoked:`
       // (`invoked`, attach `00`, `:` = `27` at `0x1673c0`) and hosted DT
       // 19921112160049 serves `invoked:`.
+      //
+      // Where the record's framing places the glyph inside a display line it
+      // is drawn there, in the catalog's own record too: SC34-4335-00
+      // APPENDIX1.3.1 record 857 line 15 ends `return codes:` (attach `00`,
+      // `:` at 0x1F6E66) right before `SRMSG 000 (`, and hosted (DT
+      // 19920131163435) serves `codes:`.
+      const auto framed_content =
+          record_framing_is_decided(record.ir) &&
+          display_line_of_token(record, token) != nullptr &&
+          !is_display_line_length_token(record, token);
       const auto closing_delimiter =
-          &record == catalog_record &&
+          !framed_content && &record == catalog_record &&
           token > span.begin && control_only_spacing_token(record, token - 1) &&
           words.size() == 1 && words.front() < 0x80 &&
           std::isalnum(static_cast<unsigned char>(words.front())) == 0 &&

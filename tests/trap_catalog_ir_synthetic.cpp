@@ -4476,6 +4476,29 @@ int main() {
     }
   }
 
+  // The attached `:` that ends the introduction's last framed line before the
+  // first entry is drawn text of that line. SC34-4335-00 APPENDIX1.3.1
+  // record 857 line 15 is `   The High- and Low-Level APIs return the
+  // following return codes:` (attach `00`, `:` = `25` at 0x1F6E66), and
+  // `SRMSG 000 (` follows; hosted (DT 19920131163435) serves `codes:`.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({origin(), t("Return", 280), t("codes", 281),
+                         {TokenWords{1}, 0}, t(":", 282)}));
+    append(tokens, entry("642", 283));
+    const auto built = build({make_source(72, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "colon introduction catalog declined: " + built.error);
+    if (built.catalog) {
+      std::string introduction;
+      for (const auto &paragraph : built.catalog->introduction)
+        introduction += paragraph.text + "|";
+      require(introduction.find("Return codes:") != std::string::npos,
+              "the attached colon ending the introduction was dropped: " +
+                  introduction);
+    }
+  }
+
   std::cout << "trap catalog IR synthetic tests passed\n";
   return 0;
 }
