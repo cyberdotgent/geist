@@ -776,6 +776,48 @@ int main() {
       return 1;
   }
 
+  // A compound definition list is embedded as one HTML block. Inside a list
+  // item every line of that block gets the item's indentation, which the
+  // CommonMark parser strips again: the indentation splits the HTML into
+  // per-line spans, but the visible text is still that of the one block
+  // (S20H-1642-01 2.3, GC35-0316-00: a `<pre>` row inside a definition).
+  {
+    DocumentIR nested;
+    nested.topic.id = "NESTED-HTML";
+    PreformattedBlockIR rows;
+    rows.lines = {"  - CONFIG.SYS", "  - WIN.INI"};
+    DefinitionEntryIR entry;
+    entry.term = text("Dump");
+    entry.origin = origin();
+    entry.definition_blocks.push_back(block(ParagraphBlockIR{text("saves")}));
+    entry.definition_blocks.push_back(block(std::move(rows)));
+    DefinitionListBlockIR definitions;
+    definitions.entries.push_back(std::move(entry));
+    ListItemIR item{{}, origin()};
+    item.blocks.push_back(block(ParagraphBlockIR{text("Select it.")}));
+    item.blocks.push_back(block(std::move(definitions)));
+    ListBlockIR steps;
+    steps.ordered = true;
+    steps.items.push_back(std::move(item));
+    nested.blocks.push_back(block(std::move(steps)));
+    DocumentRenderTraceIR nested_trace;
+    const auto output = render_document_markdown(nested, {}, &nested_trace);
+    std::string visible;
+    try {
+      visible = markdown_visible_text(output, nested_trace);
+    } catch (const std::exception &error) {
+      std::cerr << "document_markdown_renderer_synthetic: nested HTML block "
+                   "has no visible text: "
+                << error.what() << "\n" << output << '\n';
+      return 1;
+    }
+    if (!require(visible.find("- CONFIG.SYS") != std::string::npos &&
+                     visible.find("- WIN.INI") != std::string::npos &&
+                     visible.find("saves") != std::string::npos,
+                 "nested HTML block visible text drifted: " + visible))
+      return 1;
+  }
+
   std::cout << "document Markdown renderer synthetic checks passed\n";
   return 0;
 }
