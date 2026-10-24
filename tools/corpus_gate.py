@@ -212,10 +212,11 @@ BLOCK_TAGS = frozenset((
     "dt", "figcaption", "figure", "h1", "h2", "h3", "h4", "h5", "h6", "hr",
     "li", "nav", "ol", "p", "pre", "section", "summary", "table", "tbody",
     "td", "tfoot", "th", "thead", "tr", "ul"))
-# `samp`, `kbd`, `cite` and `var` are the phrase elements hosted BookServer
-# serves for the `E`, `P`, `C` and `V` style codes; each is a kind of its own.
-STYLE_TAGS = frozenset(("b", "cite", "code", "em", "i", "kbd", "s", "samp",
-                        "strong", "sub", "sup", "u", "var"))
+# `samp`, `kbd`, `cite`, `var` and `dfn` are the phrase elements hosted
+# BookServer serves for the `E`, `P`, `C`, `V` and `Q` style codes; each is a
+# kind of its own.
+STYLE_TAGS = frozenset(("b", "cite", "code", "dfn", "em", "i", "kbd", "s",
+                        "samp", "strong", "sub", "sup", "u", "var"))
 VOID_TAGS = frozenset(("br", "col", "hr", "img", "input", "link", "meta", "wbr"))
 # Inline elements that still separate the text on either side of them.
 BREAK_TAGS = frozenset(("br", "img"))
