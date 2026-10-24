@@ -9,7 +9,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
-#include <map>
+#include <cstdio>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -20,94 +20,170 @@ namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 
-struct ParserState {
-  GdfPicture picture;
-  Point current;
-  Color line_color{0, 0, 0, 255};
-  Color fill_color{220, 220, 220, 255};
-  Color text_color{0, 0, 0, 255};
-  Color marker_color{0, 0, 0, 255};
-  double line_width = 1.0;
-  double marker_size = 2.0;
-  double char_height = 3.0;
-  std::uint8_t character_set = 0;
-  std::uint8_t marker_type = 1;
-  std::uint8_t pattern = 0;
-  std::uint8_t color_index = 0;
-  std::uint8_t draw_mode = 0;
-  bool in_area = false;
-  bool area_draw_boundary = false;
-  std::vector<std::vector<Point>> area_contours;
-  std::map<std::uint32_t, std::size_t> segments;
-  std::vector<std::uint8_t> transform_payload;
-  std::vector<std::uint8_t> saved_attributes;
-  CellImage pending_image;
-  bool has_pending_image = false;
-  int coordinate_type = 4;
-  std::size_t coordinate_size = 4;
+// A row-vector affine transform: x' = x*m[0] + y*m[3] + m[6],
+// y' = x*m[1] + y*m[4] + m[7].  m[2], m[5] and m[8] complete the 3x3 matrix
+// that model-transform orders compose.
+using Matrix = std::array<double, 9>;
+
+constexpr Matrix identity_matrix() {
+  return {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+}
+
+Matrix multiply(const Matrix& left, const Matrix& right) {
+  Matrix out{};
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      double sum = 0.0;
+      for (int k = 0; k < 3; ++k) {
+        sum += left[static_cast<std::size_t>(i * 3 + k)] *
+               right[static_cast<std::size_t>(k * 3 + j)];
+      }
+      out[static_cast<std::size_t>(i * 3 + j)] = sum;
+    }
+  }
+  return out;
+}
+
+// Arc parameters, already transformed into virtual device coordinates.  The
+// unit circle maps onto the arc ellipse by x' = a*x + c*y, y' = d*x + b*y.
+struct ArcParameters {
+  double a = 1.0;
+  double b = 1.0;
+  double c = 0.0;
+  double d = 0.0;
 };
 
+enum class FillStyle : std::uint8_t { solid, empty };
+
+// The attribute state a push-and-set order saves and a pop order restores.
+struct Attributes {
+  double char_height = 3.0;
+  FillStyle fill_style = FillStyle::solid;
+  std::uint8_t basic_color = 7;
+  std::uint8_t extended_color = 7;
+  GdfLineStyle line_style = GdfLineStyle::solid;
+  Point current;
+  ArcParameters arc;
+  Matrix matrix = identity_matrix();
+  std::uint8_t character_set = 0;
+};
+
+struct SavedAttribute {
+  std::uint8_t opcode = 0;
+  Attributes value;
+};
+
+struct ParserState {
+  GdfPicture picture;
+  Attributes attr;
+  std::vector<SavedAttribute> saved;
+  // The color index lines, edges and text are drawn in, and the one a figure
+  // begun now is filled with.
+  std::uint8_t line_color = 7;
+  std::uint8_t fill_color = 7;
+  bool lines_visible = true;
+  bool edges_visible = true;
+  bool in_figure = false;
+  // An area order that asked for boundary lines begins its figure at the next
+  // line order, not at once.
+  bool figure_pending = false;
+  FilledArea figure;
+  // Virtual device extent, for the arc plausibility test.
+  double vdc_x0 = 0.0;
+  double vdc_y0 = 0.0;
+  double vdc_x1 = 100.0;
+  double vdc_y1 = 100.0;
+};
+
+[[noreturn]] void unsupported(std::uint8_t opcode, const char* what) {
+  char code[8];
+  std::snprintf(code, sizeof(code), "0x%02x", opcode);
+  throw std::runtime_error(std::string("GDF order ") + code + " (" + what +
+                           ") is not supported");
+}
+
+// GDDM color numbers as hosted BookServer's GIFs show them.  Indexes 9..16
+// are the GIF palette entries nearest to the reference color table.
 Color palette(std::uint8_t index) {
   static constexpr std::array<Color, 17> colors{{
-      {0, 255, 0, 255},     // 0 default, display green
+      {0, 0, 0, 255},       // 0 default
       {0, 0, 255, 255},     // 1 blue
       {255, 0, 0, 255},     // 2 red
       {255, 0, 255, 255},   // 3 pink / magenta
       {0, 255, 0, 255},     // 4 green
       {0, 255, 255, 255},   // 5 turquoise
       {255, 255, 0, 255},   // 6 yellow
-      {255, 255, 255, 255}, // 7 neutral on displays
-      {0, 0, 0, 255},       // 8 background on displays
+      {255, 255, 255, 255}, // 7 neutral
+      {0, 0, 0, 255},       // 8 background
       {0, 0, 128, 255},     // 9 dark blue
       {224, 128, 0, 255},   // 10 orange
       {128, 0, 128, 255},   // 11 purple
       {0, 128, 0, 255},     // 12 dark green
       {0, 128, 128, 255},   // 13 dark turquoise
-      {128, 128, 0, 255},   // 14 mustard
+      {160, 160, 0, 255},   // 14 mustard
       {128, 128, 128, 255}, // 15 gray
-      {128, 64, 0, 255},    // 16 brown
+      {128, 128, 0, 255},   // 16 brown
   }};
-  if (index < colors.size()) {
-    return colors[index];
+  return colors[std::min<std::size_t>(index, colors.size() - 1)];
+}
+
+// Color order 0x0a: indexes 0..8 select themselves, anything higher selects
+// neutral (7).
+std::uint8_t basic_color_index(std::uint8_t value) {
+  return value < 9 ? value : 7;
+}
+
+// Color Set Extended order 0x26: the second byte is the color index. With a
+// first byte of 0xff the indexes 7 (neutral) and 8 (background) swap, so
+// `ff 07` draws in the background color and `ff 08` in neutral. Index 0 and
+// indexes past 16 select neutral.
+std::uint8_t extended_color_index(std::uint8_t high, std::uint8_t low) {
+  if (high == 0xff && low == 7) {
+    return 8;
   }
-  return colors[9 + ((index - 9) % 8)];
+  if (high == 0xff && low == 8) {
+    return 7;
+  }
+  if (low == 0 || low > 16) {
+    return 7;
+  }
+  return low;
+}
+
+// Line type order 0x18 values 0..7.  8 and above draw invisible lines.
+GdfLineStyle line_style_for(std::uint8_t value) {
+  static constexpr std::array<GdfLineStyle, 8> styles{{
+      GdfLineStyle::solid,
+      GdfLineStyle::dot,
+      GdfLineStyle::dash,
+      GdfLineStyle::dash_dot,
+      GdfLineStyle::short_dash,
+      GdfLineStyle::short_dot,
+      GdfLineStyle::dash_dot_dot,
+      GdfLineStyle::solid,
+  }};
+  return styles[std::min<std::size_t>(value, 7)];
 }
 
 struct GdfFontStyle {
-  const char* gddm_name;
-  const char* imagemark_name;
   bool bold;
   bool italic;
   bool monospaced;
 };
 
 GdfFontStyle font_style_for_character_set(std::uint8_t character_set) {
+  // The GDDM symbol sets ADMDVECP, ADMUUARP, ... ADMUUTSS in local
+  // character-set order 0x41 onwards.
   static constexpr std::array<GdfFontStyle, 23> fonts{{
-      {"ADMDVECP", "Modern:Modern", false, false, true},
-      {"ADMUUARP", "Roman:Tms Rmn", false, false, false},
-      {"ADMUUCIP", "Roman:Tms Rmn Italic", false, true, false},
-      {"ADMUUCRP", "Roman:Tms Rmn", false, false, false},
-      {"ADMUUCSP", "Script:Script", false, true, false},
-      {"ADMUUDRP", "Swiss:Helvetica", false, false, false},
-      {"ADMUUFSS", "Swiss:Helvetica", false, false, false},
-      {"ADMUUGEP", "Roman:Tms Rmn", false, false, false},
-      {"ADMUUGGP", "Roman:Tms Rmn", false, false, false},
-      {"ADMUUGIP", "Roman:Tms Rmn", false, true, false},
-      {"ADMUUKRF", "Swiss:Helvetica Bold", true, false, false},
-      {"ADMUUKRO", "Swiss:Helvetica Bold", true, true, false},
-      {"ADMUUKSF", "Swiss:Helvetica Bold", true, false, false},
-      {"ADMUUKSO", "Swiss:Helvetica Bold", true, true, false},
-      {"ADMUUMOD", "Modern:Modern", false, false, true},
-      {"ADMUUNSF", "Swiss:Helvetica-Narrow", false, false, false},
-      {"ADMUUNSO", "Swiss:Helvetica-Narrow", false, true, false},
-      {"ADMUUORP", "Roman:Tms Rmn", false, false, false},
-      {"ADMUUSHD", "Swiss:Helvetica", false, false, false},
-      {"ADMUUSRP", "Modern:Modern", false, false, true},
-      {"ADMUUTIP", "Roman:Tms Rmn Bold Italic", true, true, false},
-      {"ADMUUTRP", "Roman:Tms Rmn Bold", true, false, false},
-      {"ADMUUTSS", "Swiss:Helvetica Bold", true, false, false},
+      {false, false, true},  {false, false, false}, {false, true, false},
+      {false, false, false}, {false, true, false},  {false, false, false},
+      {false, false, false}, {false, false, false}, {false, false, false},
+      {false, true, false},  {true, false, false},  {true, true, false},
+      {true, false, false},  {true, true, false},   {false, false, true},
+      {false, false, false}, {false, true, false},  {false, false, false},
+      {false, false, false}, {false, false, true},  {true, true, false},
+      {true, false, false},  {true, false, false},
   }};
-
   if (character_set >= 0x41) {
     const auto index = static_cast<std::size_t>(character_set - 0x41);
     if (index < fonts.size()) {
@@ -135,48 +211,43 @@ double read_ibm_hfp_float(const std::vector<std::uint8_t>& bytes,
   return sign * std::ldexp(fraction, exponent * 4);
 }
 
-std::int16_t read_be_i16(const std::vector<std::uint8_t>& bytes,
-                         std::size_t offset) {
-  return static_cast<std::int16_t>(
-      (static_cast<std::uint16_t>(bytes[offset]) << 8) |
-      static_cast<std::uint16_t>(bytes[offset + 1]));
-}
+constexpr std::size_t coordinate_size = 4;
+constexpr std::size_t point_size = coordinate_size * 2;
 
-std::uint32_t read_be_u32(const std::vector<std::uint8_t>& bytes,
-                          std::size_t offset) {
-  return (static_cast<std::uint32_t>(bytes[offset]) << 24) |
-         (static_cast<std::uint32_t>(bytes[offset + 1]) << 16) |
-         (static_cast<std::uint32_t>(bytes[offset + 2]) << 8) |
-         static_cast<std::uint32_t>(bytes[offset + 3]);
-}
-
-double read_coord(const std::vector<std::uint8_t>& bytes,
-                  std::size_t offset,
-                  const ParserState& state) {
-  if (state.coordinate_type == 2) {
-    return static_cast<double>(read_be_i16(bytes, offset));
-  }
-  return read_ibm_hfp_float(bytes, offset);
-}
-
-bool is_plausible_coordinate(double value) {
-  return std::isfinite(value) && value >= -1000000.0 && value <= 1000000.0;
-}
-
-Point read_point(const std::vector<std::uint8_t>& bytes,
-                 std::size_t offset,
-                 const ParserState& state) {
-  const Point point{read_coord(bytes, offset, state),
-                    read_coord(bytes, offset + state.coordinate_size, state)};
-  if (!is_plausible_coordinate(point.x) ||
-      !is_plausible_coordinate(point.y)) {
+double read_coord(const std::vector<std::uint8_t>& bytes, std::size_t offset) {
+  const auto value = read_ibm_hfp_float(bytes, offset);
+  if (!std::isfinite(value) || value < -1000000.0 || value > 1000000.0) {
     throw std::runtime_error("GDF asset contains an implausible coordinate");
   }
-  return point;
+  return value;
 }
 
-std::size_t point_size(const ParserState& state) {
-  return state.coordinate_size * 2;
+Point read_raw_point(const std::vector<std::uint8_t>& bytes,
+                     std::size_t offset) {
+  return Point{read_coord(bytes, offset),
+               read_coord(bytes, offset + coordinate_size)};
+}
+
+Point transform(const Matrix& m, Point p) {
+  return Point{p.x * m[0] + p.y * m[3] + m[6], p.x * m[1] + p.y * m[4] + m[7]};
+}
+
+Point read_point(const ParserState& state,
+                 const std::vector<std::uint8_t>& bytes,
+                 std::size_t offset) {
+  return transform(state.attr.matrix, read_raw_point(bytes, offset));
+}
+
+std::vector<Point> read_points(const ParserState& state,
+                               const std::vector<std::uint8_t>& bytes,
+                               std::size_t offset,
+                               std::size_t length) {
+  std::vector<Point> points;
+  points.reserve(length / point_size);
+  for (std::size_t i = 0; i + point_size <= length; i += point_size) {
+    points.push_back(read_point(state, bytes, offset + i));
+  }
+  return points;
 }
 
 std::size_t gdf_record_payload_length(std::uint8_t opcode,
@@ -198,75 +269,122 @@ std::size_t gdf_record_payload_length(std::uint8_t opcode,
   return bytes[offset++];
 }
 
-std::vector<Point> read_points(const std::vector<std::uint8_t>& bytes,
-                               std::size_t offset,
-                               std::size_t length,
-                               const ParserState& state) {
-  std::vector<Point> points;
-  const auto stride = point_size(state);
-  points.reserve(length / stride);
-  for (std::size_t i = 0; i + stride <= length; i += stride) {
-    points.push_back(read_point(bytes, offset + i, state));
+void require_length(std::uint8_t opcode,
+                    std::size_t length,
+                    std::size_t needed) {
+  if (length < needed) {
+    char code[8];
+    std::snprintf(code, sizeof(code), "0x%02x", opcode);
+    throw std::runtime_error(std::string("GDF order ") + code +
+                             " is truncated");
   }
-  return points;
 }
 
-void extend_bounds(GdfPicture& picture, const Point& point) {
-  picture.min_x = std::min(picture.min_x, point.x);
-  picture.max_x = std::max(picture.max_x, point.x);
-  picture.min_y = std::min(picture.min_y, point.y);
-  picture.max_y = std::max(picture.max_y, point.y);
+// --- color and figure state ------------------------------------------------
+
+void apply_color(ParserState& state, std::uint8_t index) {
+  if (!state.figure_pending) {
+    state.fill_color = index;
+  }
+  state.line_color = index;
 }
 
-void add_polyline(ParserState& state, std::vector<Point> points) {
-  if (points.empty()) {
+void begin_figure(ParserState& state) {
+  state.figure = FilledArea{};
+  state.figure.filled = state.attr.fill_style == FillStyle::solid;
+  state.figure.fill = palette(state.fill_color);
+  state.figure.draw_boundary = state.edges_visible;
+  state.figure.edge = palette(state.line_color);
+  state.figure.edge_style = state.attr.line_style;
+  state.in_figure = true;
+}
+
+// Line orders that start a figure region (absolute lines and arcs) close the
+// figure's current contour first, and every line order except the relative
+// one at current position begins a pending figure.
+void prepare_figure(ParserState& state, bool new_region) {
+  if (state.in_figure && new_region) {
+    state.figure.contours.emplace_back();
+  }
+  if (state.figure_pending) {
+    begin_figure(state);
+    state.figure_pending = false;
+  }
+}
+
+void end_figure(ParserState& state) {
+  if (state.in_figure) {
+    auto& contours = state.figure.contours;
+    contours.erase(std::remove_if(contours.begin(), contours.end(),
+                                  [](const std::vector<Point>& contour) {
+                                    return contour.size() < 2;
+                                  }),
+                   contours.end());
+    if (!contours.empty() &&
+        (state.figure.filled || state.figure.draw_boundary)) {
+      state.picture.steps.push_back(
+          GdfDrawStep{GdfPrimitive::area, state.picture.areas.size()});
+      state.picture.areas.push_back(std::move(state.figure));
+    }
+  }
+  state.figure = FilledArea{};
+  state.in_figure = false;
+  state.edges_visible = true;
+}
+
+// Draws a polyline: inside a figure it extends the current contour, outside
+// one it is stroked in the current line color and type.
+void draw_polyline(ParserState& state,
+                   std::vector<Point> points,
+                   bool stroke_outside_figure) {
+  if (points.size() < 2) {
     return;
   }
-  if (state.in_area && points.size() > 1) {
-    state.area_contours.push_back(points);
-  }
-  for (const auto& point : points) {
-    extend_bounds(state.picture, point);
-  }
-  if (state.in_area) {
+  if (state.in_figure) {
+    if (state.figure.contours.empty()) {
+      state.figure.contours.emplace_back();
+    }
+    auto& contour = state.figure.contours.back();
+    for (const auto& point : points) {
+      if (contour.empty() || contour.back().x != point.x ||
+          contour.back().y != point.y) {
+        contour.push_back(point);
+      }
+    }
     return;
   }
-  if (points.size() > 1) {
-    state.picture.lines.push_back(
-        Polyline{std::move(points), state.line_color, state.line_width});
+  if (!stroke_outside_figure) {
+    return;
   }
+  state.picture.steps.push_back(
+      GdfDrawStep{GdfPrimitive::line, state.picture.lines.size()});
+  state.picture.lines.push_back(Polyline{std::move(points),
+                                         palette(state.line_color),
+                                         state.attr.line_style});
 }
 
-void update_current_from(const std::vector<Point>& points, ParserState& state) {
+void set_current(ParserState& state, const std::vector<Point>& points) {
   if (!points.empty()) {
-    state.current = points.back();
+    state.attr.current = points.back();
   }
 }
 
-void set_color(ParserState& state, std::uint8_t index) {
-  state.color_index = index;
-  const auto color = palette(index);
-  state.line_color = color;
-  state.text_color = color;
-  state.marker_color = color;
-  if (!state.in_area) {
-    state.fill_color = color;
-  }
-}
+// --- drawing orders ----------------------------------------------------------
 
 void handle_line(ParserState& state,
                  const std::vector<std::uint8_t>& bytes,
                  std::size_t offset,
                  std::size_t length,
                  bool at_current) {
+  prepare_figure(state, !at_current);
   std::vector<Point> points;
   if (at_current) {
-    points.push_back(state.current);
+    points.push_back(state.attr.current);
   }
-  auto read = read_points(bytes, offset, length, state);
+  const auto read = read_points(state, bytes, offset, length);
   points.insert(points.end(), read.begin(), read.end());
-  add_polyline(state, points);
-  update_current_from(read.empty() ? points : read, state);
+  draw_polyline(state, points, state.lines_visible);
+  set_current(state, points);
 }
 
 void handle_relative_line(ParserState& state,
@@ -277,41 +395,170 @@ void handle_relative_line(ParserState& state,
   std::vector<Point> points;
   std::size_t consumed = 0;
   if (at_current) {
-    points.push_back(state.current);
-  } else if (length >= point_size(state)) {
-    points.push_back(read_point(bytes, offset, state));
-    consumed = point_size(state);
+    // The deltas accumulate from the current position, which is already in
+    // virtual device coordinates; each accumulated point is then transformed
+    // again.  Under the identity transform this is the plain delta walk.
+    Point raw = state.attr.current;
+    points.push_back(raw);
+    while (consumed + 1 < length) {
+      raw.x += static_cast<std::int8_t>(bytes[offset + consumed]);
+      raw.y += static_cast<std::int8_t>(bytes[offset + consumed + 1]);
+      points.push_back(transform(state.attr.matrix, raw));
+      consumed += 2;
+    }
+  } else {
+    prepare_figure(state, true);
+    require_length(0xe1, length, point_size);
+    Point raw = read_raw_point(bytes, offset);
+    std::vector<Point> raw_points{raw};
+    consumed = point_size;
+    while (consumed + 1 < length) {
+      raw.x += static_cast<std::int8_t>(bytes[offset + consumed]);
+      raw.y += static_cast<std::int8_t>(bytes[offset + consumed + 1]);
+      raw_points.push_back(raw);
+      consumed += 2;
+    }
+    for (const auto& point : raw_points) {
+      points.push_back(transform(state.attr.matrix, point));
+    }
   }
-
-  while (consumed + 1 < length && !points.empty()) {
-    const auto prev = points.back();
-    const auto dx = static_cast<std::int8_t>(bytes[offset + consumed]);
-    const auto dy = static_cast<std::int8_t>(bytes[offset + consumed + 1]);
-    points.push_back(Point{prev.x + dx, prev.y + dy});
-    consumed += 2;
-  }
-
-  add_polyline(state, points);
-  update_current_from(points, state);
+  draw_polyline(state, points, state.lines_visible);
+  set_current(state, points);
 }
 
-void handle_marker(ParserState& state,
-                   const std::vector<std::uint8_t>& bytes,
-                   std::size_t offset,
-                   std::size_t length,
-                   bool at_current) {
+double normalized_degrees(double radians, bool lift_zero) {
+  double degrees = radians * 57.295827908797776;
+  if (degrees < 0.0) {
+    degrees += 360.0;
+  }
+  if (lift_zero && degrees <= 0.0001) {
+    degrees += 360.0;
+  }
+  return degrees;
+}
+
+// The three-point arc: the ellipse of the current arc parameters through p0,
+// p1 and p2, from p0 through p1 to p2.  Degenerate and implausible arcs are
+// drawn as the polyline through the three points.
+std::vector<Point> arc_points(const ParserState& state,
+                              Point p0,
+                              Point p1,
+                              Point p2) {
+  const std::vector<Point> fallback{p0, p1, p2};
+  const auto& arc = state.attr.arc;
+  const double det = arc.b * arc.a - arc.d * arc.c;
+  if (std::abs(det) < 1e-5) {
+    return fallback;
+  }
+
+  // Into the space where the arc ellipse is a circle (scaled by det).
+  const auto unmap = [&](Point p) {
+    const double x = p.x - p0.x;
+    const double y = p.y - p0.y;
+    return Point{x * arc.b - y * arc.c, y * arc.a - x * arc.d};
+  };
+  const Point q1 = unmap(p1);
+  const Point q2 = unmap(p2);
+  const double denominator = (q2.x * q1.y - q1.x * q2.y) * 2.0;
+  if (std::abs(denominator) < 1e-5) {
+    return fallback;
+  }
+  const double s1 = -(q1.x * q1.x + q1.y * q1.y);
+  const double s2 = -(q2.x * q2.x + q2.y * q2.y);
+  const double cx = (s1 * q2.y - q1.y * s2) / denominator;
+  const double cy = (q1.x * s2 - q2.x * s1) / denominator;
+
+  const double start = normalized_degrees(std::atan2(-cy, -cx), true);
+  const double end = normalized_degrees(std::atan2(q2.y - cy, q2.x - cx), true);
+  const double mid = normalized_degrees(std::atan2(q1.y - cy, q1.x - cx), false);
+  const bool clockwise = (mid < start && end < mid && end < start) ||
+                         (mid < start && mid < end && start < end) ||
+                         (start < mid && end < mid && start < end);
+  if (std::abs(start - end) < 1.0) {
+    return fallback;
+  }
+
+  const Point center{(arc.a * cx + arc.c * cy) / det + p0.x,
+                     (arc.b * cy + arc.d * cx) / det + p0.y};
+  if (!(std::abs(center.x) < 50000.0 && std::abs(center.y) < 50000.0)) {
+    return fallback;
+  }
+  const double dx = p0.x - center.x;
+  const double dy = p0.y - center.y;
+  const double squared =
+      dy * dy * (arc.a * arc.a + arc.c * arc.c) +
+      dy * dx * (-(arc.c * arc.b) - arc.d * arc.a) * 2.0 +
+      dx * dx * (arc.d * arc.d + arc.b * arc.b);
+  const double radius = std::sqrt(std::max(0.0, squared)) / det;
+  Point first{arc.a * radius + center.x, arc.d * radius + center.y};
+  Point second{arc.c * radius + center.x, arc.b * radius + center.y};
+  if (clockwise) {
+    std::swap(first, second);
+  }
+  const double limit_x = (state.vdc_x1 - state.vdc_x0) * 2.0;
+  const double limit_y = (state.vdc_y1 - state.vdc_y0) * 2.0;
+  if (!(first.x - state.vdc_x0 <= limit_x && first.y - state.vdc_y0 <= limit_y &&
+        second.x - state.vdc_x0 <= limit_x &&
+        second.y - state.vdc_y0 <= limit_y)) {
+    return fallback;
+  }
+
+  // Elliptical arc from the start vector to the end vector, sweeping from the
+  // first conjugate diameter point towards the second.
+  const double ux = first.x - center.x;
+  const double uy = first.y - center.y;
+  const double vx = second.x - center.x;
+  const double vy = second.y - center.y;
+  const double basis = ux * vy - uy * vx;
+  if (std::abs(basis) < 1e-12) {
+    return fallback;
+  }
+  const auto parameter = [&](Point p) {
+    const double px = p.x - center.x;
+    const double py = p.y - center.y;
+    const double cos_t = (px * vy - py * vx) / basis;
+    const double sin_t = (ux * py - uy * px) / basis;
+    return std::atan2(sin_t, cos_t);
+  };
+  const double t0 = parameter(p0);
+  double t1 = parameter(p2);
+  while (t1 <= t0) {
+    t1 += 2.0 * kPi;
+  }
+  const int steps = std::max(
+      8, static_cast<int>(std::ceil((t1 - t0) / (2.0 * kPi) * 720.0)));
   std::vector<Point> points;
-  if (at_current) {
-    points.push_back(state.current);
+  points.reserve(static_cast<std::size_t>(steps) + 1);
+  for (int i = 0; i <= steps; ++i) {
+    const double t = t0 + (t1 - t0) * static_cast<double>(i) / steps;
+    points.push_back(Point{center.x + ux * std::cos(t) + vx * std::sin(t),
+                           center.y + uy * std::cos(t) + vy * std::sin(t)});
   }
-  auto read = read_points(bytes, offset, length, state);
-  points.insert(points.end(), read.begin(), read.end());
-  for (const auto& point : points) {
-    extend_bounds(state.picture, point);
-    state.picture.markers.push_back(
-        Marker{point, state.marker_color, state.marker_size, state.marker_type});
+  points.front() = p0;
+  points.back() = p2;
+  return points;
+}
+
+void handle_arc(ParserState& state,
+                const std::vector<std::uint8_t>& bytes,
+                std::size_t offset,
+                std::size_t length,
+                bool at_current) {
+  Point p0 = state.attr.current;
+  std::size_t cursor = 0;
+  if (!at_current) {
+    prepare_figure(state, true);
+    require_length(0xc6, length, point_size * 3);
+    p0 = read_point(state, bytes, offset);
+    cursor = point_size;
+  } else {
+    require_length(0x86, length, point_size * 2);
   }
-  update_current_from(read.empty() ? points : read, state);
+  const Point p1 = read_point(state, bytes, offset + cursor);
+  const Point p2 = read_point(state, bytes, offset + cursor + point_size);
+  // Arcs are drawn whatever the line type.
+  draw_polyline(state, arc_points(state, p0, p1, p2), true);
+  state.attr.current = p2;
 }
 
 void handle_text(ParserState& state,
@@ -319,11 +566,12 @@ void handle_text(ParserState& state,
                  std::size_t offset,
                  std::size_t length,
                  bool at_current) {
-  Point point = state.current;
+  Point point = state.attr.current;
   std::size_t text_offset = offset;
-  if (!at_current && length >= point_size(state)) {
-    point = read_point(bytes, offset, state);
-    text_offset += point_size(state);
+  if (!at_current) {
+    require_length(0xc3, length, point_size);
+    point = read_point(state, bytes, offset);
+    text_offset += point_size;
   }
 
   std::string text;
@@ -335,271 +583,307 @@ void handle_text(ParserState& state,
     }
   }
   if (text.empty()) {
-    text = "?";
+    return;
   }
-  const auto font = font_style_for_character_set(state.character_set);
-  extend_bounds(state.picture, point);
+  const auto font = font_style_for_character_set(state.attr.character_set);
+  state.picture.steps.push_back(
+      GdfDrawStep{GdfPrimitive::text, state.picture.texts.size()});
   state.picture.texts.push_back(TextRun{point,
                                         text,
-                                        state.text_color,
-                                        std::max(1.0, state.char_height),
-                                        state.character_set,
+                                        palette(state.line_color),
+                                        std::max(0.0, state.attr.char_height),
+                                        state.attr.character_set,
                                         font.bold,
                                         font.italic,
                                         font.monospaced});
 }
 
-std::vector<Point> arc_points(Point center,
-                              double radius_x,
-                              double radius_y,
-                              double start,
-                              double end) {
-  std::vector<Point> points;
-  constexpr int steps = 40;
-  for (int i = 0; i <= steps; ++i) {
-    const double t = start + (end - start) * static_cast<double>(i) / steps;
-    points.push_back(
-        Point{center.x + std::cos(t) * radius_x, center.y + std::sin(t) * radius_y});
-  }
-  return points;
-}
+// --- attribute orders --------------------------------------------------------
 
-void handle_arc(ParserState& state,
-                const std::vector<std::uint8_t>& bytes,
-                std::size_t offset,
-                std::size_t length,
-                bool at_current,
-                bool full_arc) {
-  std::vector<Point> points;
-  if (at_current) {
-    points.push_back(state.current);
-  }
-  auto read = read_points(bytes, offset, length, state);
-  points.insert(points.end(), read.begin(), read.end());
-  if (full_arc) {
-    const Point center = points.empty() ? state.current : points.front();
-    const auto radius_offset = point_size(state);
-    if (length > radius_offset &&
-        length - radius_offset < state.coordinate_size) {
-      throw std::runtime_error("GDF full-arc radius is truncated");
-    }
-    const double radius = std::max(
-        1.0, length >= radius_offset + state.coordinate_size
-                 ? std::abs(read_coord(bytes, offset + radius_offset, state))
-                 : state.marker_size * 4.0);
-    add_polyline(state, arc_points(center, radius, radius, 0.0, kPi * 2.0));
-  } else if (points.size() >= 3) {
-    const Point center{(points.front().x + points.back().x) / 2.0,
-                       (points.front().y + points.back().y) / 2.0};
-    const double rx = std::max(1.0, std::abs(points.back().x - points.front().x) / 2.0);
-    const double ry = std::max(1.0, std::abs(points[1].y - center.y));
-    add_polyline(state, arc_points(center, rx, ry, 0.0, kPi));
-  }
-  update_current_from(points, state);
-}
-
-void finish_area(ParserState& state) {
-  if (state.in_area && !state.area_contours.empty()) {
-    state.picture.areas.push_back(FilledArea{state.area_contours,
-                                             state.fill_color,
-                                             state.line_color,
-                                             state.area_draw_boundary});
-  }
-  state.in_area = false;
-  state.area_draw_boundary = false;
-  state.area_contours.clear();
-}
-
-void handle_area_order(ParserState& state, std::uint8_t flags) {
-  if ((flags & 0x80u) == 0) {
-    finish_area(state);
+void handle_pattern(ParserState& state, std::uint8_t opcode, std::uint8_t value) {
+  // 0 and 16 fill solid in the current color, 15 leaves the interior empty.
+  // 1..14 are dot densities and hatches, 0x41..0xfe color patterns.
+  if (value == 0 || value == 16) {
+    state.attr.fill_style = FillStyle::solid;
+  } else if (value == 15) {
+    state.attr.fill_style = FillStyle::empty;
+  } else if (value < 0x11 || (value >= 0x41 && value != 0xff)) {
+    unsupported(opcode, "pattern fill");
+  } else {
+    // Values 0x11..0x40 and 0xff fall back to a solid interior.
+    state.attr.fill_style = FillStyle::solid;
     return;
   }
-  finish_area(state);
-  state.in_area = true;
-  state.area_draw_boundary = (flags & 0x40u) != 0;
+  apply_color(state, state.line_color);
 }
 
-void handle_image_begin(ParserState& state,
-                        const std::vector<std::uint8_t>& bytes,
-                        std::size_t offset,
-                        std::size_t length,
-                        bool at_current) {
-  Point origin = state.current;
-  std::size_t cursor = 0;
-  if (!at_current && length >= point_size(state)) {
-    origin = read_point(bytes, offset, state);
-    cursor += point_size(state);
+void handle_line_type(ParserState& state, std::uint8_t value) {
+  if (value < 8) {
+    state.attr.line_style = line_style_for(value);
+    state.lines_visible = true;
+  } else {
+    state.attr.line_style = GdfLineStyle::solid;
+    state.lines_visible = false;
+    state.edges_visible = false;
   }
-  int width = 16;
-  int height = 16;
-  if (cursor + 3 < length) {
-    width = std::max(1, static_cast<int>(read_be_i16(bytes, offset + cursor)));
-    height = std::max(1, static_cast<int>(read_be_i16(bytes, offset + cursor + 2)));
-  }
-  state.pending_image = CellImage{origin,
-                                  Point{origin.x + width, origin.y + height},
-                                  width,
-                                  height,
-                                  {}};
-  state.has_pending_image = true;
 }
 
-void handle_image_data(ParserState& state,
-                       const std::vector<std::uint8_t>& bytes,
-                       std::size_t offset,
-                       std::size_t length) {
-  if (!state.has_pending_image) {
-    return;
-  }
-  state.pending_image.bits.insert(state.pending_image.bits.end(),
-                                  bytes.begin() + static_cast<std::ptrdiff_t>(offset),
-                                  bytes.begin() + static_cast<std::ptrdiff_t>(offset + length));
-}
+void handle_model_transform(ParserState& state,
+                            const std::vector<std::uint8_t>& bytes,
+                            std::size_t offset,
+                            std::size_t length) {
+  require_length(0x24, length, 4);
+  Matrix given = identity_matrix();
+  std::size_t cursor = 4;
+  const auto read_masked = [&](std::uint8_t mask,
+                               const std::array<int, 8>& slot_for_bit) {
+    for (int bit = 7; bit >= 0; --bit) {
+      if ((mask & (1u << bit)) == 0) {
+        continue;
+      }
+      require_length(0x24, length, cursor + coordinate_size);
+      const double value = read_coord(bytes, offset + cursor);
+      cursor += coordinate_size;
+      const int slot = slot_for_bit[static_cast<std::size_t>(bit)];
+      if (slot >= 0) {
+        given[static_cast<std::size_t>(slot)] = value;
+      }
+    }
+  };
+  // Bit -> matrix element, -1 for values that are read and discarded.
+  read_masked(bytes[offset + 2], {5, -1, 4, 3, 2, -1, 1, 0});
+  read_masked(bytes[offset + 3], {8, -1, 7, 6, -1, -1, -1, -1});
 
-void handle_image_end(ParserState& state) {
-  if (!state.has_pending_image) {
-    return;
-  }
-  extend_bounds(state.picture, state.pending_image.lower_left);
-  extend_bounds(state.picture, state.pending_image.upper_right);
-  state.picture.images.push_back(std::move(state.pending_image));
-  state.pending_image = {};
-  state.has_pending_image = false;
-}
-
-void handle_attribute(ParserState& state,
-                      std::uint8_t opcode,
-                      const std::vector<std::uint8_t>& bytes,
-                      std::size_t offset,
-                      std::size_t length) {
-  switch (opcode) {
-  case 0x03:
-  case 0x33:
-    if (length >= point_size(state)) {
-      const auto p = read_point(bytes, offset, state);
-      state.char_height = std::max(1.0, std::abs(p.y) * 0.727);
-    }
+  switch (bytes[offset + 1] & 3u) {
+  case 0:
+    given[0] *= state.picture.aspect_x;
+    given[3] *= state.picture.aspect_x;
+    given[1] *= state.picture.aspect_y;
+    given[4] *= state.picture.aspect_y;
+    state.attr.matrix = given;
     break;
-  case 0x09:
-  case 0x28:
-    state.pattern = length ? bytes[offset] : 0;
-    state.fill_color = palette(static_cast<std::uint8_t>((state.pattern % 14) + 2));
+  case 1:
+    state.attr.matrix = multiply(state.attr.matrix, given);
     break;
-  case 0x0a:
-  case 0x4a:
-    set_color(state, length ? bytes[offset] : 0);
-    break;
-  case 0x0c:
-  case 0x4c:
-    state.draw_mode = length ? bytes[offset] : 0;
-    break;
-  case 0x0d:
-  case 0x4d:
-    state.draw_mode = length ? bytes[offset] : 0;
-    break;
-  case 0x10:
-  case 0x50:
-    break;
-  case 0x11:
-  case 0x51:
-    if (length >= 2) {
-      state.line_width =
-          std::max(1.0, static_cast<double>((bytes[offset] << 8) | bytes[offset + 1]) / 10.0);
-    }
-    break;
-  case 0x18:
-  case 0x58:
-    state.line_width = length && bytes[offset] == 0 ? 0.0 : std::max(1.0, state.line_width);
-    break;
-  case 0x19:
-  case 0x59:
-    state.line_width = std::max(1.0, static_cast<double>(length ? bytes[offset] : 1));
-    break;
-  case 0x22:
-  case 0x62:
-    break;
-  case 0x24:
-  case 0x64:
-    state.transform_payload.assign(bytes.begin() + static_cast<std::ptrdiff_t>(offset),
-                                   bytes.begin() + static_cast<std::ptrdiff_t>(offset + length));
-    break;
-  case 0x26:
-  case 0x66:
-    if (length >= 2) {
-      set_color(state, bytes[offset + 1]);
-    } else if (length) {
-      set_color(state, bytes[offset]);
-    }
-    break;
-  case 0x27:
-  case 0x67:
-    break;
-  case 0x34:
-  case 0x74:
-    break;
-  case 0x36:
-  case 0x76:
-    break;
-  case 0x38:
-  case 0x78:
-    state.character_set = length ? bytes[offset] : 0;
-    break;
-  case 0x3f:
-    if (!state.saved_attributes.empty()) {
-      const auto saved = state.saved_attributes.back();
-      state.saved_attributes.pop_back();
-      set_color(state, saved);
-    }
-    break;
-  case 0x61:
-    if (length >= point_size(state)) {
-      state.current = read_point(bytes, offset, state);
-    }
-    break;
-  case 0x69:
-    state.marker_type = length ? bytes[offset] : 1;
+  case 2:
+    state.attr.matrix = multiply(given, state.attr.matrix);
     break;
   default:
     break;
   }
+}
 
-  if ((opcode & 0x40u) != 0 && length) {
-    state.saved_attributes.push_back(state.color_index);
+void handle_arc_parameters(ParserState& state,
+                           const std::vector<std::uint8_t>& bytes,
+                           std::size_t offset,
+                           std::size_t length) {
+  // Operands P, Q, R, S; transformed as the points (P, S) and (R, Q).
+  require_length(0x22, length, coordinate_size * 4);
+  const double p = read_coord(bytes, offset);
+  const double q = read_coord(bytes, offset + coordinate_size);
+  const double r = read_coord(bytes, offset + coordinate_size * 2);
+  const double s = read_coord(bytes, offset + coordinate_size * 3);
+  const Point first = transform(state.attr.matrix, Point{p, s});
+  const Point second = transform(state.attr.matrix, Point{r, q});
+  state.attr.arc = ArcParameters{first.x, second.y, second.x, first.y};
+}
+
+// Saves the attribute a push-and-set order is about to change.
+void push_attribute(ParserState& state, std::uint8_t opcode) {
+  switch (opcode) {
+  case 0x03:
+  case 0x09:
+  case 0x23:
+  case 0x4a:
+  case 0x4c:
+  case 0x4d:
+  case 0x50:
+  case 0x51:
+  case 0x58:
+  case 0x59:
+  case 0x61:
+  case 0x62:
+  case 0x64:
+  case 0x66:
+  case 0x67:
+  case 0x69:
+  case 0x74:
+  case 0x75:
+  case 0x76:
+  case 0x77:
+  case 0x78:
+  case 0x79:
+  case 0x7a:
+    state.saved.push_back(SavedAttribute{opcode, state.attr});
+    break;
+  default:
+    break;
   }
 }
 
+void pop_attribute(ParserState& state) {
+  if (state.saved.empty()) {
+    return;
+  }
+  const auto saved = state.saved.back();
+  state.saved.pop_back();
+  const auto& value = saved.value;
+  switch (saved.opcode) {
+  case 0x03:
+    state.attr.char_height = value.char_height;
+    break;
+  case 0x09:
+    state.attr.fill_style = value.fill_style;
+    break;
+  case 0x4a:
+    state.attr.basic_color = value.basic_color;
+    apply_color(state, state.attr.basic_color);
+    break;
+  case 0x58:
+    // Restores the type only; whether lines are visible stays as it is.
+    state.attr.line_style = value.line_style;
+    break;
+  case 0x61:
+    state.attr.current = value.current;
+    break;
+  case 0x62:
+    state.attr.arc = value.arc;
+    break;
+  case 0x64:
+    state.attr.matrix = value.matrix;
+    break;
+  case 0x66:
+    state.attr.extended_color = value.extended_color;
+    apply_color(state, state.attr.extended_color);
+    break;
+  case 0x78:
+    state.attr.character_set = value.character_set;
+    break;
+  default:
+    break;
+  }
+}
+
+// --- stream structure --------------------------------------------------------
+
 void parse_header(ParserState& state, const std::vector<std::uint8_t>& bytes) {
-  if (bytes.size() < 4 || bytes[0] != 0x01) {
+  if (bytes.size() < 2 || bytes[0] != 0x01) {
     throw std::runtime_error("GDF asset does not start with a supported header");
   }
-  const auto header_length = static_cast<std::size_t>(bytes[1]);
-  if (2 + header_length > bytes.size() || header_length < 2) {
-    throw std::runtime_error("GDF asset has an invalid header length");
+  // The initial comment carries a two-byte data type and the window as four
+  // coordinates.  Length 0x12 selects four-byte System/370 floating point.
+  if (bytes[1] != 0x12 || bytes.size() < 0x14) {
+    throw std::runtime_error("GDF asset uses an unsupported coordinate format");
   }
-  state.coordinate_type =
-      (static_cast<int>(bytes[2]) << 8) | static_cast<int>(bytes[3]);
-  state.coordinate_size = state.coordinate_type == 2 ? 2 : 4;
-  if (state.coordinate_type == 2 && header_length >= 10) {
-    state.picture.min_x = read_be_i16(bytes, 4);
-    state.picture.max_x = read_be_i16(bytes, 6);
-    state.picture.min_y = read_be_i16(bytes, 8);
-    state.picture.max_y = read_be_i16(bytes, 10);
-  } else if (header_length >= 18) {
-    state.coordinate_type = 4;
-    state.coordinate_size = 4;
-    state.picture.min_x = read_ibm_hfp_float(bytes, 4);
-    state.picture.max_x = read_ibm_hfp_float(bytes, 8);
-    state.picture.min_y = read_ibm_hfp_float(bytes, 12);
-    state.picture.max_y = read_ibm_hfp_float(bytes, 16);
-  } else {
-    throw std::runtime_error("GDF asset header lacks a supported extent");
-  }
+  state.picture.min_x = read_coord(bytes, 4);
+  state.picture.max_x = read_coord(bytes, 8);
+  state.picture.min_y = read_coord(bytes, 12);
+  state.picture.max_y = read_coord(bytes, 16);
   if (!(state.picture.min_x < state.picture.max_x) ||
       !(state.picture.min_y < state.picture.max_y)) {
     throw std::runtime_error("GDF asset has an empty declared extent");
   }
-  state.current = Point{state.picture.min_x, state.picture.min_y};
+  state.vdc_x0 = state.picture.min_x;
+  state.vdc_x1 = state.picture.max_x;
+  state.vdc_y0 = state.picture.min_y;
+  state.vdc_y1 = state.picture.max_y;
+}
+
+// A prolog is a run of `02` records opened by `02 02 xx 7e`, where xx is 01
+// for the font list and 02 for picture attributes, and closed by a two-byte
+// record whose second payload byte is 7f.  A zero byte may follow a record.
+std::size_t parse_prolog(ParserState& state,
+                         const std::vector<std::uint8_t>& bytes,
+                         std::size_t offset,
+                         std::uint8_t kind) {
+  if (offset + 3 > bytes.size() || bytes[offset] != 0x02 ||
+      bytes[offset + 1] != 0x02 || bytes[offset + 2] != kind) {
+    return offset;
+  }
+  for (;;) {
+    if (offset + 2 > bytes.size()) {
+      throw std::runtime_error("GDF prolog is truncated");
+    }
+    const std::size_t length = bytes[offset + 1];
+    const std::size_t payload = offset + 2;
+    if (payload + length > bytes.size()) {
+      throw std::runtime_error("GDF prolog is truncated");
+    }
+    offset = payload + length;
+    if (length == 2) {
+      if (bytes[payload + 1] == 0x7f) {
+        return offset;
+      }
+      continue;
+    }
+    if (length < 2) {
+      throw std::runtime_error("GDF prolog record is truncated");
+    }
+    if (kind == 0x02) {
+      const auto attribute = bytes[payload + 1];
+      switch (attribute) {
+      case 0x20: {
+        // Picture aspect: width and height.  Coordinates scale so that the
+        // larger of the two becomes 1, and the window grows to match.
+        if (length < 3 + 2 * coordinate_size) {
+          throw std::runtime_error("GDF aspect prolog record is truncated");
+        }
+        const double width = read_coord(bytes, payload + 3);
+        const double height = read_coord(bytes, payload + 3 + coordinate_size);
+        if (!(width > 0.0) || !(height > 0.0)) {
+          throw std::runtime_error("GDF aspect prolog record is not positive");
+        }
+        const double larger = std::max(width, height);
+        state.picture.aspect_x = larger / width;
+        state.picture.aspect_y = larger / height;
+        state.attr.matrix[0] *= state.picture.aspect_x;
+        state.attr.matrix[3] *= state.picture.aspect_x;
+        state.attr.matrix[1] *= state.picture.aspect_y;
+        state.attr.matrix[4] *= state.picture.aspect_y;
+        state.vdc_x1 = std::floor(state.vdc_x0 + (state.vdc_x1 - state.vdc_x0) *
+                                                     state.picture.aspect_x +
+                                  0.5);
+        state.vdc_y1 = std::floor(state.vdc_y0 + (state.vdc_y1 - state.vdc_y0) *
+                                                     state.picture.aspect_y +
+                                  0.5);
+        break;
+      }
+      case 0x01:
+      case 0x0c:
+      case 0x0d:
+      case 0x0e:
+      case 0x10:
+      case 0x11:
+      case 0x18:
+      case 0x22:
+      case 0x26:
+      case 0x27:
+      case 0x28:
+      case 0x29:
+      case 0x32:
+      case 0x33:
+      case 0x34:
+      case 0x35:
+      case 0x36:
+      case 0x37:
+      case 0x38:
+      case 0x39:
+      case 0x3a:
+      case 0x43:
+        break;
+      default: {
+        char code[8];
+        std::snprintf(code, sizeof(code), "0x%02x", attribute);
+        throw std::runtime_error(std::string("GDF picture-attribute prolog "
+                                             "record ") +
+                                 code + " is not supported");
+      }
+      }
+    }
+    if (offset < bytes.size() && bytes[offset] == 0x00) {
+      ++offset;
+    }
+  }
 }
 
 } // namespace
@@ -609,139 +893,157 @@ GdfPicture parse_gdf_picture(const std::vector<std::uint8_t>& bytes) {
   parse_header(state, bytes);
 
   std::size_t offset = 2 + static_cast<std::size_t>(bytes[1]);
+  offset = parse_prolog(state, bytes, offset, 0x01);
+  offset = parse_prolog(state, bytes, offset, 0x02);
+  apply_color(state, state.attr.basic_color);
+
   while (offset < bytes.size()) {
-    const auto record_start = offset;
     const auto opcode = bytes[offset++];
     const auto length = gdf_record_payload_length(opcode, bytes, offset);
     if (offset + length > bytes.size()) {
       throw std::runtime_error("GDF asset has a truncated record payload");
     }
+    const auto byte0 = length > 0 ? bytes[offset] : std::uint8_t{0};
 
+    push_attribute(state, opcode);
     switch (opcode) {
     case 0x03:
-    case 0x09:
-    case 0x0a:
-    case 0x0c:
-    case 0x0d:
-    case 0x10:
-    case 0x11:
-    case 0x18:
-    case 0x19:
-    case 0x22:
-    case 0x24:
-    case 0x26:
-    case 0x27:
-    case 0x28:
-    case 0x29:
     case 0x33:
-    case 0x34:
-    case 0x36:
-    case 0x38:
-    case 0x3f:
-    case 0x4a:
-    case 0x4c:
-    case 0x4d:
-    case 0x50:
-    case 0x51:
-    case 0x58:
-    case 0x59:
-    case 0x60:
-    case 0x62:
-    case 0x64:
-    case 0x66:
-    case 0x67:
-    case 0x69:
-    case 0x74:
-    case 0x76:
-    case 0x78:
-      if (opcode == 0x60) {
-        finish_area(state);
-      } else {
-        handle_attribute(state, opcode, bytes, offset, length);
-      }
+      require_length(opcode, length, point_size);
+      state.attr.char_height = read_coord(bytes, offset + coordinate_size) * 0.727;
       break;
     case 0x07:
+      unsupported(opcode, "segment call");
+    case 0x09:
+    case 0x28:
+      handle_pattern(state, opcode, byte0);
       break;
+    case 0x0a:
+    case 0x4a:
+      state.attr.basic_color = basic_color_index(byte0);
+      apply_color(state, state.attr.basic_color);
+      break;
+    case 0x0d:
+    case 0x4d:
+      // 1, 3 and 4 select mixing draw modes; the others overpaint.
+      if (byte0 == 1 || byte0 == 3 || byte0 == 4) {
+        unsupported(opcode, "background mix");
+      }
+      break;
+    case 0x10:
+    case 0x50:
+      unsupported(opcode, "character alignment");
+    case 0x18:
+    case 0x58:
+      handle_line_type(state, byte0);
+      break;
+    case 0x19:
+    case 0x59:
+      unsupported(opcode, "line width");
     case 0x21:
     case 0x61:
-      if (length >= point_size(state)) {
-        state.current = read_point(bytes, offset, state);
+      require_length(opcode, length, point_size);
+      state.attr.current = read_point(state, bytes, offset);
+      break;
+    case 0x22:
+    case 0x62:
+      handle_arc_parameters(state, bytes, offset, length);
+      break;
+    case 0x24:
+    case 0x64:
+      handle_model_transform(state, bytes, offset, length);
+      break;
+    case 0x26:
+    case 0x66:
+      require_length(opcode, length, 2);
+      state.attr.extended_color =
+          extended_color_index(bytes[offset], bytes[offset + 1]);
+      apply_color(state, state.attr.extended_color);
+      break;
+    case 0x27:
+    case 0x67:
+      unsupported(opcode, "clipping");
+    case 0x34:
+    case 0x74: {
+      require_length(opcode, length, point_size);
+      const auto angle = read_raw_point(bytes, offset);
+      if (!(angle.x > 0.0 && angle.y == 0.0)) {
+        unsupported(opcode, "rotated characters");
       }
+      break;
+    }
+    case 0x38:
+    case 0x78:
+      state.attr.character_set = byte0;
+      break;
+    case 0x3f:
+      pop_attribute(state);
+      break;
+    case 0x60:
+      end_figure(state);
       break;
     case 0x68:
-      handle_area_order(state, length ? bytes[offset] : 0);
-      break;
-    case 0x70:
-      if (length >= 4) {
-        state.segments[read_be_u32(bytes, offset)] = record_start;
+      if ((byte0 & 0x80u) == 0) {
+        end_figure(state);
+      } else if ((byte0 & 0x40u) == 0) {
+        state.edges_visible = false;
+        begin_figure(state);
+      } else {
+        state.edges_visible = true;
+        state.figure_pending = true;
       }
-      break;
-    case 0x71:
       break;
     case 0x81:
       handle_line(state, bytes, offset, length, true);
       break;
-    case 0x82:
-      handle_marker(state, bytes, offset, length, true);
-      break;
-    case 0x83:
-      handle_text(state, bytes, offset, length, true);
-      break;
-    case 0x85:
-    case 0x86:
-      handle_arc(state, bytes, offset, length, true, false);
-      break;
-    case 0x87:
-      handle_arc(state, bytes, offset, length, true, true);
-      break;
-    case 0x91:
-      handle_image_begin(state, bytes, offset, length, true);
-      break;
-    case 0x92:
-      handle_image_data(state, bytes, offset, length);
-      break;
-    case 0x93:
-      handle_image_end(state);
-      break;
-    case 0xa1:
-      handle_relative_line(state, bytes, offset, length, true);
-      break;
     case 0xc1:
       handle_line(state, bytes, offset, length, false);
       break;
+    case 0x82:
     case 0xc2:
-      handle_marker(state, bytes, offset, length, false);
+      unsupported(opcode, "marker");
+    case 0x83:
+      handle_text(state, bytes, offset, length, true);
       break;
     case 0xc3:
       handle_text(state, bytes, offset, length, false);
       break;
-    case 0xc5:
+    case 0x86:
+      handle_arc(state, bytes, offset, length, true);
+      break;
     case 0xc6:
-      handle_arc(state, bytes, offset, length, false, false);
+      handle_arc(state, bytes, offset, length, false);
       break;
+    case 0x87:
     case 0xc7:
-      handle_arc(state, bytes, offset, length, false, true);
-      break;
+      unsupported(opcode, "full arc");
+    case 0x91:
+    case 0x92:
+    case 0x93:
     case 0xd1:
-      handle_image_begin(state, bytes, offset, length, false);
+      unsupported(opcode, "graphics image");
+    case 0xa1:
+      handle_relative_line(state, bytes, offset, length, true);
       break;
     case 0xe1:
       handle_relative_line(state, bytes, offset, length, false);
       break;
     default:
+      // Every other order -- comments, segment starts and ends, the
+      // attributes the reference renderer accepts without drawing effect
+      // (mix, fractional line width, marker type, character shear, mode and
+      // direction), fillets, and codes it does not define -- changes nothing
+      // on the canvas.
       break;
     }
 
     offset += length;
   }
 
-  finish_area(state);
-  if (state.has_pending_image) {
-    handle_image_end(state);
+  if (state.in_figure) {
+    throw std::runtime_error("GDF asset ends inside an area");
   }
-  if (state.picture.lines.empty() && state.picture.markers.empty() &&
-      state.picture.texts.empty() && state.picture.polygons.empty() &&
-      state.picture.areas.empty() && state.picture.images.empty()) {
+  if (state.picture.steps.empty()) {
     throw std::runtime_error("GDF asset has no supported drawable records");
   }
   return state.picture;

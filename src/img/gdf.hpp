@@ -11,6 +11,9 @@
 
 namespace geist::detail {
 
+// Coordinates of a parsed GDF picture are virtual device coordinates: the
+// picture's own coordinates after the model transform, with x and y scaled by
+// the picture's aspect factors (see GdfPicture::aspect_x).
 struct Point {
   double x = 0.0;
   double y = 0.0;
@@ -23,17 +26,33 @@ struct Color {
   std::uint8_t a = 255;
 };
 
+// The dash pattern a line is stroked with.  Lines are always one device
+// pixel wide.
+enum class GdfLineStyle : std::uint8_t {
+  solid,
+  dash,
+  dot,
+  dash_dot,
+  dash_dot_dot,
+  short_dot,
+  short_dash,
+};
+
 struct Polyline {
   std::vector<Point> points;
   Color color;
-  double width = 1.0;
+  GdfLineStyle style = GdfLineStyle::solid;
 };
 
-struct Marker {
-  Point point;
-  Color color;
-  double size = 1.0;
-  std::uint8_t type = 1;
+// A closed figure: its contours are filled together, and its boundary is
+// stroked when `draw_boundary` is set.
+struct FilledArea {
+  std::vector<std::vector<Point>> contours;
+  bool filled = true;
+  Color fill;
+  bool draw_boundary = false;
+  Color edge;
+  GdfLineStyle edge_style = GdfLineStyle::solid;
 };
 
 struct TextRun {
@@ -47,40 +66,41 @@ struct TextRun {
   bool monospaced = false;
 };
 
-struct Polygon {
-  std::vector<Point> points;
-  Color fill;
-  Color edge;
-};
+enum class GdfPrimitive : std::uint8_t { line, area, text };
 
-struct FilledArea {
-  std::vector<std::vector<Point>> contours;
-  Color fill;
-  Color edge;
-  bool draw_boundary = false;
-};
-
-struct CellImage {
-  Point lower_left;
-  Point upper_right;
-  int width = 0;
-  int height = 0;
-  std::vector<std::uint8_t> bits;
+struct GdfDrawStep {
+  GdfPrimitive kind = GdfPrimitive::line;
+  std::size_t index = 0;
 };
 
 struct GdfPicture {
+  // The picture window from the stream's initial comment, in the picture's
+  // own coordinates.  It fills the drawing box of the canvas.
   double min_x = 0.0;
   double min_y = 0.0;
   double max_x = 100.0;
   double max_y = 100.0;
+  // Aspect factors from the picture-attribute prolog: virtual device
+  // coordinates are picture coordinates times these.
+  double aspect_x = 1.0;
+  double aspect_y = 1.0;
   std::vector<Polyline> lines;
-  std::vector<Marker> markers;
-  std::vector<TextRun> texts;
-  std::vector<Polygon> polygons;
   std::vector<FilledArea> areas;
-  std::vector<CellImage> images;
+  std::vector<TextRun> texts;
+  // Every primitive, in the order the stream draws it.
+  std::vector<GdfDrawStep> steps;
 };
 
+// Parses a kind `G` payload.  Throws std::runtime_error for a malformed
+// stream, and for any order the reference renderer draws or applies that
+// this decoder cannot reproduce: a picture is rendered completely or not at
+// all.
 GdfPicture parse_gdf_picture(const std::vector<std::uint8_t>& bytes);
+
+// The device box the picture window maps onto, in canvas pixels.
+constexpr int gdf_box_left = 2;
+constexpr int gdf_box_right = 998;
+constexpr int gdf_box_top = 2;
+constexpr int gdf_box_bottom = 733;
 
 } // namespace geist::detail

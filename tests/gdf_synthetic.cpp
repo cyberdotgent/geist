@@ -3,9 +3,11 @@
 
 #include "geist/detail/core/internal.hpp"
 
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -14,286 +16,319 @@
 
 namespace {
 
-void be16(std::vector<std::uint8_t>& out, int value) {
-  const auto v = static_cast<std::uint16_t>(static_cast<std::int16_t>(value));
-  out.push_back(static_cast<std::uint8_t>(v >> 8));
-  out.push_back(static_cast<std::uint8_t>(v & 0xff));
-}
+using Bytes = std::vector<std::uint8_t>;
 
-void be32(std::vector<std::uint8_t>& out, std::uint32_t value) {
+void be32(Bytes& out, std::uint32_t value) {
   out.push_back(static_cast<std::uint8_t>(value >> 24));
   out.push_back(static_cast<std::uint8_t>((value >> 16) & 0xff));
   out.push_back(static_cast<std::uint8_t>((value >> 8) & 0xff));
   out.push_back(static_cast<std::uint8_t>(value & 0xff));
 }
-void point(std::vector<std::uint8_t>& out, int x, int y) {
-  be16(out, x);
-  be16(out, y);
+
+// IBM System/370 short hexadecimal floating point.
+void hfp(Bytes& out, double value) {
+  if (value == 0.0) {
+    be32(out, 0);
+    return;
+  }
+  const std::uint32_t sign = value < 0 ? 0x80000000u : 0u;
+  double magnitude = std::abs(value);
+  int exponent = 0;
+  while (magnitude >= 1.0) {
+    magnitude /= 16.0;
+    ++exponent;
+  }
+  while (magnitude < 1.0 / 16.0) {
+    magnitude *= 16.0;
+    --exponent;
+  }
+  const auto fraction =
+      static_cast<std::uint32_t>(std::lround(magnitude * 16777216.0));
+  be32(out, sign | (static_cast<std::uint32_t>(exponent + 64) << 24) |
+                (fraction & 0x00ffffffu));
 }
 
-void normal(std::vector<std::uint8_t>& out,
-            std::uint8_t opcode,
-            const std::vector<std::uint8_t>& payload) {
+Bytes points(std::initializer_list<double> coordinates) {
+  Bytes out;
+  for (const double value : coordinates) {
+    hfp(out, value);
+  }
+  return out;
+}
+
+void normal(Bytes& out, std::uint8_t opcode, const Bytes& payload) {
   out.push_back(opcode);
   out.push_back(static_cast<std::uint8_t>(payload.size()));
   out.insert(out.end(), payload.begin(), payload.end());
 }
 
-void short_order(std::vector<std::uint8_t>& out,
-                 std::uint8_t opcode,
-                 std::uint8_t payload) {
+void short_order(Bytes& out, std::uint8_t opcode, std::uint8_t payload) {
   out.push_back(opcode);
   out.push_back(payload);
 }
 
-std::vector<std::uint8_t> payload_point(int x, int y) {
-  std::vector<std::uint8_t> out;
-  point(out, x, y);
-  return out;
+// The initial comment: data type 4 (System/370 floating point), window
+// 0..100 by 0..100.
+Bytes header() {
+  Bytes gdf{0x01, 0x12, 0x00, 0x04};
+  hfp(gdf, 0.0);
+  hfp(gdf, 100.0);
+  hfp(gdf, 0.0);
+  hfp(gdf, 100.0);
+  return gdf;
 }
 
-std::vector<std::uint8_t> synthetic_gdf_all_opcodes() {
-  std::vector<std::uint8_t> gdf;
-  gdf.push_back(0x01);
-  gdf.push_back(0x0a);
-  be16(gdf, 2);
-  be16(gdf, 0);
-  be16(gdf, 200);
-  be16(gdf, 0);
-  be16(gdf, 200);
+// The picture-attribute prolog every observed kind G payload carries, with
+// the aspect record `02 20 08 <width> <height>` of a 0.3776 x 0.5155 page.
+void attribute_prolog(Bytes& gdf) {
+  normal(gdf, 0x02, {0x02, 0x7e});
+  normal(gdf, 0x02, {0x02, 0x0e, 0x80});
+  Bytes aspect{0x02, 0x20, 0x08};
+  be32(aspect, 0x4060aab0u);
+  be32(aspect, 0x4083f7feu);
+  normal(gdf, 0x02, aspect);
+  gdf.push_back(0x00);
+  normal(gdf, 0x02, {0x02, 0x7f});
+}
 
-  normal(gdf, 0x03, payload_point(0, 12));
-  normal(gdf, 0x07, {});
-  short_order(gdf, 0x09, 3);
-  short_order(gdf, 0x0a, 3);
-  short_order(gdf, 0x0c, 1);
-  short_order(gdf, 0x0d, 2);
-  normal(gdf, 0x10, {1, 2});
-  normal(gdf, 0x11, {0, 16});
-  short_order(gdf, 0x18, 1);
-  short_order(gdf, 0x19, 2);
-  normal(gdf, 0x21, payload_point(20, 20));
-  {
-    std::vector<std::uint8_t> p;
-    point(p, 20, 0);
-    point(p, 0, 20);
-    normal(gdf, 0x22, p);
-  }
-  normal(gdf, 0x24, {0, 0, 0, 0});
-  normal(gdf, 0x26, {0xff, 5});
-  normal(gdf, 0x27, {0, 0});
-  short_order(gdf, 0x28, 5);
-  short_order(gdf, 0x29, 2);
-  normal(gdf, 0x33, payload_point(0, 14));
-  normal(gdf, 0x34, payload_point(1, 0));
-  {
-    std::vector<std::uint8_t> p{0, 0};
-    point(p, 2, 10);
-    normal(gdf, 0x36, p);
-  }
-  short_order(gdf, 0x38, 0x41);
-  normal(gdf, 0x3f, {});
-  short_order(gdf, 0x4a, 4);
-  short_order(gdf, 0x4c, 1);
-  short_order(gdf, 0x4d, 1);
-  normal(gdf, 0x50, {1, 1});
-  normal(gdf, 0x51, {0, 20});
-  short_order(gdf, 0x58, 2);
-  short_order(gdf, 0x59, 1);
-  normal(gdf, 0x61, payload_point(30, 30));
-  {
-    std::vector<std::uint8_t> p;
-    point(p, 15, 0);
-    point(p, 0, 15);
-    normal(gdf, 0x62, p);
-  }
-  normal(gdf, 0x64, {0, 0, 0, 0});
-  normal(gdf, 0x66, {0xff, 6});
-  normal(gdf, 0x67, {0, 0});
+// The segment preamble the observed producer writes before every drawing.
+void segment(Bytes& gdf) {
+  normal(gdf, 0x70, {0x00, 0x11, 0x9f, 0x0b, 0x74, 0x18, 0, 0, 0, 0, 0, 0});
+  normal(gdf, 0x04, {0x80, 0x00, 0x04, 0x08, 0x41, 0x6a, 0xb3, 0x84, 0, 0, 0, 0});
+  short_order(gdf, 0x3e, 0x00);
+  normal(gdf, 0x23, {0, 0, 0, 1});
+  normal(gdf, 0x51, {0x02, 0x00});
+  short_order(gdf, 0x58, 0x00);
+}
 
-  short_order(gdf, 0x68, 1);
-  {
-    std::vector<std::uint8_t> p;
-    point(p, 20, 20);
-    point(p, 60, 20);
-    point(p, 60, 60);
-    point(p, 20, 60);
-    point(p, 20, 20);
-    normal(gdf, 0xc1, p);
-  }
-  short_order(gdf, 0x68, 0x40);
-  normal(gdf, 0x60, {});
+struct Rgb {
+  int r;
+  int g;
+  int b;
+};
 
-  short_order(gdf, 0x69, 3);
-  {
-    std::vector<std::uint8_t> p;
-    be32(p, 0x01020304);
-    normal(gdf, 0x70, p);
+Rgb pixel(const geist::detail::RgbaImage& image, int x, int y) {
+  const auto offset = (static_cast<std::size_t>(y) * image.width +
+                       static_cast<std::size_t>(x)) *
+                      4u;
+  return Rgb{image.rgba[offset], image.rgba[offset + 1], image.rgba[offset + 2]};
+}
+
+void require_pixel(const geist::detail::RgbaImage& image,
+                   int x,
+                   int y,
+                   Rgb expected,
+                   const std::string& label) {
+  const auto got = pixel(image, x, y);
+  if (got.r != expected.r || got.g != expected.g || got.b != expected.b) {
+    std::ostringstream message;
+    message << label << ": pixel (" << x << ',' << y << ") is " << got.r << ','
+            << got.g << ',' << got.b << ", expected " << expected.r << ','
+            << expected.g << ',' << expected.b;
+    throw std::runtime_error(message.str());
   }
+}
+
+constexpr Rgb white{255, 255, 255};
+constexpr Rgb black{0, 0, 0};
+
+void require_rejected(const Bytes& gdf,
+                      const std::string& fragment,
+                      const std::string& label) {
+  try {
+    (void)geist::detail::decode_gdf_to_rgba(gdf);
+  } catch (const std::runtime_error& error) {
+    if (std::string(error.what()).find(fragment) != std::string::npos) {
+      return;
+    }
+    throw std::runtime_error(label + ": rejected for the wrong reason: " +
+                             error.what());
+  }
+  throw std::runtime_error(label + ": was rendered instead of rejected");
+}
+
+// `66 ff 07` selects the background color (8, black) and `66 ff 08` neutral
+// (7, white): the swap every observed producer relies on.  The window maps
+// onto the box x 2..998, y 733..2 whatever the aspect record says.
+void test_extended_color_swap_and_window() {
+  Bytes gdf = header();
+  attribute_prolog(gdf);
+  segment(gdf);
+  normal(gdf, 0x66, {0xff, 0x07});
+  normal(gdf, 0xc1, points({0.0, 0.0, 50.0, 0.0}));
+  normal(gdf, 0xc1, points({0.0, 100.0, 50.0, 100.0}));
+  normal(gdf, 0xc1, points({100.0, 50.0, 100.0, 60.0}));
   normal(gdf, 0x71, {});
-  normal(gdf, 0x81, payload_point(80, 30));
-  normal(gdf, 0x82, payload_point(85, 35));
-  normal(gdf, 0x83, {0xc1, 0xe3});
-  {
-    std::vector<std::uint8_t> p;
-    point(p, 90, 40);
-    point(p, 110, 70);
-    normal(gdf, 0x85, p);
-  }
-  {
-    std::vector<std::uint8_t> p;
-    point(p, 100, 50);
-    point(p, 130, 75);
-    normal(gdf, 0x86, p);
-  }
-  normal(gdf, 0x87, {});
-  {
-    std::vector<std::uint8_t> p;
-    be16(p, 12);
-    be16(p, 12);
-    normal(gdf, 0x91, p);
-  }
-  normal(gdf, 0x92, {1, 0, 1, 0, 1, 0, 1, 0});
-  normal(gdf, 0x93, {});
-  normal(gdf, 0xa1, {10, 0, 0, 10});
-  {
-    std::vector<std::uint8_t> p;
-    point(p, 10, 150);
-    point(p, 80, 150);
-    normal(gdf, 0xc1, p);
-  }
-  normal(gdf, 0xc2, payload_point(90, 150));
-  {
-    std::vector<std::uint8_t> p = payload_point(95, 150);
-    p.push_back(0xc3);
-    p.push_back(0xc8);
-    normal(gdf, 0xc3, p);
-  }
-  {
-    std::vector<std::uint8_t> p;
-    point(p, 105, 150);
-    point(p, 125, 170);
-    point(p, 145, 150);
-    normal(gdf, 0xc5, p);
-    normal(gdf, 0xc6, p);
-  }
-  normal(gdf, 0xc7, payload_point(160, 150));
-  {
-    std::vector<std::uint8_t> p = payload_point(150, 20);
-    be16(p, 10);
-    be16(p, 10);
-    normal(gdf, 0xd1, p);
-  }
-  normal(gdf, 0x92, {1, 1, 0, 0, 1, 1, 0, 0});
-  normal(gdf, 0x93, {});
-  {
-    std::vector<std::uint8_t> p = payload_point(150, 80);
-    p.push_back(10);
-    p.push_back(10);
-    p.push_back(10);
-    p.push_back(static_cast<std::uint8_t>(-10));
-    normal(gdf, 0xe1, p);
-  }
-  return gdf;
+  const auto image = geist::detail::decode_gdf_to_rgba(gdf);
+  require_pixel(image, 2, 733, black, "window origin");
+  require_pixel(image, 400, 733, black, "bottom line");
+  require_pixel(image, 400, 2, black, "top line");
+  require_pixel(image, 998, 330, black, "right edge");
+  require_pixel(image, 400, 734, white, "below the box");
+  require_pixel(image, 999, 330, white, "right of the box");
 }
 
-void rectangle(std::vector<std::uint8_t>& out,
-               int left,
-               int bottom,
-               int right,
-               int top) {
-  std::vector<std::uint8_t> p;
-  point(p, left, bottom);
-  point(p, right, bottom);
-  point(p, right, top);
-  point(p, left, top);
-  point(p, left, bottom);
-  normal(out, 0xc1, p);
+// A picture that draws only in neutral white on the white canvas renders
+// nothing: that is a failure, never a blank image.
+void test_blank_render_fails_closed() {
+  Bytes gdf = header();
+  attribute_prolog(gdf);
+  segment(gdf);
+  normal(gdf, 0x66, {0xff, 0x08});
+  normal(gdf, 0xc1, points({10.0, 10.0, 90.0, 90.0}));
+  require_rejected(gdf, "draws nothing visible", "neutral-only picture");
 }
 
-std::vector<std::uint8_t> synthetic_packet_frame_gdf() {
-  std::vector<std::uint8_t> gdf;
-  gdf.push_back(0x01);
-  gdf.push_back(0x0a);
-  be16(gdf, 2);
-  be16(gdf, 0);
-  be16(gdf, 100);
-  be16(gdf, 0);
-  be16(gdf, 100);
+// Areas fill in the color current when they begin, and everything draws in
+// stream order: a white area later in the stream covers an earlier line.
+void test_area_color_and_stream_order() {
+  Bytes gdf = header();
+  segment(gdf);
+  normal(gdf, 0x66, {0xff, 0x07});
+  normal(gdf, 0xc1, points({0.0, 50.0, 100.0, 50.0}));
+  normal(gdf, 0xc1, points({0.0, 20.0, 100.0, 20.0}));
+  normal(gdf, 0x66, {0x00, 0x07});
+  short_order(gdf, 0x68, 0x80);
+  normal(gdf, 0x66, {0x00, 0x02});
+  normal(gdf, 0xc1, points({40.0, 40.0, 60.0, 40.0, 60.0, 60.0, 40.0, 60.0,
+                            40.0, 40.0}));
+  normal(gdf, 0x60, {});
+  short_order(gdf, 0x68, 0x80);
+  normal(gdf, 0xc1, points({70.0, 10.0, 90.0, 10.0, 90.0, 30.0, 70.0, 30.0}));
+  normal(gdf, 0x60, {});
+  const auto image = geist::detail::decode_gdf_to_rgba(gdf);
+  require_pixel(image, 500, 368, white, "line under the white area");
+  require_pixel(image, 200, 368, black, "line outside the area");
+  require_pixel(image, 800, 587, Rgb{255, 0, 0}, "red area");
+  require_pixel(image, 200, 587, black, "second line");
+}
 
-  auto filled_box = [&](std::uint8_t fill,
-                        int left,
-                        int bottom,
-                        int right,
-                        int top) {
-    normal(gdf, 0x26, {0x00, fill});
-    short_order(gdf, 0x68, 0x80);
-    normal(gdf, 0x26, {0x00, 0x08});
-    rectangle(gdf, left, bottom, right, top);
-    normal(gdf, 0x60, {});
+// Line type 5 is a 3-on, 3-off dot; 8 hides lines.
+void test_line_types() {
+  Bytes gdf = header();
+  segment(gdf);
+  normal(gdf, 0x66, {0xff, 0x07});
+  short_order(gdf, 0x58, 0x05);
+  normal(gdf, 0xc1, points({0.0, 50.0, 100.0, 50.0}));
+  short_order(gdf, 0x58, 0x08);
+  normal(gdf, 0xc1, points({0.0, 20.0, 100.0, 20.0}));
+  const auto image = geist::detail::decode_gdf_to_rgba(gdf);
+  const int y = 368;
+  require_pixel(image, 2, y, black, "dot run 1");
+  require_pixel(image, 4, y, black, "dot run 1 end");
+  require_pixel(image, 5, y, white, "dot gap");
+  require_pixel(image, 7, y, white, "dot gap end");
+  require_pixel(image, 8, y, black, "dot run 2");
+  require_pixel(image, 500, 587, white, "invisible line");
+}
+
+// A pending boundary figure (`68 c0`) continues across `81` orders: one
+// contour, closed once, so a ring drawn as c1 + 81 fills solid.
+void test_figure_contour_continues_at_current_position() {
+  Bytes gdf = header();
+  segment(gdf);
+  normal(gdf, 0x66, {0xff, 0x07});
+  short_order(gdf, 0x68, 0xc0);
+  normal(gdf, 0xc1, points({20.0, 20.0, 80.0, 20.0}));
+  normal(gdf, 0x81, points({80.0, 80.0}));
+  normal(gdf, 0x81, points({20.0, 80.0}));
+  normal(gdf, 0x60, {});
+  const auto image = geist::detail::decode_gdf_to_rgba(gdf);
+  require_pixel(image, 500, 368, black, "figure interior");
+  require_pixel(image, 100, 368, white, "outside the figure");
+}
+
+// Model transform `24`: mode 0 replaces the matrix; mask bits 3 and 2 of the
+// second mask byte carry the translation.
+void test_model_transform() {
+  Bytes gdf = header();
+  segment(gdf);
+  normal(gdf, 0x66, {0xff, 0x07});
+  Bytes transform{0x00, 0x00, 0x00, 0x0c};
+  hfp(transform, 50.0);
+  hfp(transform, 0.0);
+  normal(gdf, 0x24, transform);
+  normal(gdf, 0xc1, points({0.0, 10.0, 10.0, 10.0}));
+  const auto image = geist::detail::decode_gdf_to_rgba(gdf);
+  require_pixel(image, 550, 660, black, "translated line");
+  require_pixel(image, 50, 660, white, "untranslated position");
+}
+
+// Push-and-set color, then pop, restores the previous color.
+void test_push_pop_color() {
+  Bytes gdf = header();
+  segment(gdf);
+  normal(gdf, 0x66, {0xff, 0x07});
+  normal(gdf, 0x66, {0x00, 0x02});
+  normal(gdf, 0x3f, {});
+  normal(gdf, 0xc1, points({0.0, 50.0, 100.0, 50.0}));
+  const auto image = geist::detail::decode_gdf_to_rgba(gdf);
+  require_pixel(image, 500, 368, black, "restored color");
+}
+
+// Orders the reference renderer draws but this decoder cannot reproduce
+// reject the whole picture.
+void test_unsupported_orders_fail_closed() {
+  const auto with = [](const std::function<void(Bytes&)>& add) {
+    Bytes gdf = header();
+    segment(gdf);
+    normal(gdf, 0x66, {0xff, 0x07});
+    normal(gdf, 0xc1, points({0.0, 50.0, 100.0, 50.0}));
+    add(gdf);
+    return gdf;
   };
-
-  filled_box(0x04, 0, 60, 20, 80);
-  filled_box(0x06, 20, 60, 40, 80);
-  filled_box(0x02, 40, 60, 50, 80);
-  filled_box(0x01, 50, 60, 100, 80);
-  filled_box(0x08, 0, 40, 10, 50);
-  filled_box(0x0a, 70, 20, 80, 30);
-  return gdf;
+  require_rejected(with([](Bytes& g) { normal(g, 0x07, {0, 0, 0, 1}); }),
+                   "segment call", "segment call");
+  require_rejected(with([](Bytes& g) { normal(g, 0xc2, points({1.0, 1.0})); }),
+                   "marker", "marker");
+  require_rejected(with([](Bytes& g) { short_order(g, 0x09, 0x0b); }),
+                   "pattern", "hatch pattern");
+  require_rejected(with([](Bytes& g) { short_order(g, 0x19, 0x02); }),
+                   "line width", "line width");
+  require_rejected(with([](Bytes& g) { normal(g, 0x27, {0, 0}); }),
+                   "clipping", "clip");
+  require_rejected(with([](Bytes& g) { normal(g, 0x91, {0, 8, 0, 8}); }),
+                   "graphics image", "image");
+  require_rejected(with([](Bytes& g) {
+                     normal(g, 0x34, points({0.0, 1.0}));
+                   }),
+                   "rotated characters", "character angle");
+  require_rejected(with([](Bytes& g) { short_order(g, 0x68, 0x80); }),
+                   "inside an area", "unterminated area");
+  Bytes two_byte{0x01, 0x0a, 0x00, 0x02, 0, 0, 0, 100, 0, 0, 0, 100};
+  require_rejected(two_byte, "coordinate format", "two-byte coordinates");
 }
 
-std::vector<std::uint8_t> synthetic_truncated_full_arc_gdf() {
-  std::vector<std::uint8_t> gdf;
-  gdf.push_back(0x01);
-  gdf.push_back(0x0a);
-  be16(gdf, 2);
-  be16(gdf, 0);
-  be16(gdf, 100);
-  be16(gdf, 0);
-  be16(gdf, 100);
-  auto payload = payload_point(50, 50);
-  payload.push_back(0xff);
-  normal(gdf, 0x87, payload);
-  return gdf;
+// Orders with no effect on the reference canvas are skipped: fillets,
+// comments and undefined codes.
+void test_inert_orders_are_skipped() {
+  Bytes gdf = header();
+  segment(gdf);
+  normal(gdf, 0x66, {0xff, 0x07});
+  normal(gdf, 0xc5, points({0.0, 0.0, 50.0, 50.0, 100.0, 0.0}));
+  normal(gdf, 0x01, {0x01, 0x02});
+  normal(gdf, 0xf4, {0x01, 0x02});
+  normal(gdf, 0xc1, points({0.0, 50.0, 100.0, 50.0}));
+  const auto image = geist::detail::decode_gdf_to_rgba(gdf);
+  require_pixel(image, 500, 368, black, "line after inert orders");
+  require_pixel(image, 500, 368 - 20, white, "no fillet stroke");
 }
 
-std::vector<std::uint8_t> synthetic_large_cell_gdf() {
-  std::vector<std::uint8_t> gdf;
-  gdf.push_back(0x01);
-  gdf.push_back(0x0a);
-  be16(gdf, 2);
-  be16(gdf, 0);
-  be16(gdf, 100);
-  be16(gdf, 0);
-  be16(gdf, 100);
-  std::vector<std::uint8_t> dimensions;
-  be16(dimensions, 32767);
-  be16(dimensions, 32767);
-  normal(gdf, 0x91, dimensions);
-  normal(gdf, 0x92, {1});
-  normal(gdf, 0x93, {});
-  return gdf;
-}
-
-std::vector<std::uint8_t> oversized_gif_header() {
-  std::vector<std::uint8_t> gif{'G', 'I', 'F', '8', '9', 'a'};
-  gif.push_back(0xff);
-  gif.push_back(0xff);
-  gif.push_back(0xff);
-  gif.push_back(0xff);
-  gif.insert(gif.end(), {0, 0, 0});
+Bytes oversized_gif_header() {
+  Bytes gif{'G', 'I', 'F', '8', '9', 'a'};
+  gif.insert(gif.end(), {0xff, 0xff, 0xff, 0xff, 0, 0, 0});
   return gif;
 }
 
-std::vector<std::uint8_t> one_pixel_gif() {
+Bytes one_pixel_gif() {
   return {'G',  'I',  'F',  '8',  '9',  'a',  0x01, 0x00, 0x01, 0x00,
           0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x2c,
           0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x02,
           0x02, 0x44, 0x01, 0x00, 0x3b};
 }
 
-std::vector<std::uint8_t> oversized_png_header() {
-  std::vector<std::uint8_t> png{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a};
+Bytes oversized_png_header() {
+  Bytes png{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a};
   be32(png, 13);
   png.insert(png.end(), {'I', 'H', 'D', 'R'});
   be32(png, 8192);
@@ -301,15 +336,15 @@ std::vector<std::uint8_t> oversized_png_header() {
   return png;
 }
 
-std::vector<std::uint8_t> oversized_mmr_header() {
-  std::vector<std::uint8_t> mmr(0x50, 0);
+Bytes oversized_mmr_header() {
+  Bytes mmr(0x50, 0);
   mmr[0x42] = 0x20;
   mmr[0x44] = 0x20;
   return mmr;
 }
 
 void require_image_limit_rejection(const geist::ResourceEntry& resource,
-                                   const std::vector<std::uint8_t>& bytes,
+                                   const Bytes& bytes,
                                    const char* label) {
   try {
     (void)geist::detail::render_resource_png(resource, bytes);
@@ -323,148 +358,37 @@ void require_image_limit_rejection(const geist::ResourceEntry& resource,
   throw std::runtime_error(std::string(label) + " image limit was not enforced");
 }
 
-void require_pixel(const geist::detail::RgbaImage& image,
-                   std::uint32_t x,
-                   std::uint32_t y,
-                   std::uint8_t r,
-                   std::uint8_t g,
-                   std::uint8_t b,
-                   const char* label) {
-  const auto offset =
-      (static_cast<std::size_t>(y) * image.width + x) * 4u;
-  if (image.rgba[offset] != r || image.rgba[offset + 1] != g ||
-      image.rgba[offset + 2] != b) {
-    std::ostringstream message;
-    message << label << " had unexpected color "
-            << static_cast<int>(image.rgba[offset]) << ','
-            << static_cast<int>(image.rgba[offset + 1]) << ','
-            << static_cast<int>(image.rgba[offset + 2]);
-    throw std::runtime_error(message.str());
+void test_other_formats() {
+  geist::ResourceEntry resource;
+  resource.stored_format = "image/gif";
+  const auto converted_gif =
+      geist::detail::render_resource_png(resource, one_pixel_gif());
+  if (converted_gif.size() < 8 || converted_gif[0] != 0x89 ||
+      converted_gif[1] != 'P' || converted_gif[2] != 'N' ||
+      converted_gif[3] != 'G') {
+    throw std::runtime_error("valid GIF did not convert to PNG");
   }
-}
-
-void write_le16(std::ofstream& out, std::uint16_t value) {
-  out.put(static_cast<char>(value & 0xff));
-  out.put(static_cast<char>(value >> 8));
-}
-
-void write_le32(std::ofstream& out, std::uint32_t value) {
-  out.put(static_cast<char>(value & 0xff));
-  out.put(static_cast<char>((value >> 8) & 0xff));
-  out.put(static_cast<char>((value >> 16) & 0xff));
-  out.put(static_cast<char>((value >> 24) & 0xff));
-}
-
-void write_bmp(const std::filesystem::path& path,
-               const geist::detail::RgbaImage& image) {
-  std::ofstream out(path, std::ios::binary);
-  const auto row_stride = ((image.width * 3u) + 3u) & ~3u;
-  const auto pixel_bytes = row_stride * image.height;
-  constexpr std::uint32_t header_bytes = 14 + 40;
-
-  out.put('B');
-  out.put('M');
-  write_le32(out, header_bytes + pixel_bytes);
-  write_le16(out, 0);
-  write_le16(out, 0);
-  write_le32(out, header_bytes);
-
-  write_le32(out, 40);
-  write_le32(out, image.width);
-  write_le32(out, image.height);
-  write_le16(out, 1);
-  write_le16(out, 24);
-  write_le32(out, 0);
-  write_le32(out, pixel_bytes);
-  write_le32(out, 2835);
-  write_le32(out, 2835);
-  write_le32(out, 0);
-  write_le32(out, 0);
-
-  std::vector<std::uint8_t> row(row_stride, 0);
-  for (std::uint32_t source_y = image.height; source_y > 0; --source_y) {
-    std::fill(row.begin(), row.end(), 0);
-    const auto y = source_y - 1;
-    for (std::uint32_t x = 0; x < image.width; ++x) {
-      const auto source =
-          (static_cast<std::size_t>(y) * image.width + x) * 4u;
-      const auto target = static_cast<std::size_t>(x) * 3u;
-      row[target] = image.rgba[source + 2];
-      row[target + 1] = image.rgba[source + 1];
-      row[target + 2] = image.rgba[source];
-    }
-    out.write(reinterpret_cast<const char*>(row.data()),
-              static_cast<std::streamsize>(row.size()));
-  }
+  require_image_limit_rejection(resource, oversized_gif_header(), "GIF");
+  resource.stored_format = "image/png";
+  require_image_limit_rejection(resource, oversized_png_header(), "PNG");
+  resource.stored_format = "legacy-mmr";
+  require_image_limit_rejection(resource, oversized_mmr_header(), "MMR");
 }
 
 } // namespace
 
-int main(int argc, char** argv) {
+int main() {
   try {
-    const auto image = geist::detail::decode_gdf_to_rgba(synthetic_gdf_all_opcodes());
-    if (image.width == 0 || image.height == 0 || image.rgba.empty()) {
-      throw std::runtime_error("synthetic GDF rendered an empty image");
-    }
-
-    std::size_t non_white = 0;
-    for (std::size_t i = 0; i < image.rgba.size(); i += 4) {
-      if (image.rgba[i] != 255 || image.rgba[i + 1] != 255 ||
-          image.rgba[i + 2] != 255) {
-        ++non_white;
-      }
-    }
-    if (non_white < 100) {
-      throw std::runtime_error("synthetic GDF rendered too few non-white pixels");
-    }
-
-    const auto packet_frame = geist::detail::decode_gdf_to_rgba(
-        synthetic_packet_frame_gdf());
-    require_pixel(packet_frame, 100, 220, 0, 255, 0, "green fill");
-    require_pixel(packet_frame, 300, 220, 255, 255, 0, "yellow fill");
-    require_pixel(packet_frame, 450, 220, 255, 0, 0, "red fill");
-    require_pixel(packet_frame, 750, 220, 0, 0, 255, "blue fill");
-    require_pixel(packet_frame, 50, 405, 0, 0, 0, "black fill");
-    require_pixel(packet_frame, 750, 550, 224, 128, 0, "orange fill");
-
-    bool rejected_truncated_arc = false;
-    try {
-      (void)geist::detail::decode_gdf_to_rgba(
-          synthetic_truncated_full_arc_gdf());
-    } catch (const std::runtime_error& error) {
-      rejected_truncated_arc =
-          std::string(error.what()).find("radius is truncated") !=
-          std::string::npos;
-    }
-    if (!rejected_truncated_arc) {
-      throw std::runtime_error("truncated full-arc radius was accepted");
-    }
-
-    const auto large_cell = geist::detail::decode_gdf_to_rgba(
-        synthetic_large_cell_gdf());
-    if (large_cell.rgba.size() !=
-        static_cast<std::size_t>(large_cell.width) * large_cell.height * 4) {
-      throw std::runtime_error("large GDF cell produced an invalid raster");
-    }
-
-    geist::ResourceEntry resource;
-    resource.stored_format = "image/gif";
-    const auto converted_gif =
-        geist::detail::render_resource_png(resource, one_pixel_gif());
-    if (converted_gif.size() < 8 || converted_gif[0] != 0x89 ||
-        converted_gif[1] != 'P' || converted_gif[2] != 'N' ||
-        converted_gif[3] != 'G') {
-      throw std::runtime_error("valid GIF did not convert to PNG");
-    }
-    require_image_limit_rejection(resource, oversized_gif_header(), "GIF");
-    resource.stored_format = "image/png";
-    require_image_limit_rejection(resource, oversized_png_header(), "PNG");
-    resource.stored_format = "legacy-mmr";
-    require_image_limit_rejection(resource, oversized_mmr_header(), "MMR");
-
-    if (argc > 1) {
-      write_bmp(argv[1], image);
-    }
+    test_extended_color_swap_and_window();
+    test_blank_render_fails_closed();
+    test_area_color_and_stream_order();
+    test_line_types();
+    test_figure_contour_continues_at_current_position();
+    test_model_transform();
+    test_push_pop_color();
+    test_unsupported_orders_fail_closed();
+    test_inert_orders_are_skipped();
+    test_other_formats();
     return 0;
   } catch (const std::exception& error) {
     std::cerr << "gdf_synthetic: " << error.what() << "\n";

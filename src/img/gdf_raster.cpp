@@ -7,8 +7,10 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <map>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace geist::detail {
@@ -29,18 +31,81 @@ void set_pixel(RgbaImage& image, int x, int y, Color color) {
   image.rgba[offset + 3] = color.a;
 }
 
-void draw_line(RgbaImage& image, int x0, int y0, int x1, int y1, Color color) {
+// On/off run lengths, in pixels, of each dash pattern.  The pattern runs on
+// along a polyline across its vertices.
+const std::vector<int>& dash_pattern(GdfLineStyle style) {
+  static const std::vector<int> solid{};
+  static const std::vector<int> dash{18, 6};
+  static const std::vector<int> dot{3, 3};
+  static const std::vector<int> dash_dot{9, 6, 3, 6};
+  static const std::vector<int> dash_dot_dot{9, 3, 3, 3, 3, 3};
+  static const std::vector<int> short_dot{3, 3};
+  static const std::vector<int> short_dash{6, 6};
+  switch (style) {
+  case GdfLineStyle::dash:
+    return dash;
+  case GdfLineStyle::dot:
+    return dot;
+  case GdfLineStyle::dash_dot:
+    return dash_dot;
+  case GdfLineStyle::dash_dot_dot:
+    return dash_dot_dot;
+  case GdfLineStyle::short_dot:
+    return short_dot;
+  case GdfLineStyle::short_dash:
+    return short_dash;
+  case GdfLineStyle::solid:
+    break;
+  }
+  return solid;
+}
+
+struct Pen {
+  Color color;
+  const std::vector<int>* pattern = nullptr;
+  int period = 0;
+  int phase = 0;
+
+  bool on() const {
+    if (pattern == nullptr || pattern->empty()) {
+      return true;
+    }
+    int at = phase % period;
+    for (std::size_t i = 0; i < pattern->size(); ++i) {
+      const int run = (*pattern)[i];
+      if (at < run) {
+        return i % 2 == 0;
+      }
+      at -= run;
+    }
+    return true;
+  }
+};
+
+Pen make_pen(Color color, GdfLineStyle style) {
+  Pen pen;
+  pen.color = color;
+  pen.pattern = &dash_pattern(style);
+  for (const int run : *pen.pattern) {
+    pen.period += run;
+  }
+  return pen;
+}
+
+// One segment, Bresenham, without its final pixel: a polyline's next
+// segment starts there, and the last point of a polyline is not drawn.
+void draw_segment(RgbaImage& image, int x0, int y0, int x1, int y1, Pen& pen) {
   const int dx = std::abs(x1 - x0);
   const int sx = x0 < x1 ? 1 : -1;
   const int dy = -std::abs(y1 - y0);
   const int sy = y0 < y1 ? 1 : -1;
   int err = dx + dy;
 
-  for (;;) {
-    set_pixel(image, x0, y0, color);
-    if (x0 == x1 && y0 == y1) {
-      break;
+  while (x0 != x1 || y0 != y1) {
+    if (pen.on()) {
+      set_pixel(image, x0, y0, pen.color);
     }
+    ++pen.phase;
     const int e2 = 2 * err;
     if (e2 >= dy) {
       err += dy;
@@ -50,6 +115,15 @@ void draw_line(RgbaImage& image, int x0, int y0, int x1, int y1, Color color) {
       err += dx;
       y0 += sy;
     }
+  }
+}
+
+void draw_polyline(RgbaImage& image,
+                   const std::vector<std::pair<int, int>>& points,
+                   Pen pen) {
+  for (std::size_t i = 1; i < points.size(); ++i) {
+    draw_segment(image, points[i - 1].first, points[i - 1].second,
+                 points[i].first, points[i].second, pen);
   }
 }
 
@@ -166,54 +240,12 @@ void draw_glyph(RgbaImage& image,
   }
 }
 
-template <typename MapX, typename MapY>
-void fill_polygon(RgbaImage& image,
-                  const Polygon& polygon,
-                  MapX map_x,
-                  MapY map_y) {
-  if (polygon.points.size() < 3) {
-    return;
-  }
-  std::vector<std::pair<int, int>> pts;
-  pts.reserve(polygon.points.size());
-  for (const auto& point : polygon.points) {
-    pts.emplace_back(map_x(point.x), map_y(point.y));
-  }
-  int min_y = pts.front().second;
-  int max_y = pts.front().second;
-  for (const auto& [x, y] : pts) {
-    (void)x;
-    min_y = std::min(min_y, y);
-    max_y = std::max(max_y, y);
-  }
-  for (int y = min_y; y <= max_y; ++y) {
-    std::vector<int> nodes;
-    for (std::size_t i = 0, j = pts.size() - 1; i < pts.size(); j = i++) {
-      const auto [xi, yi] = pts[i];
-      const auto [xj, yj] = pts[j];
-      if ((yi < y && yj >= y) || (yj < y && yi >= y)) {
-        nodes.push_back(xi + (y - yi) * (xj - xi) / (yj - yi));
-      }
-    }
-    std::sort(nodes.begin(), nodes.end());
-    for (std::size_t i = 0; i + 1 < nodes.size(); i += 2) {
-      for (int x = nodes[i]; x <= nodes[i + 1]; ++x) {
-        set_pixel(image, x, y, polygon.fill);
-      }
-    }
-  }
-  for (std::size_t i = 0; i < pts.size(); ++i) {
-    const auto [x0, y0] = pts[i];
-    const auto [x1, y1] = pts[(i + 1) % pts.size()];
-    draw_line(image, x0, y0, x1, y1, polygon.edge);
-  }
-}
-
-template <typename MapX, typename MapY>
+// Fills a figure: all its contours together, each implicitly closed.  An edge
+// and its exact reverse cancel (stroke-font construction edges run out and
+// back), and the rest fill by the non-zero winding rule.
 void fill_area(RgbaImage& image,
-               const FilledArea& area,
-               MapX map_x,
-               MapY map_y) {
+               const std::vector<std::vector<std::pair<int, int>>>& contours,
+               Color fill) {
   struct Edge {
     int x0;
     int y0;
@@ -221,25 +253,16 @@ void fill_area(RgbaImage& image,
     int y1;
   };
 
-  std::vector<std::vector<std::pair<int, int>>> contours;
   std::vector<Edge> edges;
   std::map<std::array<int, 4>, std::vector<std::size_t>> pending_edges;
   int min_y = static_cast<int>(image.height);
   int max_y = 0;
-  for (const auto& contour : area.contours) {
-    if (contour.size() < 2) {
-      continue;
-    }
-    auto& pts = contours.emplace_back();
-    pts.reserve(contour.size());
-    for (const auto& point : contour) {
-      pts.emplace_back(map_x(point.x), map_y(point.y));
-      min_y = std::min(min_y, pts.back().second);
-      max_y = std::max(max_y, pts.back().second);
-    }
-    for (std::size_t i = 1; i < pts.size(); ++i) {
-      const auto [x0, y0] = pts[i - 1];
-      const auto [x1, y1] = pts[i];
+  for (const auto& pts : contours) {
+    for (std::size_t i = 0; i < pts.size(); ++i) {
+      const auto [x0, y0] = pts[i];
+      const auto [x1, y1] = pts[(i + 1) % pts.size()];
+      min_y = std::min(min_y, y0);
+      max_y = std::max(max_y, y0);
       if (x0 == x1 && y0 == y1) {
         continue;
       }
@@ -258,9 +281,6 @@ void fill_area(RgbaImage& image,
       edges.push_back(Edge{x0, y0, x1, y1});
       pending_edges[{x0, y0, x1, y1}].push_back(index);
     }
-  }
-  if (contours.empty()) {
-    return;
   }
 
   min_y = std::max(0, min_y);
@@ -289,24 +309,9 @@ void fill_area(RgbaImage& image,
       if (winding == 0) {
         const int fill_begin = std::max(0, begin);
         const int fill_end = std::min(static_cast<int>(image.width) - 1, x);
-        if (fill_end > fill_begin) {
-          for (int xx = fill_begin; xx <= fill_end; ++xx) {
-            set_pixel(image, xx, y, area.fill);
-          }
+        for (int xx = fill_begin; xx <= fill_end; ++xx) {
+          set_pixel(image, xx, y, fill);
         }
-      }
-    }
-  }
-
-  if (area.draw_boundary) {
-    for (const auto& pts : contours) {
-      for (std::size_t i = 1; i < pts.size(); ++i) {
-        draw_line(image,
-                  pts[i - 1].first,
-                  pts[i - 1].second,
-                  pts[i].first,
-                  pts[i].second,
-                  area.edge);
       }
     }
   }
@@ -317,22 +322,13 @@ void fill_area(RgbaImage& image,
 RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
   const auto picture = parse_gdf_picture(bytes);
 
-  constexpr std::uint32_t output_width = gdf_canvas_width;
-  constexpr std::uint32_t output_height = gdf_canvas_height;
-  const auto width_units = std::max(1.0, picture.max_x - picture.min_x);
-  const auto height_units = std::max(1.0, picture.max_y - picture.min_y);
-  const auto scale_x = static_cast<double>(output_width) / width_units;
-  const auto scale_y = static_cast<double>(output_height) / height_units;
-
   RgbaImage image;
-  image.width = output_width;
-  image.height = output_height;
+  image.width = gdf_canvas_width;
+  image.height = gdf_canvas_height;
   image.rgba.assign(static_cast<std::size_t>(image.width) * image.height * 4,
                     255);
 
   constexpr std::size_t max_raster_work = 64u * 1024u * 1024u;
-  const auto canvas_pixels =
-      static_cast<std::size_t>(image.width) * image.height;
   std::size_t raster_work = 0;
   const auto charge = [&](std::size_t count, std::size_t cost) {
     if (count != 0 &&
@@ -343,113 +339,114 @@ RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
     raster_work += count * cost;
   };
 
-  const auto mapped_coordinate = [](double value, double origin, double scale,
-                                    int extent, bool invert) {
-    const auto mapped = (value - origin) * scale;
-    if (!std::isfinite(mapped)) {
-      throw std::runtime_error(
-          "GDF asset maps a coordinate outside the raster");
+  // The picture window maps onto the drawing box; y grows upwards.
+  const double scale_x = static_cast<double>(gdf_box_right - gdf_box_left) /
+                         ((picture.max_x - picture.min_x) * picture.aspect_x);
+  const double scale_y = static_cast<double>(gdf_box_bottom - gdf_box_top) /
+                         ((picture.max_y - picture.min_y) * picture.aspect_y);
+  const double origin_x = picture.min_x * picture.aspect_x;
+  const double origin_y = picture.min_y * picture.aspect_y;
+  const auto to_pixel = [](double value) {
+    if (!std::isfinite(value)) {
+      throw std::runtime_error("GDF asset maps a coordinate outside the raster");
     }
-    const auto limited = std::clamp(mapped, -1.0,
-                                    static_cast<double>(extent));
-    const auto coordinate = static_cast<int>(std::lround(limited));
-    return invert ? extent - 1 - coordinate : coordinate;
+    return static_cast<int>(std::floor(std::clamp(value, -100000.0, 100000.0) + 0.5));
   };
-
-  auto map_x = [&](double x) {
-    return mapped_coordinate(x, picture.min_x, scale_x,
-                             static_cast<int>(image.width), false);
+  const auto map = [&](const Point& p) {
+    return std::pair<int, int>{
+        to_pixel(gdf_box_left + (p.x - origin_x) * scale_x),
+        to_pixel(gdf_box_bottom - (p.y - origin_y) * scale_y)};
   };
-  auto map_y = [&](double y) {
-    return mapped_coordinate(y, picture.min_y, scale_y,
-                             static_cast<int>(image.height), true);
-  };
-
-  for (const auto& polygon : picture.polygons) {
-    charge(1, canvas_pixels);
-    charge(polygon.points.size(), image.height + image.width + image.height);
-    fill_polygon(image, polygon, map_x, map_y);
-  }
-
-  for (const auto& area : picture.areas) {
-    std::size_t points = 1;
-    for (const auto& contour : area.contours) {
-      points += contour.size();
+  // A stroke costs the pixels it steps through.
+  const auto charge_stroke = [&](const std::vector<std::pair<int, int>>& pts) {
+    for (std::size_t i = 1; i < pts.size(); ++i) {
+      const auto dx = std::abs(static_cast<long long>(pts[i].first) - pts[i - 1].first);
+      const auto dy = std::abs(static_cast<long long>(pts[i].second) - pts[i - 1].second);
+      charge(1, static_cast<std::size_t>(std::max(dx, dy)) + 1);
     }
-    charge(1, canvas_pixels);
-    charge(points, image.height + image.width + image.height);
-    fill_area(image, area, map_x, map_y);
-  }
+  };
+  const auto map_all = [&](const std::vector<Point>& points) {
+    std::vector<std::pair<int, int>> out;
+    out.reserve(points.size());
+    for (const auto& point : points) {
+      out.push_back(map(point));
+    }
+    return out;
+  };
 
-  for (const auto& cell : picture.images) {
-    charge(1, canvas_pixels);
-    const int x0 = map_x(cell.lower_left.x);
-    const int y0 = map_y(cell.upper_right.y);
-    const int x1 = map_x(cell.upper_right.x);
-    const int y1 = map_y(cell.lower_left.y);
-    const int w = std::max(1, x1 - x0);
-    const int h = std::max(1, y1 - y0);
-    for (int y = 0; y < h; ++y) {
-      for (int x = 0; x < w; ++x) {
-        const auto bit_index =
-            static_cast<std::size_t>(y * std::max(1, cell.width) / h) *
-                static_cast<std::size_t>(std::max(1, cell.width)) +
-            static_cast<std::size_t>(x * std::max(1, cell.width) / w);
-        const bool on = cell.bits.empty() || (cell.bits[bit_index % cell.bits.size()] & 1u);
-        set_pixel(image, x0 + x, y0 + y, on ? Color{0, 0, 0, 255}
-                                            : Color{230, 230, 230, 255});
+  for (const auto& step : picture.steps) {
+    switch (step.kind) {
+    case GdfPrimitive::line: {
+      const auto& line = picture.lines[step.index];
+      const auto mapped = map_all(line.points);
+      charge_stroke(mapped);
+      draw_polyline(image, mapped, make_pen(line.color, line.style));
+      break;
+    }
+    case GdfPrimitive::area: {
+      const auto& area = picture.areas[step.index];
+      std::vector<std::vector<std::pair<int, int>>> contours;
+      std::size_t points = 1;
+      int top = static_cast<int>(image.height);
+      int bottom = -1;
+      for (const auto& contour : area.contours) {
+        contours.push_back(map_all(contour));
+        points += contour.size();
+        for (const auto& point : contours.back()) {
+          top = std::min(top, point.second);
+          bottom = std::max(bottom, point.second);
+        }
       }
+      if (area.filled) {
+        // Scan conversion visits each covered row once per edge.
+        const auto rows = static_cast<std::size_t>(
+            std::max(0, std::min(bottom, static_cast<int>(image.height) - 1) -
+                            std::max(top, 0) + 1));
+        charge(rows, image.width);
+        charge(points, rows + 1);
+        fill_area(image, contours, area.fill);
+      }
+      if (area.draw_boundary) {
+        for (auto contour : contours) {
+          contour.push_back(contour.front());
+          charge_stroke(contour);
+          draw_polyline(image, contour, make_pen(area.edge, area.edge_style));
+        }
+      }
+      break;
+    }
+    case GdfPrimitive::text: {
+      const auto& text = picture.texts[step.index];
+      const auto [x0, y0] = map(text.point);
+      const auto scaled_size = text.height * scale_y / 8.0;
+      if (!std::isfinite(scaled_size)) {
+        throw std::runtime_error("GDF asset has an invalid text size");
+      }
+      const int pixel_size = std::clamp(
+          static_cast<int>(std::lround(std::min(scaled_size, 64.0))), 1, 64);
+      charge(text.text.size(), static_cast<std::size_t>(pixel_size) *
+                                   pixel_size * 70);
+      int x = x0;
+      for (std::size_t i = 0; i < text.text.size(); ++i) {
+        const char ch = text.text[i];
+        draw_glyph(image, x, y0, pixel_size, ch, text);
+        x = std::clamp(x + glyph_advance(ch, text, pixel_size), -1,
+                       static_cast<int>(image.width));
+      }
+      break;
+    }
     }
   }
 
-  for (const auto& line : picture.lines) {
-    charge(line.points.size(), image.width + image.height);
-    for (std::size_t i = 1; i < line.points.size(); ++i) {
-      draw_line(image,
-                map_x(line.points[i - 1].x),
-                map_y(line.points[i - 1].y),
-                map_x(line.points[i].x),
-                map_y(line.points[i].y),
-                line.color);
-    }
+  // A picture with drawing orders that leaves the canvas blank lost them.
+  bool inked = false;
+  for (std::size_t i = 0; i < image.rgba.size() && !inked; i += 4) {
+    inked = image.rgba[i] != 255 || image.rgba[i + 1] != 255 ||
+            image.rgba[i + 2] != 255;
   }
-
-  for (const auto& marker : picture.markers) {
-    charge(1, image.width + image.height);
-    const int x = map_x(marker.point.x);
-    const int y = map_y(marker.point.y);
-    const int size = std::max(
-        2,
-        static_cast<int>(
-            std::lround(marker.size * std::min(scale_x, scale_y) / 25.0)));
-    draw_line(image, x - size, y, x + size, y, marker.color);
-    draw_line(image, x, y - size, x, y + size, marker.color);
-    if ((marker.type & 1u) != 0) {
-      draw_line(image, x - size, y - size, x + size, y + size, marker.color);
-      draw_line(image, x - size, y + size, x + size, y - size, marker.color);
-    }
+  if (!inked) {
+    throw std::runtime_error("GDF asset draws nothing visible on the canvas");
   }
-
-  for (const auto& text : picture.texts) {
-    const int x0 = map_x(text.point.x);
-    const int y0 = map_y(text.point.y);
-    const auto scaled_size = text.height * scale_y / 8.0;
-    if (!std::isfinite(scaled_size)) {
-      throw std::runtime_error("GDF asset has an invalid text size");
-    }
-    const int pixel_size = std::clamp(
-        static_cast<int>(std::lround(std::min(scaled_size, 64.0))), 1, 64);
-    charge(text.text.size(), static_cast<std::size_t>(pixel_size) *
-                                 pixel_size * 70);
-    int x = x0;
-    for (std::size_t i = 0; i < text.text.size(); ++i) {
-      const char ch = text.text[i];
-      draw_glyph(image, x, y0, pixel_size, ch, text);
-      x = std::clamp(x + glyph_advance(ch, text, pixel_size), -1,
-                     static_cast<int>(image.width));
-    }
-  }
-
   return image;
 }
 
