@@ -298,9 +298,47 @@ void dash_in_title() {
           "dash in title: the body is missing");
 }
 
+void index_lines_before_title() {
+  // EHMPMST 3.2.1 record 67 lines 8-11: four `SI` lines between `CSOURCEFN`
+  // and `ST  Element processing`.  The reader skips an `SI` line wherever
+  // it stands; hosted (DT 19891020000000) heads the topic
+  // `<H3> 3.2.1   Element processing</H3>` and serves none of the terms.
+  std::vector<Line> lines = {
+      {words("SH3.2.1")},
+      {words("CTOPIC#"), words("33")},
+      {words("CPARENT"), words("3.2")},
+      {words("CFORWARDLEVEL"), words("3.2.2")},
+      {words("CBACKLEVEL")},
+      {words("CSUMMARY"), words("3.2.1"), words(".SK"), words("1#T2#.SK")},
+      {words("CHDLEVEL"), words(":H3")},
+      {words("CSOURCEFN"), words("EHMPTABL")},
+      {words("SI"), words("processing,"), words("element")},
+      {words("SI"), words("element"), words("processing")},
+      {words("ST"), words(" "), words("Element"), words("processing")},
+      {words("C.SK"), words("1")},
+      {words("   "), words("Element"), words("processing"), words("is"),
+       words("the"), words("most"), words("important.")},
+  };
+  auto extracted = run(lines, "Element processing");
+  require(extracted.topic.has_value(),
+          "SI before ST: the topic was rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto text = topic_text(*extracted.topic);
+  require(text.find("Element processing is the most important.") !=
+              std::string::npos,
+          "SI before ST: the body is missing: '" + text + "'");
+  require(text.find("processing, element") == std::string::npos &&
+              text.find("SI") == std::string::npos,
+          "SI before ST: an index line is drawn: '" + text + "'");
+  require(extracted.topic->index_terms.size() == 2 &&
+              extracted.topic->index_terms[0].term == "processing, element",
+          "SI before ST: the index terms are not kept");
+}
+
 }  // namespace
 
 int main() {
+  index_lines_before_title();
   dash_in_title();
   summary_lines();
   script_lines();

@@ -2403,6 +2403,46 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
               break;
             }
           }
+          // 3. An `SI` index line draws nothing wherever it stands, and the
+          //    reader skips it before the title as anywhere else.  The
+          //    version 1.0/1.1 books write index lines between `CSOURCEFN`
+          //    and `ST`: EHMPMST 3.2.1 record 67 lines 8-11 (`SI processing,
+          //    element` ...), served by hosted (DT 19891020000000) as the
+          //    heading `3.2.1   Element processing` and the body only.  Only
+          //    an `SI` that opens its own display line is such an entry.
+          if (first_visible &&
+              ascii_lower(body_text(view_token(records, record_index,
+                                               *first_visible))) == "si" &&
+              opens_display_line(record, *first_visible)) {
+            // The entry is its display line.  What the segment carries past
+            // it before the title is the next line's length byte (EHMPMST
+            // 3.2.1 record 67 token 63, a 36-cell box run, opens the `ST`
+            // line), never display text.
+            const auto* line = display_line_of_token(record, *first_visible);
+            bool first_payload = true;
+            for (const auto token : segment.source_tokens) {
+              const auto view = view_token(records, record_index, token);
+              if (token >= line->token_end) {
+                if (is_visible(view) && !is_row_control_slot(records, view) &&
+                    !is_padding(view))
+                  return fail(error, "visible text precedes the ST title");
+                if (!ledger.assign(record_index, token,
+                                   ProseTokenRoleIR::padding, error))
+                  return false;
+                continue;
+              }
+              Item item;
+              item.kind = ItemKind::token;
+              item.token = view;
+              item.index_start = first_payload;
+              first_payload = false;
+              build.items.push_back(std::move(item));
+            }
+            Item end;
+            end.kind = ItemKind::segment_end;
+            build.items.push_back(std::move(end));
+            break;
+          }
           // `ST| <title>`: the title control glued to a one-cell marker is
           // split as a text segment (GC23-046 record 151, QSYSNEWG PREFACE).
           if (!first_visible ||

@@ -363,6 +363,17 @@ The one-triple form is therefore the same control as the many-triple form
 of version 1.2, split across lines; a reader that collects the spans of
 every `CFONT` line since the last drawn row reads both.
 
+*`SI` lines before the title.* `EHMPMST.BOO` writes subject-index lines
+between `CSOURCEFN` and `ST` in 39 topics. Topic `3.2.1`, record 67: line 8
+starts at `0x33b23` with length byte `04`, then `7c 55 02 3e`: `SI`,
+`processing`, attach + `,`, `element`; lines 9 to 11 are three more `SI`
+lines, and line 12 is `ST  Element processing`. The reader skips an `SI` line
+wherever it stands, so these are index entries like any other and the topic
+has no visible text before its title: hosted BookServer (DT
+`19891020000000`) heads it `<H3> 3.2.1   Element processing</H3>` and shows
+none of the terms. Only an `SI` that is the first token after a line's
+length byte is such an entry.
+
 *Dashes in titles.* These books write a dash between title words as a
 dictionary token whose expansion is two box-drawing horizontals (U+2500
 U+2500). `EDCIV1R2.BOO` topic `2.1`, record 44, display line 8:
