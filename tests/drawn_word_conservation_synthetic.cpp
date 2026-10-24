@@ -540,6 +540,16 @@ void check_reader_blanked_words() {
               selector.find("figdstab") == std::string::npos,
           "the operands of a `cvselect` line are counted as drawn: " +
               selector);
+  // Every `C.` line is skipped by the reader, operands included, whatever
+  // its name: EDCGV1R2 3.4.6 record 68 line 11 is `C.SK 1` (hosted DT
+  // 19891031000000 serves no `1`), and `C.PA`/`C.CC 4` likewise.
+  const auto script = project({{"C.SK", "1"},
+                               {"   ", "You", "can", "compile."},
+                               {"C.CC", "4"},
+                               {"C.SP", "5", "P"},
+                               {"   ", "For", "TPF."}});
+  require(script == "you,can,compile,for,tpf",
+          "the operands of a `C.` line are counted as drawn: " + script);
 }
 
 void check_styled_preformatted_rows() {

@@ -95,8 +95,11 @@ using ControlCells = std::unordered_map<std::uint32_t, std::vector<CellKey>>;
 //   `ctoce`      a compiled contents topic's entry row, `ctocdef` the level
 //   `ctocdef`    format that topic opens with (XWEBDEMO record 3 lines 12-18,
 //                `ctocdef=0 1 0 2` ... `ctocdef=6 0 8`).
-//   `c.cp`       page-scope composition directives, spelled like the modelled
-//   `c.cc`       `c.sp` and carrying only operands.
+//   `c.<word>`   every SCRIPT control (`c.cp`, `c.cc`, `C.SK`, `C.PA`, ...):
+//                the reader skips any line whose control name starts with
+//                `C.`, operands included.  The version 1.0/1.1 books write
+//                `C.SK <n>` 7,689 times (EDCGV1R2 3.4.6 record 68 line 11
+//                `C.SK 1`; hosted DT 19891031000000 serves no `1`).
 //   `cvselect`   a selector inside an artwork description (`cartdesc` lines):
 //                `<column> <length> <target>` over the description text the
 //                reader puts in the picture's `alt`, never printed itself
@@ -117,8 +120,12 @@ bool unmodelled_control_opcode(std::string opcode) {
   if (operand != std::string::npos) opcode.resize(operand);
   static const char* const opcodes[] = {"si",     "citerm",    "cidelm",
                                         "cgpsep", "cendindex", "ctoce",
-                                        "ctocdef", "c.cp",     "c.cc",
-                                        "cvselect"};
+                                        "ctocdef", "cvselect"};
+  if (opcode.size() > 2 && opcode.compare(0, 2, "c.") == 0 &&
+      std::all_of(opcode.begin() + 2, opcode.end(), [](const unsigned char ch) {
+        return ch >= 'a' && ch <= 'z';
+      }))
+    return true;
   return std::any_of(std::begin(opcodes), std::end(opcodes),
                      [&](const char* candidate) { return opcode == candidate; });
 }
