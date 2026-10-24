@@ -1423,6 +1423,21 @@ The `SRVBLDS` token `E8 22` at `0x448BC` is inside that line, following
 `Update the`; it introduces no anchor and does not end the title. The next
 byte, `00` at `0x448C6`, opens an empty display line.
 
+The rule holds for the title's *first* word as well.  The `ST` payload is
+everything after the two-letter opcode up to the end of the display line;
+the first byte is a revision mark unless it is a blank, leading blanks are
+dropped, and no word of the line is read as a control, whatever it is spelled
+like.  `SC34-425` topic `1.7.3.2.5`, logical record 383 line 8 at `0x10A3BD`:
+length byte `06`, then `81` (`ST`), `0F` (blank), `DA 95`
+(`SREPLACE`) and `B3 F6` (`Command`); the next byte, `00`, opens an empty
+line.  A reader that looks for controls in the decoded string sees a bare
+`ST` followed by an `SR` anchor-shaped word; hosted DT `19921112160049` serves
+`<H4> 1.7.3.2.5   SREPLACE Command</H4>` and no anchor.  The same holds for
+`S85G-8681-00` `11.1` (`ST  SRPI Compatibility`, DT `19950803164615`:
+`<H2> 11.1   SRPI Compatibility</H2>`), `SH45-5547-00` `2.21.2`
+(DT `19950203080455`: `<H2> 2.21.2   SRPI connectivity method</H2>`) and
+`BLGC4MST` `7.2.5` (DT `19910131184254`: `<H3> 7.2.5   SRCs</H3>`).
+
 An `ST` line with no payload is an empty title; the heading is then the topic
 number alone (see the empty-`ST` rule above).
 

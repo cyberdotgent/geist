@@ -319,9 +319,8 @@ void an_unknown_mode_is_inert() {
 // 1b. A title line cut at a title word spelled like a control is no leading
 // body row: S85G-8681-00 11.1 record 1217 line 8 is `ST  SRPI
 // Compatibility`, and the splitter opened a segment on `SRPI`.  Hosted
-// heads the topic `11.1   SRPI Compatibility`; reading the rest of the
-// line as the body's first row would print the title as a paragraph, so the
-// topic declines.
+// heads the topic `11.1   SRPI Compatibility`: the rest of the `ST` display
+// line is the title, never the body's first row.
 void a_split_title_line_is_no_leading_row() {
   RecordBuilder builder;
   builder.line({words("sh11.1")});
@@ -338,7 +337,13 @@ void a_split_title_line_is_no_leading_row() {
   builder.line({words("   "), words("PC/3270"), words("supports"),
                 words("SRPI.")});
   auto extracted = run(builder.build(1217), "SRPI Compatibility");
-  if (!extracted.topic) return;  // declined: correct
+  require(extracted.topic.has_value(),
+          "the split title line was not read as the title: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  require(extracted.topic->title == "SRPI Compatibility",
+          "the split title line is not the title: '" +
+              extracted.topic->title + "'");
   const auto text = topic_text(*extracted.topic);
   require(!contains(text, "Compatibility"),
           "the split title line became a body row:\n" + text);

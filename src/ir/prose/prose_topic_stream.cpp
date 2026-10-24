@@ -1048,6 +1048,10 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                     const Envelope& envelope, Ledger& ledger,
                     StreamBuild& build, std::string* error) {
   bool title_seen = false;
+  // Set when the flattened splitter cut the title's own `ST` display line
+  // right after the bare opcode: the record index and the line's end token.
+  // The segment that carries the rest of the line is the title.
+  std::optional<std::pair<std::size_t, std::size_t>> split_title;
   bool menu_open = false;
   // The verbatim `cz OFF` regions of the topic.  An `SRFIG`/`SRTBL` envelope
   // marker inside one is not an object envelope -- the span plan leaves it
@@ -1626,6 +1630,8 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         return fail(error, "content follows the trailing menu");
       }
 
+      if (split_title && segment.kind != BookControlKind::text)
+        return fail(error, "the rest of a split ST title line is a control");
       switch (segment.kind) {
       case BookControlKind::title: {
         if (segment.malformed) return fail(error, "ST control is malformed");
@@ -1737,11 +1743,16 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           // splitter can instead cut that line at a title word spelled like
           // a control: S85G-8681-00 11.1 record 1217 line 8 is
           // `ST  SRPI Compatibility` (tokens [25,29)), and the segment after
-          // the bare `ST` opens on `SRPI`.  Hosted (DT 19950803164615) heads
-          // the topic `<H2> 11.1   SRPI Compatibility</H2>`; the cut would
-          // print the number alone and the title as the first body row, so
-          // such a topic declines.  (A title cut after its first word
-          // continues across the cut instead; see `title_line_open_after`.)
+          // the bare `ST` opens on `SRPI`.  The reader takes the `ST`
+          // payload as everything after the opcode up to the end of the
+          // display line, whatever its words are spelled like, and hosted
+          // (DT 19950803164615) heads the topic `<H2> 11.1   SRPI
+          // Compatibility</H2>`; SC34-425 1.7.3.2.5 `ST  SREPLACE Command`
+          // (DT 19921112160049), SH45-5547-00 2.21.2 and BLGC4MST 7.2.5 are
+          // the same.  The segment that carries the rest of the line is
+          // therefore the title (the text case below).  (A title cut after
+          // its first word continues across the cut instead; see
+          // `title_line_open_after`.)
           if (!segment.source_tokens.empty()) {
             const auto* line =
                 display_line_of_token(record, segment.source_tokens.front());
@@ -1750,11 +1761,13 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                    token < line->token_end; ++token) {
                 const auto view = view_token(records, record_index, token);
                 if (is_visible(view) && !is_padding(view) &&
-                    !is_placeholder_run(view))
-                  return fail(error, "empty ST title line is split at '" +
-                                         body_text(view) + "'");
+                    !is_placeholder_run(view)) {
+                  split_title = std::make_pair(record_index, line->token_end);
+                  break;
+                }
               }
           }
+          if (split_title) break;
           for (auto index = before; index < build.items.size(); ++index)
             if (build.items[index].kind == ItemKind::segment_end)
               build.items[index].empty_title = true;
@@ -2169,6 +2182,17 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             first_visible = token;
             break;
           }
+        }
+        if (split_title) {
+          // The rest of the `ST` display line the splitter cut: the title.
+          // The line pass ends it at the next display line's length byte.
+          if (!first_visible || record_index != split_title->first ||
+              *first_visible >= split_title->second)
+            return fail(error, "split ST title line has no title words");
+          split_title.reset();
+          if (!push_payload(ProseTokenRoleIR::control, true, false, false))
+            return false;
+          break;
         }
         // The record encoder writes a compact separator token -- the attach
         // control plus a comma -- before a body control it does not precede
@@ -2785,6 +2809,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
     if (!emit_unclaimed(record.ir.tokens.size())) return false;
   }
   if (!title_seen) return fail(error, "topic has no ST title");
+  if (split_title) return fail(error, "split ST title line has no title words");
   if (!pending_footnote_id.empty())
     return fail(error, "SR" + pending_footnote_id +
                            " is not followed by cz FLOW FN");

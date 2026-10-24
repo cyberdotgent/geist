@@ -21,6 +21,12 @@
 // </H2>`, `   <B>open</B>` and `<a name="HDRHWEOP6"><H2> 2.3.3
 // Purpose</H2></a>`.
 //
+// The `ST` payload is the whole rest of its display line.  A title whose
+// first word is spelled like a control is still the title: SC34-425
+// 1.7.3.2.5 record 383 line 8 is `ST  SREPLACE Command`, which the flattened
+// splitter cuts after the bare `ST`; hosted (DT 19921112160049) heads the
+// topic `<H4> 1.7.3.2.5   SREPLACE Command</H4>`.
+//
 // Everything here is synthetic: the test builds whole topic records by hand.
 
 #include "geist/detail/layout/display_lines.hpp"
@@ -280,5 +286,24 @@ int main() {
                                      words("and"), words("use")}),
                  "2.3.3", "Open",
                  "h2:2.3.3 Open|p|a:HDRPURPOSE|h2:2.3.3 Purpose and use|p");
+
+  // A control-shaped first title word does not empty the title.
+  expect_outline("ST  SREPLACE Command",
+                 topic("1.7.3.2.5", ":H4",
+                       {words("ST"), words("  "), words("SREPLACE"),
+                        words("Command")}),
+                 "1.7.3.2.5", "SREPLACE Command",
+                 "h4:1.7.3.2.5 SREPLACE Command|p");
+  expect_outline("ST  SRPI connectivity method",
+                 topic("2.21.2", ":H2",
+                       {words("ST"), words("  "), words("SRPI"),
+                        words("connectivity"), words("method")}),
+                 "2.21.2", "SRPI connectivity method",
+                 "h2:2.21.2 SRPI connectivity method|p");
+  // A bare `ST` before a control line is still an empty title.
+  expect_outline("bare ST",
+                 second_title_topic({words("ST")},
+                                    {words("ST"), words("Purpose")}),
+                 "2.3.3", "", "h2:2.3.3|p|a:HDRPURPOSE|h2:2.3.3 Purpose|p");
   return 0;
 }
