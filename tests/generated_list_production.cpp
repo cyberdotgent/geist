@@ -33,6 +33,9 @@ std::size_t count(const std::string& text, const std::string& needle) {
 struct Fixture {
   const char* book;
   const char* topic;
+  // The served heading: a title that spells the topic id is headed without
+  // the id, as hosted BookServer serves `<h1>    Figures</h1>`.
+  const char* heading;
   std::size_t entries;
 };
 
@@ -46,8 +49,8 @@ int main() {
   // with the embedded-marker, ordinal-decoration, payload-punctuation and
   // decoder-artifact label checks they carried (issue #59).
   const std::vector<Fixture> fixtures{
-      {"packet.boo", "FIGURES", 9},
-      {"packet.boo", "TABLES", 7},
+      {"packet.boo", "FIGURES", "# Figures\n", 9},
+      {"packet.boo", "TABLES", "# Tables\n", 7},
   };
 
   auto total_entries = std::size_t{};
@@ -62,7 +65,7 @@ int main() {
     require(markdown == again,
             std::string(fixture.book) + ':' + fixture.topic +
                 " repeated typed rendering changed");
-    require(markdown.rfind("# " + std::string(fixture.topic) + ' ', 0) == 0,
+    require(markdown.rfind(fixture.heading, 0) == 0,
             std::string(fixture.book) + ':' + fixture.topic +
                 " did not enter the typed generated-list route");
     require(count(markdown, "](<#") == fixture.entries,

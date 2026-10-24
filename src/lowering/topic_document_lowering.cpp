@@ -61,6 +61,28 @@ void prepend_topic_id_to_heading(DocumentIR &document) {
       heading.content.front().origin.detail == "public topic identity prefix")
     return;
 
+  // A title that spells the topic id, ignoring case, is served without the
+  // id: hosted BookServer heads `NOTICES` topics titled `Notices` as
+  // `<h1>    Notices</h1>` in every one of 18 sampled books (GC23-0469-02 DT
+  // 19930208105051, SG24-4424-01, SC41-8106-02, ...), and `FIGURES`/`TABLES`
+  // the same way (ESE4MSTR, SC31-7563-02).  Only a heading made of plain text
+  // is compared; one with any styled or linked run keeps its number.
+  {
+    std::string title;
+    bool plain = true;
+    for (const auto &item : heading.content) {
+      const auto *text = std::get_if<TextInlineIR>(&item.node);
+      if (text == nullptr) {
+        plain = false;
+        break;
+      }
+      title += text->text;
+    }
+    if (plain &&
+        ascii_equals_case_insensitive(trim_ascii(title), document.topic.id))
+      return;
+  }
+
   InlineIR identity;
   identity.node = TextInlineIR{document.topic.id + " "};
   identity.origin.derivation = DocumentDerivationIR::synthesized;

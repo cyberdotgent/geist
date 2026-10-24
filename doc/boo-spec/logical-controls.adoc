@@ -518,6 +518,50 @@ found the shape in `SC09-138.boo` only, *41 topics* (an earlier sweep
 restricted to legacy-routed topics reported 40 and missed that book's `FRONT`
 topic, whose envelope is itself irregular).
 
+[[logical-controls_a_title_that_spells_the_topic_id_is_served_without_it]]
+===== A Title That Spells The Topic Id Is Served Without It
+
+The heading is the topic id followed by the `ST` title, except when the
+title, after its revision column and leading blanks, equals the topic id
+ignoring letter case: the id is then not printed and the heading is the title
+alone.  `SC33-0668-02` logical record 18 opens with `SH` id `shfigures`
+(token 1, bytes `E3 A6` at `0xD361E`) and stores its title line at
+`0xD363C`: length byte `04`, then `8F` (`ST`), `09` (one blank) and `D7 8E`
+(`Figures`).  Hosted DT `19930625001740` serves `<h1>    Figures</h1>`, with
+no `FIGURES` in front.  A title that merely begins with the id
+(`Notices and trademarks` under `NOTICES`) keeps the id.
+
+[cols="<16,<10,<16,<30",options="header"]
+|===
+|Book |Topic |DT |Hosted heading
+
+|`SG24-4424-01` |`NOTICES` |`19960724132041` l|<h1>    Notices</h1>
+|`SH19-6976-01` |`NOTICES` |`19940630213725` l|<h1>    Notices</h1>
+|`SC41-8106-02` |`NOTICES` |`19931217071415` l|<h1>    Notices</h1>
+|`SC30-3347-06` |`NOTICES` |`19930330181700` l|<h1>    Notices</h1>
+|`SG24-5146-00` |`NOTICES` |`19980506053912` l|<h1>    Notices</h1>
+|`SC26-4766-00` |`NOTICES` |`19920801142731` l|<h1>    Notices</h1>
+|`SC30-3680-07` |`NOTICES` |`19980417131925` l|<h1>    Notices</h1>
+|`HASA2MST` |`NOTICES` |`19920124000100` l|<h1>    Notices</h1>
+|`SC24-5789-03` |`NOTICES` |`19990511104630` l|<h1>    Notices</h1>
+|`SC09-1823-00` |`NOTICES` |`19940609155333` l|<h1>    Notices</h1>
+|`SC41-3410-00` |`NOTICES` |`19950525154754` l|<h1>    Notices</h1>
+|`SC31-7563-02` |`TABLES` |`19940707143244` l|<h1>    Tables</h1>
+|`SC31-6160-02` |`NOTICES` |`19940809095214` l|<h1>    Notices</h1>
+|`SC24-5466-04` |`NOTICES` |`19940323131240` l|<h1>    Notices</h1>
+|`SC23-0373-00` |`NOTICES` |`19930330105555` l|<h1>    Notices</h1>
+|`GC23-0469-02` |`NOTICES` |`19930208105051` l|<h1>    Notices</h1>
+|`SC38-2033-01` |`NOTICES` |`19921030093653` l|<h1>    Notices</h1>
+|`ESE4MSTR` |`FIGURES` |`19911213133641` l|<h1>    Figures</h1>
+|`SC33-0668-02` |`FIGURES` |`19930625001740` l|<h1>    Figures</h1>
+|===
+
+These are the first such topic of each of 18 books drawn at random from the
+library's books with upper-case file names (the hosted catalog lists no
+other), plus the record above; no sampled book prints the id.  The same rule
+gives the `Index`, `Preface`, `Glossary` and `Abstract` headings of
+"Front-matter heading forms" in the markup chapter.
+
 Two consequences for what stands _in front of_ such a control, both readings
 of facts already established above.
 

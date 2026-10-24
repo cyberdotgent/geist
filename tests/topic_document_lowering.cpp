@@ -91,8 +91,10 @@ int main() {
                "generated navigation content was not rendered") ||
       !require(contents.find("<B>") == std::string::npos,
                "generated navigation retained raw HTML") ||
-      !require(figures.rfind("# FIGURES ", 0) == 0,
-               "generated list heading lost public topic identity") ||
+      // A title that spells the topic id is served without it (hosted
+      // BookServer: `<h1>    Figures</h1>`).
+      !require(figures.rfind("# Figures\n", 0) == 0,
+               "generated list heading is not its title alone") ||
       !require(figures == figures_again,
                "repeated generated list rendering was unstable") ||
       !require(figures.find("LoRa Frame Format") != std::string::npos,
