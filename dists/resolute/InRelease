@@ -1,0 +1,59 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Architectures: amd64
+Codename: resolute
+Components: stable unstable
+Date: Sat, 24 Oct 2026 19:21:52 +0000
+Description: IBM BookManager BOO tools
+Label: Geist
+Origin: Geist
+Suite: resolute
+MD5Sum:
+ 9e1364d13eb02818c8d0590dc3507743             3366 Release
+ baddd986912f75c3f977ac4ed7ff6fda            34095 stable/binary-amd64/Packages
+ d4f1cbb8b00bdada9ce6b05814a983e0             7223 stable/binary-amd64/Packages.gz
+ 925752e26cefedcafb31ad5a7fa0c5ce               83 stable/binary-amd64/Release
+ 130016bcd615f020b44445190b7fd354            30370 unstable/binary-amd64/Packages
+ 7f22ad2802305534f0dfde85ee41f0a8             6377 unstable/binary-amd64/Packages.gz
+ a5055633fa7575022f1881572ef21a2a               85 unstable/binary-amd64/Release
+SHA1:
+ e1680f2d83ed27a895ac3c0dd9c1d66eaeffc9ab             3366 Release
+ d0d7b7a4810a05b6a6cd91429c121785f23d5c56            34095 stable/binary-amd64/Packages
+ b51ec3688c9a09e4281bf4c377d6933f16ce3473             7223 stable/binary-amd64/Packages.gz
+ 54e95fa1c100fbe9a50bb3d353f797e5ba7b5e1a               83 stable/binary-amd64/Release
+ b6a31be33d8684e968a2c548e8818d41c3ec5ea3            30370 unstable/binary-amd64/Packages
+ a2f2640256ad24d12683a98fd771b1eecb42b26f             6377 unstable/binary-amd64/Packages.gz
+ 1ee39314ddf34611a81b371ed2a510224b8ac54a               85 unstable/binary-amd64/Release
+SHA256:
+ 6384abe4f9e5abfc2ab0909b00e23fcdb55f2afa15a26cb6b376dcb9cf4735de             3366 Release
+ 8a8dcb97c75bfc87dca08a304e3d006c94982d8a3f14c327c2824c510c09616c            34095 stable/binary-amd64/Packages
+ d2ae1eb99f17a6bd691c28ea8d7b2420bc2d4d923768d523f8dcf7199eadf9a7             7223 stable/binary-amd64/Packages.gz
+ 6a6d9df323f2248048fec09d6c9dbfd8c10d2978d0ad0856a55edcc85679ebac               83 stable/binary-amd64/Release
+ f263b6510a5b8e2e352a05e545053f611b87d5475793e9daed8f84879c6a8a26            30370 unstable/binary-amd64/Packages
+ 169ced10ac401d0f5aaf92beb6728b2e0e067f88aa76c5b1aae2174a73820a7c             6377 unstable/binary-amd64/Packages.gz
+ bfba68d199203f2581d6a7aa874fa2bc16d71e6b4d5580f8435f70223332b139               85 unstable/binary-amd64/Release
+SHA512:
+ 2a5a89ffaa94034f67e51180cfecb17dfacb5724e33fe2b1732d7545c7f97bbb995ef96585b3dd43c594f78b65773f8ed2d8cb67f50b234b57c6ee5421cfcd5b             3366 Release
+ df17c14ee7b4f805d98f789ead23955262771914e0f9a2c506c0bb10b7434b5c2250319aadf209bb497c7fb19d80673d4d57be0e4971b4e4bf9292dafa2c685c            34095 stable/binary-amd64/Packages
+ 4f65d53207ef240f68c8544745b2228bf70174e648490aedf35c7994dfcceb4637c280ca3ef77f89e526fbd622bdc6b5c9498957b2dbbe06eadde0e524c07fef             7223 stable/binary-amd64/Packages.gz
+ be2c16f49947e376a66029989c7c4c066fbb6acb1b96f96acaddb9d1f8a218b5aaf8163ec070028ff3495a0d4f6376dbccdc0dc36f0d141bcb9c9e2affe2ebb7               83 stable/binary-amd64/Release
+ 3cc5470246c40ee175bb5f77cbdd2dbc04c3e18333ba5704157059f703d0534347db4451863fc037a695712a0876d8ba4bf576ba679950022856cc91d157f2fc            30370 unstable/binary-amd64/Packages
+ 8308b5b8a1e1f3e47d60fd8dd502bcfb7e2613acc605df57e2906f2f9b162e114053e87e561c059ce3776a88d4f35e482282d26e5de286ac9d1113699f04e6df             6377 unstable/binary-amd64/Packages.gz
+ 44d5c9007bf631e234eaa69d538f00277b1dcb582793f29c726e528a886bd550fa3d3cd506447b371df2d1465134a8df4e6013c12d6c50465045da135da3b585               85 unstable/binary-amd64/Release
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEEjX8mVTaD6yQEUrDUHwII5RHybPMFAmrdBVAACgkQHwII5RHy
+bPM6OA//T/GPBPHLBXOnt6ZLu2HmwqJLshaq2TaXH9atAvY7HQ6ZnAJdTc4BQA3w
+Zz5jAQaQFlI4Dv9Ua26v69uNSJFTSPaCn5TRvE9bWAwNtmW6Iyi88EOMGwKFiMI4
+L0T5ysXoz5fA5ZO4h27tidvIWGx26pFUxV0QwpkeGs+QwGFiMFabrw4SfHpFmHr3
+EjKap3nkQ1zyXODaqVqHfRgekYeTm1hhFSmfsfe1aqXNCWIky2faqh/HriuDeSTC
++VxsD8WRq1xtvU6pX9ShjpoJ7I+dOBEj8WpLvitI9p5M81gZ+N6lQ3pzoKUgUclG
+YC1t3yegKlWU3OARK9PRbkIOtsbqOThzi/BJdmJ7BLSnXRSnmIUAzDAZ8Ad/fHRh
+Ud8tZQA9BLcPPne3zbhpMxFz/0lkZoXYkf98UsoqpytAN8CrGdEk4DZ/suBQEfwJ
+gDnH9K+7XeURfjJLSaZgX6Q55+TZ7KBq1U/zOcn5lQI0/BS0vT3LiTMnLI+v6d1p
+Gunz6wgSYV3XDgH+tmQGrGWK1udYTnDDs2GaAcW3D/YeQSk2z6NTCFkQOHnjppbp
+beW0L+MRpR0HHPLRIxOq9DR/46qEbZC0dUW7/S+DKg9UE7fsVm9E0C2xJKucbCIn
+XRNxK6zK0QPLaduZJzQqN3IMv8PPW6tvNd0JCp4T9TuQEdbjmd4=
+=ymZC
+-----END PGP SIGNATURE-----
