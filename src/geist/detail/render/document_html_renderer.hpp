@@ -57,7 +57,7 @@ using DocumentHtmlInlineResolver =
 
 // The elements a run naming a phrase (`PhraseKindIR`) is wrapped in.  Native
 // HTML uses the ones hosted BookServer serves (`<samp>`, `<kbd>`,
-// `<cite>`).  Markdown embeds HTML only where its own syntax cannot follow,
+// `<cite>`, `<var>`).  Markdown embeds HTML only where its own syntax cannot follow,
 // and there keeps the generic `<code>`/`<em>` it has always written, so a
 // GitHub-flavoured reader never draws a `<kbd>` keycap.
 enum class HtmlPhraseElements {

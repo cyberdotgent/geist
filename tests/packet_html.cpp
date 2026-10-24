@@ -130,7 +130,7 @@ int main() {
   // page. Anything else here would mean source bytes became markup.
   const std::set<std::string> allowed = {
       "a",   "aside", "body",       "br",    "cite",  "code", "dd",
-      "div", "kbd",   "samp",
+      "div", "kbd",   "samp",       "var",
       "dl",  "dt",    "em",         "figcaption", "figure", "h1", "h2",
       "h3",  "h4",    "h5",         "h6",    "head",  "html", "img",
       "li",  "meta",  "nav",        "ol",    "p",     "pre",  "section",

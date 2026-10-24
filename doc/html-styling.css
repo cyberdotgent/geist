@@ -315,7 +315,8 @@
   box-shadow: none;
 }
 
-.geist-citation {
+.geist-citation,
+.geist-variable {
   font-style: italic;
 }
 

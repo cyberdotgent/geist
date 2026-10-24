@@ -167,10 +167,9 @@ void check(const std::string &style, bool framed, bool admitted,
 int main() {
   // HTML serves each phrase code in the element hosted BookServer uses
   // (doc/boo-spec/markup.adoc, the message-entry census): `C` (CIT)
-  // `<cite>`, `E` (XMP) `<samp>`, `P` (PK) `<kbd>`.  `X` (XPH) and `4` (HP4)
-  // are hosted `<tt>`, obsolete in HTML5, and stay `<code>`.  `V` (PV) is
-  // hosted `<var>` on a handful of books only, without a census, and keeps
-  // its emphasis.
+  // `<cite>`, `E` (XMP) `<samp>`, `P` (PK) `<kbd>`, `V` (PV) `<var>`.  `X`
+  // (XPH) and `4` (HP4) are hosted `<tt>`, obsolete in HTML5, and stay
+  // `<code>`.
   check("C", true, false,
         "<cite class=\"geist-emphasis geist-citation\">Alpha</cite>");
   check("E", true, false,
@@ -179,7 +178,8 @@ int main() {
         "<kbd class=\"geist-monospace geist-keyboard\">Alpha</kbd>");
   check("X", true, false, "<code class=\"geist-monospace\">Alpha</code>");
   check("4", true, false, "<code class=\"geist-monospace\">Alpha</code>");
-  check("V", true, false, "<em class=\"geist-emphasis\">Alpha</em>");
+  check("V", true, false,
+        "<var class=\"geist-emphasis geist-variable\">Alpha</var>");
   check("2", true, false, "<strong class=\"geist-strong\">Alpha</strong>");
   // `K` (H4) is italic, not bold: hosted BookServer serves every K span of
   // 30 sampled books as `<I>`, e.g. SC09-138 1.1.3 (DT 19910321130500)

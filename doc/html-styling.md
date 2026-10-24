@@ -158,6 +158,7 @@ would be a claim the source never made.
 | `geist-monospace geist-sample` | `<samp>` | `CodeInlineIR` phrase `sample` (CFONT `E`, XMP) |
 | `geist-monospace geist-keyboard` | `<kbd>` | `CodeInlineIR` phrase `keyboard` (CFONT `P`, PK) |
 | `geist-emphasis geist-citation` | `<cite>` | `EmphasisInlineIR` kind `emphasis`, phrase `citation` (CFONT `C`, CIT) |
+| `geist-emphasis geist-variable` | `<var>` | `EmphasisInlineIR` kind `emphasis`, phrase `variable` (CFONT `V`, PV) |
 | `geist-image` | `<img>` | `ImageInlineIR` |
 | `geist-opaque-inline` | `<code>` | `OpaqueInlineIR` |
 

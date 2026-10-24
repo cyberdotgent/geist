@@ -384,6 +384,7 @@ void append_code(HtmlSink &sink, const std::string &text,
     return;
   case PhraseKindIR::none:
   case PhraseKindIR::citation:
+  case PhraseKindIR::variable:
     break;
   }
   sink.markup("<code class=\"geist-monospace\">");
@@ -391,8 +392,9 @@ void append_code(HtmlSink &sink, const std::string &text,
   sink.markup("</code>");
 }
 
-// One emphasis run.  `C` (CIT) is hosted `<cite>`, which keeps
-// `geist-emphasis` beside its own class as the code phrases keep theirs.
+// One emphasis run.  `C` (CIT) is hosted `<cite>` and `V` (PV) `<var>`;
+// each keeps `geist-emphasis` beside its own class as the code phrases keep
+// theirs.
 void append_emphasis(HtmlSink &sink, const std::string &text,
                      EmphasisKindIR kind, PhraseKindIR phrase) {
   switch (kind) {
@@ -401,6 +403,10 @@ void append_emphasis(HtmlSink &sink, const std::string &text,
       sink.markup("<cite class=\"geist-emphasis geist-citation\">");
       sink.text(text);
       sink.markup("</cite>");
+    } else if (sink.phrase(phrase) == PhraseKindIR::variable) {
+      sink.markup("<var class=\"geist-emphasis geist-variable\">");
+      sink.text(text);
+      sink.markup("</var>");
     } else {
       sink.markup("<em class=\"geist-emphasis\">");
       sink.text(text);

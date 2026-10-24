@@ -147,6 +147,8 @@ DocumentIR build_document() {
   rich.push_back(in(CodeInlineIR{"PF&3", PhraseKindIR::keyboard}));
   rich.push_back(in(EmphasisInlineIR{"Guide<&>", EmphasisKindIR::emphasis,
                                      PhraseKindIR::citation}));
+  rich.push_back(in(EmphasisInlineIR{"mem<&>", EmphasisKindIR::emphasis,
+                                     PhraseKindIR::variable}));
   {
     CrossReferenceInlineIR keyed{
         {CrossReferenceTargetKindIR::anchor, "KEYS"}, "PF1"};
@@ -544,6 +546,10 @@ int main() {
            "<cite class=\"geist-emphasis geist-citation\">Guide&lt;&amp;&gt;"
            "</cite>",
            "a `C` citation phrase is not <cite>");
+  contains(fragment,
+           "<var class=\"geist-emphasis geist-variable\">mem&lt;&amp;&gt;"
+           "</var>",
+           "a `V` variable phrase is not <var>");
   contains(fragment,
            "><kbd class=\"geist-monospace geist-keyboard\">PF1</kbd></a>",
            "a keyboard link label is not <kbd>");

@@ -27,16 +27,18 @@ enum class EmphasisKindIR {
 
 // The phrase a styled run names, beyond its emphasis or code kind: the
 // `CFONT` code hosted BookServer serves in an element of its own -- `E`
-// (XMP) `<samp>`, `P` (PK) `<kbd>`, `C` (CIT) `<cite>` (doc/boo-spec/
-// markup.adoc, the message-entry census).  `none` is every other run.  It
-// refines the presentation the kind already states and never changes it:
-// a sample or keyboard phrase is code, a citation is emphasis.  HTML picks
+// (XMP) `<samp>`, `P` (PK) `<kbd>`, `C` (CIT) `<cite>`, `V` (PV) `<var>`
+// (doc/boo-spec/markup.adoc, the message-entry and variable censuses).
+// `none` is every other run.  It refines the presentation the kind already
+// states and never changes it: a sample or keyboard phrase is code, a
+// citation or variable is emphasis.  HTML picks
 // its element by it; Markdown has no such elements and ignores it.
 enum class PhraseKindIR {
   none,
   sample,
   keyboard,
   citation,
+  variable,
 };
 
 // Typed inline emphasis. The kind is a presentation fact carried from typed

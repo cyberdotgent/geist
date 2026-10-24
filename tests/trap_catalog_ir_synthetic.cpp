@@ -4088,12 +4088,12 @@ int main() {
         const auto markdown =
             geist::detail::render_document_markdown(*document);
         require(html.find("<strong class=\"geist-strong\">727</strong> "
-                          "<em class=\"geist-emphasis\">mem</em>") !=
+                          "<var class=\"geist-emphasis geist-variable\">mem</var>") !=
                         std::string::npos &&
                     markdown.find("**727** *mem*") != std::string::npos,
                 "a headline variable was not rendered as a variable: " +
                     html);
-        require(html.find("<em class=\"geist-emphasis\">dsn</em> named.") !=
+        require(html.find("<var class=\"geist-emphasis geist-variable\">dsn</var> named.") !=
                         std::string::npos &&
                     markdown.find("*dsn* named\\.") != std::string::npos,
                 "a field-body variable was not rendered as a variable: " +
@@ -4152,9 +4152,10 @@ int main() {
     if (built.catalog) {
       std::string html, markdown;
       lowered(built, html, markdown);
-      require(html.find("<em class=\"geist-emphasis\">prm</em><strong "
-                        "class=\"geist-strong\">:</strong> <em "
-                        "class=\"geist-emphasis\">text</em>") !=
+      require(html.find("<var class=\"geist-emphasis geist-variable\">prm"
+                        "</var><strong class=\"geist-strong\">:</strong> "
+                        "<var class=\"geist-emphasis geist-variable\">text"
+                        "</var>") !=
                   std::string::npos,
               "a deep headline continuation row lost its styles: " + html);
       require(html.find("<strong class=\"geist-strong\">THIS</strong> "
@@ -4324,9 +4325,10 @@ int main() {
       if (document) {
         const auto html =
             geist::detail::render_document_html_blocks(*document, {});
-        require(html.find(">o</em>rientation") == std::string::npos &&
-                    html.find("orientation <em class=\"geist-emphasis\">o"
-                              "</em> more.") != std::string::npos,
+        require(html.find(">o</var>rientation") == std::string::npos &&
+                    html.find("orientation <var class=\"geist-emphasis "
+                              "geist-variable\">o</var> more.") !=
+                        std::string::npos,
                 "a run was placed on a word its columns do not name: " +
                     html);
       }

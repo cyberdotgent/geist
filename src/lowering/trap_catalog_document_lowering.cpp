@@ -145,7 +145,7 @@ std::optional<EmphasisKindIR> emphasis_for(FontStyleIR style) {
 // sampled book (doc/boo-spec/markup.adoc, the message-entry census) and are
 // the code spans prose lowers them to; every other code keeps
 // `emphasis_for`, and a code with no verified presentation stays text. The
-// phrase (`E`, `P`, `C`) rides along for the HTML element; it is not part of
+// phrase (`E`, `P`, `C`, `V`) rides along for the HTML element; it is not part of
 // the presentation two runs are compared by.
 struct RunStyle {
   bool code = false;

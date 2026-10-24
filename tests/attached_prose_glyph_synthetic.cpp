@@ -1514,7 +1514,8 @@ void inline_syntax_diagram() {
         "</kbd>__ ______ "
         "__&gt;&lt;\n";
     const std::string item =
-        "              |_<em class=\"geist-emphasis\">item</em>_|";
+        "              |_<var class=\"geist-emphasis geist-variable\">"
+        "item</var>_|";
     const std::string expected =
         stack != Stack::two_deep ? main + item
                                  : main + item + "\n              |_next_|";

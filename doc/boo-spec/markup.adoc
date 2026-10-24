@@ -1782,7 +1782,7 @@ quoted in the evidence column; every rule was checked on at least two books.
 |`Q` |`PKDEF` |`<dfn>` |PRG1SORT `2.1.4` -> `<dfn>*CURLIB</dfn>`; SC26-457 `3.4.1.2` -> `<dfn>LIST</dfn>`
 |`Z` |`PVDEF` |`<dfn>` |SC26-457 `1.3` and SC26-4905-00 `1.3` `cfont 3 7 P 11 10 Z ...` -> `<kbd>COMMAND</kbd> <dfn>parameters</dfn>` (one shared sentence, see below)
 |`R` |`RK` |`<B>` |ACPZMST1 `FRONT_1.1` `cfont 4 4 R,` -> `<B>GUPI</B>`; ACPZMST1 `6.2`
-|`V` |`PV` |`<var>` |SC26-457 `3.4.1.2`; GC23-046 `6.0`
+|`V` |`PV` |`<var>` |SC26-457 `3.4.1.2`; GC23-046 `6.0`; ACPZMST1 `2.2.1` record 79 `cfont 13 13 P 28 6 V` -> `<var>convid</var>`; 28 books, see <<markup_style_code_v_census>>
 |`K` |`H4` |`<I>` |SC09-2417-00 `PREFACE.2.1` record 28 segment 17 `cfont 3 6 K 10 3 K ...` -> `<I>Syntax</I> <I>for</I> <I>Commands,</I> ...`; SC09-2417-00 `1.1.4.2` record 62 segment 23 -> `<I>User-Defined</I> <I>Header</I> <I>File</I>`; 30 books in all, see <<markup_style_code_k_census>>
 |`X` |`XPH` |`<tt>` |SC09-2417-00 `PREFACE.2.1` record 29 segment 2 `cfont 26 9 X` -> `<tt>STATEMENT</tt>`; SC09-2417-00 `PREFACE.2.2` record 34 segment 18 -> `<tt>Example</tt>`; inside message entries too, see <<markup_style_code_message_entry_census>>
 |`W` |`WARNING` |`<em>` |SC26-457 `1.6.5` `cfont 3 8 W ...` -> `<em>Warning:</em>`; SC31-711 `3.3`; SH12-565 `FRONT_1.1`
@@ -1954,6 +1954,60 @@ elsewhere in this specification fit the same rule: SC34-425 `2.4.9`, whose
 of record 1484, is served `<I>Return</I> <I>Codes</I>`, and SC09-138 `F.1`
 record 2061 serves its `K` row between two message entries as
 `<I>Run-Time</I> <I>Error</I> <I>Messages</I> ...`.
+
+[[markup_style_code_v_census]]
+`V` (`PV`) is a programming variable, and hosted BookServer serves every word
+it covers as one `<var>` element.  A census scanned 248 books of a seeded
+random sample of the library for `V`, `Q` and `Z` spans; 139 of them carry
+`V`.  The first 30 of those whose file name is not all lowercase (the hosted
+catalogue misses all-lowercase names) were fetched from the hosted shelf,
+pinned to each book's own `DT`, and every `V` span of the first topic
+carrying the code was matched against the page.  Two books were left out
+because the hosted shelf serves a different book under their name
+(SH45-5527-00 is served as SH45-5522-00, SC31-7541-02 as SC31-7540-02).  In
+the remaining 28 books all 225 spans are served as `<var>`, and none as
+`<I>`, `<em>` or plain text.  The table quotes the first `CFONT` row of each
+book that carries a `V` span with drawn text; the hex is the control's own
+token bytes from the control word to the last style code (`...` where it
+runs on), and the last column counts the topic's matched spans.
+
+[cols="<12,<11,<10,<6,<9,<24,<20,<6",options="header"]
+|===
+|Book |DT |Topic |Record |File offset |Bytes / decoded operand |Hosted |Spans
+
+|DTOBMST |`19910927152537` |`1.2.4.1` |83 |`0x38f87` |`3e cc ac 95 cd ca ...` = `cfont 6 1 E 7 5 V 13 3 V 17 6 V 24 11 V 35 1 E` |`<var>input</var> <var>and</var> <var>output</var> <var>assignments</var>` |4/4
+|GC23-3870-04 |`19970722104438` |`2.6` |154 |`0x4977a7` |`3a b4 c2 e8 b3 eb ...` = `cfont 16 7 V 24 7 V 32 3 V` |`<var>userid1</var> <var>userid2</var> <var>...</var>` |3/3
+|GC31-8476-00 |`19970813102409` |`2.2.3.2.2` |129 |`0x71663` |`3e b2 af ea a8` = `cfont 12 1 V` |`<var>x</var>` |1/1
+|GC30-3706-01 |`19960403092752` |`3.2.1.2.2` |254 |`0x7eed7` |`38 ec 4f b4 a0 b2 ...` = `cfont 40 6 V 46 2 2 48 4 V` |`<var>mmmmmm</var> <var>nnnn</var>` |4/4
+|ISTM1MST |`19920127140501` |`2.1.1` |172 |`0x7c382` |`35 ee 98 bc 8d` = `cfont 57 8 V` |`<var>procname</var>` |23/23
+|GC31-8676-01 |`19980721211504` |`1.3.1` |46 |`0xa454` |`39 d9 b6 a3 c0 b9 ...` = `cfont 7 10 P 20 14 V 48 17 V` |`<var>interface_name</var> <var>source_IP_address</var>` |29/29
+|SH19-6747-01 |`19930127135627` |`APPENDIX.12.1` |602 |`0x35391` |`3b a9 c1 9e a2 ce 8e` = `cfont 3 5 2 23 8 V` |`<var>mmmmmmmm</var>` |77/77
+|SV40-1012-00 |`19941026125927` |`PREFACE.6.3` |55 |`0x9621e` |`2d b3 8b ea bd` = `cfont 54 1 V` |`<var>n</var>` |1/1
+|GC24-5695-00 |`19950909203055` |`4.2.2.3` |116 |`0xfe48` |`3b c3 d3 98 c9 d3 ba cf c6 98` = `cfont 11 5 E 17 5 V 23 14 E` |`<var>nnnnn</var>` |3/3
+|GC31-8071-00 |`19941213174433` |`2.1.4` |159 |`0x147e3` |`3f ef 12 cf eb 64` = `cfont 58 8 V` |`<var>cdrmname</var>` |2/2
+|SC33-6451-02 |`19930625121012` |`B.3.2` |338 |`0xad3e1` |`37 b8 d4 8f a3 a2 ec f7` = `cfont 3 7 P 10 1 V` |`<var>n</var>` |6/6
+|SC31-8239-00 |`19970304132439` |`2.1.4` |95 |`0xefe0e` |`34 ee e2 ad ea 82` = `cfont 61 12 V` |`<var>rodmobjectid</var>` |2/2
+|SC33-0807-04 |`19950829174528` |`PREFACE` |35 |`0xb2f7b` |`3e b0 c6 96` = `cfont 3 8 V` |`<var>CompCode</var>` |1/1
+|SX28-6800-00 |`19940803100826` |`1.3.3` |28 |`0x7c11` |`32 db d9 c5 c3 c5 ...` = `cfont 9 7 2 17 2 2 20 9 V` |`<var>shelfname</var>` |2/2
+|GC31-8601-00 |`19970728124306` |`1.1.1` |19 |`0xa42c` |`1f be d5 b2 ac d3 ...` = `cfont 3 8 2 12 6 2 18 10 V 29 6 2 36 10 2 47 2 2 50 6 V` |`<var>error_code</var> <var>device</var>` |2/2
+|DWKRMAST |`19920127160638` |`1.3.4` |31 |`0xa0d4` |`4e c8 da b4 ee c4 ca ed 90` = `cfont 11 9 P 22 13 V` |`<var>required_item</var>` |15/15
+|GC24-5781-00 |`19950911135300` |`PREFACE` |12 |`0x13ea9` |`14 ed b3 a5 e8 b1` = `cfont 26 4 V` |`<var>term</var>` |1/1
+|SH45-5522-01 |`19930924000100` |`FRONT_2.2` |56 |`0x10ddda` |`30 ed a6 c8 a9 ee 3e c6 a9` = `cfont 40 9 V 50 7 V` |`<var>lowercase</var> <var>italics</var>` |2/2
+|SV40-0368-00 |`19930729114318` |`5.2` |51 |`0x175f9` |`39 e9 be d5 b4 e9 d6 d0 b4` = `cfont 68 4 V 73 3 V` |`<var>Path</var> <var>not</var>` |3/3
+|GC33-0738-02 |`19921218105424` |`D.0` |415 |`0x4389c` |`27 98 be 82 a1 95 ec 9a` = `cfont 17 7 P 25 13 V` |`<var>messagenumber</var>` |1/1
+|GC28-1034-05 |`19930112101416` |`3.1` |39 |`0xb8ba` |`38 a8 a7 99 aa c7 97` = `cfont 20 2 X 22 5 V` |`<var>xxxxx</var>` |3/3
+|SH20-6361-07 |`19930119124116` |`CONVENTIONS` |47 |`0x3aa46` |`40 ba c0 a5 c1 b7 a5` = `cfont 22 3 V 30 2 V` |`<var>MVS</var> <var>VM</var>` |4/4
+|GC28-1068-01 |`19921202152311` |`2.1.1` |39 |`0xc642` |`23 b1 d0 a4 9d cf ...` = `cfont 3 8 2 13 7 2 21 4 2 26 8 V 34 1 2` |`<var>variable</var>` |1/1
+|SC26-3114-01 |`19950506201638` |`FRONT_2.3.1` |49 |`0x12f96` |`3c b0 c6 a1 bc b2 aa` = `cfont 11 9 P 22 13 V` |`<var>required-item</var>` |16/16
+|SC24-5598-01 |`19921218093737` |`1.1.3` |34 |`0xc651` |`38 d3 bf a3 eb a0 cb b3` = `cfont 48 3 V 59 4 2` |`<var>who</var>` |3/3
+|SG24-2542-01 |`19961029153850` |`1.3` |51 |`0x2fe3b1` |`35 b9 a5 ea 61` = `cfont 58 4 V` |`<var>xxxx</var>` |1/1
+|ACPZMST1 |`19920319123146` |`2.2.1` |79 |`0xd5b7` |`35 ca ca ad ed e4 d8 be` = `cfont 13 13 P 28 6 V` |`<var>convid</var>` |13/13
+|SC31-8237-00 |`19970304172454` |`PREFACE.3.2` |22 |`0x1ab5d` |`1b ee 2b 83 e9 ff ...` = `cfont 35 4 X 40 7 X 55 3 V` |`<var>yyy</var>` |2/2
+|===
+
+SV40-0368-00 `5.2` also shows a `V` span that ends record 50
+(`cfont 13 2 1 ... 45 3 V`) and draws no text in that record; the word it
+styles is drawn in the next record, whose own `CFONT` row is quoted above.
 
 [[markup_style_code_bold_census]]
 `T` (`TP`), `Y` (`MDQUAL`), `B` (`CAUTION`), `F` (`CAUTIONTEXT`), `D`

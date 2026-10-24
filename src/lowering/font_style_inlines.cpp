@@ -55,14 +55,14 @@ PhraseKindIR font_style_phrase_kind(FontStyleIR style) {
   // message entries and running text alike: `E` 6,829 of 6,844 spans
   // `<samp>` in 33 books, `P` 4,845 of 4,849 `<kbd>` in 26, `C` 1,610 of
   // 1,630 `<cite>` in 34 (doc/boo-spec/markup.adoc, the message-entry
-  // census; every remaining span a matcher fault).  `X` and `4` are hosted
-  // `<tt>`, which HTML5 dropped; they stay plain code.  `V` is hosted
-  // `<var>` (N2AH1MST 2.0, SC26-457 3.4.1.2, GC23-046 6.0) but has no census
-  // behind it, so it keeps its plain emphasis.
+  // census; every remaining span a matcher fault), and `V` 225 of 225
+  // `<var>` in 28 (the variable census).  `X` and `4` are hosted `<tt>`,
+  // which HTML5 dropped; they stay plain code.
   switch (style) {
   case FontStyleIR::sample_phrase: return PhraseKindIR::sample;
   case FontStyleIR::keyword: return PhraseKindIR::keyboard;
   case FontStyleIR::citation: return PhraseKindIR::citation;
+  case FontStyleIR::variable: return PhraseKindIR::variable;
   default: break;
   }
   return PhraseKindIR::none;
