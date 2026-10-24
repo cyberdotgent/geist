@@ -94,7 +94,7 @@ Differences from the common IEEE 754 single-precision float:
 |Significand/fraction storage |24 explicit fraction bits with the radix point to the left of the fraction |23 stored fraction bits plus an implicit leading `1` for normal values
 |Value radix |`16` |`2`
 |Finite-value formula |`(-1)^sign * 0.fraction_hex * 16^(characteristic - 64)` |`(-1)^sign * 1.fraction_bin * 2^(exponent - 127)` for normal values
-|Special encodings |No IEEE-style infinities, NaNs, or subnormal class in the observed coordinate decoder; zero is a zero fraction |Exponent fields `0x00` and `0xff` encode zero/subnormal and infinity/NaN classes
+|Special encodings |No IEEE-style infinities, NaNs, or subnormal class in the observed coordinates; zero is a zero fraction |Exponent fields `0x00` and `0xff` encode zero/subnormal and infinity/NaN classes
 |Effective precision |Six hexadecimal fraction digits. In binary terms this can wobble because base-16 normalization can leave up to three leading zero bits in the binary significand. |24 binary significant bits for normal values
 |===
 
@@ -143,7 +143,7 @@ The stream begins with a variable-length header:
 
 |`0x00` |1 |Header introducer. `0x01` in every kind `G` payload observed; in IBM's terms this is the comment order code.
 |`0x01` |1 |Header payload length in bytes. `0x12` in every kind `G` payload observed.
-|`0x02` |2 |Header fields not yet identified. For the observed resources this is `00 04`.
+|`0x02` |2 |Coordinate data type. `00 04` (System/370 floating point) in every kind `G` payload observed.
 |`0x04` |4 |Minimum X as IBM short hexadecimal floating point.
 |`0x08` |4 |Maximum X as IBM short hexadecimal floating point.
 |`0x0c` |4 |Minimum Y as IBM short hexadecimal floating point.
@@ -156,8 +156,10 @@ carries the identical header; `packet.boo` resource 1 carries the same shape
 with exact `100.0` bounds (`42 64 00 00`).
 
 The header length selects the coordinate encoding: `0x02` selects a 2-byte
-path, other lengths the 4-byte IBM hexadecimal-floating path. All repository
-fixtures use header length `0x12` and therefore the 4-byte path.
+path, other lengths the 4-byte IBM hexadecimal-floating path reading the four
+window values at offsets `0x04..0x13`. Every observed kind `G` payload (928
+pictures in a 60-book sample, all of `KAKHMST.BOO` and `packet.boo`) uses
+header length `0x12` and data type `00 04`; the 2-byte path is unverified.
 
 [[gdf_ibm_gdf_order_structure]]
 ==== IBM GDF Order Structure
@@ -220,324 +222,392 @@ opcode, then determine the payload length as follows:
 The payload immediately follows the optional length byte. Unknown records can
 therefore be skipped by this length rule.
 
+[[gdf_prologs]]
+==== Prologs
+
+Between the initial comment and the first drawing order a payload may carry up
+to two prologs, each a run of records with opcode `0x02`. A prolog opens with
+the three bytes `02 02 xx`, where `xx` is `01` for a font list and `02` for
+picture attributes; the font list, when present, comes first. Inside a prolog:
+
+* a record whose payload is two bytes is a marker: second payload byte `0x7e`
+  opens the prolog, `0x7f` closes it;
+* any other record is an entry; its second payload byte names the entry;
+* a single `0x00` byte may follow any record and is padding.
+
+A font-list entry associates a local character-set id with an eight-byte
+EBCDIC GDDM symbol-set name: payload byte 2 is the id, bytes 3..10 the name.
+
+Picture-attribute entries observed:
+
+[cols=">10,<30,<45",options="header"]
+|===
+|Entry |Payload |Meaning
+
+|`0x0e` |`02 0e 80` |No effect on the rendered picture.
+|`0x32`, `0x27` |`02 xx 12 00 3c 00` + four coordinates |Window repeats; no effect on the rendered picture.
+|`0x20` |`02 20 08` + two coordinates |Picture aspect: page width `w`, then height `h`.
+|`0x01` |`80 01 08 00 ...` |No effect on the rendered picture.
+|===
+
+The aspect entry scales the coordinate space: with `m = max(w, h)`, x
+coordinates are multiplied by `m / w` and y coordinates by `m / h` before
+drawing, and the window grows by the same factors. Because the window is
+scaled with the drawing, the aspect does not change where a point lands on the
+canvas (see <<gdf_canvas>>); it matters for arcs, which are circular in the
+scaled space, and for model-transform translations, which are not scaled.
+
+The hosted reference renderer also accepts entries `0x0c`, `0x0d`, `0x10`,
+`0x11`, `0x18`, `0x22`, `0x26`, `0x28`, `0x29`, `0x33` to `0x3a` and `0x43`
+without visible effect, and rejects the picture for any other entry.
+
+Evidence, `KAKHMST.BOO` resource 1 (payload at file offset `0x000652ce`),
+payload offsets `0x14..0x6d`:
+
+----
+02 02 02 7e  02 03 02 0e 80  02 15 02 32 12 00 3c 00 00000000 42640001 00000000 42640006
+02 15 02 27 12 00 3c 00 00000000 42640001 00000000 42640006
+02 0b 02 20 08 4060aab0 4083f7fe 00
+02 0b 80 01 08 00 00 00 00 00 00 00 00  02 02 02 7f
+----
+
+The aspect is `w = 0.3776`, `h = 0.5155`: x scales by `1.3652`, y by `1`.
+All 30 kind `G` pictures of `KAKHMST.BOO` and pictures 2..6 and 9 of
+`packet.boo` carry this same prolog.
+
 [[gdf_gdf_orders]]
 === GDF Orders
 
-The table below is the set of orders a BookManager kind `G` payload can carry.
-Names and operand encodings come from IBM `QPRG1GDR` Appendix B where that
-appendix gives a matching order name; orders it does not name are marked and
-their interpretation is unverified.
+The table below is the set of orders a BookManager kind `G` payload can carry
+and what each does to the hosted reference rendering. Names come from IBM
+`QPRG1GDR` Appendix B where it names the order. Every coordinate read by an
+order passes through the current model transform (<<gdf_model_transform>>);
+"point" below means a transformed coordinate pair.
 
-"Interpretation" describes the drawing effect at format level. It is a
-description of the order, not of any particular renderer, and it is not
-necessarily the full historical GDDM behavior.
+Orders `0x40..0x7f` whose low six bits name an attribute order are
+push-and-set orders: they save the attribute's current value
+(<<gdf_attribute_stack>>), then act as the plain order.
 
-[cols=">8,<45,<45,<45",options="header"]
+[cols=">10,<30,<60",options="header"]
 |===
-|Opcode |IBM/GDDM name |Encoding |Interpretation
+|Opcode |Name |Effect
 
-|`0x03` |Push and set character box |Normal. One coordinate pair. |Saves previous character-box state, then acts like character box.
-|`0x07` |Not named in IBM Appendix B |Normal. |*Unverified.* Observed in fixtures; associated with segment replay. Skip it by its declared length if unimplemented.
-|`0x09` |Push and set pattern |Short. One byte. |Saves previous pattern state, then acts like pattern.
-|`0x0a` |Color |Short. One byte color index. |Sets line, marker, text, edge, and sometimes fill color.
-|`0x0c` |Color mix |Short. One byte. |Stores a color-mix/transparency flag; it does not draw.
-|`0x0d` |Background mix |Short. One byte. |Selects the background transparency/draw mode. IBM Appendix B lists this as accepted by AS/400 GDDM but not generated.
-|`0x10` |Text alignment / renderer text attribute |Normal. Two bytes. |Horizontal and vertical text alignment values. Not listed in the AS/400 GDF order summary, so the interpretation is unverified.
-|`0x11` |Fractional line width |Normal. Two bytes interpreted as a fixed/fractional width. |Sets line and edge width. IBM lists this as accepted but not generated.
-|`0x18` |Line type |Short. One byte. |Selects the line and edge dash pattern.
-|`0x19` |Line width |Short. One byte. |Selects the line and edge width.
-|`0x21` |Current position |Normal. One coordinate pair. |Reads one point, transforms it, and updates current position without drawing.
-|`0x22` |Arc parameters |Normal. Four coordinate values: `P`, `Q`, `R`, `S`. |Stores the arc transform used by later arc/full-arc orders.
-|`0x24` |Model transform |Normal. Payload begins with transform control/mask bytes, followed by selected coordinate values. |Updates the model transform; it does not draw.
-|`0x26` |Color set extended |Normal. Uses second payload byte unless first byte is `0xff`. |Updates the current color, as `0x0a` does, with a two-byte index.
-|`0x27` |Clip rectangle / renderer clipping attribute |Normal. Payload byte 1 is a bitmask; selected coordinates follow. |Decodes two points and sets the clipping rectangle. Not listed in the AS/400 generated-order summary, so the interpretation is unverified.
-|`0x28` |Pattern |Short. One byte. |Selects the fill interior style, pattern, hatch, and color.
-|`0x29` |Marker type |Short. One byte. |Selects the marker glyph.
-|`0x33` |Character box |Normal. One coordinate pair. |Sets character height from the decoded box vector and marks text as size-restricted.
-|`0x34` |Character angle |Normal. One coordinate pair. |Converts the vector to a text orientation.
-|`0x36` |Character shear-like renderer attribute |Normal. Flag byte plus one coordinate pair at payload offset 2. |Stores a text spacing/shear vector. IBM Appendix B names character shear as `0x35`; repository payloads carry `0x36` in that role, so this mapping is unverified.
-|`0x38` |Character set |Short. One byte symbol-set id. |Selects the loaded font/symbol set for subsequent text.
-|`0x3f` |Pop attribute |Normal. Operand length may be zero. |Restores the most recent attribute saved by a push-and-set order. The attribute restored is whichever one that push saved: character height, draw mode, text alignment, line width, line type, marker type, marker size, or font index.
-|`0x4a` |Push and set color |Short. One byte. |Saves previous color, then acts like color.
-|`0x4c` |Push and set mix |Short. One byte. |Saves previous mix flag, then acts like color mix.
-|`0x4d` |Push and set background mix |Short. One byte. |Saves previous draw mode, then acts like background mix.
-|`0x50` |Push and set text alignment / renderer text attribute |Normal. Two bytes. |Saves the previous text alignment, then acts like `0x10`.
-|`0x51` |Push and set fractional line width |Normal. Two bytes. |Saves previous fractional width, then acts like `0x11`.
-|`0x58` |Push and set line type |Short. One byte. |Saves previous line type, then acts like line type.
-|`0x59` |Push and set line width |Short. One byte. |Saves previous line width, then acts like line width.
-|`0x60` |Area end |Normal. Reserved payload bytes, observed as zero length in `packet.boo`. |Same meaning as an Area order with the area-end bit set. Closes the current fill area/figure and emits it. In `packet.boo` resource `2`, each filled packet-field rectangle begins with `0x68 0x80`, accumulates one `0xc1` rectangle, then closes with `0x60 00`; ignoring this order joins unrelated later paths into one malformed polygon.
-|`0x61` |Push and set current position |Normal. One coordinate pair. |Saves previous current position, then acts like current position.
-|`0x62` |Push and set arc parameters |Normal. Four coordinate values. |Saves previous arc parameters, then acts like arc parameters.
-|`0x64` |Push and set model transform |Normal. Same as model transform. |Saves previous transform, then acts like model transform.
-|`0x66` |Push and set extended color |Normal. Same as extended color. |Saves previous color, then acts like extended color.
-|`0x67` |Push and set clip rectangle / renderer clipping attribute |Normal. Same as clip rectangle. |Saves previous clipping state, then acts like clip rectangle.
-|`0x68` |Area |Short. One flag byte. |Starts or prepares a fill area/figure; the flag byte controls edge visibility and pending fill state.
-|`0x69` |Push and set marker type |Short. One byte. |Saves previous marker type, then acts like marker type.
-|`0x70` |Segment start |Normal. First four payload bytes are segment id. |Names a segment; the id and the stream position where it starts are needed to resolve a later segment close.
-|`0x71` |Segment close |Normal. Payload carries no drawing operand. |Closes the segment opened by the matching segment start.
-|`0x81` |Line at current position |Normal. Coordinate pairs, omitting initial coordinate. |Draws a polyline from the current position through the decoded points; current position becomes the last point.
-|`0x82` |Marker at current position |Normal. Optional coordinate pairs after current position. |Draws markers at the current position and the decoded points; current position becomes the last point.
-|`0x83` |Character at current position |Normal. Text bytes only. |Draws the text at the current position. Text bytes are EBCDIC; see <<gdf_text_and_font_handling,Text and Font Handling>>.
-|`0x85` |Fillet at current position |Normal. Two coordinate pairs after current position. |Draws a three-point curved fillet starting at the current position; a degenerate fillet reduces to straight segments.
-|`0x86` |Arc at current position |Normal. Two coordinate pairs after current position. |Draws an elliptical arc through the current position and the two decoded points, using the current arc parameters.
-|`0x87` |Full arc at current position |Normal. Scale/extent operand after current position. |Draws a full ellipse centred by the current position and the arc parameters. IBM lists full arc as accepted but not generated.
-|`0x91` |Graphics image begin at current position |Normal. Starts with image size; optional second point. |Initializes a cell-array image using current position as origin.
-|`0x92` |Graphics image data |Normal. Row/image bytes. |Copies or bit-expands image data into the current cell-array buffer.
-|`0x93` |Graphics image end |Normal. No required payload observed. |Emits the buffered cell-array image and releases the buffer.
-|`0xa1` |Line relative at current position |Normal. Signed byte delta pairs. |Draws a polyline from the current position, each subsequent point given as a signed one-byte delta pair.
-|`0xc1` |Line |Normal. Coordinate pairs. |Draws a polyline through the absolute point list; current position becomes the last point.
-|`0xc2` |Marker |Normal. Coordinate pairs. |Draws markers at the absolute point list; current position becomes the last point.
-|`0xc3` |Character |Normal. Coordinate pair followed by text bytes. |Draws the text with the first point as its origin.
-|`0xc5` |Fillet |Normal. Three coordinate pairs. |Draws a curved fillet through the three points.
-|`0xc6` |Arc |Normal. Three coordinate pairs. |Draws an elliptical arc through the three points using the current arc parameters.
-|`0xc7` |Full arc |Normal. Coordinate pair plus scale/extent operand. |Draws a full ellipse from the explicit centre point and the current arc parameters. IBM lists full arc as accepted but not generated.
-|`0xd1` |Graphics image begin |Normal. Coordinate pair, image size, optional second point. |Initializes a cell-array image using explicit origin.
-|`0xe1` |Line relative |Normal. Initial coordinate pair followed by signed byte delta pairs. |Draws a polyline from an absolute start point, each subsequent point given as a signed one-byte delta pair.
+|`0x00` |No-op |None.
+|`0x02` |Prolog record |None outside a prolog.
+|`0x03` / `0x33` |Character box |Character height = box y operand times `0.727`. Not transformed.
+|`0x04`, `0x23`, `0x3e`, `0x43` |Segment attributes, comments |None. Every observed segment begins `70 ... 04 ... 3e 00 23 04 00000001`.
+|`0x07` |Segment call |Replays a segment started by `0x70`. Not observed in kind `G` payloads.
+|`0x09` / `0x28` |Pattern |Interior of later areas; see <<gdf_patterns>>.
+|`0x0a` / `0x4a` |Color |Values `0..8` select that color number, higher values neutral (`7`). See <<gdf_colors>>.
+|`0x0c` / `0x4c` |Color mix |Affects graphics images only.
+|`0x0d` / `0x4d` |Background mix |`2` paints the background pixels of patterns and hatches; `1`, `3` and `4` select mixing draw modes; others overpaint. Observed value: `5`.
+|`0x10` / `0x50` |Character alignment |Text alignment. Not observed.
+|`0x11` / `0x51` |Fractional line width |None: lines stay one pixel wide. Observed `0100`, `0200`, `001a`, `0280`, `0300`.
+|`0x18` / `0x58` |Line type |See <<gdf_line_types>>.
+|`0x19` / `0x59` |Line width |Integer line width. Not observed.
+|`0x21` / `0x61` |Current position |Sets the current position to the point.
+|`0x22` / `0x62` |Arc parameters |See <<gdf_arcs>>.
+|`0x24` / `0x64` |Model transform |See <<gdf_model_transform>>.
+|`0x26` / `0x66` |Color set extended |Two bytes; see <<gdf_colors>>.
+|`0x27` / `0x67` |Clipping |Sets a clip rectangle. Not observed.
+|`0x29` / `0x69` |Marker type |Marker glyph.
+|`0x34` / `0x74` |Character angle |Text baseline direction `(x, y)`; `(1, 0)` is upright.
+|`0x35`, `0x39`, `0x3a` and their push forms |Character shear, mode, direction |None.
+|`0x36` / `0x76` |Character spacing |Flag byte, padding byte, then a coordinate pair: extra spacing between characters when the flag is `0`.
+|`0x38` / `0x78` |Character set |Local character-set id of later text.
+|`0x3f` |Pop |Restores the last saved attribute; see <<gdf_attribute_stack>>.
+|`0x60` |Area end |Ends the current figure; see <<gdf_areas>>.
+|`0x68` |Area |Flag byte; see <<gdf_areas>>.
+|`0x70` |Segment start |Four-byte segment id; no drawing effect.
+|`0x71` |Segment end |Ends a replayed segment; no drawing effect otherwise.
+|`0x81` |Line at current position |Polyline from the current position through the points.
+|`0xc1` |Line |Polyline through the points.
+|`0xa1` |Relative line at current position |Signed one-byte `dx dy` pairs, accumulated from the current position.
+|`0xe1` |Relative line |One coordinate pair, then signed one-byte `dx dy` pairs accumulated from it before transformation.
+|`0x82` / `0xc2` |Marker |Markers at the current position and/or the points.
+|`0x83` / `0xc3` |Character |Text at the current position, or at the leading point; bytes `>= 0x40` are EBCDIC text. The current position does not change.
+|`0x85` / `0xc5` |Fillet |None: the hosted reference draws nothing for fillets.
+|`0x86` / `0xc6` |Arc |Three-point arc; see <<gdf_arcs>>.
+|`0x87` / `0xc7` |Full arc |Full ellipse at the current position or point, scaled by a one-byte-plus-fraction multiplier. Not observed.
+|`0x91`, `0xd1`, `0x92`, `0x93` |Graphics image |Cell-array image begin, data and end. Not observed.
+|other |— |None.
 |===
 
-[[gdf_divergence_from_the_as400_generated_order_subset]]
-==== Divergence From The AS/400 Generated-Order Subset
+After each line or arc order the current position is its last point.
 
-The orders BookManager payloads actually carry are not exactly the AS/400
-generated-order subset listed in IBM `QPRG1GDR` Appendix B:
+Every line order inside a figure extends the figure (<<gdf_areas>>). Outside a
+figure, line orders draw only while the line type is visible; arcs always
+draw.
 
-* IBM lists `0x35` as Character Shear, `0x39` as Character Mode, and `0x3a` as
-Character Direction. Those exact opcodes do not appear in the repository
-fixtures; `0x36` and `0x76` appear in the shear/spacing role instead. The
-substitution is unexplained, and the `0x36`/`0x76` reading is unverified.
-* Several IBM "accepted but not generated" orders do occur, including `0x0d`,
-`0x11`, `0x21`, `0x87`, `0xa1`, `0xc7`, and `0xe1`. A decoder cannot assume
-the generated-order subset is sufficient.
-* `0x10`/`0x50`, `0x27`/`0x67`, and `0x07` are not in the AS/400 appendix at
-all. Their names above are descriptive, not normative; treat them as
-unverified until matched against further GDDM documentation.
+[[gdf_canvas]]
+==== Canvas
 
-Kind `G` payloads contain many non-coordinate records, including text and
-control records. A byte scanner that looks for coordinate-shaped runs
-misidentifies these and draws false long lines. The record framing above is what
-prevents that: parse orders, and skip an unsupported record by its declared
-length.
+Hosted BookServer serves every kind `G` picture as a `1004 x 735` GIF on a
+white background. The picture window from the initial comment maps
+anisotropically onto the pixel box x `2..998`, y `733..2` (y grows upwards).
+A least-squares fit of axis-aligned line positions in hosted GIFs against
+their coordinates gives:
 
-[[gdf_area_orders_and_packet_resource_2_evidence]]
-==== Area Orders and Packet Resource 2 Evidence
-
-IBM `QPRG1GDR` topics used for area semantics:
-
-[cols="<25,<45",options="header"]
+[cols="<26,>14,>14,>14,>14",options="header"]
 |===
-|Topic |Relevant upstream rule
+|Picture |x slope |x at 0 |y slope |y at 0
 
-|`B.10.3` Area End Order |`0x60` has the same meaning as Area with the area-end bit set; payload bytes are reserved and must be zero.
-|`B.10.4` Area Order |`0x68` flag bit 0 starts an area when on and ends an area when off; flag bit 1 requests drawing boundary lines. The example `68 80 ... 60 00` fills a rectangle without boundary lines.
-|`B.11.13` Line Order |`0xc1` and `0x81` draw consecutive coordinate pairs as joined straight-line segments; `0x81` omits the initial coordinate and starts at current position. Current position becomes the last point specified.
-|`B.11.15` Line Type Order |Line type value `0x07` is solid line; `0x08` is invisible line.
+|`KAKHMST.BOO` resource 1 |9.9659 |1.88 |-7.3082 |732.83
+|`KAKHMST.BOO` resource 2 |9.9609 |1.92 |-7.3069 |732.76
+|`packet.boo` resource 7 (no aspect entry) |9.9666 |1.87 |-7.2969 |732.33
 |===
 
-`BOO/packet.boo` resource `2` is a legacy kind `G` GDF payload at BOO file
-offset `0x00000238` with length `0x00002776` bytes. The hosted BookServer GIF
-used for visual comparison was:
+(`996 / 100 = 9.96`, `731 / 100 = 7.31`.) The mapping is the same with and
+without an aspect entry. Lines are one pixel wide; a polyline does not draw
+its final pixel.
 
-----
-http://cbrdoc01.lan.cyber.gent/bookmgr/pictures/packet.20260614112503.P2.GIF
-----
+[[gdf_colors]]
+==== Colors
 
-That GIF is `1004x735`. The size is a fixed canvas, not a property of the
-picture: all 17 kind `G` pictures of `KAKHMST.BOO` (`DT=19911011135123`) are
-served as `1004x735` GIFs too, whatever their coordinate extents. A GDF
-picture is vector graphics, so a reader rasterizing it to that canvas
-presents it at hosted's size with no resampling. The visible packet frame has four saturated color blocks and
-black stroke labels. Pixel samples from the upstream GIF:
+The color current at any time is a GDDM color number. `0x0a` with value `v`
+selects `v` for `v <= 8` and `7` otherwise. `0x26` with operand bytes `a b`
+selects:
 
-[cols=">12,<12,<34",options="header"]
+[cols="<25,<20",options="header"]
 |===
-|Pixel |Upstream RGB |Meaning
+|Operand |Color number
 
-|`(50, 310)` |`00 ff 00` |First/Address block fill, green.
-|`(220, 310)` |`ff ff 00` |Second/Control block fill, yellow.
-|`(380, 310)` |`ff 00 00` |Third/PID block fill, red.
-|`(500, 310)` |`00 00 ff` |Fourth/Data block fill, blue.
-|`(60, 405)` |`00 00 00` |Stroke label text, black.
+|`ff 07` |`8`
+|`ff 08` |`7`
+|`xx 00` |`7`
+|`xx 01` .. `xx 10` |`01` .. `16`
+|`xx 11` and above |`7`
 |===
 
-The first four filled rectangles use this repeated order pattern:
+The `ff 07` / `ff 08` swap is how most books select black: `66 02 ff 07`
+occurs 30538 times in 782 of 928 sampled kind `G` pictures. In `KAKHMST.BOO`
+resource 1 it is at payload offset `0x98`, right before the first line. The
+initial color is `7`.
 
-[cols=">14,<13,<45",options="header"]
+Rendered RGB, as hosted GIFs show them (`9..16` are the nearest entries of the
+GIF's fixed palette):
+
+[cols=">8,<16,<16",options="header"]
 |===
-|Payload offset |Bytes |Interpretation
+|Number |Name |RGB
 
-|`0x008c` |`28 10` |Pattern/fill setup.
-|`0x0090` |`26 02 00 06` |Extended color setup before the first area.
-|`0x0094` |`68 80` |Begin area/figure.
-|`0x0096` |`26 02 00 08` |Set stroke/edge color used by the figure outline and later labels. Upstream output shows this as black, not gray.
-|`0x00a0` |`c1 28 ...` |Five-point rectangle path.
-|`0x00ca` |`60 00` |End area/figure; close and emit the rectangle.
-|===
-
-The second, third, and fourth rectangles repeat the same shape with area starts
-at payload offsets `0x00f4`, `0x0154`, and `0x01b4`, and matching `0x60 00`
-terminators at `0x012a`, `0x018a`, and `0x01ea`. Later complex stroke paths
-for the labels also use color index `8`; the upstream GIF renders those strokes
-as black.
-
-Implementation consequences:
-
-. `0x60` must be handled as an area/figure terminator. Waiting for another
-`0x68` flag or end-of-stream joins independent filled shapes and subsequent
-stroke-font paths into one polygon, producing the observed green field with
-stray vectors.
-. Area line orders are not visible construction strokes when the boundary-lines
-flag is clear. Packet resource `2` uses `0x68 0x80 ... 0x60` groups for the
-stroke-font labels as well as the filled rectangles; drawing those line
-orders directly creates outline text and vector tearing. The rasterizer must
-fill from the area's explicit line segments and draw boundary lines only when
-flag bit 1 is set.
-. An area is implicitly closed at its end order: the subpath returns to its
-start point. A rasterizer must close it rather than leave an open polyline.
-. Dense stroke-font areas in packet resources contain repeated out-and-back
-construction edges to a fixed anchor point. For example, `packet.boo`
-resource `6` area 2 contains both the edge
-`(70.57216,89.05028) -> (80.720...,96.337...)` and its exact reverse in the
-`IPv6` title. These paired opposite edges contribute zero net
-winding, and the hosted GIF shows no stroke where they run; treating either
-half as an ordinary visible stroke, or scan-converting the pair as a real
-filled span, produces diagonal tearing the hosted image does not have.
-. `libgeist` therefore preserves every parsed area segment, then cancels exact
-opposite directed edges during area scan conversion. This reproduces the
-zero-net-winding result without using length-based or glyph-specific
-connector filters. Simple one-way large-edged areas such as the packet-field
-rectangles remain intact.
-. Fill colors should be rendered as the direct palette color selected by the
-GDF state, not blended toward a pastel fallback.
-. The palette entry selected by `0x26 02 00 08` renders black: sampling the
-hosted GIF for `packet.boo` resource `2` at pixel `(60, 405)` gives
-`00 00 00`. Treating it as gray makes the labels differ visibly from hosted
-output.
-
-[[gdf_gddm_color_numbers_and_packet_resource_6_evidence]]
-==== GDDM Color Numbers and Packet Resource 6 Evidence
-
-The GDF `0x0a` Color order and `0x26` Color Set Extended order select GDDM
-color _numbers_, not entries in whatever local palette a renderer happens to
-configure.
-IBM `QPRG1GDR` topic `B.11.5` documents `0x0a` as a one-byte index to the
-default color table, and topic `B.11.6` documents `0x26` as a two-byte color
-table index. Appendix `C.1`, "Color Numbers", gives the default GDDM color
-definitions:
-
-[cols=">12,<15,<41",options="header"]
-|===
-|Color number |GDDM definition |Display interpretation used by `libgeist`
-
-|`0` |Default |Green.
-|`1` |Blue |Blue.
-|`2` |Red |Red.
-|`3` |Magenta |Pink/magenta.
-|`4` |Green |Green.
-|`5` |Turquoise |Turquoise/cyan.
-|`6` |Yellow |Yellow.
-|`7` |Neutral |White on displays.
-|`8` |Background |Black/background on displays.
-|`9` |Dark blue |Dark blue.
-|`10` |Orange |Orange.
-|`11` |Purple |Purple.
-|`12` |Dark green |Dark green.
-|`13` |Dark turquoise |Dark turquoise.
-|`14` |Mustard |Mustard.
-|`15` |Gray |Gray.
-|`16` |Brown |Brown.
-|`17..32767` |Repeats `9..16` |Repeat the extended-color cycle.
+|`0` |Default |`0 0 0`
+|`1` |Blue |`0 0 255`
+|`2` |Red |`255 0 0`
+|`3` |Pink |`255 0 255`
+|`4` |Green |`0 255 0`
+|`5` |Turquoise |`0 255 255`
+|`6` |Yellow |`255 255 0`
+|`7` |Neutral |`255 255 255`
+|`8` |Background |`0 0 0`
+|`9` |Dark blue |`0 0 128`
+|`10` |Orange |`224 128 0`
+|`11` |Purple |`128 0 128`
+|`12` |Dark green |`0 128 0`
+|`13` |Dark turquoise |`0 128 128`
+|`14` |Mustard |`160 160 0`
+|`15` |Gray |`128 128 128`
+|`16` |Brown |`128 128 0`
 |===
 
-`BOO/packet.boo` resource `6` demonstrates why this distinction matters. The
-payload has repeated `0x26 02 00 0a` orders before filled areas; the hosted
-BookServer image generated at:
+Neutral is white on the white canvas: a picture drawn only in color `7` is
+blank. `GC33-0805-00.boo` resource 1 fills its box faces with `66 02 00 07`
+and they are white in the hosted GIF. Lines, edges and text use the current
+color; areas use the color current when the figure begins
+(<<gdf_areas>>).
 
-----
-http://cbrdoc01.lan.cyber.gent/bookmgr/pictures/packet.20260614112503.P6.GIF
-----
+[[gdf_line_types]]
+==== Line Types
 
-renders those areas as orange, with sampled RGB `(224,128,0)`. The same
-resource also uses `0x26 02 00 05` as turquoise/cyan, `0x26 02 00 06` as
-yellow, and `0x26 02 00 08` as black/background. The previous `libgeist`
-palette incorrectly mapped color number `10` to dark green, causing the large
-orange shaded areas in `render/packet/6.png` to appear as dark green.
+`0x18` values `0..7` select a dash pattern; `8` and above make lines invisible
+(and boundaries of figures begun afterwards invisible). Patterns run on along a
+polyline, in pixels:
 
-The hosted GIF is the evidence for the RGB value; the GDDM name "Orange" alone
-does not fix a triplet.
+[cols=">8,<30",options="header"]
+|===
+|Value |On / off runs
+
+|`0`, `7` |Solid
+|`1`, `5` |`3 3`
+|`2` |`18 6`
+|`3`, `4` |`9 6 3 6`
+|`6` |`9 3 3 3 3 3`
+|===
+
+`BLGR8MST.BOO` resource 6 draws one labelled line per value `0..8`; in its
+hosted GIF the runs of rows 332 (value 1), 349 (2), 368 (3), 385 (4), 404 (5)
+and 422 (6) are exactly these, and value 8 draws nothing. `KAKHMST.BOO`
+resource 1 draws its feedback arrow with `58 05`; hosted row 141 alternates
+three inked and three blank pixels.
+
+[[gdf_areas]]
+==== Areas
+
+An area order `68 f` acts on its flag byte:
+
+[cols="<20,<60",options="header"]
+|===
+|Flag |Effect
+
+|bit `0x80` clear |Ends the current figure, as `0x60` does.
+|`0x80` set, `0x40` clear |Begins a figure now, without boundary lines.
+|`0x80` and `0x40` set |Requests boundary lines and begins the figure at the next `0x81`, `0xc1`, `0xe1` or `0xc6` order.
+|===
+
+A figure takes its fill color, interior and boundary color when it begins.
+While a figure is requested but not begun, color orders do not change the fill
+color. Inside a figure, `0xc1`, `0xe1` and `0xc6` start a new contour;
+`0x81`, `0xa1` and `0x86` continue the current one. Each contour is closed.
+`0x60` (or an area order without bit `0x80`) fills the figure and, if
+requested, strokes each closed contour in the boundary color and line type,
+then makes boundary lines visible again.
+
+Contours fill together by the non-zero winding rule. An edge and its exact
+reverse cancel: stroke-font areas carry out-and-back construction edges (in
+`packet.boo` resource `6` area 2, `(70.57216,89.05028) -> (80.720,96.337)`
+and its reverse in the `IPv6` title), and the hosted GIF shows no ink along
+them.
+
+`packet.boo` resource 2 (file offset `0x00000238`) shows the plain form: each
+filled packet-field rectangle is `26 02 00 06`, `68 80`, `26 02 00 08`, a
+five-point `c1`, `60 00` (payload offsets `0x0090..0x00ca`). The figure began
+at `68 80`, so it fills yellow (`6`); the later `00 08` does not change it.
+Hosted pixel `(220, 310)` is `ff ff 00`.
+
+`KAKHMST.BOO` resource 1 draws its bold headings with `68 c0` figures whose
+glyph outlines are a `c1` followed by `81` continuations (record at payload
+offset `0xca96` onwards); filling each `c1 81 ...` run as one contour gives
+the hosted letter shapes.
+
+[[gdf_patterns]]
+==== Patterns
+
+The pattern order selects the interior of later figures:
+
+[cols="<16,<60",options="header"]
+|===
+|Value |Interior
+
+|`0`, `16` |Solid, in the fill color.
+|`1` .. `7` |Dot pattern of density `8 - value`, in black.
+|`8` |Dot pattern of density 1.
+|`9` |Vertical hatch: pixels with `x mod 8 = 4`.
+|`10` |Horizontal hatch: pixels with `y mod 8 = 3`.
+|`11`, `12` |Rising hatch: pixels with `(x + y) mod 8 = 7`.
+|`13`, `14` |Falling hatch: pixels with `(x - y) mod 8 = 0`.
+|`15` |Empty: no fill, boundary only.
+|`0x11..0x40`, `0xff` |Solid.
+|`0x41..0xfe` |Color pattern. Not observed.
+|===
+
+Dot patterns are four rows of eight pixels, most significant bit leftmost,
+repeating every 8 columns and 4 rows of the canvas; canvas row `y` uses row
+`3 - (y mod 4)`:
+
+[cols=">10,<30",options="header"]
+|===
+|Density |Rows 0..3
+
+|1 |`00 00 00 88`
+|2 |`00 aa 44 aa`
+|3 |`00 22 00 aa`
+|4 |`11 aa 55 aa`
+|5 |`55 aa 55 ee`
+|6 |`55 bb 55 ff`
+|7 |`55 ff dd ff`
+|===
+
+Hatches draw in the fill color. Both leave the other interior pixels as they
+were, unless background mix `2` is in effect. Coordinates are canvas pixels.
+Evidence: `packet.boo` resource 7 fills a green-edged box with `09 07`; the
+hosted GIF has black pixels exactly where `x mod 4 = 0` and `y mod 4 = 0`
+(rows 324, 328, ...). `BLGR8MST.BOO` resource 13 fills bars with `09 01`;
+hosted rows 140..143 are full, `.###`, full, `.#.#` repeating. `DFHIS101.BOO`
+resource 1 uses `09 0b` and `09 0e`; `GC24-5673-01.boo` resource 17 uses
+values 2..6 and 9..14. All match the formulas above.
+
+[[gdf_model_transform]]
+==== Model Transform
+
+The transform is a 3x3 matrix applied to row vectors:
+`x' = x*m0 + y*m3 + m6`, `y' = x*m1 + y*m4 + m7`. It starts as the identity
+scaled by the aspect factors (`m0` and `m3` by the x factor, `m1` and `m4` by
+the y factor).
+
+Order `0x24` payload: byte 0 reserved, byte 1 mode (low two bits), byte 2
+mask 1, byte 3 mask 2, then one coordinate for each set mask bit, mask 1 bits
+7 down to 0 and then mask 2 bits 7 down to 0. Elements not given keep their
+identity value:
+
+[cols="<20,<40",options="header"]
+|===
+|Mask bit |Element
+
+|mask 1 bit 7, 6 |`m0`, `m1`
+|mask 1 bit 4, 3, 2, 0 |`m2`, `m3`, `m4`, `m5`
+|mask 2 bit 3, 2, 0 |`m6`, `m7`, `m8`
+|other bits |value read and ignored
+|===
+
+Mode `0` replaces the matrix (then scales it by the aspect factors as at the
+start), mode `1` multiplies current x given, mode `2` given x current, mode
+`3` changes nothing. `FIJI1MST.BOO` carries
+`64 .. 00 02 cc 0c 41100000 00000000 00000000 40fffffd ...`: mode 2 with
+`m0 = 1`, `m1 = 0`, `m3 = 0`, `m4 = 0.99999`, then `m6` and `m7`.
+
+[[gdf_arcs]]
+==== Arcs
+
+Arc parameters `P Q R S` (four coordinates) are transformed as the points
+`(P, S)` and `(R, Q)`; call the results `(a, d)` and `(c, b)`. They map the
+unit circle to the arc ellipse: `x = a*u + c*v`, `y = d*u + b*v`. Initially
+`a = b = 1`, `c = d = 0`.
+
+An arc runs from `p0` (the current position for `0x86`, the first point for
+`0xc6`) through `p1` to `p2`:
+
+. If `|a*b - c*d| < 1e-5`, draw the polyline `p0 p1 p2`.
+. Map `p1 - p0` and `p2 - p0` by `(x*b - y*c, y*a - x*d)` and find the circle
+  through the origin and the two mapped points. If the three are collinear
+  (`|2*(q2x*q1y - q1x*q2y)| < 1e-5`), or the start and end angles on that
+  circle differ by less than one degree, draw the polyline.
+. Otherwise draw the elliptical arc of the ellipse through `p0` and `p2` that
+  passes through `p1`, unless its centre is beyond 50000 units or its
+  conjugate-diameter points lie more than twice the window size from the
+  window origin, in which case draw the polyline.
+
+`packet.boo` resources 7 and 8 draw their circles with `62` and `c6` / `86`
+orders; `OFCLRNWP.BOO` resource 18 draws pie charts the same way.
+
+[[gdf_attribute_stack]]
+==== Attribute Stack
+
+Push-and-set orders `0x03`, `0x09`, `0x23`, `0x4a`, `0x4c`, `0x4d`, `0x50`,
+`0x51`, `0x58`, `0x59`, `0x61`, `0x62`, `0x64`, `0x66`, `0x67`, `0x69` and
+`0x74`..`0x7a` save the value the order replaces. `0x3f` restores the most
+recent saved value and re-applies colors. Restoring a line type does not
+change whether lines are visible. A pop with nothing saved does nothing.
 
 [[gdf_text_and_font_handling]]
 ==== Text and Font Handling
 
 IBM `QPRG1GDR` describes GDF character data as EBCDIC bytes. Character orders
-`0xc3` and `0x83` draw all string bytes `>= 0x40`; `0xc3` starts with a
-coordinate pair, while `0x83` uses the current position. Unlike `GSCHAR`, the
-current position is not changed by the GDF character order.
+`0xc3` and `0x83` draw all string bytes `>= 0x40`; for the BookManager
+fixtures this matches CP037 for ordinary Latin text (`c1 c2 c3 c4` is
+`ABCD`). The current position is not changed.
 
-The current character appearance comes from the text attributes:
+Text height is the character box y operand times `0.727`, in scaled
+coordinates. The font comes from the font-list prolog entry for the current
+character-set id; hosted renders use proportional outline fonts such as
+Helvetica for the `ADMUU...` sets and a fixed-pitch font for `ADMDVECP`. The
+exact glyph shapes and metrics are not part of the stream.
 
-[cols=">15,<45",options="header"]
-|===
-|Order |Meaning for text rendering
+[[gdf_corpus]]
+=== Corpus
 
-|`0x33` / `0x03` |Character box / push-and-set character box. The box vector gives the character height, and marks the text as size-restricted.
-|`0x34` / `0x74` |Character angle / push-and-set character angle. The vector gives the text orientation.
-|`0x35` / `0x75` |IBM character shear / push-and-set character shear. Not observed in the repository fixtures; `0x36` / `0x76` occur in that role instead, which is unexplained.
-|`0x38` / `0x78` |Character set / push-and-set character set. The operand is a local character-set id (`LCID`).
-|`0x39` / `0x79` |Character mode / push-and-set character mode in IBM GDF. `0x79` is not observed in the repository fixtures.
-|`0x3a` / `0x7a` |Character direction / push-and-set character direction in IBM GDF. Neither opcode is observed in the repository fixtures.
-|===
-
-Character bytes are EBCDIC. For the BookManager fixtures this matches CP037 for
-ordinary Latin text: `c1 c2 c3 c4` decodes as `ABCD`.
-
-[[gdf_character_set_selection]]
-==== Character Set Selection
-
-The `0x38` operand is a local character-set id. A GDF stream may carry a font
-list associating each `LCID` with an eight-byte GDDM character-set name such as
-`ADMUUTRP`; `LCID` `0x00` is the default set and `0x41..0xdf` are user-defined
-sets (IBM `QPRG1GDR` topic `B.11.3`).
-
-No repository fixture carries a font-list prolog, so the `LCID`-to-name binding
-is *unverified here*. What a renderer does with the name is a rendering
-choice, not a container fact; `libgeist`'s style mapping and its rationale are
-recorded in
-`AnalysisNotes/gdf-text-style-rendering.md` (`../AnalysisNotes/gdf-text-style-rendering.md`).
-
-Current `libgeist` text rendering decodes character bytes as CP037/EBCDIC,
-tracks `0x38` character-set state, maps character-set names to
-Roman/Swiss/Modern style traits, and draws legible bitmap glyphs with
-approximate bold, italic, and monospaced behavior. It does not parse a GDF
-font-list prolog into arbitrary `LCID`-to-name mappings, and it does not
-reproduce any historical renderer's exact glyph metrics.
-
-[[gdf_current_rendering_scope]]
-=== Current Rendering Scope
-
-Current `libgeist` PNG rendering support for `legacy-gdf` is an approximate
-rasterizer for the complete order set documented above. The decoder parses the
-initial comment/header, selects 2-byte signed or 4-byte IBM short HFP
-coordinates, walks IBM normal/short framed orders, and handles every documented
-opcode.
-
-Implemented drawing behavior:
-
-[cols="<45,<45",options="header"]
-|===
-|Order family |`libgeist` rendering behavior
-
-|Current-position, attribute, transform, clipping, segment, and push/pop orders |Parsed and reflected in renderer state where the current rasterizer uses the state; otherwise consumed so later orders remain aligned.
-|Line and relative-line orders |Rendered as polylines with the current color.
-|Marker orders |Rendered as simple cross/star marker shapes.
-|Character orders |Text bytes are decoded as CP037/EBCDIC and rendered as bitmap glyphs with approximate font-family/style traits.
-|Fillet, arc, and full-arc orders |Rendered as approximate elliptical polylines.
-|Area orders |`0x68` begins or ends a fill area according to IBM flag bit 0, `0x60` closes the area, and line orders inside the area contribute fill-boundary segments. Boundary lines are drawn only when IBM flag bit 1 is set. Exact opposite directed edges cancel during fill scan conversion, matching the zero-net-winding construction edges observed in packet resources `2`, `3`, `6`, and `9`.
-|Graphics image begin/data/end orders |Renders a simple cell-array block from the buffered image bytes.
-|===
-
-This is sufficient for inspection-oriented rendering and for visual recognition
-of BookManager GDF assets. It is not pixel-exact against hosted BookServer
-output: exact text shaping, font metrics, clipping, transforms, fill-pattern
-semantics, arc geometry, segment replay behavior, and cell-array color
-interpretation remain intentionally approximate until more fixture-backed
-evidence is available.
+In a random sample of 60 books carrying kind `G` pictures (928 pictures), the
+dominant producer writes only `04`, `09 10` / `09 0f`, `23`, `3e`, `51`, `58`,
+`60`, `66`, `68`, `70`, `71`, `81` and `c1` after the prolog. Orders seen at
+all: `00 02 03 04 09 0c 0d 11 18 23 26 28 33 34 35 39 3e 3f 43 51 58 60 62 64
+66 68 69 70 71 74 75 77 78 79 7a 81 83 86 c1 c2 c3 c6`. Twenty pictures in
+two books rotate text with `74`.

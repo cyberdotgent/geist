@@ -32,7 +32,7 @@ same resource is a legacy kind `I` payload that does not begin with `GIF87a` or
 The `<img>` carries no `width` or `height`, so the GIF's own size is the
 presented size; for a kind `I` bitmap that is two fifths of the stored pixel
 size (<<mmr_stored_resolution>>), and for a kind `G` picture the fixed
-`1004 x 735` canvas of <<gdf>>.
+`1004 x 735` canvas of <<gdf_canvas>>.
 
 The consequence for an implementer is the rule this book follows throughout: a
 BOO reader must expose or extract the stored payload byte-exactly. Converting
