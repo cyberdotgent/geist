@@ -53,12 +53,17 @@ struct ArcParameters {
   double d = 0.0;
 };
 
-enum class FillStyle : std::uint8_t { solid, empty };
+enum class FillStyle : std::uint8_t { solid, empty, pattern, hatch };
 
 // The attribute state a push-and-set order saves and a pop order restores.
 struct Attributes {
   double char_height = 3.0;
   FillStyle fill_style = FillStyle::solid;
+  int pattern_density = 0;
+  GdfHatch hatch = GdfHatch::rising;
+  // Background mix 2 paints the background pixels of patterns and hatches;
+  // every other value leaves them transparent.
+  bool opaque_background = false;
   std::uint8_t basic_color = 7;
   std::uint8_t extended_color = 7;
   GdfLineStyle line_style = GdfLineStyle::solid;
@@ -291,7 +296,28 @@ void apply_color(ParserState& state, std::uint8_t index) {
 
 void begin_figure(ParserState& state) {
   state.figure = FilledArea{};
-  state.figure.filled = state.attr.fill_style == FillStyle::solid;
+  state.figure.filled = state.attr.fill_style != FillStyle::empty;
+  switch (state.attr.fill_style) {
+  case FillStyle::solid:
+    state.figure.interior = GdfInterior::solid;
+    break;
+  case FillStyle::empty:
+    state.figure.interior = GdfInterior::empty;
+    break;
+  case FillStyle::pattern:
+    state.figure.interior = GdfInterior::pattern;
+    break;
+  case FillStyle::hatch:
+    state.figure.interior = GdfInterior::hatch;
+    break;
+  }
+  if (state.attr.opaque_background &&
+      (state.attr.fill_style == FillStyle::pattern ||
+       state.attr.fill_style == FillStyle::hatch)) {
+    unsupported(0x0d, "opaque pattern background");
+  }
+  state.figure.pattern_density = state.attr.pattern_density;
+  state.figure.hatch = state.attr.hatch;
   state.figure.fill = palette(state.fill_color);
   state.figure.draw_boundary = state.edges_visible;
   state.figure.edge = palette(state.line_color);
@@ -602,11 +628,27 @@ void handle_text(ParserState& state,
 
 void handle_pattern(ParserState& state, std::uint8_t opcode, std::uint8_t value) {
   // 0 and 16 fill solid in the current color, 15 leaves the interior empty.
-  // 1..14 are dot densities and hatches, 0x41..0xfe color patterns.
+  // 1..8 are dot patterns of density 7 down to 1 (8 repeats 1), 9..14 line
+  // hatches, 0x41..0xfe color patterns.
   if (value == 0 || value == 16) {
     state.attr.fill_style = FillStyle::solid;
   } else if (value == 15) {
     state.attr.fill_style = FillStyle::empty;
+  } else if (value <= 8) {
+    state.attr.fill_style = FillStyle::pattern;
+    state.attr.pattern_density = value == 8 ? 1 : 8 - value;
+  } else if (value == 9) {
+    state.attr.fill_style = FillStyle::hatch;
+    state.attr.hatch = GdfHatch::vertical;
+  } else if (value == 10) {
+    state.attr.fill_style = FillStyle::hatch;
+    state.attr.hatch = GdfHatch::horizontal;
+  } else if (value == 11 || value == 12) {
+    state.attr.fill_style = FillStyle::hatch;
+    state.attr.hatch = GdfHatch::rising;
+  } else if (value == 13 || value == 14) {
+    state.attr.fill_style = FillStyle::hatch;
+    state.attr.hatch = GdfHatch::falling;
   } else if (value < 0x11 || (value >= 0x41 && value != 0xff)) {
     unsupported(opcode, "pattern fill");
   } else {
@@ -734,10 +776,15 @@ void pop_attribute(ParserState& state) {
     break;
   case 0x09:
     state.attr.fill_style = value.fill_style;
+    state.attr.pattern_density = value.pattern_density;
+    state.attr.hatch = value.hatch;
     break;
   case 0x4a:
     state.attr.basic_color = value.basic_color;
     apply_color(state, state.attr.basic_color);
+    break;
+  case 0x4d:
+    state.attr.opaque_background = value.opaque_background;
     break;
   case 0x58:
     // Restores the type only; whether lines are visible stays as it is.
@@ -929,6 +976,7 @@ GdfPicture parse_gdf_picture(const std::vector<std::uint8_t>& bytes) {
       if (byte0 == 1 || byte0 == 3 || byte0 == 4) {
         unsupported(opcode, "background mix");
       }
+      state.attr.opaque_background = byte0 == 2;
       break;
     case 0x10:
     case 0x50:

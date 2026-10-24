@@ -44,11 +44,22 @@ struct Polyline {
   GdfLineStyle style = GdfLineStyle::solid;
 };
 
+// How a figure's interior is painted.  `solid` covers it in the fill color.
+// `pattern` sets the black pixels of an 8x8 dot pattern (densities 1..7) and
+// `hatch` the fill-colored pixels of an 8x8 line hatch; both leave the other
+// pixels as they were.
+enum class GdfInterior : std::uint8_t { solid, empty, pattern, hatch };
+
+enum class GdfHatch : std::uint8_t { rising, falling, horizontal, vertical };
+
 // A closed figure: its contours are filled together, and its boundary is
 // stroked when `draw_boundary` is set.
 struct FilledArea {
   std::vector<std::vector<Point>> contours;
   bool filled = true;
+  GdfInterior interior = GdfInterior::solid;
+  int pattern_density = 0;
+  GdfHatch hatch = GdfHatch::rising;
   Color fill;
   bool draw_boundary = false;
   Color edge;

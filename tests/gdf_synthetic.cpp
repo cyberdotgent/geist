@@ -254,6 +254,32 @@ void test_model_transform() {
   require_pixel(image, 50, 660, white, "untranslated position");
 }
 
+// Pattern 7 is the sparsest dot pattern: black pixels on every fourth row
+// and column of the canvas, whatever the fill color; the rest of the
+// interior stays as it was.  Pattern 11 is a rising one-pixel hatch every
+// eight pixels, in the fill color.
+void test_patterns_and_hatches() {
+  Bytes gdf = header();
+  segment(gdf);
+  normal(gdf, 0x66, {0x00, 0x04});
+  short_order(gdf, 0x09, 0x07);
+  short_order(gdf, 0x68, 0x80);
+  normal(gdf, 0xc1, points({10.0, 10.0, 40.0, 10.0, 40.0, 40.0, 10.0, 40.0}));
+  normal(gdf, 0x60, {});
+  normal(gdf, 0x66, {0x00, 0x02});
+  short_order(gdf, 0x09, 0x0b);
+  short_order(gdf, 0x68, 0x80);
+  normal(gdf, 0xc1, points({60.0, 10.0, 90.0, 10.0, 90.0, 40.0, 60.0, 40.0}));
+  normal(gdf, 0x60, {});
+  const auto image = geist::detail::decode_gdf_to_rgba(gdf);
+  require_pixel(image, 200, 600, black, "dot");
+  require_pixel(image, 204, 600, black, "next dot");
+  require_pixel(image, 201, 600, white, "between dots");
+  require_pixel(image, 200, 601, white, "row without dots");
+  require_pixel(image, 801, 598, Rgb{255, 0, 0}, "hatch pixel");
+  require_pixel(image, 800, 598, white, "beside the hatch");
+}
+
 // Push-and-set color, then pop, restores the previous color.
 void test_push_pop_color() {
   Bytes gdf = header();
@@ -281,8 +307,14 @@ void test_unsupported_orders_fail_closed() {
                    "segment call", "segment call");
   require_rejected(with([](Bytes& g) { normal(g, 0xc2, points({1.0, 1.0})); }),
                    "marker", "marker");
-  require_rejected(with([](Bytes& g) { short_order(g, 0x09, 0x0b); }),
-                   "pattern", "hatch pattern");
+  require_rejected(with([](Bytes& g) { short_order(g, 0x09, 0x45); }),
+                   "pattern", "color pattern");
+  require_rejected(with([](Bytes& g) {
+                     short_order(g, 0x0d, 0x02);
+                     short_order(g, 0x09, 0x07);
+                     short_order(g, 0x68, 0x80);
+                   }),
+                   "opaque pattern background", "opaque pattern");
   require_rejected(with([](Bytes& g) { short_order(g, 0x19, 0x02); }),
                    "line width", "line width");
   require_rejected(with([](Bytes& g) { normal(g, 0x27, {0, 0}); }),
@@ -386,6 +418,7 @@ int main() {
     test_figure_contour_continues_at_current_position();
     test_model_transform();
     test_push_pop_color();
+    test_patterns_and_hatches();
     test_unsupported_orders_fail_closed();
     test_inert_orders_are_skipped();
     test_other_formats();

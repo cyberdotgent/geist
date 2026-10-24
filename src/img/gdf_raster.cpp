@@ -243,9 +243,51 @@ void draw_glyph(RgbaImage& image,
 // Fills a figure: all its contours together, each implicitly closed.  An edge
 // and its exact reverse cancel (stroke-font construction edges run out and
 // back), and the rest fill by the non-zero winding rule.
+// The dot patterns, densities 1..7: four rows of eight pixels, most
+// significant bit leftmost, repeating every 4 rows and 8 columns of the
+// canvas.  Canvas row y uses row 3 - (y mod 4).
+constexpr std::array<std::array<std::uint8_t, 4>, 7> dot_patterns{{
+    {0x00, 0x00, 0x00, 0x88},
+    {0x00, 0xaa, 0x44, 0xaa},
+    {0x00, 0x22, 0x00, 0xaa},
+    {0x11, 0xaa, 0x55, 0xaa},
+    {0x55, 0xaa, 0x55, 0xee},
+    {0x55, 0xbb, 0x55, 0xff},
+    {0x55, 0xff, 0xdd, 0xff},
+}};
+
+bool interior_inked(const FilledArea& area, int x, int y) {
+  switch (area.interior) {
+  case GdfInterior::pattern: {
+    const auto& rows =
+        dot_patterns[static_cast<std::size_t>(std::clamp(area.pattern_density, 1, 7) - 1)];
+    const auto row = rows[static_cast<std::size_t>(3 - (y & 3))];
+    return (row & (0x80u >> (x & 7))) != 0;
+  }
+  case GdfInterior::hatch:
+    // One-pixel lines eight pixels apart, aligned to the canvas.
+    switch (area.hatch) {
+    case GdfHatch::rising:
+      return ((x + y) & 7) == 7;
+    case GdfHatch::falling:
+      return ((x - y) & 7) == 0;
+    case GdfHatch::horizontal:
+      return (y & 7) == 3;
+    case GdfHatch::vertical:
+      return (x & 7) == 4;
+    }
+    return true;
+  default:
+    return true;
+  }
+}
+
 void fill_area(RgbaImage& image,
                const std::vector<std::vector<std::pair<int, int>>>& contours,
-               Color fill) {
+               const FilledArea& area) {
+  const Color fill = area.interior == GdfInterior::pattern
+                         ? Color{0, 0, 0, 255}
+                         : area.fill;
   struct Edge {
     int x0;
     int y0;
@@ -310,7 +352,9 @@ void fill_area(RgbaImage& image,
         const int fill_begin = std::max(0, begin);
         const int fill_end = std::min(static_cast<int>(image.width) - 1, x);
         for (int xx = fill_begin; xx <= fill_end; ++xx) {
-          set_pixel(image, xx, y, fill);
+          if (interior_inked(area, xx, y)) {
+            set_pixel(image, xx, y, fill);
+          }
         }
       }
     }
@@ -404,7 +448,7 @@ RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
                             std::max(top, 0) + 1));
         charge(rows, image.width);
         charge(points, rows + 1);
-        fill_area(image, contours, area.fill);
+        fill_area(image, contours, area);
       }
       if (area.draw_boundary) {
         for (auto contour : contours) {
