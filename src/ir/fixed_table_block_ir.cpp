@@ -2113,6 +2113,14 @@ private:
                 boundary = starts->count(new_column) != 0;
               }
             }
+            // The framing places this word inside the open display line, so
+            // it is a cell of that line and the blanks after it an in-line
+            // gap, whatever its shape: SC31-6552-00 5.2.4.2 record 2332
+            // line 21 is `   macroinstructions:    ASLPLU` (attach, `:` at
+            // 0xBD954, a three-blank token); hosted (DT 19950503072955)
+            // serves `macroinstructions:    ASLPLU` on one line.
+            if (word.line_content && !control_before)
+              boundary = false;
             if (boundary && match.slot_begin == at) {
               close_gap_line(words, state, pending, paragraph);
               open_line(match, match.paragraph);

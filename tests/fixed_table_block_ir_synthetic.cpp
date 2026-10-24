@@ -989,6 +989,43 @@ void test_glued_comma_before_control_is_content() {
           "the glued comma ending a table line was dropped: " + text);
 }
 
+// A glued mark followed by a blank run inside a framed table line is a cell
+// of that line, not a hidden row slot.  SC31-6552-00 5.2.4.2 record 2332
+// lines 20-23 are `cfont 3 18 1`, `   macroinstructions:    ASLPLU`
+// (attach, `:` at 0xBD954, a three-blank token), `cfont 3 13 1` and
+// `   dependencies:         none`; hosted (DT 19950503072955) serves both
+// lines as drawn, `macroinstructions:` included.
+void test_glued_mark_before_gap_is_content() {
+  RecordBuilder builder;
+  builder.line({words("cz"), words("OFF"), words("TABLE")});
+  builder.line({words("SRTBLTBLUNIQ911")});
+  builder.sized_line({{"cfont", 2}, {"3", 2}, {"18", 2}, {"1", 2}});
+  builder.sized_line({{"   ", 1}, {"macroinstructions", 2}, {"\x01", 1},
+                      {":", 1}, {"   ", 1}, {"ASLPLU", 2}});
+  builder.sized_line({{"cfont", 2}, {"3", 2}, {"13", 2}, {"1", 2}});
+  builder.sized_line({{"   ", 1}, {"dependencies", 2}, {"\x01", 1},
+                      {":", 1}, {"         ", 1}, {"none", 2}});
+  builder.line({words("SRETBL")});
+  std::vector<DecodedLogicalRecordSource> sources;
+  sources.push_back(builder.finish(2332));
+  require(sources.front().ir.display_lines_parse,
+          "glued-mark table: synthetic framing did not parse");
+  const auto layout = extract_layout_ir(sources);
+  const auto ownership = build_ownership_ir(sources, layout);
+  const LayoutRowRangeIR range{0, count_layout_rows(layout)};
+  const auto blocks =
+      extract_fixed_table_blocks_ir(sources, layout, ownership, range);
+  if (blocks.blocks.size() != 1) return;  // declining is fail-closed
+  std::string text;
+  for (const auto &row : blocks.blocks.front().body)
+    for (const auto &cell : row.cells)
+      for (const auto &line : cell.lines) text += line.text + "|";
+  require(text.find("macroinstructions:") != std::string::npos &&
+              text.find("dependencies:") != std::string::npos,
+          "a glued mark before an in-line gap was hidden as a row slot: " +
+              text);
+}
+
 // A cell whose only word is a real `?`.  SC41-5401-00 2.3.2.111 record 804
 // line 28 is ` | | ?                   | Question mark   |`: token 306 is a
 // two-byte dictionary word whose single word is 0x3F (bytes `B7 12` at
@@ -1060,6 +1097,7 @@ int main() {
   test_lone_question_mark_cell();
   test_length_byte_before_control_is_not_content();
   test_glued_comma_before_control_is_content();
+  test_glued_mark_before_gap_is_content();
   geist_test::exit_with_failures();
   std::cout << "fixed table block IR checks passed\n";
   return 0;
