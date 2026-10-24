@@ -223,10 +223,57 @@ void script_lines() {
            body, {"C.TR", "C.IN", "+3", " A B"});
 }
 
+// The styled text of every inline of `style`, joined by a blank.
+std::string styled(const geist::detail::ProseTopicIR &topic,
+                   geist::detail::FontStyleIR style) {
+  std::string text;
+  for (const auto &block : topic.blocks)
+    for (const auto &item : block.inlines)
+      if (item.style == style) text += (text.empty() ? "" : " ") + item.text;
+  return text;
+}
+
+void one_triple_font_lines() {
+  using geist::detail::FontStyleIR;
+  // EDCGV1R2 3.4.6 record 68 lines 17-19: `CFONT 31 7 X` and `CFONT 39 7 X`,
+  // one triple per line, both styling the next drawn row; hosted serves
+  // `<tt>#pragma</tt> <tt>linkage</tt>`.  Lines 23-26: three `C` lines over
+  // `TPF General Information`, served as three `<cite>` runs.
+  const std::vector<Line> body = {
+      {words("CFONT"), words("31"), words("7"), words("X")},
+      {words("CFONT"), words("39"), words("7"), words("X")},
+      {words("   "), words("information"), words("provided"), words("in"),
+       words("the"), words("#pragma"), words("linkage"), words("statements")},
+      {words("C.SK"), words("1")},
+      {words("CFONT"), words("40"), words("3"), words("C")},
+      {words("CFONT"), words("44"), words("7"), words("C")},
+      {words("CFONT"), words("52"), words("11"), words("C")},
+      {words("   "), words("For"), words("more"), words("information"),
+       words("on"), words("TPF,"), words("consult"), words("TPF"),
+       words("General"), words("Information,"), words("GH20-7521.")},
+  };
+  auto extracted =
+      run(topic({summary_3_4_6}, body), "Transaction Processing Facility");
+  require(extracted.topic.has_value(),
+          "one-triple CFONT lines: the topic was rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto example = styled(*extracted.topic, FontStyleIR::example_phrase);
+  require(example == "#pragma linkage" || example == "#pragma linkage ",
+          "one-triple CFONT lines: the X spans style '" + example + "'");
+  const auto citation = styled(*extracted.topic, FontStyleIR::citation);
+  require(citation == "TPF General Information",
+          "one-triple CFONT lines: the C spans style '" + citation + "'");
+  const auto text = topic_text(*extracted.topic);
+  require(text.find("CFONT") == std::string::npos &&
+              text.find(" 31 ") == std::string::npos,
+          "one-triple CFONT lines: control text is drawn: '" + text + "'");
+}
+
 }  // namespace
 
 int main() {
   summary_lines();
   script_lines();
+  one_triple_font_lines();
   return 0;
 }

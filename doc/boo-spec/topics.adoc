@@ -329,6 +329,40 @@ of one preformatted block). A reader can treat every display line opened by
 a `c.`/`C.` opcode token (the letters `c` or `C` and `.` followed by letters
 only) as drawing nothing, with the operands bounded by that display line.
 
+*`CFONT` one triple per line.* Every one of the 38,766 `CFONT` lines in the
+five books carries exactly one `<column> <length> <code>` triple; a row
+styled in several places is preceded by several `CFONT` lines. Codes seen:
+`E` (21,342), `2` (6,758), `X` (5,086), `C` (2,133), `1` (1,411), `V`, `K`,
+`3`, `L`, `R`, `Q`, `G`, `5`, `P`, `W`, `4`, `8`. In every topic each run of
+`CFONT` lines is followed directly by the text row it styles. `EDCGV1R2.BOO`
+topic `3.4.6`, record 68:
+
+[cols="<16,<26,<45",options="header"]
+|===
+|File offset |Bytes |Meaning
+
+|`0xc99e` |`04 72 9e a7 8d` |Length byte (4), `CFONT`, `31`, `7`, `X`.
+|`0xc9a3` |`05 72 b8 f4 a7 8d` |Length byte (5), `CFONT`, `39`, `7`, `X`.
+|`0xc9a9` |`13 ...` |Length byte (19) of `   information provided in the #pragma linkage statements and in the header`.
+|===
+
+Columns count from 0 at the row's first cell, as in version 1.2: column 31
+is the `#` of `#pragma` and column 39 the `l` of `linkage`. Hosted
+BookServer serves the row as `information provided in the <tt>#pragma</tt>
+<tt>linkage</tt> statements and in the header`. Likewise `CFONT 40 3 C`,
+`CFONT 44 7 C` and `CFONT 52 11 C` (lines 23-25) style `TPF`, `General` and
+`Information` of `   For more information on TPF, consult TPF General
+Information, GH20-7521.`, served as three `<cite>` runs.
+
+The reader reads a `CFONT` line as blank-separated words: after the opcode,
+each group of three words is a column and a length (decimal) and a style
+code (the first character of the third word), for as many groups as the
+line holds. The triples of consecutive `CFONT` lines accumulate, and the
+whole set applies to the next text row that is drawn and is then cleared.
+The one-triple form is therefore the same control as the many-triple form
+of version 1.2, split across lines; a reader that collects the spans of
+every `CFONT` line since the last drawn row reads both.
+
 [[topics_chdlevel_observed_values]]
 ==== `CHDLEVEL` Observed Values
 
