@@ -6172,6 +6172,42 @@ the hosted BookServer, so these three placements are read from the controls
 alone; hosted serves every block after a `<dd>` inside that definition in
 any case, because its markup never closes the `<dd>`.
 
+*A term alone.*  Hosted BookServer pairs no term with a body: `CZ FLOW DT`
+prints `<dt>` and the term rows, `CZ FLOW DD` prints `<dd>` and its rows,
+`CZ FLOW PT` is a generic `CZ FLOW` (a `<p>` and the rows) and `CZ BREAK`
+prints `<br>`.  A term whose body never comes -- the next term or the
+list's closer follows -- is therefore a term alone.  `GC24-5851-01.boo`
+`11.5.2`, logical record 791, stores `06 44 69 D8 74 BB 80` at `0x8CDB1`
+(`cz FLOW PT 7 11`), the `cfont` line, the row `05 0F 60 12 D6 4B 00`
+(` |`, four blanks, `parms`), `05 44 69 70 80 80` at `0x8CDC4`
+(`cz FLOW P 11 11`, no row) and at `0x8CDCA` the next `cz FLOW PT 7 11`;
+hosted (DT 19990506135028) serves pass:[<literal>&lt;p&gt;&lt;br&gt; |     &lt;var&gt;parms&lt;/var&gt;</literal>]
+and nothing else for that term.  A `DT` hands its body to any verbatim
+region that follows, as it does to `LINES`: `GC41-5435-03.boo` `9.2`
+follows `cz FLOW DT 3 13` `Examples:` with two `cz OFF XMP` regions and
+`cz OFF EDL`, and hosted (DT 19990304092651) serves
+pass:[<literal>&lt;dt&gt;   &lt;B&gt;Examples:&lt;/B&gt;</literal>], `<dd>` and the two
+`<pre width="80">` blocks.
+
+*A parameter term that describes itself.*  A `PT` whose further rows all
+stand at its `indent` column carries its description without a
+`CZ BREAK`.  `SC31-8212-00.boo` `2.3.4.2.3`, logical record 877, stores
+`06 3F 76 D0 82 B2 B8` at `0x59A07` (`cz FLOW PT 5 8`), the line
+`cfont 5 19 X`, the row framed by length byte `0D` at `0x59A13`
+(five blanks, `RECEIVE_FILL_BUFFER`) and then rows framed by `11` that open
+with an eight-blank run (`11` at `0x59A22`, then `The program receives
+...`).  Hosted (DT 19950906051034) serves
+pass:[<literal>&lt;p&gt;     &lt;tt&gt;RECEIVE_FILL_BUFFER&lt;/tt&gt;</literal>] followed by the
+three rows at column 8, and the next term the same way.  The first row is
+the term, the rows at the indent its description.
+
+Every word of the hosted body is reproduced by these readings in one topic
+of each of fifty-one books of a random hosted sample that carried a term
+without a separate body, among them `GC24-5851-01`, `GC24-5853-01`,
+`GC31-8368-00`, `GC41-5435-03`, `SC30-3818-03`, `SC30-3989-00`,
+`SC31-8165-00`, `SC31-8212-00` and `SH26-4077-01` (differences are words
+hosted splits at a style change).
+
 ===== List parts
 
 `cz FLOW LP left indent` inside an open `DL` is a *list part*: a paragraph at

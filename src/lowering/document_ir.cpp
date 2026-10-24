@@ -422,7 +422,10 @@ bool verify_block(const BlockIR& block, bool nested, std::string* error) {
                 !verify_inlines(entry.term, entry.empty_term, error))
               return false;
             if (entry.definition_blocks.empty()) {
-              if (!verify_inlines(entry.definition, false, error)) return false;
+              // A term alone (a CZ `PT`/`DT` whose body never comes) has no
+              // definition; an empty term always has one.
+              if (!verify_inlines(entry.definition, !entry.empty_term, error))
+                return false;
             } else {
               for (const auto& child : entry.definition_blocks)
                 if (!verify_block(child, true, error)) return false;

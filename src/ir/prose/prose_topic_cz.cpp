@@ -715,8 +715,7 @@ struct CzBuilder {
       return fail(error, "cz FLOW DT outside an open definition list");
     if (groups.empty()) return fail(error, "cz FLOW DT has no text");
     auto& frame = stack.back();
-    if (frame.pending_definition != npos)
-      return fail(error, "cz FLOW DT follows a term with no cz FLOW DD body");
+    term_alone(frame);
     frame.body_owner = npos;
     frame.inline_entry = npos;
     frame.inline_indent = npos;
@@ -851,8 +850,7 @@ struct CzBuilder {
     if (stack.empty() || stack.back().tag != "dl")
       return fail(error, "cz FLOW DT outside an open definition list");
     auto& frame = stack.back();
-    if (frame.pending_definition != npos)
-      return fail(error, "cz FLOW DT follows a term with no cz FLOW DD body");
+    term_alone(frame);
     frame.body_owner = npos;
     ++frame.items;
     ProseBlockIR block;
@@ -881,13 +879,24 @@ struct CzBuilder {
     return true;
   }
 
+  // A term whose body never comes -- the next term or the list's closer
+  // follows -- is a term alone; the entry already holds it.  BookServer has
+  // no term/body pairing at all: `CZ FLOW PT` and `CZ FLOW DT` print the
+  // term and `CZ BREAK` or `CZ FLOW DD` the body, each on its own.
+  // GC24-5851-01 11.5.2 (DT 19990506135028) stores `cz FLOW PT 7 11`,
+  // `     parms`, an empty `cz FLOW P 11 11` and the next `cz FLOW PT`;
+  // hosted serves `<p><br> |     <var>parms</var>` and nothing more.
+  void term_alone(Frame& frame) {
+    frame.pending_definition = npos;
+  }
+
   bool parameter_term(
+      const LayoutDirective& directive,
       const std::vector<std::pair<std::size_t, std::size_t>>& groups) {
     if (stack.empty() || stack.back().tag != "parml")
       return fail(error, "cz FLOW PT outside an open parameter list");
     auto& frame = stack.back();
-    if (frame.pending_definition != npos)
-      return fail(error, "cz FLOW PT follows a term with no cz BREAK body");
+    term_alone(frame);
     if (groups.empty()) return fail(error, "cz FLOW PT has no text");
     // A term split over source paragraphs needs compound definition content;
     // flattening the groups here would erase a source-declared boundary.
@@ -901,11 +910,34 @@ struct CzBuilder {
     block.list_ordinal = frame.list_ordinal;
     block.origin = lines[begin].origin;
     const auto block_index = topic.blocks.size();
-    if (!build_block(records, lines, begin, end, block, ledger, block_index,
-                     error))
+    // A term whose further rows all stand at the directive's indent column
+    // carries its description itself, with no `cz BREAK`: SC31-8212-00
+    // 2.3.4.2.3 (DT 19950906051034) stores `cz FLOW PT 5 8`,
+    // `     RECEIVE_FILL_BUFFER` and three rows at column 8, which hosted
+    // serves as `<p>     <tt>RECEIVE_FILL_BUFFER</tt>` and those rows.  The
+    // first row is the term, the rest its description.
+    const auto described =
+        end - begin > 1 && directive.indent > directive.left &&
+        lines[begin].text_begin < directive.indent &&
+        std::all_of(lines.begin() + static_cast<std::ptrdiff_t>(begin + 1),
+                    lines.begin() + static_cast<std::ptrdiff_t>(end),
+                    [&directive](const Line& line) {
+                      return !has_text(line) ||
+                             line.text_begin == directive.indent;
+                    });
+    if (!build_block(records, lines, begin, described ? begin + 1 : end,
+                     block, ledger, block_index, error))
       return false;
     block.term_inline_count = block.inlines.size();
+    if (described &&
+        !build_block(records, lines, begin + 1, end, block, ledger,
+                     block_index, error))
+      return false;
     append(std::move(block), begin);
+    if (described) {
+      frame.body_owner = block_index;
+      return true;
+    }
     frame.pending_definition = block_index;
     return true;
   }
@@ -1720,7 +1752,11 @@ struct CzBuilder {
         // A term may hand its body directly to a source-declared block
         // region without an intervening DD.  The pending term is the owner of
         // that region, not an inline definition missing its text.
-        if (tag == "lines" && !stack.empty() && stack.back().tag == "dl" &&
+        // Any verbatim region does: GC41-5435-03 9.2 (DT 19990304092651)
+        // follows `cz FLOW DT 3 13` `Examples:` with two `cz OFF XMP`
+        // regions, served as `<dt>   <B>Examples:</B>` and the two
+        // `<pre width="80">` blocks after the `<dd>`.
+        if (!stack.empty() && stack.back().tag == "dl" &&
             stack.back().pending_definition != npos &&
             !empty_definition_body_before_block())
           return false;
@@ -1950,10 +1986,9 @@ struct CzBuilder {
           const auto opened = tag.substr(1);
           if (stack.empty() || stack.back().tag != opened)
             return fail(error, name + " closes no open " + opened);
-          if (stack.back().pending_definition != npos)
-            return fail(error, opened == "parml"
-                                   ? "cz parameter term has no cz BREAK body"
-                                   : "cz definition term has no cz FLOW DD body");
+          // A term still waiting for its body at the list's end is a term
+          // alone (see `term_alone`).
+          stack.back().pending_definition = npos;
           if (list_tag(opened) && stack.back().items == 0)
             return fail(error, "cz list " + opened + " has no items");
           stack.pop_back();
@@ -1990,7 +2025,7 @@ struct CzBuilder {
             implicit_parameter_list(index)) {
           stack.push_back({"parml", next_list_ordinal++, 0});
         }
-        return parameter_term(groups);
+        return parameter_term(directive, groups);
       }
       if (tag == "p" || tag == "pc" || tag == "gd") {
         if (!paragraphs(groups, 0)) return false;

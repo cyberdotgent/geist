@@ -1007,7 +1007,7 @@ void a_term_only_dt_owns_the_list_opened_at_its_indent() {
 }
 
 // A list that does not open at the term's indent column is not its body:
-// the term keeps waiting for one and still fails at the list closer.
+// the term is a term alone and the list follows it.
 void a_list_at_another_column_leaves_the_term_without_a_body() {
   RecordBuilder builder;
   metadata(builder);
@@ -1026,9 +1026,22 @@ void a_list_at_another_column_leaves_the_term_without_a_body() {
   builder.line({words("cz"), words("OFF"), words("EDL"), words("0"),
                 words("0")});
   const auto extracted = extract_record(std::move(builder), 34);
-  require(!extracted.prose.has_value() &&
-              contains(extracted.error, "has no cz FLOW DD body"),
-          "a list at another column became a term body: " + extracted.error);
+  // The term stays a term alone (BookServer pairs no term with a body: it
+  // prints `<dt>` and the term, then the list), and the list follows it.
+  require(extracted.prose.has_value(),
+          "a term followed by a list at another column was rejected: " +
+              extracted.error);
+  if (!extracted.prose) return;
+  const auto term = std::find_if(
+      extracted.prose->blocks.begin(), extracted.prose->blocks.end(),
+      [](const auto &block) {
+        return block.kind ==
+               geist::detail::ProseBlockKindIR::definition_entry;
+      });
+  require(term != extracted.prose->blocks.end() &&
+              term->term_inline_count == term->inlines.size() &&
+              term->body_blocks.empty(),
+          "a list at another column became a term body");
 }
 
 // SC21-8295-03 3.1.3.2 writes a DT with no display rows and then the block

@@ -764,9 +764,14 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
           const auto has_inline_body =
               entry.term_inline_count < entry.inlines.size();
           if (entry.body_blocks.empty()) {
-            if (!has_inline_body ||
-                !lower_inlines(entry, lowered.definition, error))
+            // A term alone: the CZ term whose body never came
+            // (prose_topic_cz.cpp `term_alone`) lowers with no definition.
+            if (!has_inline_body) {
+              if (lowered.empty_term)
+                return fail(error, "prose definition has no body");
+            } else if (!lower_inlines(entry, lowered.definition, error)) {
               return fail(error, "prose definition has no body");
+            }
           } else {
             if (has_inline_body) {
               ParagraphBlockIR paragraph;

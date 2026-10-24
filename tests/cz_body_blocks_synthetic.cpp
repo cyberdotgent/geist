@@ -16,6 +16,9 @@
 #include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/layout/ownership_ir.hpp"
+#include "geist/detail/lowering/document_ir.hpp"
+#include "geist/detail/lowering/prose_topic_document_lowering.hpp"
+#include "geist/detail/render/document_markdown_renderer.hpp"
 #include "geist/detail/ir/prose/prose_topic_ir.hpp"
 #include "test_failures.hpp"
 
@@ -315,9 +318,119 @@ void a_flow_inside_an_unclosed_region_declines() {
           "a cz FLOW P inside an unclosed cz OFF XMP was admitted");
 }
 
+std::size_t count_kind(const geist::detail::ProseTopicIR &topic,
+                       ProseBlockKindIR kind) {
+  std::size_t count = 0;
+  for (const auto &block : topic.blocks)
+    if (block.kind == kind) ++count;
+  return count;
+}
+
+// A `cz FLOW PT` whose rows run on at its indent column carries its own
+// description.  BookServer reads PT as the generic `CZ FLOW` (a `<p>` and
+// the rows): SC31-8212-00 `2.3.4.2.3` (DT 19950906051034) stores
+// `cz FLOW PT 5 8`, `     RECEIVE_FILL_BUFFER` and three rows at column 8
+// with no `cz BREAK`, and hosted serves
+// `<p>     <tt>RECEIVE_FILL_BUFFER</tt>` followed by those rows.
+void a_parameter_term_with_rows_at_its_indent() {
+  RecordBuilder builder;
+  builder.heading("2.3.4.2.3", "Fields");
+  builder.cz({"cz", "FLOW", "PARML", "5", "5"});
+  builder.cz({"cz", "FLOW", "PT", "5", "8"});
+  builder.row("     ", {"RECEIVE_FILL_BUFFER"});
+  builder.row("        ", {"The", "program", "receives", "data."});
+  builder.empty();
+  builder.cz({"cz", "FLOW", "PT", "5", "8"});
+  builder.row("     ", {"RECEIVE_FILL_LL"});
+  builder.row("        ", {"The", "program", "receives", "a", "record."});
+  builder.empty();
+  builder.cz({"cz", "OFF", "EPARML", "2", "2"});
+  auto extracted = run(builder.build(877), "Fields");
+  require(extracted.topic.has_value(),
+          "parameter terms with rows at their indent were rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  const auto &blocks = extracted.topic->blocks;
+  require(blocks.size() == 2 &&
+              blocks[0].kind == ProseBlockKindIR::definition_entry &&
+              blocks[1].kind == ProseBlockKindIR::definition_entry,
+          "expected two parameter entries:\n" + topic_text(*extracted.topic));
+  if (blocks.size() != 2) return;
+  require(blocks[0].term_inline_count > 0 &&
+              blocks[0].term_inline_count < blocks[0].inlines.size(),
+          "the first entry has no separate description: '" +
+              block_text(blocks[0]) + "'");
+}
+
+// A term whose body never comes is a term alone.  GC24-5851-01 `11.5.2`
+// (DT 19990506135028) stores `cz FLOW PT 7 11`, `     parms`, an empty
+// `cz FLOW P 11 11` and the next `cz FLOW PT`; hosted serves
+// `<p><br> |     <var>parms</var>` and nothing else for it.  GC41-5435-03
+// `9.2` hands a `cz FLOW DT 3 13` term (`Examples:`) its body as two
+// `cz OFF XMP` regions and no `cz FLOW DD`; hosted serves
+// `<dt>   <B>Examples:</B>` and the regions after the `<dd>`.
+void terms_without_a_separate_body() {
+  RecordBuilder builder;
+  builder.heading("11.5.2", "Operands");
+  builder.cz({"cz", "FLOW", "PARML", "7", "7"});
+  builder.cz({"cz", "FLOW", "PT", "7", "11"});
+  builder.row("     ", {"parms"});
+  builder.empty();
+  builder.cz({"cz", "FLOW", "P", "11", "11"});
+  builder.cz({"cz", "FLOW", "PT", "7", "11"});
+  builder.row("     ", {"-dp"});
+  builder.cz({"cz", "BREAK", "11"});
+  builder.row("         ", {"Activates", "tracing."});
+  builder.cz({"cz", "OFF", "EPARML", "0", "0"});
+  builder.cz({"cz", "FLOW", "DL", "3", "3"});
+  builder.cz({"cz", "FLOW", "DT", "3", "13"});
+  builder.row("   ", {"Examples:"});
+  builder.empty();
+  builder.cz({"cz", "OFF", "XMP"});
+  builder.row("               ", {"AddType", ".shtml"});
+  builder.cz({"cz", "OFF", "EXMP", "10", "10"});
+  builder.cz({"cz", "OFF", "XMP"});
+  builder.row("               ", {"AddType", ".htmls"});
+  builder.cz({"cz", "OFF", "EXMP", "10", "10"});
+  builder.cz({"cz", "FLOW", "DT", "3", "13"});
+  builder.row("   ", {"Alone:"});
+  builder.cz({"cz", "OFF", "EDL", "0", "0"});
+  auto extracted = run(builder.build(790), "Operands");
+  require(extracted.topic.has_value(),
+          "terms without a separate body were rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto &topic = *extracted.topic;
+  require(count_kind(topic, ProseBlockKindIR::definition_entry) == 4,
+          "expected four entries:\n" + topic_text(topic));
+  require(count_kind(topic, ProseBlockKindIR::preformatted) == 2,
+          "the term's regions are not two verbatim blocks:\n" +
+              topic_text(topic));
+  const auto text = topic_text(topic);
+  require(contains(text, "parms") && contains(text, "Alone:") &&
+              contains(text, "Activates"),
+          "a term lost its text:\n" + text);
+  // A term alone lowers to an entry with no definition and renders.
+  geist::detail::TopicIdentityIR identity;
+  identity.id = "11.5.2";
+  identity.title = "Operands";
+  identity.heading_level = 2;
+  identity.start_logical_record = 790;
+  identity.end_logical_record = 790;
+  std::string error;
+  const auto document =
+      geist::detail::lower_prose_topic_to_document_ir(identity, topic, &error);
+  require(document.has_value(), "terms alone did not lower: " + error);
+  if (!document) return;
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "parms") && contains(markdown, "Alone:"),
+          "a term alone did not render: " + markdown);
+}
+
 }  // namespace
 
 int main() {
+  a_parameter_term_with_rows_at_its_indent();
+  terms_without_a_separate_body();
   a_break_inside_a_region_is_a_blank_row();
   a_flow_inside_a_region_ends_it();
   a_flow_inside_an_unclosed_region_declines();
