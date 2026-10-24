@@ -606,6 +606,7 @@ foreach(synthetic_test
     revision_bar_operand_synthetic
     prose_glossary_anchor_synthetic
     revision_margin_row_synthetic
+    prose_line_end_punctuation_synthetic
     topic_header_envelope_rule_synthetic
     topic_title_revision_marker_synthetic
     topic_heading_synthetic

@@ -1260,6 +1260,31 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             continue;
           }
         }
+        // A one-cell `,` or `.` attached (by its leading glue byte) to the
+        // word before it, inside a framed display line, is that line's last
+        // drawn cell, not decoder punctuation: the decoder's own separator
+        // before a control stands on the next line's length byte instead
+        // (SC41-485 1.3.3 record 50 token 132, `02` = line 21's length).
+        // ehxb7000 BACK_1.2.7.1 record 424 token 190 (`02` at 0x9B172, glue
+        // + `,`) ends line 9 `... Support OSI Network Service,` before the
+        // `cfont` line; the row's text is incomplete without it.
+        if (title_seen && !menu_open && is_separator(view) &&
+            view.width == 1 && view.body.size() == 1 &&
+            (view.body.front() == ',' || view.body.front() == '.') &&
+            token < record.tokens.size() && !record.tokens[token].empty() &&
+            record.tokens[token].front() < 4) {
+          const auto* line = display_line_of_token(record, token);
+          if (line != nullptr && token > line->prefix_token + 1 &&
+              !is_display_line_length_token(record, token)) {
+            Item item;
+            item.kind = ItemKind::token;
+            item.token = view;
+            item.separator = true;
+            build.items.push_back(std::move(item));
+            claimed[token] = true;
+            continue;
+          }
+        }
         // A display line's length byte is the row-control slot, always and
         // only.  It is a raw byte the token reader resolves through the
         // dictionary, so it routinely spells an ordinary word -- SC26-457
