@@ -5470,10 +5470,39 @@ the opener pair and nothing after it; the messages and the list's
 after the menu. `SC33-6740-00.boo` `A.0`, `SC31-8129-01.boo` `APPENDIX1.5`,
 `SC26-4834-03.boo` `3.0` and `GC33-1694-01.boo` `1.8` end the same way.
 
-*Unresolved.* The individually indexed message topics that follow such an
-announcement (`GC35-0271-02` `6.1`: `SRMSG ANR0800I` in the metadata, then the
-headline rows before the first `cz` directive, then `cz FLOW XPL` ...) are
-not described here.
+*Message topics outside a list.*  The individually indexed message topics
+that follow such an announcement carry no `cz FLOW MSGL` of their own: the
+`SRMSG <id>` is a metadata line before `ST`, the rule and headline rows
+precede the first directive, and the body blocks follow as
+`cz FLOW XPL`, `cz FLOW SYSACT`, ...  A body tag is matched by no prefix of
+its own; it is a generic `CZ FLOW` (see "Reading a CZ body"), so it closes
+the open `<pre>` and its rows flow as one paragraph, exactly as inside a
+list.  `GC33-1694-01.boo` `1.4.1`, logical record 85, stores the first body
+block as the display line `08 60 79 91 3E C3 31 2D 38` at `0x2D712`: length
+byte `08`, then `cz` (`60 79`), `FLOW` (`91 3E`), the two-byte `XPL` token
+`C3 31`, `3` (`2D`) and `4` (`38`), followed by the `cfont 4 12 2` line and
+the row `    Explanation:  The CICS subsystem identified ...`.  Hosted
+(DT `19990719095008`) serves the heading `<a name="MSG DFH0100"><h6>`, the
+post-heading `<pre width="132">` holding the rule and the headline
+`DFH0100 CICS SUBSYSTEM IS NOW INITIALIZED`, and then
+
+[source,html]
+----
+</pre>
+    <B>Explanation:</B>  The CICS subsystem identified in an entry in an IEFSSNxx
+    member of SYS1.PARMLIB has been successfully initialized.
+</pre><pre width="132"><!-- * -->
+</pre>
+    <B>System</B> <B>Action:</B>  None.
+----
+
+-- one flowed block per body tag, each ended by its empty row.  Every word
+of the hosted body is reproduced by this reading on two or three message
+topics of each of sixteen books: `GC33-1694-01`, `GC33-1177-01`,
+`GC33-0790-04`, `GC31-8601-00`, `GC31-8368-00`, `GC24-5850-00`,
+`SC21-8291-01`, `SC24-5784-00`, `SC26-4829-04`, `SC26-4834-03`,
+`SC30-3310-06`, `SC30-3603-03`, `SC31-6546-00`, `SC31-8046-00`,
+`SC33-6798-00` and `SC33-6799-00`.
 
 [[markup_footnotes_in_the_flattened_dialect]]
 ==== Footnotes in the flattened dialect

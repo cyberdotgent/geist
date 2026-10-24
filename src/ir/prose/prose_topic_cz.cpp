@@ -1609,9 +1609,13 @@ struct CzBuilder {
       stack.pop_back();
       return paragraphs(groups, 0);
     }
-    // A message body block.
-    if (stack.empty() || stack.back().tag != "msgl")
-      return fail(error, name + " is outside a message list");
+    // A message body block.  BookServer has no rule of its own for these
+    // tags: `CZ FLOW XPL` matches only the generic `CZ FLOW` prefix, which
+    // closes the open `<pre>` and flows the rows, so a body block outside a
+    // message list is the same paragraph as one inside it.  GC33-1694-01
+    // `1.4.1` (DT 19990719095008) has no `cz FLOW MSGL` and serves its
+    // `cz FLOW XPL 3 4` rows as `</pre>    <B>Explanation:</B>  The CICS
+    // subsystem ...`, then `</pre><pre width="132">` at the empty row.
     return paragraphs(groups, 0);
   }
 

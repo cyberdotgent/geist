@@ -241,9 +241,14 @@ void a_message_list_is_typed() {
           "the closing bare SRMSG is not the `MSG` anchor at the end");
 }
 
-// A message body block names its place in a message list; outside one the
-// model has no evidence for it and the topic still declines.
-void a_body_block_outside_a_message_list_declines() {
+// A message body tag names no structure of its own.  BookServer matches a
+// control line by literal prefix, and `CZ FLOW PROBD` (like `XPL`,
+// `SYSACT`, `URESP` ...) matches only the generic `CZ FLOW`: the open `<pre>`
+// closes and the rows flow as one paragraph, inside a message list or not.
+// GC33-1694-01 `1.4.1` (DT 19990719095008) carries no `cz FLOW MSGL` at all
+// and serves its `cz FLOW XPL 3 4` rows as
+// `</pre>    <B>Explanation:</B>  The CICS subsystem ...`.
+void a_body_block_outside_a_message_list_is_a_paragraph() {
   RecordBuilder builder;
   builder.heading();
   builder.line({words("cz"), words("BREAK"), words("3")});
@@ -251,9 +256,25 @@ void a_body_block_outside_a_message_list_declines() {
                 words("10")});
   builder.line({words("          "), words("Explanation:"), words(" "),
                 words("An"), words("internal"), words("error.")});
+  builder.line({words("cz"), words("FLOW"), words("SYSACT"), words("3"),
+                words("10")});
+  builder.line({words("          "), words("System"), words("Action:"),
+                words(" "), words("None.")});
   auto extracted = run(builder.build(104));
-  require(!extracted.topic.has_value(),
-          "a `cz FLOW PROBD` outside a message list was admitted");
+  require(extracted.topic.has_value(),
+          "a `cz FLOW PROBD` outside a message list was rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  const auto &blocks = extracted.topic->blocks;
+  require(blocks.size() == 2 &&
+              blocks[0].kind == ProseBlockKindIR::paragraph &&
+              blocks[1].kind == ProseBlockKindIR::paragraph,
+          "the two body blocks are not two paragraphs");
+  if (blocks.size() != 2) return;
+  require(block_text(blocks[0]) == "Explanation: An internal error.",
+          "the PROBD block reads '" + block_text(blocks[0]) + "'");
+  require(block_text(blocks[1]) == "System Action: None.",
+          "the SYSACT block reads '" + block_text(blocks[1]) + "'");
 }
 
 // The rule under an `SRMSG <id>` row is a block only inside a message list.
@@ -363,7 +384,7 @@ void a_trailing_announcement_draws_nothing() {
 
 int main() {
   a_message_list_is_typed();
-  a_body_block_outside_a_message_list_declines();
+  a_body_block_outside_a_message_list_is_a_paragraph();
   a_message_anchor_outside_a_message_list_declines();
   a_message_list_opener_without_its_off_declines();
   back_to_back_lists_keep_the_closing_anchor_in_place();
