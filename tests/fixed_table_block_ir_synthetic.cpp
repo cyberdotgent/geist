@@ -899,6 +899,60 @@ void test_word_past_right_border_is_not_hidden() {
           "the word past the right border vanished: " + text);
 }
 
+// A cell whose only word is a real `?`.  SC41-5401-00 2.3.2.111 record 804
+// line 28 is ` | | ?                   | Question mark   |`: token 306 is a
+// two-byte dictionary word whose single word is 0x3F (bytes `B7 12` at
+// 0x77D25).  Hosted serves the row as drawn, `?` included.  The `?` the
+// decoder writes for an unrepresentable glyph comes in runs; a one-word `?`
+// token alone in its cell is the character itself.
+void test_lone_question_mark_cell() {
+  constexpr std::uint16_t vertical = 0x2502;
+  constexpr std::uint16_t horizontal = 0x2500;
+  const TokenWords join{1};
+  const auto rule = [&](std::uint16_t left, std::uint16_t middle,
+                        std::uint16_t right) {
+    return std::vector<TokenWords>{words("   "), {left},  join,
+                                   glyphs(horizontal, 6),  join,
+                                   {middle},               join,
+                                   glyphs(horizontal, 6),  join,
+                                   {right}};
+  };
+  RecordBuilder builder;
+  builder.line({words("cz"), words("OFF"), words("TABLE")});
+  builder.line({words("SRTBLCHARS")});
+  builder.narrow_line(rule(0x250c, 0x252c, 0x2510));
+  builder.narrow_line({words("   "), {vertical}, words(" "), words(">"),
+                       words("  "), {vertical}, words(" "), words("Gt"),
+                       words(" "), {vertical}});
+  builder.narrow_line(rule(0x251c, 0x253c, 0x2524));
+  // The `?` and the blanks after it are one token, so nothing about the
+  // row looks like a hidden slot and its origin.
+  builder.narrow_line({words("   "), {vertical}, words(" "), words("?   "),
+                       {vertical}, words(" "), words("Qm"), words(" "),
+                       {vertical}});
+  builder.narrow_line(rule(0x2514, 0x2534, 0x2518));
+  builder.line({words("SRETBL")});
+  builder.line({words("cz"), words("OFF"), words("ETABLE")});
+  std::vector<DecodedLogicalRecordSource> sources;
+  sources.push_back(builder.finish(804));
+  const auto layout = extract_layout_ir(sources);
+  const auto ownership = build_ownership_ir(sources, layout);
+  const LayoutRowRangeIR range{0, count_layout_rows(layout)};
+  const auto blocks =
+      extract_fixed_table_blocks_ir(sources, layout, ownership, range);
+  require(blocks.declined.empty() && blocks.blocks.size() == 1,
+          "question-mark table was declined");
+  if (blocks.blocks.size() != 1)
+    return;
+  const auto *row = find_row(blocks.blocks.front(), "?");
+  require(row != nullptr && cell_text(*row, 1) == "Qm",
+          "the lone `?` cell was dropped as a placeholder");
+  std::string error;
+  require(verify_fixed_table_blocks_ir(sources, layout, ownership, range,
+                                       blocks, &error),
+          "question-mark table did not verify: " + error);
+}
+
 } // namespace
 
 int main() {
@@ -913,6 +967,7 @@ int main() {
   test_revision_bar_before_box_border();
   test_line_end_word_before_blank_length_byte();
   test_word_past_right_border_is_not_hidden();
+  test_lone_question_mark_cell();
   geist_test::exit_with_failures();
   std::cout << "fixed table block IR checks passed\n";
   return 0;

@@ -1575,6 +1575,25 @@ private:
     return true;
   }
 
+  // A cell's visible text with decoder placeholder `?` runs trimmed.  A cell
+  // whose only word is one `?`, stored as a token of that single word, is the
+  // character itself: SC41-5401-00 2.3.2.111 record 804 token 306 (`B7 12`
+  // at 0x77D25, one word 0x3F) is the `?` row of a character table, and
+  // hosted prints it.  A placeholder is a run the decoder writes for glyphs
+  // it cannot spell, never one word standing alone in its token.
+  static std::string cell_display_text(const TokenWords &text,
+                                       const std::vector<const Word *> &words) {
+    auto trimmed = trim_ascii(token_words_to_ascii(text));
+    if (!trimmed.empty() || words.size() != 1 || words.front()->value != '?')
+      return trimmed;
+    const auto &word = *words.front();
+    const auto &token = word.record->tokens[word.token];
+    std::size_t visible = 0;
+    for (const auto value : token)
+      if (value >= 4 && value != ' ') ++visible;
+    return visible == 1 ? std::string("?") : trimmed;
+  }
+
   static bool blank_word(std::uint16_t value) {
     return value == ' ' || value == kVertical || value == 0x2666;
   }
@@ -1736,7 +1755,7 @@ private:
           if (claims[cell].empty() && unpositioned[cell].empty())
             continue;
           FixedTableCellLineIR cell_line;
-          cell_line.text = trim_ascii(token_words_to_ascii(texts[cell]));
+          cell_line.text = cell_display_text(texts[cell], cell_words[cell]);
           if (cell_line.text.empty()) {
             // Only placeholder glyphs: structural, never an empty text line.
             for (const auto &claim : claims[cell])
@@ -2442,7 +2461,7 @@ private:
         if (claims[cell].empty() && unpositioned[cell].empty())
           continue;
         FixedTableCellLineIR cell_line;
-        cell_line.text = trim_ascii(token_words_to_ascii(texts[cell]));
+        cell_line.text = cell_display_text(texts[cell], cell_words[cell]);
         if (cell_line.text.empty()) {
           for (const auto &claim : claims[cell])
             row.structural_cells.push_back(claim);
