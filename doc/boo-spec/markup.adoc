@@ -6006,6 +6006,29 @@ no text, no comment, no `</pre>`.  The rows after such a line continue the
 layout that was open before it.  (That book is reflow-off, so its whole body
 is served in `<pre width="80">` in any case.)
 
+*An empty region.*  A generic region whose opener is followed directly by
+its closer owns no row; it opens `<pre width="80">` and the closer prints
+nothing, so the region draws nothing.  The `<pre>` stays open until the next
+`CZ FLOW`, and any rows the closer owns are printed in it verbatim.
+`SC31-6552-00.boo` `1.6`, logical record 181, stores `03 40 73 7A`
+(`cz OFF SYNTAX`) at `0x23606` and directly after it `05 40 73 6A 92 92`
+(`cz OFF ESYNTAX 4 4`) at `0x2360A`, followed by `cz FLOW LI 3 7`; hosted
+(DT 19950503072955) serves `</pre><pre width="80"><!-- * -->` and the
+`</pre>` that opens the next item -- an empty block.  `SC33-1220-02.boo`
+`BACK_2`, logical record 2637, stores `04 53 8D CF 58` (`cz OFF LINES`) at
+`0x1154B9`, `06 53 8D C5 0E A2 A2` (`cz OFF ELINES 0 0`) at `0x1154BE` and
+then the row `0A 29 88 00 49 B9 88 BA 7B 00` at `0x1154C5` (`   Name:`, a
+34-blank run, `Address:`); hosted (DT 19980424201448) serves
+`</pre><pre width="80"><!-- * -->` and that row and the two comment-form
+rows after it exactly as stored, until the topic ends.  Every word of the
+hosted body is reproduced by this reading for one or two such topics of
+each of sixteen books: `GC33-1177-01`, `SC24-5777-00`, `SC30-3989-00`,
+`SC30-3991-00`, `SC31-6552-00`, `SC31-8129-00`, `SC31-8224-00`,
+`SC31-8778-02`, `SC33-1220-02`, `SC33-1369-09`, `SC33-1689-01`,
+`SC33-1691-01`, `SC33-1698-01`, `SC33-1702-01`, `SC41-4715-00` and
+`SY27-0327-05` (the only differences are words hosted splits at a style
+change, such as `<U>de</U><B>lete</B>`).
+
 *A split title line.*  `S85G-8681-00.boo` topic `11.1`, record 1217, stores
 its title as the single display line `06 91 15 E0 F5 C9 FF` at `0x6DE9A`:
 `ST`, a blank, `SRPI`, `Compatibility`.  The word `SRPI` begins with `SR`

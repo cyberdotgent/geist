@@ -1785,6 +1785,26 @@ struct CzBuilder {
         if (!closed && closer_index < build.directives.size())
           return fail(error, "cz OFF " + opener + " is not closed by cz OFF E" +
                                  opener);
+        // An empty region: the opener and its closer own no row.  The
+        // generic `CZ OFF` opens `<pre width="80">` and the generic
+        // `CZ OFF E` closer prints nothing and leaves that `<pre>` open
+        // until the next `CZ FLOW`, so the region itself draws nothing and
+        // the rows the closer owns are verbatim rows of that `<pre>`.
+        // SC31-6552-00 1.6 (DT 19950503072955) serves its empty `SYNTAX`
+        // pair as an empty `<pre width="80">`; SC33-1220-02 BACK_2 (DT
+        // 19980424201448) serves the comment-form rows after its empty
+        // `LINES` pair, `   Name:          ...   Address:`, inside it.
+        if (region_begin == npos && closed) {
+          const auto closer = ranges[closer_index];
+          index = closer_index;
+          if (closer.first == npos ||
+              std::none_of(
+                  lines.begin() + static_cast<std::ptrdiff_t>(closer.first),
+                  lines.begin() + static_cast<std::ptrdiff_t>(closer.second),
+                  [](const Line& line) { return has_text(line); }))
+            return true;
+          return preformatted(closer.first, closer.second);
+        }
         if (region_begin == npos)
           return fail(error, "cz OFF " + opener + " block has no display rows");
         if (!preformatted(region_begin, region_end)) return false;

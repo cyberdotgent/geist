@@ -601,6 +601,7 @@ foreach(synthetic_test
     font_span_trace_synthetic
     cz_unopened_region_closer_synthetic
     cz_directive_grammar_synthetic
+    cz_body_blocks_synthetic
     cz_message_list_synthetic
     list_closer_anchor_synthetic
     revision_bar_operand_synthetic
