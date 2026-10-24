@@ -277,6 +277,52 @@ void a_body_block_outside_a_message_list_is_a_paragraph() {
           "the SYSACT block reads '" + block_text(blocks[1]) + "'");
 }
 
+// The last message topic of a list closes a list an earlier topic opened.
+// BookServer reads `CZ OFF EMSGL` as the generic `CZ OFF E` closer, which
+// prints nothing and changes nothing when no region is open: GC31-8601-00
+// `1.1.3` (DT 19970728124306) ends `cz FLOW DEST 3 3`, `   Procedure
+// Name:`, `cz OFF EMSGL 0 0`, and hosted serves `<B>Procedure</B>
+// <B>Name:</B>` and then nothing but the page footer.
+void a_closer_of_an_earlier_topics_list_is_inert() {
+  RecordBuilder builder;
+  builder.heading();
+  builder.line({words("cz"), words("FLOW"), words("XPL"), words("3"),
+                words("3")});
+  builder.line({words("   "), words("Explanation:"), words(" "),
+                words("Connection"), words("active.")});
+  builder.line({words("SRMSG")});
+  builder.line({words("cz"), words("OFF"), words("EMSGL"), words("0"),
+                words("0")});
+  auto extracted = run(builder.build(104));
+  require(extracted.topic.has_value(),
+          "a `cz OFF EMSGL` closing an earlier topic's list was rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  const auto &blocks = extracted.topic->blocks;
+  require(blocks.size() == 1 &&
+              block_text(blocks[0]) == "Explanation: Connection active.",
+          "the closer of an earlier topic's list drew something");
+}
+
+// A closer whose list this topic did open, but closed already, still
+// declines: the source then closes a list twice.
+void a_second_closer_of_a_closed_list_declines() {
+  RecordBuilder builder;
+  builder.heading();
+  builder.line({words("cz"), words("BREAK"), words("3")});
+  builder.line({words("cz"), words("FLOW"), words("MSGL"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("OFF"), words("MSGL")});
+  builder.message("LTC0008", "Bad value.");
+  builder.line({words("cz"), words("OFF"), words("EMSGL"), words("0"),
+                words("0")});
+  builder.line({words("cz"), words("OFF"), words("EMSGL"), words("0"),
+                words("0")});
+  auto extracted = run(builder.build(104));
+  require(!extracted.topic.has_value(),
+          "a second `cz OFF EMSGL` of a closed list was admitted");
+}
+
 // The rule under an `SRMSG <id>` row is a block only inside a message list.
 // Outside one the anchor would have no row to precede, so the topic declines
 // rather than moving the anchor.
@@ -375,6 +421,34 @@ void a_trailing_announcement_draws_nothing() {
   if (announced.topic)
     require(announced.topic->blocks.size() == 1,
             "the trailing announcement drew a block of its own");
+  // GC33-1177-01 `1.81.54` ends its message with `cz OFF EMSGL 0 0` (the
+  // list an earlier topic opened), then `cz FLOW MSGL 3 3`, `cz OFF MSGL`
+  // and an empty `cz FLOW P 4 4`: the announcement of the next topic's
+  // list followed by a paragraph opener that owns no row.  Hosted (DT
+  // 19990318184419) serves `<p><p></pre><pre width="80"><!-- * -->`,
+  // `</pre>` and nothing visible after the last message row.
+  const auto empty_tail = [] {
+    RecordBuilder builder;
+    builder.heading();
+    builder.line({words("cz"), words("FLOW"), words("XPL"), words("3"),
+                  words("4"), words("   "), words("Explanation:"),
+                  words("Failed.")});
+    builder.line({words("cz"), words("OFF"), words("EMSGL"), words("0"),
+                  words("0")});
+    builder.line({words("cz"), words("FLOW"), words("MSGL"), words("3"),
+                  words("3")});
+    builder.line({words("cz"), words("OFF"), words("MSGL")});
+    builder.line({words("cz"), words("FLOW"), words("P"), words("4"),
+                  words("4")});
+    return builder.build(1081);
+  };
+  auto tail = run(empty_tail());
+  require(tail.topic.has_value(),
+          "an announcement followed by a row-less directive was rejected: " +
+              tail.error);
+  if (tail.topic)
+    require(tail.topic->blocks.size() == 1,
+            "the announcement's row-less tail drew a block");
   auto stray = run(topic(true));
   require(!stray.topic.has_value(),
           "a row after an unclosed message-list announcement was admitted");
@@ -385,6 +459,8 @@ void a_trailing_announcement_draws_nothing() {
 int main() {
   a_message_list_is_typed();
   a_body_block_outside_a_message_list_is_a_paragraph();
+  a_closer_of_an_earlier_topics_list_is_inert();
+  a_second_closer_of_a_closed_list_declines();
   a_message_anchor_outside_a_message_list_declines();
   a_message_list_opener_without_its_off_declines();
   back_to_back_lists_keep_the_closing_anchor_in_place();

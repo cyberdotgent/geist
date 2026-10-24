@@ -1540,9 +1540,18 @@ struct CzBuilder {
     // `<pre width="80">` for the pair.  The list is closed elsewhere, so the
     // pair draws nothing here; any row or directive after it would be
     // content of a list this topic never closes, and still fails.
+    //
+    // Directives after the pair that own no display row draw nothing either:
+    // GC33-1177-01 1.81.54 (DT 19990318184419) follows its announcement with
+    // an empty `cz FLOW P 4 4`, and hosted serves `<p>`, the empty
+    // `<pre width="80">` and `</pre>` -- nothing visible.
     if (stack.size() == 1 && stack.back().tag == "msgl" &&
         build.directives.size() >= 2) {
-      const auto last = build.directives.size() - 1;
+      auto last = build.directives.size() - 1;
+      while (last >= 2 && ranges[last].first == npos &&
+             !(build.directives[last].mode == "off" &&
+               build.directives[last].tag == "msgl"))
+        --last;
       const auto& opener = build.directives[last - 1];
       const auto& off = build.directives[last];
       if (opener.mode == "flow" && opener.tag == "msgl" &&
@@ -1604,6 +1613,20 @@ struct CzBuilder {
       return paragraphs(groups, 0);
     }
     if (directive.mode == "off" && tag == "emsgl") {
+      // The last message topic of a list closes the list an earlier topic
+      // opened.  BookServer reads the line as the generic `CZ OFF E`
+      // closer, which prints nothing when no region is open: GC31-8601-00
+      // `1.1.3` (DT 19970728124306) ends `   Procedure Name:`,
+      // `cz OFF EMSGL 0 0` and hosted serves nothing after the name.  A
+      // list this topic opened itself is closed once; a second closer
+      // still fails.
+      const auto opened_here = std::any_of(
+          build.directives.begin(),
+          build.directives.begin() + static_cast<std::ptrdiff_t>(index),
+          [](const LayoutDirective& earlier) {
+            return earlier.mode == "flow" && earlier.tag == "msgl";
+          });
+      if (!opened_here && !in_message_list()) return paragraphs(groups, 0);
       if (stack.empty() || stack.back().tag != "msgl")
         return fail(error, name + " closes no open msgl");
       stack.pop_back();
