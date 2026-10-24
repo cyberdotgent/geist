@@ -1068,9 +1068,19 @@ struct CzBuilder {
     auto& row = lines[begin];
     const auto [label_begin, label_end] = first_word(row, row.text_begin);
     const auto label = cells_text(row, label_begin, label_end);
-    if (label.size() < 2 || label.back() != ':')
-      return fail(error, "note block does not start with a label: '" +
-                             line_text(row) + "'");
+    // BookServer has no note rule: `CZ FLOW NT` and `CZ FLOW NOTE` match only
+    // the generic `CZ FLOW`, and the rows flow as a paragraph.  A note is
+    // read only where the first word is its label; otherwise -- a revision
+    // mark before `Note:`, a several-word label such as SC09-2671-00 H.0's
+    // `Note on Skipping Releases:` (DT 19990222160950, served as plain
+    // flowing text), or a label with nothing after it -- the rows are the
+    // paragraphs BookServer prints.
+    auto content_follows = end - begin > 1;
+    for (auto cell = label_end; !content_follows && cell < row.cells.size();
+         ++cell)
+      content_follows = !row.cells[cell].space;
+    if (label.size() < 2 || label.back() != ':' || !content_follows)
+      return paragraphs(groups, 0);
     Line term = row;
     term.cells.resize(label_end);
     if (!clip_spans_after(term, label_end, error)) return false;

@@ -531,9 +531,43 @@ void items_and_definitions_without_rows() {
           "the row-less shapes did not render: " + markdown);
 }
 
+// A note BookServer cannot tell from a paragraph.  `CZ FLOW NT` and
+// `CZ FLOW NOTE` match only the generic `CZ FLOW`: the rows flow as a
+// paragraph, and a reader sees a note only where the first word is a label.
+// SC09-2671-00 `H.0` (DT 19990222160950) opens its `cz FLOW NT` with
+// `Note on Skipping Releases:`, served as plain flowing text; a note whose
+// row is a lone `See also:` is the same.
+void a_note_without_a_label_is_a_paragraph() {
+  RecordBuilder builder;
+  builder.heading("H.0", "Migration");
+  builder.cz({"cz", "FLOW", "NT", "3", "10"});
+  builder.row("   ", {"Note", "on", "Skipping", "Releases:", "If", "you",
+                      "skip", "releases."});
+  builder.empty();
+  builder.cz({"cz", "OFF", "ENT", "0", "0"});
+  builder.cz({"cz", "FLOW", "NOTE", "3", "3"});
+  builder.row("   ", {"See", "also:"});
+  builder.empty();
+  builder.cz({"cz", "FLOW", "P", "3", "3"});
+  builder.row("   ", {"End."});
+  auto extracted = run(builder.build(900), "Migration");
+  require(extracted.topic.has_value(),
+          "notes without a label were rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto &blocks = extracted.topic->blocks;
+  require(blocks.size() == 3 &&
+              blocks[0].kind == ProseBlockKindIR::paragraph &&
+              blocks[1].kind == ProseBlockKindIR::paragraph &&
+              contains(block_text(blocks[0]), "Skipping") &&
+              contains(block_text(blocks[1]), "See also:"),
+          "the label-less notes are not paragraphs:\n" +
+              topic_text(*extracted.topic));
+}
+
 }  // namespace
 
 int main() {
+  a_note_without_a_label_is_a_paragraph();
   items_and_definitions_without_rows();
   a_list_without_items_holds_its_paragraphs();
   a_parameter_term_with_rows_at_its_indent();

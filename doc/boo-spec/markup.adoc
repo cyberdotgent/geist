@@ -6208,6 +6208,19 @@ without a separate body, among them `GC24-5851-01`, `GC24-5853-01`,
 `SC31-8165-00`, `SC31-8212-00` and `SH26-4077-01` (differences are words
 hosted splits at a style change).
 
+*A note without a label.*  `CZ FLOW NT` and `CZ FLOW NOTE` match only the
+generic `CZ FLOW` prefix: hosted prints the rows as flowing text and adds
+nothing of its own, so a note is visible only through a first word that
+ends in a colon.  Where the first row opens with something else -- a
+revision mark (` |  Note:`), a several-word label, or a lone label with
+nothing after it -- the rows are an ordinary paragraph.
+`SC09-2671-00.boo` `H.0`, logical record 1710, opens its `cz FLOW NT` row
+at `0xE066E` with a three-blank run (`15`), `Note` (`D5 6E`), `on` and
+`Skipping` (`DE 93`), and hosted (DT 19990222160950) serves
+pass:[<literal>&lt;B&gt;Note&lt;/B&gt; &lt;B&gt;on&lt;/B&gt; &lt;B&gt;Skipping&lt;/B&gt; &lt;B&gt;Releases:&lt;/B&gt;  If your migration plans ...</literal>]
+after a bare `</pre>`.  Every word of the hosted body is reproduced by this
+reading in one such topic of each of forty books of a random hosted sample.
+
 *An item or definition without rows.*  `CZ FLOW LI` prints `<li>` and
 `CZ FLOW DD` prints `<dd>`, whether or not a row follows.  A row-less item
 between two items is an empty item: `GC28-1251-08.boo` `EDITION` writes
