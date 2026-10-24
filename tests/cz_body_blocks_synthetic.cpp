@@ -595,9 +595,36 @@ void a_list_part_inside_an_item_list_continues_the_item() {
               topic_text(*extracted.topic));
 }
 
+// A `cz BREAK` after a parameter term that owns no row prints only `<br>`.
+// GC31-8368-00 `3.2.2` (DT 19970123022321) heads a parameter list with
+// `cz FLOW PT 14 21` `Reason`, a row-less `cz BREAK 21`, and the next term
+// `Code` with its body `Explanation`; hosted serves `Reason`, `<br>` and
+// then `Code`.  The first term stands alone.
+void a_rowless_break_after_a_parameter_term() {
+  RecordBuilder builder;
+  builder.heading("3.2.2", "Codes");
+  builder.cz({"cz", "FLOW", "PARML", "14", "14"});
+  builder.cz({"cz", "FLOW", "PT", "14", "21"});
+  builder.row("              ", {"Reason"});
+  builder.empty();
+  builder.cz({"cz", "BREAK", "21"});
+  builder.cz({"cz", "FLOW", "PT", "14", "21"});
+  builder.row("              ", {"Code"});
+  builder.cz({"cz", "BREAK", "21"});
+  builder.row("                     ", {"Explanation"});
+  builder.cz({"cz", "OFF", "EPARML", "11", "11"});
+  auto extracted = run(builder.build(159), "Codes");
+  require(extracted.topic.has_value(),
+          "a row-less cz BREAK after PT was rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  require(count_kind(*extracted.topic, ProseBlockKindIR::definition_entry) == 2,
+          "expected two parameter entries:\n" + topic_text(*extracted.topic));
+}
+
 }  // namespace
 
 int main() {
+  a_rowless_break_after_a_parameter_term();
   a_list_part_inside_an_item_list_continues_the_item();
   a_note_without_a_label_is_a_paragraph();
   items_and_definitions_without_rows();

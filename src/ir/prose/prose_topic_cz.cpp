@@ -1606,6 +1606,25 @@ struct CzBuilder {
       if (directive.mode == "break") {
         if (!stack.empty() && stack.back().tag == "parml" &&
             stack.back().pending_definition != npos) {
+          // A row-less break prints only `<br>`: GC31-8368-00 3.2.2 (DT
+          // 19970123022321) serves `Reason`, `<br>` and the next term.
+          // Before the next term or the list closer the term stands alone;
+          // before a block, that block is the term's body.
+          if (groups.empty()) {
+            const auto next = index + 1 < directives.size()
+                                  ? &directives[index + 1]
+                                  : nullptr;
+            auto& frame = stack.back();
+            if (next == nullptr ||
+                (next->mode == "flow" && next->tag == "pt") ||
+                (next->mode == "off" && next->tag == "eparml")) {
+              term_alone(frame);
+            } else {
+              frame.body_owner = frame.pending_definition;
+              frame.pending_definition = npos;
+            }
+            continue;
+          }
           if (!parameter_body(groups)) return false;
           continue;
         }

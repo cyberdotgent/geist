@@ -6200,6 +6200,16 @@ follows `cz FLOW DT 3 13` `Examples:` with two `cz OFF XMP` regions and
 pass:[<literal>&lt;dt&gt;   &lt;B&gt;Examples:&lt;/B&gt;</literal>], `<dd>` and the two
 `<pre width="80">` blocks.
 
+A `CZ BREAK` after a term that owns no row prints only `<br>`, with the same
+two outcomes as a row-less `DD`: before the next `PT` or the list's closer
+the term stands alone, before a block that block is its body.
+`GC31-8368-00.boo` `3.2.2`, logical record 159, heads a parameter list with
+`cz FLOW PT 14 21` `Reason`, a row-less `cz BREAK 21` and the term `Code`
+with its body `Explanation`; hosted (DT 19970123022321) serves
+pass:[<literal>&lt;p&gt;              &lt;B&gt;Reason&lt;/B&gt;</literal>], `<br>` and then
+`Code`.  Every word of the hosted body is reproduced by this reading in one
+such topic of each of eighteen books of a random hosted sample.
+
 *A parameter term that describes itself.*  A `PT` whose further rows all
 stand at its `indent` column carries its description without a
 `CZ BREAK`.  `SC31-8212-00.boo` `2.3.4.2.3`, logical record 877, stores
