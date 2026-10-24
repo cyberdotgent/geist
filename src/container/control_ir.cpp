@@ -580,6 +580,54 @@ void reclaim_split_separators(const std::string &text,
   }
 }
 
+// The control separator is the encoder's own only where it stands on the next
+// display line's length byte (FA1PLMM0 record 353 token 72, before `c.cp`);
+// where the record's framing places it inside a display line it is that line's
+// last drawn cell, a comma hosted BookServer prints.  SC31-7111-00 5.0 record
+// 388 line 25 ends `could not be done,` with the separator token (0x27EFA)
+// inside the line and line 26 `cfont 13 7 2 ...` after it; hosted (DT
+// 19941010174546) serves `done,`.  The segment in front of it takes the comma
+// back into its payload -- only when that payload runs up to the gap, so no
+// operand or opcode range moves.
+void keep_framed_line_separators(const std::string &text,
+                                 const AssembledLogicalRecord &assembled,
+                                 const std::vector<DisplayLineIR> &display_lines,
+                                 std::vector<ControlSegmentIR> &segments) {
+  if (display_lines.empty())
+    return;
+  for (std::size_t index = 1; index < segments.size(); ++index) {
+    auto &previous = segments[index - 1];
+    const auto gap_begin = previous.complete.end;
+    if (previous.payload_range.end != gap_begin ||
+        segments[index].complete.begin <= gap_begin ||
+        gap_begin >= text.size() || text[gap_begin] != ',')
+      continue;
+    const auto separator = std::find_if(
+        assembled.tokens.begin(), assembled.tokens.end(),
+        [&](const LogicalTokenSpan &token) {
+          const auto words = token_body_word_range(assembled, token);
+          const auto bytes = decoded_word_range_to_byte_range(assembled, words);
+          return bytes.begin == gap_begin && bytes.end == gap_begin + 1 &&
+                 control_separator_words(token_body_words(assembled, token));
+        });
+    if (separator == assembled.tokens.end())
+      continue;
+    const auto token = separator->token_index;
+    const auto inside = std::any_of(
+        display_lines.begin(), display_lines.end(), [&](const auto &line) {
+          return token > line.prefix_token && token < line.token_end;
+        });
+    if (!inside)
+      continue;
+    previous.complete.end = gap_begin + 1;
+    previous.payload_range.end = gap_begin + 1;
+    const auto word_range =
+        decoded_byte_range_to_word_range(assembled, previous.complete);
+    previous.source_tokens = source_tokens_intersecting_output(
+        assembled, word_range.begin, word_range.end);
+  }
+}
+
 std::vector<ControlSegmentIR>
 decode_control_segments(std::uint32_t logical_record,
                         const AssembledLogicalRecord &assembled,
@@ -918,6 +966,7 @@ decode_control_segments(std::uint32_t logical_record,
     result.push_back(std::move(segment));
   }
   reclaim_split_separators(text, assembled, result);
+  keep_framed_line_separators(text, assembled, display_lines, result);
   promote_corroborated_topic_start(text, result);
   return result;
 }

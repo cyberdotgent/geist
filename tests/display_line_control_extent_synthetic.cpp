@@ -898,6 +898,50 @@ void an_unframed_menu_label_is_not_bounded() {
           "previous reading; the label is '" + label_of(record, *item) + "'");
 }
 
+// The record encoder's control separator (encoded value 2, words
+// {0x0001, ','}) is drawn text where the framing places it inside a display
+// line, and only there.  SC31-7111-00 5.0 record 388 line 25 ends `could not
+// be done,` with that token (0x27EFA) inside the line, before line 26
+// `cfont 13 7 2 ...`; hosted (DT 19941010174546) serves `done,`.  The same
+// token as the next line's length byte (FA1PLMM0 record 353 token 72, before
+// `c.cp`) draws nothing.
+void a_framed_separator_inside_a_line_is_text(bool on_length_byte) {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 388;
+  const TokenWords separator{1, ','};
+  // Line 0: blanks, `done`, and (inside the line) the separator.
+  append(record, on_length_byte ? 2 : 3, 1, {' '});
+  append(record, 0x40, 1, {' ', ' ', ' '});
+  append(record, 0x41, 1, {'d', 'o', 'n', 'e'});
+  if (!on_length_byte) append(record, 2, 1, separator);
+  // Line 1: `cfont 13 7 2`; its length byte is the separator when asked.
+  if (on_length_byte)
+    append(record, 4, 1, separator);
+  else
+    append(record, 4, 1, {' '});
+  append(record, 0x42, 1, {'c', 'f', 'o', 'n', 't'});
+  append(record, 0x43, 1, {'1', '3'});
+  append(record, 0x44, 1, {'7'});
+  append(record, 0x45, 1, {'2'});
+  // Line 2: the row the font styles.
+  append(record, 2, 1, {' '});
+  append(record, 0x46, 1, {' ', ' ', ' '});
+  append(record, 0x47, 1, {'n', 'e', 'x', 't'});
+  refresh(record);
+  require(record.ir.display_lines_parse,
+          "separator record: synthetic framing did not parse");
+  std::string payloads;
+  for (const auto &segment : record.control_segments)
+    payloads += slice(record, segment.payload_range) + "|";
+  const auto kept = payloads.find("done,") != std::string::npos;
+  if (on_length_byte)
+    require(!kept, "a separator standing on a length byte became text: " +
+                       payloads);
+  else
+    require(kept, "a separator drawn inside its display line was left in no "
+                  "segment: " + payloads);
+}
+
 } // namespace
 
 int main() {
@@ -921,5 +965,7 @@ int main() {
   a_menu_label_stops_at_the_display_line();
   a_menu_label_reaches_the_end_of_its_display_line();
   an_unframed_menu_label_is_not_bounded();
+  a_framed_separator_inside_a_line_is_text(false);
+  a_framed_separator_inside_a_line_is_text(true);
   return 0;
 }
