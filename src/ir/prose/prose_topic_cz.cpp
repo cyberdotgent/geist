@@ -332,6 +332,12 @@ struct CzBuilder {
   std::size_t next_list_ordinal = 0;
   // Display-line range [first, second) of every directive (npos: none).
   std::vector<std::pair<std::size_t, std::size_t>> ranges;
+  // Lines of the verbatim block being built that follow a `cz BREAK`
+  // inside its region: each opens with a blank row (see `preformatted`).
+  std::vector<std::size_t> verbatim_breaks;
+  // Region closers whose region a `cz FLOW` already ended; they draw
+  // nothing of their own (see the verbatim-region branch of `handle`).
+  std::vector<std::size_t> inert_closers;
 
   CzBuilder(const std::vector<DecodedLogicalRecordSource>& sources,
             const LineBuild& lines_build, Ledger& owner, ProseTopicIR& out,
@@ -1050,6 +1056,12 @@ struct CzBuilder {
         rows.emplace_back();
         row_inlines.push_back(npos);
       }
+      if (line.breaks_before == 0 && line_index != begin &&
+          std::find(verbatim_breaks.begin(), verbatim_breaks.end(),
+                    line_index) != verbatim_breaks.end()) {
+        rows.emplace_back();
+        row_inlines.push_back(npos);
+      }
       if (!has_text(line)) {
         if (line.breaks_before == 0) {
           rows.emplace_back();
@@ -1647,6 +1659,11 @@ struct CzBuilder {
               std::pair<std::size_t, std::size_t> range,
               const std::vector<std::pair<std::size_t, std::size_t>>& groups,
               const std::string& name, const std::string& tag) {
+    // The closer of a region a `cz FLOW` already ended prints nothing; its
+    // rows are body text, as any region closer's are.
+    if (std::find(inert_closers.begin(), inert_closers.end(), index) !=
+        inert_closers.end())
+      return paragraphs(groups, 0);
     {
       // Object regions.  `cz OFF TABLE` .. `cz OFF ETABLE` delimits an
       // `SRTBL` .. `SRETBL` table envelope and `cz OFF FIG` .. `cz OFF EFIG`
@@ -1729,11 +1746,38 @@ struct CzBuilder {
         // envelope anchors become `<a name="TBLTBLUNIQ1">` on the box rows
         // they open.  So an object delimiter inside a verbatim region is a
         // row of that region, not a break in it.
+        //
+        // Two directives a region holds without ending it, and one that ends
+        // it early.  BookServer prints `<br>` for `CZ BREAK` whatever is
+        // open: SC26-4834-03 3.169 (DT 19950908105009) serves `cz OFF XMP`,
+        // `     SQLCODE:  -30041 ...`, `cz BREAK 5`, `     QMF Function:  All`,
+        // `cz OFF EXMP 0 0` as one `<pre width="80">` with `<br>` between the
+        // rows, so the break is a blank row of the block.  A `cz FLOW` closes
+        // whatever `<pre>` is open: SC24-5784-00 3.2.522 (DT 19950910224116)
+        // serves `</pre>` for the `cz FLOW P 5 5` inside its example region
+        // and its rows as flowing text, and nothing for the
+        // `cz OFF EXMP 0 0` after them (the generic `CZ OFF E` closer).
         auto closer_index = index + 1;
         auto region_begin = range.first;
         auto region_end = range.second;
+        std::vector<std::size_t> breaks;
+        auto ended_by_flow = false;
         while (closer_index < build.directives.size()) {
           const auto& inner = build.directives[closer_index];
+          if (inner.mode == "break") {
+            const auto break_rows = ranges[closer_index];
+            if (break_rows.first != npos) {
+              if (region_begin == npos) region_begin = break_rows.first;
+              else breaks.push_back(break_rows.first);
+              region_end = break_rows.second;
+            }
+            ++closer_index;
+            continue;
+          }
+          if (inner.mode == "flow") {
+            ended_by_flow = true;
+            break;
+          }
           if (inner.mode != "off") break;
           const auto inner_rows = ranges[closer_index];
           if (inner.tag == "fn") {
@@ -1772,6 +1816,27 @@ struct CzBuilder {
           }
           ++closer_index;
         }
+        if (ended_by_flow) {
+          // The region's own closer must still follow, with no second
+          // opener of the same region before it; it then draws nothing.
+          auto later = closer_index + 1;
+          while (later < build.directives.size() &&
+                 !(build.directives[later].mode == "off" &&
+                   (build.directives[later].tag == closer_tag ||
+                    build.directives[later].tag == tag)))
+            ++later;
+          if (later >= build.directives.size() ||
+              build.directives[later].tag != closer_tag)
+            return fail(error, "cz OFF " + opener +
+                                   " is not closed by cz OFF E" + opener);
+          inert_closers.push_back(later);
+          index = closer_index - 1;
+          if (region_begin == npos) return true;
+          verbatim_breaks = breaks;
+          const auto drawn = preformatted(region_begin, region_end);
+          verbatim_breaks.clear();
+          return drawn;
+        }
         const auto closed =
             closer_index < build.directives.size() &&
             build.directives[closer_index].mode == "off" &&
@@ -1807,7 +1872,10 @@ struct CzBuilder {
         }
         if (region_begin == npos)
           return fail(error, "cz OFF " + opener + " block has no display rows");
-        if (!preformatted(region_begin, region_end)) return false;
+        verbatim_breaks = breaks;
+        const auto drawn = preformatted(region_begin, region_end);
+        verbatim_breaks.clear();
+        if (!drawn) return false;
         if (!closed) {
           index = closer_index;
           return true;

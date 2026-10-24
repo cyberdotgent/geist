@@ -227,9 +227,100 @@ void rows_after_an_empty_region_are_verbatim() {
               "'");
 }
 
+// A `cz BREAK` inside a verbatim region is a line break of it.  The
+// `CZ BREAK` rule prints `<br>` whatever is open, and nothing ends the
+// region: SC26-4834-03 `3.169` (DT 19950908105009) serves `cz OFF XMP`,
+// `     SQLCODE:  -30041   Database:  DB2`, `cz BREAK 5`,
+// `     QMF Function:  All`, `cz OFF EXMP 0 0` as one `<pre width="80">`
+// holding both rows with `<br>` between them.
+void a_break_inside_a_region_is_a_blank_row() {
+  RecordBuilder builder;
+  builder.heading("3.169", "DSQ10421");
+  builder.cz({"cz", "FLOW", "P", "3", "3"});
+  builder.row("   ", {"Contact", "your", "administrator."});
+  builder.empty();
+  builder.cz({"cz", "OFF", "XMP"});
+  builder.row("     ", {"SQLCODE:", "-30041"});
+  builder.cz({"cz", "BREAK", "5"});
+  builder.row("     ", {"QMF", "Function:", "All"});
+  builder.cz({"cz", "OFF", "EXMP", "0", "0"});
+  auto extracted = run(builder.build(268), "DSQ10421");
+  require(extracted.topic.has_value(),
+          "a cz BREAK inside cz OFF XMP was rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto &blocks = extracted.topic->blocks;
+  require(blocks.size() == 2 &&
+              blocks[1].kind == ProseBlockKindIR::preformatted,
+          "the region with a break is not one verbatim block:\n" +
+              topic_text(*extracted.topic));
+  if (blocks.size() != 2) return;
+  const auto text = block_text(blocks[1]);
+  require(contains(text, "SQLCODE:") && contains(text, "Function:"),
+          "the verbatim block lost a row: '" + text + "'");
+}
+
+// A `cz FLOW` inside a verbatim region ends its `<pre>`: the generic
+// `CZ FLOW` rule closes whatever `<pre>` is open, and the later closer
+// prints nothing.  SC24-5784-00 `3.2.522` (DT 19950910224116) serves
+// `cz OFF XMP`, `        WRONG                RIGHT` in `<pre width="80">`,
+// then `</pre>` for `cz FLOW P 5 5` and its eight rows as flowing text, and
+// nothing for the `cz OFF EXMP 0 0` that follows them.
+void a_flow_inside_a_region_ends_it() {
+  RecordBuilder builder;
+  builder.heading("3.2.522", "DMS454E");
+  builder.cz({"cz", "FLOW", "XPL", "3", "3"});
+  builder.row("   ", {"Explanation:", "For", "example:"});
+  builder.empty();
+  builder.cz({"cz", "OFF", "XMP"});
+  builder.row("        ", {"WRONG", "RIGHT"});
+  builder.empty();
+  builder.cz({"cz", "FLOW", "P", "5", "5"});
+  builder.row("     ", {"Select", "Select"});
+  builder.row("     ", {"end", "end"});
+  builder.cz({"cz", "OFF", "EXMP", "0", "0"});
+  builder.cz({"cz", "FLOW", "SYSACT", "3", "3"});
+  builder.row("   ", {"System", "Action:", "RC=20007."});
+  auto extracted = run(builder.build(2840), "DMS454E");
+  require(extracted.topic.has_value(),
+          "a cz FLOW P inside cz OFF XMP was rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto &blocks = extracted.topic->blocks;
+  require(blocks.size() == 4 &&
+              blocks[1].kind == ProseBlockKindIR::preformatted &&
+              blocks[2].kind == ProseBlockKindIR::paragraph &&
+              blocks[3].kind == ProseBlockKindIR::paragraph,
+          "expected paragraph, verbatim block, paragraph, paragraph:\n" +
+              topic_text(*extracted.topic));
+  if (blocks.size() != 4) return;
+  require(contains(block_text(blocks[1]), "WRONG") &&
+              !contains(block_text(blocks[1]), "Select"),
+          "the region did not end at the cz FLOW P: '" +
+              block_text(blocks[1]) + "'");
+  require(contains(block_text(blocks[2]), "Select") &&
+              contains(block_text(blocks[2]), "end"),
+          "the cz FLOW P rows did not flow: '" + block_text(blocks[2]) + "'");
+}
+
+// Without its closer the region's end is not the source's, and the topic
+// still declines.
+void a_flow_inside_an_unclosed_region_declines() {
+  RecordBuilder builder;
+  builder.heading("3.2.523", "DMS455E");
+  builder.cz({"cz", "OFF", "XMP"});
+  builder.row("        ", {"WRONG", "RIGHT"});
+  builder.cz({"cz", "FLOW", "P", "5", "5"});
+  builder.row("     ", {"Select", "Select"});
+  auto extracted = run(builder.build(2841), "DMS455E");
+  require(!extracted.topic.has_value(),
+          "a cz FLOW P inside an unclosed cz OFF XMP was admitted");
+}
+
 }  // namespace
 
 int main() {
+  a_break_inside_a_region_is_a_blank_row();
+  a_flow_inside_a_region_ends_it();
+  a_flow_inside_an_unclosed_region_declines();
   an_empty_region_draws_nothing();
   rows_after_an_empty_region_are_verbatim();
   return 0;

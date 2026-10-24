@@ -6029,6 +6029,32 @@ each of sixteen books: `GC33-1177-01`, `SC24-5777-00`, `SC30-3989-00`,
 `SY27-0327-05` (the only differences are words hosted splits at a style
 change, such as `<U>de</U><B>lete</B>`).
 
+*Directives inside a region.*  Nothing but the region's own closer ends
+the depth count, but two directives act inside it.  `CZ BREAK` prints
+`<br>` into whatever is open, so inside a verbatim region it is a line break
+of the block.  `SC26-4834-03.boo` `3.169`, logical record 268, holds
+`cz OFF XMP`, the row `     SQLCODE:  -30041   Database:  DB2`, the line
+`03 25 3F 72` at `0x34D43` (`cz BREAK 5`), the row
+`     QMF Function:  All` and `cz OFF EXMP 0 0`; hosted (DT 19950908105009)
+serves one `<pre width="80">` holding both rows with `<br>` between them.
+Any `CZ FLOW` line closes the open `<pre>` (the rule in the table above
+applies inside a region as well), so the rows after it flow, and the
+region's closer, when it comes, prints nothing.  `SC24-5784-00.boo`
+`3.2.522`, logical record 2840, opens `cz OFF XMP`, prints the row
+`        WRONG                RIGHT` and then stores
+`08 07 0A 65 C2 DE 17 DE 17` at `0x145666` (`cz FLOW P 5 5`, the two-byte
+token `65 C2` spelling `P`) followed by eight rows of a two-column REXX
+example and `cz OFF EXMP 0 0`.  Hosted (DT 19950910224116) serves the first
+row in `<pre width="80">`, then `</pre>` and the eight rows as flowing
+text -- the browser joins them into one line -- and nothing for the closer.
+A `CZ FLOW` inside a region whose closer never follows has no observed
+reading.  Every word of the hosted body is reproduced by this reading in
+one topic of each of forty-one books of a random hosted sample, among them
+`GA27-3936-04`, `GA27-3960-05`, `GC23-3414-03`, `GC24-5851-01`,
+`GC28-1251-08`, `GC31-6547-01`, `SC09-2540-00`, `SC24-5718-00`,
+`SC24-5784-00`, `SC26-4834-03`, `SC31-6546-00`, `SC41-3500-02` and
+`SY27-0327-05`.
+
 *A split title line.*  `S85G-8681-00.boo` topic `11.1`, record 1217, stores
 its title as the single display line `06 91 15 E0 F5 C9 FF` at `0x6DE9A`:
 `ST`, a blank, `SRPI`, `Compatibility`.  The word `SRPI` begins with `SR`
