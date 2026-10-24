@@ -203,7 +203,10 @@ std::string envelope_error(std::vector<DecodedLogicalRecordSource> records,
 // ways: `SRMSG <message-id> [symbolic-name]` stands between CSUMMARY and
 // CHDLEVEL, and CHDLEVEL is `:MSGNO`.  The SRMSG operand is the stable message
 // anchor, while the following ST and CFONT/text rows remain ordinary typed
-// heading/body content.
+// heading/body content.  A `:MSGNO` topic is headed at level 6: hosted
+// BookServer serves IBMMMSTR 1.5.420 (DT 19911004151140) as
+// `<h6> 1.5.420   IEL0438I E</h6>`, and every one of 26 sampled message books
+// does the same.
 void an_individual_message_has_a_typed_envelope() {
   DecodedLogicalRecordSource record;
   record.logical_record = 1257;
@@ -234,8 +237,9 @@ void an_individual_message_has_a_typed_envelope() {
   require(topic.has_value(),
           "an indexed message topic must admit its typed envelope: " + error);
   if (!topic) return;
-  require(topic->heading_form == "msgno" && topic->heading_level == "h1",
-          "the :MSGNO source form must survive while rendering as a heading");
+  require(topic->heading_form == "msgno" && topic->heading_level == "h6",
+          "the :MSGNO source form must survive and head the topic at level "
+          "6, got '" + topic->heading_level + "'");
   require(topic->anchors.size() == 1 &&
               topic->anchors.front().id == "MSG IBM002I symbolicName",
           "the complete SRMSG identity must become the message anchor, got '" +

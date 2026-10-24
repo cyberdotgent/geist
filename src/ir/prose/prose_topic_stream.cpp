@@ -1025,7 +1025,11 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
   // :H0 is the chapter/Part level. HTML has no level zero; render it at
   // the top heading level while retaining the source form as evidence.
   if (heading_level == "h0") heading_level = "h1";
-  if (heading_level == "msgno") heading_level = "h1";
+  // :MSGNO heads an individually indexed message at the lowest level:
+  // hosted BookServer serves IBMMMSTR 1.5.420 (DT 19911004151140) as
+  // `<h6> 1.5.420   IEL0438I E</h6>`, as it does in every sampled message
+  // book (doc/boo-spec/markup.adoc, "Front-matter heading forms").
+  if (heading_level == "msgno") heading_level = "h6";
   if (heading_level.size() != 2 || heading_level.front() != 'h' ||
       heading_level.back() < '1' || heading_level.back() > '6') {
     if (!front_matter_heading_form(heading_level))

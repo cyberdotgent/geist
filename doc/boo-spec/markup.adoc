@@ -1532,7 +1532,8 @@ respectively `0x4E776`--`0x4E77A`, `0x4E77B`--`0x4E77F`, and
 symbolic tail, forms the `MSG ` anchor identity.  It remains metadata rather
 than visible prose; the `ST`, `SI` and styled message rows independently carry
 the visible title, index identity and message fields.  `:MSGNO` is therefore a
-topic heading form, not a displayed body token.
+topic heading form, not a displayed body token; the topic is headed at level 6
+(see "Message topics are headed at level 6").
 
 An individually indexed message can also carry a second, bare `SRMSG` after
 its visible message fields.  This is a local `MSG` destination rather than a
@@ -5367,6 +5368,57 @@ level-1 heading; the form itself is never displayed.
 
 `figlist` and `tlist` name generated topics that the generated-list stream
 models separately.
+
+[[markup_message_heading_level]]
+==== Message topics are headed at level 6
+
+`:MSGNO` is the one non-`H` form that is not served at level 1: hosted
+BookServer heads every individually indexed message topic with an `h6`
+element, number and `ST` title as for any numbered topic.  `IBMMMSTR` logical
+record 1066 stores `CHDLEVEL :MSGNO` at BOO bytes `0x4E780`--`0x4E782` (see
+"SRMSG" above), and hosted serves that topic, `1.6.1`, and its siblings this
+way.  A random sample of 600 library books found 51 that carry `:MSGNO`
+topics.  Hosted BookServer heads the first message topic of each of the 28
+listed below with `h6`; of the other 23, 22 have all-lowercase file names,
+which the hosted catalog does not list, and one (`SC26-4283-00`) served its
+title page for the requested topic id.  No sampled book serves a message
+topic at any other level.
+
+[cols="<16,>8,<14,<45",options="header"]
+|===
+|Book |`:MSGNO` topics |DT |Hosted heading
+
+|`IBMMMSTR` |1,609 |`19911004151140` l|<h6> 1.5.1   IEL0001I U</h6>
+|`IBMMMSTR` | |`19911004151140` l|<h6> 1.5.420   IEL0438I E</h6>
+|`IBMMMSTR` | |`19911004151140` l|<h6> 1.6.1   IEL2233I E</h6>
+|`FA1MCVL1` |3,655 |`19910927202310` l|<h6> 1.1.1   0C00I</h6>
+|`SC26-3042-01` |935 |`19940930112257` l|<h6> 2.1   EMQ0001I</h6>
+|`GC23-3823-00` |9 |`19940504163245` l|<h6> 3.1   RPIMGR040T</h6>
+|`SC31-8130-00` |48 |`19950427124251` l|<h6> APPENDIX1.5.1   FLC000E</h6>
+|`GA32-0133-02` |24 |`19920925173048` l|<h6> 3.1.1.1   AOM001I</h6>
+|`SH35-0048-07` |391 |`19921016132312` l|<h6> 2.2.1   001</h6>
+|`SC33-6798-00` |4,559 |`19990426164739` l|<h6> 1.1   DIT0090I</h6>
+|`SC33-0668-00` |11 |`19930625002436` l|<h6>\| 2.5.4.1   101</h6>
+|`SC41-3558-00` |2 |`19950929121720` l|<h6> 5.2.1   IWS9819</h6>
+|`SC31-6528-00` |30 |`19940425102423` l|<h6> A.1   SOS0001</h6>
+|`GC33-1694-01` |5,099 |`19990719095008` l|<h6> 1.4.1   DFH0100</h6>
+|`SC33-1685-01` |15 |`19990720150249` l|<h6> 2.6.3.1   101</h6>
+|`GIM4MST` |905 |`19920227112439` l|<h6> 2.2.1   GIM000v</h6>
+|`GC24-5850-01` |1,202 |`19990507141301` l|<h6> 1.1   TCP0001E</h6>
+|`SC33-6796-00` |4,936 |`19990426154825` l|<h6> 1.1.1   0C00I</h6>
+|`FI1REMM1` |240 |`19910927022253` l|<h6> D.1   IVM001I</h6>
+|`DMD1MMMS` |3,293 |`19911205145640` l|<h6> 3.1.1   AKL3620</h6>
+|`SC31-6418-00` |1,014 |`19930402173656` l|<h6> 2.2.1   ELM001I</h6>
+|`SC26-3229-01` |1,053 |`19950506195512` l|<h6> 1.2.1   IEL0001I U</h6>
+|`PRG2PNTI` |25 |`19900801135122` l|<h6> D.1   X'0000</h6>
+|`GV40-0375-01` |34 |`19950807141749` l|<h6> A.1.1   ANY0001E</h6>
+|`SH24-5264-01` |560 |`19940806142323` l|<h6> 2.6.2.1   0000E</h6>
+|`EDJ04MST` |94 |`19911211162241` l|<h6> A.1.1   4</h6>
+|`SC26-4049-04` |275 |`19920601142147` l|<h6> D.1.1.1   IGZ000I</h6>
+|`SH24-5265-02` |543 |`19940806142011` l|<h6> 2.5.2.1   0000E</h6>
+|`SC23-0449-08` |489 |`19940127214055` l|<h6> C.1.1   0</h6>
+|`DSNMMSTR` |2,901 |`19910930095820` l|<h6> 2.1.2.1   000</h6>
+|===
 
 [[markup_anchor_controls_in_and_around_the_metadata_envelope]]
 ==== Anchor controls in and around the metadata envelope
