@@ -457,9 +457,84 @@ void a_list_without_items_holds_its_paragraphs() {
               topic_text(*extracted.topic));
 }
 
+std::optional<geist::detail::DocumentIR> lower(
+    const geist::detail::ProseTopicIR &topic, const std::string &id) {
+  geist::detail::TopicIdentityIR identity;
+  identity.id = id;
+  identity.title = "Topic";
+  identity.heading_level = 2;
+  std::string error;
+  auto document =
+      geist::detail::lower_prose_topic_to_document_ir(identity, topic, &error);
+  require(document.has_value(), "topic " + id + " did not lower: " + error);
+  return document;
+}
+
+// An item or a definition that owns no row of its own.  BookServer prints
+// `<li>` (or `<dd>`) and whatever follows: GC28-1251-08 `EDITION` (DT
+// 19980123093613) serves the row-less `cz FLOW LI 7 7` between two address
+// lines as `<li> <li>        FAX ...`, an empty item; GA27-4105-03
+// `5.2.2.1` (DT 19980701154012) follows `cz FLOW DT 3 13`
+// `Service agreement` with a row-less `cz FLOW DD 13 13` and a
+// `cz FLOW P 13 13` paragraph, served as `<dd>` and that paragraph.
+void items_and_definitions_without_rows() {
+  RecordBuilder builder;
+  builder.heading("EDITION", "Edition");
+  builder.cz({"cz", "FLOW", "SL", "3", "3"});
+  builder.cz({"cz", "FLOW", "LI", "7", "7"});
+  builder.row("       ", {"United", "States"});
+  builder.cz({"cz", "FLOW", "LI", "7", "7"});
+  builder.cz({"cz", "FLOW", "LI", "7", "7"});
+  builder.row("       ", {"FAX:", "1+914"});
+  builder.cz({"cz", "OFF", "ESL", "0", "0"});
+  builder.cz({"cz", "FLOW", "UL", "3", "3"});
+  builder.cz({"cz", "FLOW", "LI", "3", "7"});
+  builder.cz({"cz", "FLOW", "DL", "7", "7"});
+  builder.cz({"cz", "FLOW", "DT", "7", "13"});
+  builder.row("       ", {"Lines", "Two."});
+  builder.cz({"cz", "OFF", "EDL", "0", "0"});
+  builder.cz({"cz", "OFF", "EUL", "0", "0"});
+  builder.cz({"cz", "FLOW", "DL", "3", "3"});
+  builder.cz({"cz", "FLOW", "DT", "3", "13"});
+  builder.row("   ", {"Service", "agreement"});
+  builder.cz({"cz", "FLOW", "DD", "13", "13"});
+  builder.cz({"cz", "FLOW", "P", "13", "13"});
+  builder.row("             ", {"An", "E1", "line", "signals."});
+  builder.empty();
+  builder.cz({"cz", "FLOW", "DT", "3", "13"});
+  builder.row("   ", {"Hunt", "groups"});
+  builder.cz({"cz", "FLOW", "DD", "13", "13"});
+  builder.cz({"cz", "FLOW", "DT", "3", "13"});
+  builder.row("   ", {"Numbers"});
+  builder.cz({"cz", "FLOW", "DD", "13", "13"});
+  builder.row("             ", {"Two", "per", "line."});
+  builder.cz({"cz", "OFF", "EDL", "0", "0"});
+  auto extracted = run(builder.build(23), "Edition");
+  require(extracted.topic.has_value(),
+          "row-less items and definitions were rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto &topic = *extracted.topic;
+  require(count_kind(topic, ProseBlockKindIR::list_item) == 4,
+          "expected four list items:\n" + topic_text(topic));
+  require(count_kind(topic, ProseBlockKindIR::definition_entry) == 4,
+          "expected four definition entries:\n" + topic_text(topic));
+  for (const auto &block : topic.blocks)
+    if (block.kind == ProseBlockKindIR::definition_entry &&
+        contains(block_text(block), "Service"))
+      require(block.body_blocks.size() == 1,
+              "the paragraph after the empty DD is not its body");
+  const auto document = lower(topic, "EDITION");
+  if (!document) return;
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "FAX:") && contains(markdown, "signals.") &&
+              contains(markdown, "Hunt"),
+          "the row-less shapes did not render: " + markdown);
+}
+
 }  // namespace
 
 int main() {
+  items_and_definitions_without_rows();
   a_list_without_items_holds_its_paragraphs();
   a_parameter_term_with_rows_at_its_indent();
   terms_without_a_separate_body();

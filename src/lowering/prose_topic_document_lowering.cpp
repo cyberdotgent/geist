@@ -826,14 +826,21 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
              !lower_inlines(item, 0, item.term_inline_count, lowered.label,
                             error)))
           return fail(error, "prose list item label is invalid");
+        // A CZ item that owns no row (prose_topic_cz.cpp `list_item`) is
+        // an empty item, or holds only the blocks that follow it.
         if (item.body_blocks.empty()) {
-          if (!lower_inlines(item, lowered.content, error)) return false;
+          if (item.inlines.empty())
+            lowered.empty_content = true;
+          else if (!lower_inlines(item, lowered.content, error))
+            return false;
         } else {
-          ParagraphBlockIR paragraph;
-          if (!lower_inlines(item, paragraph.content, error)) return false;
-          lowered.blocks.push_back(
-              {std::move(paragraph),
-               origin(item.slices, "prose list item paragraph")});
+          if (!item.inlines.empty()) {
+            ParagraphBlockIR paragraph;
+            if (!lower_inlines(item, paragraph.content, error)) return false;
+            lowered.blocks.push_back(
+                {std::move(paragraph),
+                 origin(item.slices, "prose list item paragraph")});
+          }
           if (!lower_sequence(item.body_blocks, lowered.blocks)) return false;
         }
         lowered.origin = origin(item.slices, "prose list item");

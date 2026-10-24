@@ -599,12 +599,44 @@ struct CzBuilder {
     return clip_spans_before(line, error);
   }
 
-  bool list_item(const LayoutDirective& directive,
+  // The first display line after directive `index`, or npos at the end of
+  // the topic: where a block that owns no row of its own stands.
+  std::size_t next_line_after(std::size_t index) const {
+    for (auto next = index + 1; next < ranges.size(); ++next)
+      if (ranges[next].first != npos) return ranges[next].first;
+    return npos;
+  }
+
+  bool list_item(std::size_t index, const LayoutDirective& directive,
                  const std::vector<std::pair<std::size_t, std::size_t>>& groups) {
     if (stack.empty() || (stack.back().tag != "ul" && stack.back().tag != "ol" &&
                           stack.back().tag != "sl" && stack.back().tag != "notel"))
       return fail(error, "cz FLOW LI outside an open list");
-    if (groups.empty()) return fail(error, "cz FLOW LI has no text");
+    if (groups.empty()) {
+      // An item that owns no row: BookServer prints `<li>` and whatever
+      // follows.  GC28-1251-08 EDITION (DT 19980123093613) serves the
+      // row-less `cz FLOW LI 7 7` between two address lines of its `SL` as
+      // `<li> <li>        FAX ...` -- an empty item; a block directive after
+      // it (a `DL`, `PARML`, `XMP` ...) is the item's content.  An ordered
+      // item has no ordinal to keep, and a NOTEL note no number, so those
+      // still fail.
+      const auto first_line = next_line_after(index);
+      if (stack.back().tag == "ol" || stack.back().tag == "notel" ||
+          first_line == npos)
+        return fail(error, "cz FLOW LI has no text");
+      auto& frame = stack.back();
+      frame.body_owner = npos;
+      ProseBlockIR block;
+      block.kind = ProseBlockKindIR::list_item;
+      block.list_ordinal = frame.list_ordinal;
+      block.slices.push_back(directive.source);
+      block.origin = lines[first_line].origin;
+      ++frame.items;
+      const auto block_index = topic.blocks.size();
+      append(std::move(block), first_line);
+      frame.body_owner = block_index;
+      return true;
+    }
     auto& frame = stack.back();
     // The previous LI's body ends at this sibling LI. Clear it before
     // appending the new item so the new item keeps the enclosing owner (for
@@ -2083,7 +2115,7 @@ struct CzBuilder {
         return true;
       }
       if (tag == "li") {
-        if (!list_item(directive, groups)) return false;
+        if (!list_item(index, directive, groups)) return false;
         return true;
       }
       if (tag == "lp") {
@@ -2134,10 +2166,28 @@ struct CzBuilder {
         return true;
       }
       if (tag == "dd") {
-        if (groups.empty() && index + 1 < build.directives.size() &&
-            build.directives[index + 1].mode == "off" &&
-            build.directives[index + 1].tag == "lines")
+        // A DD that owns no row prints `<dd>` and leaves the definition to
+        // what follows: GA27-4105-03 5.2.2.1 (DT 19980701154012) follows
+        // `cz FLOW DT 3 13` `Service agreement` with a row-less
+        // `cz FLOW DD 13 13` and a `cz FLOW P 13 13` paragraph, served as
+        // `<dd>` and that paragraph; other books follow it with a `DL`,
+        // `SL`, `OL` or `XMP`.  Followed by the next term or the list's
+        // closer, the term stands alone.
+        if (groups.empty()) {
+          const auto next = index + 1 < build.directives.size()
+                                ? &build.directives[index + 1]
+                                : nullptr;
+          if (next == nullptr ||
+              (next->mode == "flow" && (next->tag == "dt" || next->tag == "dd")) ||
+              (next->mode == "off" && next->tag == "edl")) {
+            if (stack.empty() || stack.back().tag != "dl" ||
+                stack.back().pending_definition == npos)
+              return fail(error, "cz FLOW DD has no text");
+            term_alone(stack.back());
+            return true;
+          }
           return empty_definition_body_before_block();
+        }
         return definition_body(groups);
       }
       if (tag == "nt" || tag == "note") {

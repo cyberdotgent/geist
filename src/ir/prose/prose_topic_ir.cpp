@@ -352,8 +352,12 @@ bool verify_prose_topic_ir(
           }
         continue;
       }
-      if (node.kind != ProseBlockKindIR::definition_entry ||
-          node.body_blocks.empty())
+      // An empty definition term owns its body blocks; a CZ list item that
+      // owns no row is empty or holds only the blocks after it.  Both are
+      // named by their directive alone.
+      if (node.kind != ProseBlockKindIR::list_item &&
+          (node.kind != ProseBlockKindIR::definition_entry ||
+           node.body_blocks.empty()))
         return fail(error, "prose block has no inlines");
       if (node.slices.empty())
         return fail(error,
