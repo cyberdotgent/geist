@@ -80,6 +80,20 @@ struct DrawnWordDeficitIR {
   std::string evidence;
 };
 
+// One punctuation unit -- a word and the mark glued to its end -- drawn more
+// often than the HTML fragment shows it.  The word check cannot see a lost
+// `,` or a `.` that moved away from its word; this one can.  Opening
+// occurrences (where a control opcode can stand) are not counted at all.
+struct DrawnPunctuationDeficitIR {
+  std::string unit;
+  std::size_t drawn = 0;
+  std::size_t emitted = 0;
+  std::size_t emitted_markdown = 0;
+  std::size_t emitted_html = 0;
+  std::size_t unaccounted = 0;
+  std::string evidence;
+};
+
 struct DrawnWordTopicIR {
   std::string id;
   // Stable identity in the source catalog, parallel to TypedRouteTopicIR.
@@ -116,6 +130,10 @@ struct DrawnWordTopicIR {
   // Both stay empty for a topic without a body.
   std::string markdown_visible_text;
   std::string html_fragment;
+  // The punctuation check, reported apart from the word check (see
+  // `conservation_punctuation_units`).
+  std::vector<DrawnPunctuationDeficitIR> punctuation_deficits;
+  std::size_t unaccounted_punctuation = 0;
 };
 
 struct DrawnWordConservationIR {
@@ -129,6 +147,8 @@ struct DrawnWordConservationIR {
   std::size_t unaccounted_markdown_words = 0;
   std::size_t unaccounted_html_words = 0;
   std::size_t forgiven_words = 0;
+  std::size_t topics_dropping_punctuation = 0;
+  std::size_t unaccounted_punctuation = 0;
 };
 
 // Cuts one UTF-8 (or ASCII-projected) string into the comparison unit: runs of
@@ -137,5 +157,13 @@ struct DrawnWordConservationIR {
 // sides of the comparison are cut the same way, so a dictionary word that
 // spans a fragment boundary (`adapt` + `er`) and the render's `adapter` agree.
 std::vector<std::string> conservation_words(const std::string& text);
+
+// The punctuation unit: every word of `conservation_words` that a mark of
+// `,.;:!)` follows directly, as the word and that mark (`cc,`).  A mark
+// separated from its word by a blank, or standing alone, is no unit: it is
+// layout as often as text, and the unit is what a reader sees lost.  `?` is
+// no mark here: the drawn projection spells every glyph it cannot print as
+// `?`, so a box border glued to a word would read as a lost question mark.
+std::vector<std::string> conservation_punctuation_units(const std::string& text);
 
 } // namespace geist::detail

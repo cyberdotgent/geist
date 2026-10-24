@@ -36,7 +36,7 @@ void usage() {
                "       bootrace <book.boo> --coverage\n"
                "       bootrace <book.boo> --links\n"
                "       bootrace <book.boo> --declines\n"
-               "       bootrace <book.boo> --conservation [--rendered]\n"
+               "       bootrace <book.boo> --conservation [--rendered|--punctuation]\n"
                "       bootrace <book.boo> <topic-id> --explain-offset <n>\n";
 }
 
@@ -248,6 +248,36 @@ int main(int argc, char** argv) {
   // Markdown text projection and HTML fragment the check compared, for the
   // corpus gate's style and structure fingerprints. The other rows are
   // unchanged, so the rendered rows can be split off before parsing them.
+  // `--punctuation` reports the punctuation units (a word and the mark glued
+  // to its end, `cc,`) the render does not carry: the word check cannot see
+  // a lost comma.  A separate table, so the word report stays unchanged.
+  if (argc == 4 && std::string(argv[2]) == "--conservation" &&
+      std::string(argv[3]) == "--punctuation") {
+    try {
+      const auto document = geist::BooDocument::open(argv[1]);
+      const auto report = document.drawn_word_conservation(false);
+      std::cout << "topic\troute\tunit\tdrawn\temitted\tunaccounted"
+                   "\tevidence\temitted_markdown\temitted_html\n";
+      for (const auto& topic : report.topics)
+        for (const auto& deficit : topic.punctuation_deficits)
+          std::cout << tsv_escape(topic.id) << "\t" << tsv_escape(topic.route)
+                    << "\t" << tsv_escape(deficit.unit) << "\t"
+                    << deficit.drawn << "\t" << deficit.emitted << "\t"
+                    << deficit.unaccounted << "\t"
+                    << tsv_escape(deficit.evidence) << "\t"
+                    << deficit.emitted_markdown << "\t"
+                    << deficit.emitted_html << "\n";
+      std::cout << "# summary\tchecked=" << report.topics_checked
+                << "\tdropping-punctuation="
+                << report.topics_dropping_punctuation
+                << "\tunaccounted-punctuation="
+                << report.unaccounted_punctuation << "\n";
+      return 0;
+    } catch (const std::exception& error) {
+      std::cerr << "bootrace: " << error.what() << "\n";
+      return 1;
+    }
+  }
   if ((argc == 3 || (argc == 4 && std::string(argv[3]) == "--rendered")) &&
       std::string(argv[2]) == "--conservation") {
     try {

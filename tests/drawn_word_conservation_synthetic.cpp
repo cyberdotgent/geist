@@ -83,6 +83,19 @@ void check_word_cut() {
   require(cut("FRONT\\_2") == cut("FRONT_2") && cut("FRONT_2") == "front,2",
           "an escaped underscore separates on both sides");
   require(cut("   ").empty(), "a blank run yields no words");
+
+  // The punctuation unit: a word and the mark glued to its end. A mark
+  // apart from its word, a `?` (the drawn projection's spelling of every
+  // glyph it cannot print) and a word without a mark are no unit.
+  const auto units = [](const std::string &text) {
+    return join(geist::detail::conservation_punctuation_units(text));
+  };
+  require(units("Function=cc, Current time.") == "cc,,time.",
+          "a word and its glued mark form one unit");
+  require(units("PICAREAS . Each") == "",
+          "a mark standing apart from its word is no unit");
+  require(units("is it? (yes) a: `b`; **c**!") == "yes),a:,b;,c!",
+          "markup glue does not part a word from its mark; `?` is no mark");
 }
 
 void check_html_projection() {

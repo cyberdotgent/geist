@@ -65,6 +65,39 @@ std::vector<std::string> conservation_words(const std::string& text) {
 
 namespace {
 
+bool unit_mark(const char raw) {
+  switch (raw) {
+  case ',':
+  case '.':
+  case ';':
+  case ':':
+  case '!':
+  case ')':
+    return true;
+  default:
+    return false;
+  }
+}
+
+} // namespace
+
+std::vector<std::string> conservation_punctuation_units(const std::string& text) {
+  std::vector<std::string> units;
+  std::string current;
+  for (const auto raw : text) {
+    if (markup_glue_byte(raw)) continue;
+    if (alphanumeric_byte(raw)) {
+      current.push_back(ascii_lower_char(raw));
+      continue;
+    }
+    if (!current.empty() && unit_mark(raw)) units.push_back(current + raw);
+    current.clear();
+  }
+  return units;
+}
+
+namespace {
+
 using CellKey = std::pair<std::size_t, std::size_t>;
 
 // The cells of one record the ownership ledger attributes to a control's
@@ -600,6 +633,36 @@ std::map<std::string, DrawnCounts> count_drawn_words(const DrawnTextIR& drawn,
   return counts;
 }
 
+// The punctuation units of the drawn text (`conservation_punctuation_units`),
+// leaving out every unit whose word opens a display line.
+std::map<std::string, DrawnCounts> count_drawn_units(const DrawnTextIR& drawn) {
+  std::map<std::string, DrawnCounts> counts;
+  std::string current;
+  bool opening = false;
+  std::size_t line = 0;
+  for (std::size_t at = 0; at < drawn.text.size(); ++at) {
+    const auto raw = drawn.text[at];
+    if (markup_glue_byte(raw)) continue;
+    if (alphanumeric_byte(raw)) {
+      if (current.empty()) {
+        opening = drawn.opening[at];
+        line = drawn.line[at];
+      }
+      current.push_back(ascii_lower_char(raw));
+      continue;
+    }
+    if (!current.empty() && unit_mark(raw) && !opening) {
+      auto& entry = counts[current + raw];
+      ++entry.inside;
+      if (std::find(entry.lines.begin(), entry.lines.end(), line) ==
+          entry.lines.end())
+        entry.lines.push_back(line);
+    }
+    current.clear();
+  }
+  return counts;
+}
+
 } // namespace
 } // namespace geist::detail
 
@@ -713,8 +776,35 @@ detail::DrawnWordConservationIR BooDocument::drawn_word_conservation(
     for (const auto& word : conservation_words(markdown_visible))
       ++markdown_counts[word];
     std::map<std::string, std::size_t> html_counts;
-    for (const auto& word : conservation_words(html_visible_text(html)))
+    const auto html_visible = html_visible_text(html);
+    for (const auto& word : conservation_words(html_visible))
       ++html_counts[word];
+    std::map<std::string, std::size_t> markdown_units;
+    for (const auto& unit : conservation_punctuation_units(markdown_visible))
+      ++markdown_units[unit];
+    std::map<std::string, std::size_t> html_units;
+    for (const auto& unit : conservation_punctuation_units(html_visible))
+      ++html_units[unit];
+    for (const auto& [unit, counts] : count_drawn_units(drawn)) {
+      const auto emitted_markdown = markdown_units[unit];
+      const auto emitted_html = html_units[unit];
+      // The HTML fragment is the exact visible text; the Markdown projection
+      // reads the `:` of a `**Note:**` label as syntax, so it only informs.
+      const auto emitted = emitted_html;
+      if (emitted >= counts.inside) continue;
+      std::string evidence;
+      for (std::size_t at = 0; at < counts.lines.size() && at < 3; ++at) {
+        if (!evidence.empty()) evidence += " | ";
+        evidence += drawn.sources[counts.lines[at]];
+      }
+      if (counts.lines.size() > 3)
+        evidence += " | +" + std::to_string(counts.lines.size() - 3) +
+                    " more lines";
+      topic.punctuation_deficits.push_back(
+          {unit, counts.inside, emitted, emitted_markdown, emitted_html,
+           counts.inside - emitted, evidence});
+      topic.unaccounted_punctuation += counts.inside - emitted;
+    }
     if (retain_rendered) {
       topic.markdown_visible_text = std::move(markdown_visible);
       topic.html_fragment = std::move(html);
@@ -781,6 +871,9 @@ detail::DrawnWordConservationIR BooDocument::drawn_word_conservation(
     if (topic.unaccounted != 0) ++report.topics_dropping;
     if (topic.unaccounted_markdown != 0) ++report.topics_dropping_markdown;
     if (topic.unaccounted_html != 0) ++report.topics_dropping_html;
+    if (topic.unaccounted_punctuation != 0)
+      ++report.topics_dropping_punctuation;
+    report.unaccounted_punctuation += topic.unaccounted_punctuation;
     report.unaccounted_words += topic.unaccounted;
     report.unaccounted_markdown_words += topic.unaccounted_markdown;
     report.unaccounted_html_words += topic.unaccounted_html;
