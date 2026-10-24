@@ -780,10 +780,14 @@ decode_control_segments(std::uint32_t logical_record,
           // is `CSUMMARY 3.4.6 .SP 1#.SK 1#T7#.SK 1#T1#.SK 2`, and hosted
           // BookServer serves none of it, DT 19891031000000).  An unframed
           // record keeps the fixed three-operand reading.
+          // A word that starts on the line is an operand even when the next
+          // line's length byte is glued to it in the flattened string:
+          // SC31-711 4.2 record 127 line 5 is `csummary 8 2 8` and token 19,
+          // the length byte of `SRMSG` (encoded value 1), spells `.`.
           const auto line_end = opcode_line_end(segment.opcode_range);
           operand_words = 0;
           for (std::size_t word = 1; word < words.size(); ++word) {
-            if (words[word].end > line_end) break;
+            if (words[word].begin >= line_end) break;
             operand_words = word;
           }
         } else if (segment.kind == BookControlKind::spacing) {

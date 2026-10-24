@@ -50,14 +50,23 @@ TokenWords words(const std::string &text) {
   return TokenWords(text.begin(), text.end());
 }
 
+// The words a line's length byte spells, by line index; U+25BA otherwise.
+// A length byte can spell any dictionary word: SC31-711 4.2 record 127 token
+// 19 opens `SRMSG` and spells the attach control plus `.`.
+std::vector<std::pair<std::size_t, TokenWords>> length_spellings;
+
 DecodedLogicalRecordSource build(const std::vector<Line> &lines,
                                  std::uint32_t logical_record) {
   DecodedLogicalRecordSource record;
   std::uint16_t next_encoded = 0x40;
-  for (const auto &content : lines) {
+  for (std::size_t line = 0; line < lines.size(); ++line) {
+    const auto &content = lines[line];
     record.encoded_tokens.push_back(
         {static_cast<std::uint16_t>(2 * content.size()), 1});
-    record.tokens.push_back(TokenWords{0x25BA});
+    TokenWords length{0x25BA};
+    for (const auto &spelling : length_spellings)
+      if (spelling.first == line) length = spelling.second;
+    record.tokens.push_back(length);
     for (const auto &token : content) {
       record.encoded_tokens.push_back({next_encoded++, 2});
       record.tokens.push_back(token);
@@ -176,6 +185,17 @@ void admitted(const std::string &label, const std::vector<Line> &lines,
   for (const auto &word : hidden)
     require(text.find(word) == std::string::npos,
             label + ": control text '" + word + "' is drawn: '" + text + "'");
+}
+
+void summary_with_glued_length_byte() {
+  // SC31-711 4.2 record 127: `csummary 8 2 8`, and the next line's length
+  // byte spells `.`, which the flattened string glues to the last count.
+  // The three counts are still the line's operands.
+  length_spellings = {{6, TokenWords{1, '.'}}};
+  admitted("csummary before a length byte spelled '.'",
+           topic({{words("csummary"), words("8"), words("2"), words("8")}}),
+           "You can compile application programs for TPF.", {" 8 ", "8."});
+  length_spellings.clear();
 }
 
 void summary_lines() {
@@ -338,6 +358,7 @@ void index_lines_before_title() {
 }  // namespace
 
 int main() {
+  summary_with_glued_length_byte();
   index_lines_before_title();
   dash_in_title();
   summary_lines();
