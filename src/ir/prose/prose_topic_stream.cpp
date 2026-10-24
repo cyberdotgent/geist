@@ -380,6 +380,25 @@ bool pagination_control(const std::string& lower_text) {
   return lower_text == "c.cp" || lower_text == "c.cc" || lower_text == "c.pa";
 }
 
+// Any SCRIPT control opcode: `c.` and letters only.  The reader skips every
+// display line whose control name starts with `C.` (the version 1.0/1.1
+// books write `C.SK <n>` 7,689 times; EDCGV1R2 3.4.6 record 68 line 11).
+bool script_control(const std::string& lower_text) {
+  return lower_text.size() > 2 && lower_text.compare(0, 2, "c.") == 0 &&
+         std::all_of(lower_text.begin() + 2, lower_text.end(),
+                     [](const unsigned char ch) {
+                       return ch >= 'a' && ch <= 'z';
+                     });
+}
+
+// Whether `token` is the first token after its display line's length byte,
+// i.e. the opcode position of a control line.
+bool opens_display_line(const DecodedLogicalRecordSource& record,
+                        const std::size_t token) {
+  const auto* line = display_line_of_token(record, token);
+  return line != nullptr && line->prefix_token + 1 == token;
+}
+
 bool pagination_operand(const std::string& text) {
   std::size_t digits = 0;
   while (digits < text.size() &&
@@ -2284,7 +2303,10 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
               if (token <= *first_visible) continue;
               const auto view = view_token(records, record_index, token);
               if (!is_visible(view)) continue;
-              if (pagination_control(ascii_lower(body_text(view))))
+              const auto lower = ascii_lower(body_text(view));
+              if (pagination_control(lower) ||
+                  (script_control(lower) &&
+                   opens_display_line(record, token)))
                 first_visible = token;
               break;
             }
@@ -2420,7 +2442,15 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         }
         const auto first_view = view_token(records, record_index, *first_visible);
         const auto first_text = ascii_lower(body_text(first_view));
-        if (pagination_control(first_text)) {
+        // A `C.` opcode that opens its own display line: the reader skips
+        // the whole line, so every token of it is control and the rows after
+        // it are body text.
+        const auto* script_line =
+            script_control(first_text) &&
+                    opens_display_line(record, *first_visible)
+                ? display_line_of_token(record, *first_visible)
+                : nullptr;
+        if (pagination_control(first_text) || script_line != nullptr) {
           // `c.cp` is the keep-together pagination control.  Its optional
           // operand is the token adjacent to the opcode in the record --
           // the record encoder emits no spacing token between a control
@@ -2447,7 +2477,13 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           // content and re-enters the token stream; the legacy renderer
           // dropped it unless it was spelled `<n>:<text>`.
           std::size_t consumed = *first_visible;
-          for (std::size_t position = 0; position < segment.source_tokens.size();
+          if (script_line != nullptr) {
+            for (const auto token : segment.source_tokens)
+              if (token > consumed && token < script_line->token_end)
+                consumed = token;
+          }
+          for (std::size_t position = 0;
+               script_line == nullptr && position < segment.source_tokens.size();
                ++position) {
             if (segment.source_tokens[position] != *first_visible) continue;
             if (position + 1 >= segment.source_tokens.size()) break;
@@ -2469,7 +2505,11 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             const auto view = view_token(records, record_index, token);
             if (token <= consumed) {
               if (!ledger.assign(record_index, token,
-                                 (token == *first_visible || token == consumed)
+                                 (token == *first_visible ||
+                                  token == consumed ||
+                                  (script_line != nullptr &&
+                                   token > *first_visible &&
+                                   is_visible(view)))
                                      ? ProseTokenRoleIR::control
                                      : ProseTokenRoleIR::padding,
                                  error))

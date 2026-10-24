@@ -297,6 +297,38 @@ summary text appears in any served topic of these books. A reader can
 therefore take every display line that opens with `CSUMMARY` as envelope
 metadata, as many as there are, and need not read its operands.
 
+*`C.<word>` lines.* The body carries the SCRIPT controls of the source as
+control lines of their own. Over the 773 topics: `C.SK <n>` 7,689 lines,
+`C.SP <n>` 712, `C.CP [<depth>]` 569, `C.PA` 38 and `C.CC <n>` 6. The opcode
+is one dictionary token and is the first token after the line's length byte;
+the operand is the rest of that display line. `EDCGV1R2.BOO` topic `3.4.6`,
+record 68:
+
+[cols="<16,<22,<45",options="header"]
+|===
+|File offset |Bytes |Meaning
+
+|`0xc930` |`02 6f 8f` |Length byte (2), `C.SP`, `1`: line 9, after the `ST` line.
+|`0xc942` |`02 6e 8f` |Length byte (2), `C.SK`, `1`: line 11, between the `SI` index line and the first body row.
+|===
+
+The length byte `02` is the same one-byte token that version 1.2 records use
+as the control separator (attach control and comma); here it is the display
+line's length, and a reader that frames lines by their length bytes never
+sees a comma. The flattened text of the record runs `SI Transaction
+Processing Facility (TPF) , C.SK 1    You can compile ...`, so only the framing
+separates the control from the index entry before it and the body row after
+it.
+
+The reader skips every display line whose control name begins with `C.`,
+whatever the rest of the name and whatever the operands. Hosted BookServer
+serves `3.4.6` with the body rows `You can compile application programs ...`
+through `... GH20-7521.` and no `C.SK`, `C.SP` or count; `C.SK` draws no
+blank line either (the rows before and after it are served as adjacent lines
+of one preformatted block). A reader can treat every display line opened by
+a `c.`/`C.` opcode token (the letters `c` or `C` and `.` followed by letters
+only) as drawing nothing, with the operands bounded by that display line.
+
 [[topics_chdlevel_observed_values]]
 ==== `CHDLEVEL` Observed Values
 

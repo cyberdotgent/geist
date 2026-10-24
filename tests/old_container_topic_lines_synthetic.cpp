@@ -10,6 +10,13 @@
 //     `CSUMMARY 3.4.6 .SP 1#.SK 1#T7#.SK 1#T1#.SK 2`; the CONTENTS topic
 //     writes two such lines (record 9 lines 5 and 6).  Hosted BookServer
 //     (DT 19891031000000) serves 3.4.6 as the heading and the body only.
+//   * `C.<word>` lines: the reader skips every display line whose control
+//     name starts with `C.`, operands included.  The version 1.0/1.1 books
+//     write `C.SK <n>` (7,689 lines), `C.SP <n>`, `C.CP`, `C.PA` and
+//     `C.CC <n>`; EDCGV1R2 3.4.6 record 68 line 11 is `C.SK 1`, standing
+//     between `SI Transaction Processing Facility (TPF)` and the first body
+//     row, and line 27 is `C.SK 2` at the topic's end.  Hosted serves the
+//     body rows with no `C.SK` and no count.
 //
 // Everything here is synthetic: the test builds whole topic records by hand.
 
@@ -181,9 +188,45 @@ void summary_lines() {
            {"#1L17", "3L52"});
 }
 
+void script_lines() {
+  const std::string body =
+      "You can compile application programs for TPF. For more information";
+  const auto row1 = Line{words("   "), words("You"), words("can"),
+                         words("compile"), words("application"),
+                         words("programs")};
+  const auto row2 = Line{words("   "), words("for"), words("TPF.")};
+  const auto row3 = Line{words("   "), words("For"), words("more"),
+                         words("information")};
+  const auto index = Line{words("SI"), words("Transaction"),
+                          words("Processing"), words("Facility")};
+  const auto lines = [&](const Line &first, const Line &second,
+                         const Line &last) {
+    return topic({summary_3_4_6},
+                 {index, first, row1, row2, second, row3, last});
+  };
+  // EDCGV1R2 3.4.6: `C.SK 1` after the index line, `C.SK 1` between the
+  // paragraphs and `C.SK 2` closing the topic.
+  admitted("C.SK lines",
+           lines({words("C.SK"), words("1")}, {words("C.SK"), words("1")},
+                 {words("C.SK"), words("2")}),
+           body, {"C.SK", "SK", " 1 ", " 2 "});
+  // EDCGV1R2 COVER and EHMPMST 2.1: the page controls with and without a
+  // depth.
+  admitted("C.PA, C.CP and C.CC lines",
+           lines({words("C.PA")}, {words("C.CC"), words("4")},
+                 {words("C.CP"), words("12DV")}),
+           body, {"C.PA", "C.CC", "C.CP", "12DV", " 4 "});
+  // Any other `C.` control draws nothing either, whatever its operands.
+  admitted("an unlisted C. control",
+           lines({words("C.TR"), words("A"), words("B")},
+                 {words("C.SK"), words("1")}, {words("C.IN"), words("+3")}),
+           body, {"C.TR", "C.IN", "+3", " A B"});
+}
+
 }  // namespace
 
 int main() {
   summary_lines();
+  script_lines();
   return 0;
 }

@@ -406,6 +406,67 @@ split_glued_body_controls(const AssembledLogicalRecord &assembled,
   return result;
 }
 
+// `c.` followed by letters only, in either case: the spelling of a SCRIPT
+// control opcode (`c.sp`, `C.SK`, `C.PA`, ...).
+bool script_opcode_words(const TokenWords &words) {
+  if (words.size() < 3 || (words[0] != 'c' && words[0] != 'C') ||
+      words[1] != '.')
+    return false;
+  return std::all_of(words.begin() + 2, words.end(),
+                     [](const std::uint16_t word) {
+                       return (word >= 'a' && word <= 'z') ||
+                              (word >= 'A' && word <= 'Z');
+                     });
+}
+
+// The reader skips every display line whose control name starts with `C.`
+// (doc/boo-spec, topics, "Topic Lines In Older Containers").  The string
+// splitter only knows the opcodes it lists, so an unlisted one stays glued
+// to the text before it: EDCGV1R2 3.4.6 record 68 line 11 is `C.SK 1`
+// (token 48, one byte, value 110), and the flattened string carries it inside
+// the `SI Transaction Processing Facility (TPF)` segment.  The framing is
+// what proves a control line: the opcode is the first token after a display
+// line's length byte.  Each such opcode opens a segment of its own; a record
+// without framing is left as it was.
+std::vector<DecodedMarkupSegmentSpan>
+split_script_control_lines(const AssembledLogicalRecord &assembled,
+                           const std::vector<DisplayLineIR> &display_lines,
+                           const std::string &text,
+                           std::vector<DecodedMarkupSegmentSpan> spans) {
+  std::vector<std::size_t> cuts;
+  for (const auto &line : display_lines) {
+    const auto opcode = line.prefix_token + 1;
+    if (opcode >= line.token_end || opcode >= assembled.tokens.size())
+      continue;
+    const auto &token = assembled.tokens[opcode];
+    if (!script_opcode_words(token_body_words(assembled, token)))
+      continue;
+    cuts.push_back(decoded_word_range_to_byte_range(
+                       assembled, token_body_word_range(assembled, token))
+                       .begin);
+  }
+  if (cuts.empty())
+    return spans;
+  std::vector<DecodedMarkupSegmentSpan> result;
+  result.reserve(spans.size() + cuts.size());
+  for (auto &span : spans) {
+    auto begin = span.output_begin;
+    for (const auto cut : cuts) {
+      if (cut <= begin || cut >= span.output_end)
+        continue;
+      result.push_back({begin, cut, text.substr(begin, cut - begin)});
+      begin = cut;
+    }
+    if (begin == span.output_begin) {
+      result.push_back(std::move(span));
+    } else {
+      result.push_back({begin, span.output_end,
+                        text.substr(begin, span.output_end - begin)});
+    }
+  }
+  return result;
+}
+
 std::size_t fixed_operand_count(BookControlKind kind) {
   switch (kind) {
   case BookControlKind::topic_number:
@@ -561,9 +622,10 @@ decode_control_segments(std::uint32_t logical_record,
     if (line == display_lines.end()) return text.size();
     return display_line_end_byte(line->prefix_token + 1);
   };
-  const auto decoded = split_glued_body_controls(
-      assembled, encoded_tokens, text,
-      split_decoded_markup_segment_spans(text));
+  const auto decoded = split_script_control_lines(
+      assembled, display_lines, text,
+      split_glued_body_controls(assembled, encoded_tokens, text,
+                                split_decoded_markup_segment_spans(text)));
   std::vector<ControlSegmentIR> result;
   result.reserve(decoded.size());
   for (std::size_t index = 0; index < decoded.size(); ++index) {
