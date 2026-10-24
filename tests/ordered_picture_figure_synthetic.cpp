@@ -276,8 +276,39 @@ void placement_uses_columns_and_never_borrows_neighbouring_text() {
             !picture_placement_span(cells, cells.size(), 9, "1"),
         "empty/out-of-range picture span was admitted");
 }
+// A layout directive inside the picture region is control as a whole line.
+// BookServer matches `CZ OFF E` as a prefix of the whole control line and
+// draws nothing for it: SC34-3164-00 `7.2` (DT 20000509175449) closes its
+// picture with `cz OFF EFIG 0 0` before `SREFIG`, and hosted shows no
+// caption `OFF EFIG 0 0`.
+void layout_directive_inside_picture_is_control() {
+  Builder b;
+  b.heading();
+  b.line({w("cz"), w("BREAK"), w("3")});
+  b.line({w("   "), w("Topics"), w("are"), w("displayed.")});
+  b.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  b.line({w("cz"), w("OFF"), w("FIG")});
+  b.line({w("SRFIGFIGUNIQ2")});
+  b.line({});
+  b.line({w("cselect"), w("3"), w("9"), w("PIC1")});
+  b.line({w("   "), w("PICTURE"), w("1")});
+  b.line({w("cz"), w("OFF"), w("EFIG"), w("0"), w("0")});
+  // The next line's length byte is spelled `\x01.` (record 32 token 251),
+  // so the decoded control segment reads `cz OFF EFIG 0 0.`.
+  b.line({w("SREFIG")}, {1, '.'});
+  auto d = lower({b.finish(32)});
+  if (!d)
+    return;
+  for (const auto &out :
+       {render_document_html_fragment(*d), render_document_markdown(*d)}) {
+    check(out.find("EFIG") == std::string::npos,
+          "layout directive operands leaked into the figure: " + out);
+    ordered(out, {"Topics", "resource:1"});
+  }
+}
 } // namespace
 int main() {
+  layout_directive_inside_picture_is_control();
   label_and_number_only_caption();
   caption_before_image_and_cross_record();
   label_before_image_and_colon_caption();

@@ -202,6 +202,16 @@ struct Reader {
               controls.insert({r.logical_record, t});
               mark_token(r, t, FigureCellRoleIR::control);
             }
+          // A layout directive is matched as a whole control line: BookServer
+          // compares `CZ OFF E` against the line's prefix and draws nothing
+          // of it.  SC34-3164-00 7.2 (DT 20000509175449) closes its picture
+          // with `cz OFF EFIG 0 0` before `SREFIG`, and hosted shows no
+          // caption; every token of the line is control.
+          if (control->kind == BookControlKind::layout_directive)
+            for (auto t = line.prefix_token + 1; t < line.token_end; ++t) {
+              controls.insert({r.logical_record, t});
+              mark_token(r, t, FigureCellRoleIR::control);
+            }
           if (control->kind == BookControlKind::art_description_start)
             description_open = true;
           if (control->kind == BookControlKind::font && !description_open) {
