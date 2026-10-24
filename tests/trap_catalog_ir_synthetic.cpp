@@ -4407,6 +4407,33 @@ int main() {
     }
   }
 
+  // A word followed by a three-space run in the middle of a framed field
+  // line is drawn text, not a row-control slot: the slot is the display
+  // line's length byte, always and only. SC34-4335-00 APPENDIX1.3.8 record
+  // 925 line 32 is `   Explanation:  PICACLSN not valid    (X'0002')`;
+  // hosted (DT 19940406094553) serves `<TT>PICACLSN</TT> not valid    (X'0002')`.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({t("SRMSG", 110), t("640", 260)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("3", 112), t("2", 113)}));
+    append(tokens, line({origin(), t("640", 260)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("12", 114), t("2", 113)}));
+    append(tokens, line({origin(), t("Description:", 115), t("PICA", 261),
+                         t("not", 262), t("valid", 263), t("   ", 13),
+                         t("(X'0002')", 264)}));
+    const auto built = build({make_source(70, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "mid-line padded word catalog declined: " + built.error);
+    if (built.catalog && built.catalog->entries.size() == 1) {
+      const auto text = entry_text(built.catalog->entries.front());
+      require(text.find("not valid (X'0002')") != std::string::npos,
+              "a word before a mid-line padding run was dropped as a row "
+              "slot: [" + text + "]");
+    }
+  }
+
   std::cout << "trap catalog IR synthetic tests passed\n";
   return 0;
 }

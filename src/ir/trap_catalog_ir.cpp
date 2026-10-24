@@ -462,30 +462,20 @@ TrapCellRoleIR marker_role(const DecodedLogicalRecordSource &record,
                    record.ir.tokens[after_origin].decoded_words.end(),
                    [](const auto word) { return word > 0xff; })))
     return textual;
-  // A word slot that opens its own display line is drawn: the row control
-  // and the row's first word are the same cell. N2AH1MST record 2585 line 24
-  // is `                    12    No prompting was allowed on a PROMPT
-  // request.` inside `IDC3900I`, whose slot carries the boundary signature,
-  // and hosted 2.0 (DT 19910329000100) serves `<p>` followed by
-  // `                    12    No prompting ...` -- the break *and* the
-  // number. Only a slot with drawn text in front of it on the same display
-  // line is a control alone.
-  if (lexical) {
-    const auto *line = display_line_of_token(record, marker.token_index);
-    if (line != nullptr) {
-      bool drawn_before = false;
-      for (auto token = line->prefix_token + 1; token < marker.token_index;
-           ++token) {
-        const auto *words = display_text_words(record, token);
-        if (words != nullptr &&
-            std::any_of(words->begin(), words->end(),
-                        [](const auto word) { return word > ' '; }))
-          drawn_before = true;
-      }
-      if (!drawn_before)
-        return textual;
-    }
-  }
+  // Where the record's own framing places the slot inside a display line, it
+  // is a drawn cell of that line: the row control is the line's length byte,
+  // always and only, and the reader prints every other cell of the line as
+  // stored. N2AH1MST record 2585 line 24 is `                    12    No
+  // prompting was allowed on a PROMPT request.` inside `IDC3900I`, and hosted
+  // 2.0 (DT 19910329000100) serves `<p>` followed by `                    12
+  //   No prompting ...` -- the break *and* the number. A slot with drawn text
+  // in front of it on its line is drawn as well: SC34-4335-00 APPENDIX1.3.8
+  // record 925 line 32 is `   Explanation:  PICACLSN not valid    (X'0002')`
+  // and hosted (DT 19920131163435) serves `not valid    (X'0002')`. Only an
+  // unframed record keeps the slot reading.
+  if (display_line_of_token(record, marker.token_index) != nullptr &&
+      !is_display_line_length_token(record, marker.token_index))
+    return textual;
   return TrapCellRoleIR::layout_marker;
 }
 
