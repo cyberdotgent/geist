@@ -216,6 +216,8 @@ struct PlaceholderColumns {
   std::size_t line = 0;
   std::size_t begin = 0;
   std::size_t end = 0;
+  // The row is the first display line of the record that follows.
+  bool next_record = false;
 };
 
 // The `<n>` of a `PIC<n>` selector target, or empty.
@@ -232,14 +234,17 @@ std::string picture_number(const std::string& target) {
 
 // Every placeholder row of one record: a framing-proven `cselect <col> <len>
 // PIC<n>` whose picture the document shows, and whose columns on the display
-// line directly below the selector spell exactly `<word> <n>`.  Anything else
-// -- a selector on a record's last line, a row that spells something else, a
-// picture the document lacks -- names no placeholder and its cells stay
-// drawn.
+// line directly below the selector spell exactly `<word> <n>`.  The reader
+// reads display lines as one stream, so a selector on a record's last line
+// names the first line of the record that follows (`next`, when it is the
+// adjacent framed record; SC31-8573-00 B.1 records 2282-2283).  Anything
+// else -- a row that spells something else, a picture the document lacks --
+// names no placeholder and its cells stay drawn.
 std::vector<PlaceholderColumns> picture_placeholder_columns(
     const DecodedLogicalRecordSource& record,
     const std::vector<DisplayLineIR>& lines,
-    const DrawnPicturePlaceholdersIR& pictures) {
+    const DrawnPicturePlaceholdersIR& pictures,
+    const DecodedLogicalRecordSource* next) {
   std::vector<PlaceholderColumns> found;
   if (pictures.word.empty() || pictures.shown.empty()) return found;
   std::unordered_map<std::size_t, std::size_t> line_of_opening_token;
@@ -256,9 +261,13 @@ std::vector<PlaceholderColumns> picture_placeholder_columns(
     const auto& source = record.assembled.sources[words.begin];
     if (source.kind != LogicalWordSourceKind::token_word) continue;
     const auto opening = line_of_opening_token.find(source.token_index);
-    if (opening == line_of_opening_token.end() ||
-        opening->second + 1 >= lines.size())
-      continue;
+    if (opening == line_of_opening_token.end()) continue;
+    const auto* next_lines =
+        next != nullptr && next->logical_record == record.logical_record + 1
+            ? record_display_lines(*next)
+            : nullptr;
+    const auto crosses = opening->second + 1 >= lines.size();
+    if (crosses && (next_lines == nullptr || next_lines->empty())) continue;
     const auto range = segment.operand_range;
     if (range.begin > range.end || range.end > text.size()) continue;
     std::istringstream operands(text.substr(range.begin, range.end - range.begin));
@@ -279,14 +288,15 @@ std::vector<PlaceholderColumns> picture_placeholder_columns(
     } catch (const std::exception&) {
       continue;
     }
-    const auto row = opening->second + 1;
-    const auto cells = display_line_cells(record, lines[row]);
+    const auto row = crosses ? std::size_t{0} : opening->second + 1;
+    const auto cells = crosses ? display_line_cells(*next, next_lines->front())
+                               : display_line_cells(record, lines[row]);
     if (length == 0 || column + length > cells.size()) continue;
     std::string spelled;
     for (auto at = column; at < column + length; ++at)
       spelled += token_words_to_ascii({cells[at].word});
     if (spelled != pictures.word + " " + number) continue;
-    found.push_back({row, column, column + length});
+    found.push_back({row, column, column + length, crosses});
   }
   return found;
 }
@@ -467,8 +477,14 @@ DrawnTextIR project_drawn_topic_text(
   static const std::vector<CellKey> none;
   DrawnTextIR drawn;
   ListLabelState list;
-  for (const auto& record : records) {
+  // Placeholder rows a selector on the previous record's last line names.
+  std::vector<PlaceholderColumns> carried;
+  for (std::size_t record_index = 0; record_index < records.size();
+       ++record_index) {
+    const auto& record = records[record_index];
     const auto* lines = record_display_lines(record);
+    auto inherited = std::move(carried);
+    carried.clear();
     if (lines == nullptr) {
       ++*unframed_records;
       continue;
@@ -477,10 +493,13 @@ DrawnTextIR project_drawn_topic_text(
     const auto& control_of_record =
         found == control.end() ? none : found->second;
     const auto framing = control_framing(record, *lines);
-    const auto placeholders =
-        pictures == nullptr
-            ? std::vector<PlaceholderColumns>{}
-            : picture_placeholder_columns(record, *lines, *pictures);
+    auto placeholders = std::move(inherited);
+    if (pictures != nullptr)
+      for (const auto& columns : picture_placeholder_columns(
+               record, *lines, *pictures,
+               record_index + 1 < records.size() ? &records[record_index + 1]
+                                                 : nullptr))
+        (columns.next_record ? carried : placeholders).push_back(columns);
     for (std::size_t index = 0; index < lines->size(); ++index) {
       const auto& line = (*lines)[index];
       const auto text = display_line_text(record, line);

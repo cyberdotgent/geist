@@ -374,14 +374,15 @@ void check_native_message_metadata() {
 // it does not, or the row spells anything else, they stay drawn.
 void check_picture_placeholder_rows() {
   using namespace geist::detail;
-  const auto build = [](const std::string &operand_column,
-                        const std::string &number) {
+  const auto build_lines =
+      [](std::uint32_t logical_record,
+         const std::vector<std::vector<std::string>> &lines) {
     DecodedLogicalRecordSource record;
-    record.logical_record = 1;
+    record.logical_record = logical_record;
     const auto words = [](const std::string &text) {
       return TokenWords(text.begin(), text.end());
     };
-    const auto line = [&](const std::vector<std::string> &text) {
+    for (const auto &text : lines) {
       const auto length = static_cast<std::uint16_t>(text.size() * 2);
       record.encoded_tokens.push_back({length, 1});
       record.tokens.push_back(words("length"));
@@ -389,10 +390,7 @@ void check_picture_placeholder_rows() {
         record.encoded_tokens.push_back({0x40, 2});
         record.tokens.push_back(words(token));
       }
-    };
-    line({"   ", "Intro"});
-    line({"cselect", operand_column, "9", "PIC1"});
-    line({"|", "PICTURE", number, "kept"});
+    }
     record.assembled = assemble_logical_record_with_sources(record.tokens);
     record.ir.logical_record = record.logical_record;
     std::uint32_t byte = 0;
@@ -413,6 +411,12 @@ void check_picture_placeholder_rows() {
         decode_control_segments(record.logical_record, record.assembled,
                                 record.encoded_tokens, record.ir.display_lines);
     return record;
+  };
+  const auto build = [&](const std::string &operand_column,
+                         const std::string &number) {
+    return build_lines(1, {{"   ", "Intro"},
+                           {"cselect", operand_column, "9", "PIC1"},
+                           {"|", "PICTURE", number, "kept"}});
   };
   const auto drawn_words = [](const DecodedLogicalRecordSource &record,
                               const DrawnPicturePlaceholdersIR *pictures) {
@@ -442,6 +446,27 @@ void check_picture_placeholder_rows() {
           "a row spelling another number is not the placeholder");
   require(drawn_words(build("3", "1"), &shown) == "intro,picture,1,kept",
           "columns that do not spell exactly the placeholder stay drawn");
+  // The selector on a record's last line names the first line of the next
+  // record: the reader reads display lines as one stream across records.
+  // SC31-8573-00 B.1 record 2282 line 49 is `cselect 3 10 PIC74` and record
+  // 2283 line 0 is `   PICTURE 74`; hosted (DT 19980130154145) shows picture
+  // 74 there and prints no placeholder word.
+  {
+    const auto words_of = [&](const std::vector<DecodedLogicalRecordSource> &records) {
+      OwnershipIR ownership;
+      std::size_t unframed = 0;
+      return join(conservation_words(
+          project_drawn_topic_text(records, ownership, &unframed, &shown).text));
+    };
+    const auto first = build_lines(
+        1, {{"   ", "Intro"}, {"cselect", "2", "9", "PIC1"}});
+    require(words_of({first, build_lines(2, {{"|", "PICTURE", "1", "kept"}})}) ==
+                "intro,kept",
+            "a placeholder row opening the next record stays drawn");
+    require(words_of({first, build_lines(3, {{"|", "PICTURE", "1", "kept"}})}) ==
+                "intro,picture,1,kept",
+            "a selector names a row of a record that does not follow it");
+  }
   DrawnPicturePlaceholdersIR german;
   german.word = picture_placeholder_word("GERM");
   german.shown.insert("1");
