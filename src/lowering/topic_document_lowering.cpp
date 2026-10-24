@@ -16,6 +16,7 @@
 #include "geist/detail/ir/glossary_catalog_ir.hpp"
 #include "geist/detail/lowering/glossary_document_lowering.hpp"
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/layout/layout_ir.hpp"
 #include "geist/detail/lowering/menu_document_lowering.hpp"
 #include "geist/detail/ir/menu_ir.hpp"
@@ -42,8 +43,10 @@ void reject(std::string *error, std::string message) {
     *error = std::move(message);
 }
 
-void prepend_topic_id_to_heading(DocumentIR &document) {
-  if (document.topic.id.empty() || document.blocks.empty())
+void prepend_topic_id_to_heading(
+    DocumentIR &document,
+    const std::vector<DecodedLogicalRecordSource> &sources) {
+  if (document.blocks.empty())
     return;
   const auto heading_block = std::find_if(
       document.blocks.begin(), document.blocks.end(), [](auto &block) {
@@ -52,6 +55,11 @@ void prepend_topic_id_to_heading(DocumentIR &document) {
   if (heading_block == document.blocks.end())
     return;
   auto &heading = std::get<HeadingBlockIR>(heading_block->node);
+  // The `ST` revision column heads the topic with its mark, number or not
+  // (logical-controls.adoc, the title line).
+  heading.revision_mark = topic_title_revision_mark(sources);
+  if (document.topic.id.empty())
+    return;
 
   // A family that carries no title of its own already put the identity in
   // the heading (an `ST` control with an empty payload: hosted BookServer
@@ -357,7 +365,7 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
       reject(typed_rejection, "prose document rejected: " + error);
       return std::nullopt;
     }
-    prepend_topic_id_to_heading(*document);
+    prepend_topic_id_to_heading(*document, sources);
     if (!verify_document_ir(*document, &error)) {
       reject(typed_rejection, "prose identity policy rejected: " + error);
       return std::nullopt;
@@ -522,7 +530,7 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
     }
   }
 
-  prepend_topic_id_to_heading(*document);
+  prepend_topic_id_to_heading(*document, sources);
   if (!verify_document_ir(*document, &error)) {
     reject(typed_rejection, family + " identity policy rejected: " + error);
     return std::nullopt;

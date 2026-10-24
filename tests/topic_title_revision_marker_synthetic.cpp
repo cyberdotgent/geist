@@ -92,6 +92,7 @@ DecodedLogicalRecordSource build(const std::vector<Line> &lines,
       record.logical_record, record.assembled, record.encoded_tokens,
       record.ir.display_lines);
   geist::detail::demote_display_line_owned_controls(record);
+  geist::detail::assign_display_line_margin_marks(record);
   return record;
 }
 
@@ -151,8 +152,12 @@ std::vector<Line> topic_with_title(const Line &title_line) {
 }
 
 void admitted(const std::string &label, const Line &title_line,
-              const std::string &catalog, const std::string &expected) {
+              const std::string &catalog, const std::string &expected,
+              std::optional<char32_t> mark = std::nullopt) {
   auto extracted = run(topic_with_title(title_line), catalog);
+  // The heading carries the mark the revision column stores, and only that.
+  require(geist::detail::topic_title_revision_mark(extracted.records) == mark,
+          label + ": the title's stored revision mark is not read");
   require(extracted.topic.has_value(),
           label + ": the topic was rejected: " + extracted.error);
   if (!extracted.topic) return;
@@ -181,18 +186,18 @@ int main() {
            {words("ST"), attach, words("|"), words("CSLBUFSIZE"),
             words("(Console"), words("buffer"), words("size)")},
            "CSLBUFSIZE (Console Buffer Size)",
-           "CSLBUFSIZE (Console buffer size)");
+           "CSLBUFSIZE (Console buffer size)", U'|');
   // dfhcag49 1.7.74: the bar, then a one-cell gap before the message id.
   admitted("glued change bar before a gap",
            {words("ST"), attach, words("|"), words(" "), words("DFH5293"),
             words(" "), words("W")},
-           "DFH5293  W", "DFH5293 W");
+           "DFH5293  W", "DFH5293 W", U'|');
   // dfheca01 2.1.4: a `#` revision mark in the same column.
   admitted("glued revision mark",
            {words("ST"), attach, words("#"), words("CICS"), words("enables"),
             words("the"), words("READ"), words("TIMEOUT"), words("value")},
            "CICS Enables the READ TIMEOUT Value",
-           "CICS enables the READ TIMEOUT value");
+           "CICS enables the READ TIMEOUT value", U'#');
   // SC24-5520-00 6.11.3: a space after the opcode, so `*` is title text.
   admitted("punctuation after a space",
            {words("ST"), words(" "), words("*"), attach, words("ACCOUNT"),
@@ -209,5 +214,6 @@ int main() {
            {words("ST"), words("|"), words("CSLBUFSIZE"), words("(Console"),
             words("buffer"), words("size)")},
            "CSLBUFSIZE (Console Buffer Size)");
+  geist_test::exit_with_failures();
   return 0;
 }

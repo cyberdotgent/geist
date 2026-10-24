@@ -182,6 +182,13 @@ std::optional<char32_t> display_line_margin_mark_at(
 bool verify_display_line_margin_marks(const DecodedLogicalRecordSource& record,
                                       std::string* error = nullptr);
 
+// The revision mark of a topic's title: the first display line of `records`
+// whose first token is the `ST` opcode heads the topic, and the mark its
+// revision column stores (`MarginMarkPlaceIR::title_column`) is the
+// heading's.  Empty when that line stores none or no `ST` line exists.
+std::optional<char32_t> topic_title_revision_mark(
+    const std::vector<DecodedLogicalRecordSource>& records);
+
 // True when `token` is a native list bullet on its display line: the single
 // word `U+2666` after a blank run (or a blank token behind a margin revision
 // bar), followed by a two-blank token and at least one drawn cell. The

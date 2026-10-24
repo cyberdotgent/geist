@@ -608,6 +608,7 @@ foreach(synthetic_test
     prose_glossary_anchor_synthetic
     revision_margin_row_synthetic
     margin_mark_line_synthetic
+    heading_revision_mark_synthetic
     prose_line_end_punctuation_synthetic
     topic_header_envelope_rule_synthetic
     topic_title_revision_marker_synthetic

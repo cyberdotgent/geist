@@ -41,6 +41,15 @@ void usage() {
                "       bootrace <book.boo> <topic-id> --explain-offset <n>\n";
 }
 
+std::string hex4(const char32_t value) {
+  std::ostringstream out;
+  out << std::uppercase << std::hex;
+  out.width(4);
+  out.fill('0');
+  out << static_cast<std::uint32_t>(value);
+  return out.str();
+}
+
 std::string tsv_escape(const std::string& value) {
   std::string output;
   output.reserve(value.size());
@@ -360,8 +369,9 @@ int main(int argc, char** argv) {
                             ? "title"
                             : "row")
                     << "\t"
-                    << tsv_escape(geist::detail::token_words_to_ascii(
-                           {static_cast<std::uint16_t>(mark.mark)}))
+                    << (mark.mark < 0x80
+                            ? std::string(1, static_cast<char>(mark.mark))
+                            : "U+" + hex4(mark.mark))
                     << "\t" << tsv_escape(mark.source) << "\n";
         }
       std::cout << "# summary\tmarks=" << marks << "\n";

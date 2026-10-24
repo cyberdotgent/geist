@@ -112,6 +112,7 @@ SourceRowsDocumentLoweringIR lower_source_rows_to_document_ir(
       document.topic.title};
   heading_text.origin = synthesized("public topic identity and title");
   heading.content.push_back(std::move(heading_text));
+  heading.revision_mark = topic_title_revision_mark(sources);
   BlockIR heading_block;
   heading_block.node = std::move(heading);
   heading_block.origin = synthesized("source-row topic heading");

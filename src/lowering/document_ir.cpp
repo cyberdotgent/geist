@@ -335,6 +335,10 @@ bool verify_block(const BlockIR& block, bool nested, std::string* error) {
           if (nested) return fail(error, "nested heading is not allowed");
           if (node.level == 0 || node.level > 6)
             return fail(error, "heading level is outside 1..6");
+          if (node.revision_mark &&
+              (*node.revision_mark <= U' ' || *node.revision_mark == 0x7f ||
+               *node.revision_mark == 0xffff || *node.revision_mark > 0x10ffff))
+            return fail(error, "heading revision mark is not a drawn glyph");
           return verify_inlines(node.content, false, error);
         } else if constexpr (std::is_same_v<T, ParagraphBlockIR>) {
           return verify_inlines(node.content, false, error);
@@ -944,6 +948,12 @@ std::string format_document_ir(const DocumentIR& document) {
           using T = std::decay_t<decltype(node)>;
           if constexpr (std::is_same_v<T, HeadingBlockIR>) {
             out << " heading level=" << node.level << ' ';
+            // Printed only when present, so every document without a mark
+            // formats exactly as it did before.
+            if (node.revision_mark)
+              out << "revision_mark=" << quoted(revision_mark_text(
+                                             *node.revision_mark))
+                  << ' ';
             format_inlines(out, node.content);
           } else if constexpr (std::is_same_v<T, ParagraphBlockIR>) {
             out << " paragraph ";
@@ -1101,6 +1111,27 @@ std::string format_document_ir(const DocumentIR& document) {
     out << '\n';
   }
   return out.str();
+}
+
+std::string revision_mark_text(const char32_t mark) {
+  if (mark == 0x2502) return "|";
+  std::string out;
+  if (mark < 0x80) {
+    out.push_back(static_cast<char>(mark));
+  } else if (mark < 0x800) {
+    out.push_back(static_cast<char>(0xC0 | (mark >> 6)));
+    out.push_back(static_cast<char>(0x80 | (mark & 0x3F)));
+  } else if (mark < 0x10000) {
+    out.push_back(static_cast<char>(0xE0 | (mark >> 12)));
+    out.push_back(static_cast<char>(0x80 | ((mark >> 6) & 0x3F)));
+    out.push_back(static_cast<char>(0x80 | (mark & 0x3F)));
+  } else {
+    out.push_back(static_cast<char>(0xF0 | (mark >> 18)));
+    out.push_back(static_cast<char>(0x80 | ((mark >> 12) & 0x3F)));
+    out.push_back(static_cast<char>(0x80 | ((mark >> 6) & 0x3F)));
+    out.push_back(static_cast<char>(0x80 | (mark & 0x3F)));
+  }
+  return out;
 }
 
 } // namespace geist::detail

@@ -655,6 +655,12 @@ void append_block(RenderSink &sink, const BlockIR &block,
         if constexpr (std::is_same_v<T, HeadingBlockIR>) {
           sink.boundary(std::string(node.level, '#') + " ", "heading marker",
                       block_origin);
+          // The `ST` revision mark as plain text in front of the number.
+          if (node.revision_mark)
+            sink.content(escape_markdown_text_impl(
+                             revision_mark_text(*node.revision_mark)) +
+                             " ",
+                         "heading revision mark", block_origin);
           append_inlines(sink, node.content, InlineContext::single_line,
                          options);
         } else if constexpr (std::is_same_v<T, ParagraphBlockIR>) {

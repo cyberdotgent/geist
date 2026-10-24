@@ -154,6 +154,12 @@ using InlineSequenceIR = std::vector<InlineIR>;
 struct HeadingBlockIR {
   std::uint32_t level = 1;
   InlineSequenceIR content;
+  // The revision mark the topic's `ST` line stores in its revision column,
+  // the cell glued directly after the opcode (doc/boo-spec/
+  // logical-controls.adoc, the title line), as stored: `|`, `#`, `U+2502`.
+  // Hosted BookServer prints it in front of the topic number, never inside
+  // the title: SC41-5401-00 2.1.2.5 `<H3>| 2.1.2.5   CSLBUFSIZE ...</H3>`.
+  std::optional<char32_t> revision_mark = std::nullopt;
 };
 
 struct ParagraphBlockIR {
@@ -478,6 +484,12 @@ struct DocumentIR {
 // node with no source of its own must not acquire one.  Lowerings call this
 // before verification; it never changes rendered output.
 void normalize_document_origin_slices(DocumentIR& document);
+
+// The text a renderer prints for a stored revision mark: the box-drawing
+// vertical `U+2502` is printed `|`, as hosted BookServer's code-page
+// conversion prints it (ACPZMST1 5.4 `<H2>| 5.4 ...`); any other mark is its
+// own character, UTF-8 encoded.
+std::string revision_mark_text(char32_t mark);
 
 bool verify_document_ir(const DocumentIR& document,
                         std::string* error = nullptr);

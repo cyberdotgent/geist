@@ -371,6 +371,25 @@ std::optional<char32_t> display_line_margin_mark_at(
   return line->margin_mark;
 }
 
+std::optional<char32_t> topic_title_revision_mark(
+    const std::vector<DecodedLogicalRecordSource>& records) {
+  for (const auto& record : records) {
+    if (!record.ir.display_lines_parse) continue;
+    for (const auto& line : record.ir.display_lines) {
+      const auto first = line.prefix_token + 1;
+      if (first >= line.token_end || first >= record.ir.tokens.size()) continue;
+      auto words = record.ir.tokens[first].decoded_words;
+      if (!words.empty() && words[0] < 4) words.erase(words.begin());
+      if (words != TokenWords{'S', 'T'} && words != TokenWords{'s', 't'})
+        continue;
+      if (line.margin_mark_place == MarginMarkPlaceIR::title_column)
+        return line.margin_mark;
+      return std::nullopt;
+    }
+  }
+  return std::nullopt;
+}
+
 bool verify_display_line_margin_marks(const DecodedLogicalRecordSource& record,
                                       std::string* error) {
   const auto fail = [&](const char* message) {

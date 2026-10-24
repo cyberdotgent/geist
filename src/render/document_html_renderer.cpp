@@ -685,6 +685,10 @@ void append_block(HtmlSink &sink, const BlockIR &block) {
               std::min<std::uint32_t>(std::max<std::uint32_t>(node.level, 1), 6);
           const auto tag = "h" + std::to_string(level);
           open_block(sink, tag, block_class, origin);
+          // The `ST` revision mark, in front of the topic number as hosted
+          // BookServer prints it (`<H3>| 2.1.2.5   CSLBUFSIZE ...</H3>`).
+          if (node.revision_mark)
+            sink.text(revision_mark_text(*node.revision_mark) + " ");
           append_inlines(sink, node.content);
           close_block(sink, tag);
         } else if constexpr (std::is_same_v<T, ParagraphBlockIR>) {
