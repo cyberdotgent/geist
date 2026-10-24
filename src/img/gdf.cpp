@@ -162,8 +162,8 @@ GdfLineStyle line_style_for(std::uint8_t value) {
       GdfLineStyle::dot,
       GdfLineStyle::dash,
       GdfLineStyle::dash_dot,
-      GdfLineStyle::short_dash,
-      GdfLineStyle::short_dot,
+      GdfLineStyle::dash_dot,
+      GdfLineStyle::dot,
       GdfLineStyle::dash_dot_dot,
       GdfLineStyle::solid,
   }};

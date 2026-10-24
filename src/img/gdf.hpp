@@ -34,8 +34,6 @@ enum class GdfLineStyle : std::uint8_t {
   dot,
   dash_dot,
   dash_dot_dot,
-  short_dot,
-  short_dash,
 };
 
 struct Polyline {

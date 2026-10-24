@@ -39,8 +39,6 @@ const std::vector<int>& dash_pattern(GdfLineStyle style) {
   static const std::vector<int> dot{3, 3};
   static const std::vector<int> dash_dot{9, 6, 3, 6};
   static const std::vector<int> dash_dot_dot{9, 3, 3, 3, 3, 3};
-  static const std::vector<int> short_dot{3, 3};
-  static const std::vector<int> short_dash{6, 6};
   switch (style) {
   case GdfLineStyle::dash:
     return dash;
@@ -50,10 +48,6 @@ const std::vector<int>& dash_pattern(GdfLineStyle style) {
     return dash_dot;
   case GdfLineStyle::dash_dot_dot:
     return dash_dot_dot;
-  case GdfLineStyle::short_dot:
-    return short_dot;
-  case GdfLineStyle::short_dash:
-    return short_dash;
   case GdfLineStyle::solid:
     break;
   }
