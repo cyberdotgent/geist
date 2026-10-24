@@ -1082,6 +1082,23 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
     // `SRGLS` term, a `cz` region's operands, a nested figure's identifier).
     std::set<std::pair<std::uint32_t, std::size_t>> content_tokens;
     for (const auto &item : ordered) {
+      // A `cz` directive's operands are its own line; the display lines
+      // after that line which its segment still carries are drawn text
+      // (`cz BREAK 3` then `   (2) In the IBM 5250 data stream, ...`,
+      // S20H-1642-01 GLOSSARY record 758), and the row model makes no row
+      // for them.
+      if (item.segment->kind == BookControlKind::layout_directive &&
+          !item.segment->source_tokens.empty() &&
+          record_framing_is_decided(item.record->ir)) {
+        const auto *own = display_line_of_token(
+            *item.record, item.segment->source_tokens.front());
+        for (const auto token : item.segment->source_tokens) {
+          const auto *line = display_line_of_token(*item.record, token);
+          if (own != nullptr && line != nullptr && line != own)
+            content_tokens.insert({item.record->logical_record, token});
+        }
+        continue;
+      }
       if (item.segment->kind != BookControlKind::font &&
           item.segment->kind != BookControlKind::text)
         continue;
