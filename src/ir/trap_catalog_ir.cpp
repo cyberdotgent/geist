@@ -2064,6 +2064,44 @@ chain_highlight_ranges(const std::vector<TrapStyledSpanIR> &spans,
   return ranges;
 }
 
+// The display line a `CFONT` control styles: the first drawn text line after
+// the control's own line -- one that opens on a blank, the reader's test for
+// a text line -- skipping blank lines and other control lines, in the same
+// record or, when the control ends its record, the next one. The reader
+// collects the control's triples and applies them to that one line, then
+// clears them; the lines below it are not styled by this control, however
+// long its segment runs. Null where the framing cannot name the line.
+std::pair<const DecodedLogicalRecordSource *, const DisplayLineIR *>
+font_target_line(const std::vector<DecodedLogicalRecordSource> &records,
+                 const DecodedLogicalRecordSource &font_record,
+                 const ControlSegmentIR &font_segment) {
+  if (font_segment.source_tokens.empty())
+    return {nullptr, nullptr};
+  const auto *font_line =
+      display_line_of_token(font_record, font_segment.source_tokens.front());
+  if (font_line == nullptr)
+    return {nullptr, nullptr};
+  const auto text_line = [](const DecodedLogicalRecordSource &record,
+                            const DisplayLineIR &line) {
+    const auto first = line.prefix_token + 1;
+    return first < line.token_end && first < record.ir.tokens.size() &&
+           !record.ir.tokens[first].decoded_words.empty() &&
+           record.ir.tokens[first].decoded_words.front() == ' ';
+  };
+  const auto &lines = font_record.ir.display_lines;
+  for (auto index = static_cast<std::size_t>(font_line - lines.data()) + 1;
+       index < lines.size(); ++index)
+    if (text_line(font_record, lines[index]))
+      return {&font_record, &lines[index]};
+  const auto *next = find_record(records, font_record.logical_record + 1);
+  if (next == nullptr || !record_framing_is_decided(next->ir))
+    return {nullptr, nullptr};
+  for (const auto &line : next->ir.display_lines)
+    if (text_line(*next, line))
+      return {next, &line};
+  return {nullptr, nullptr};
+}
+
 // Every `CFONT` run of an entry row, wherever along the row it stands, as
 // byte ranges over the row's projected `body` text. The leading-chain rules
 // above only read the run that opens a row; a span later in the row styles a
@@ -4997,8 +5035,23 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
             run->control_kind == BookControlKind::font) {
           const auto &row = run->rows[first.row_index];
           const auto *record = find_record(records, row.logical_record);
+          // Only the paragraph that opens on the line the control styles
+          // takes its runs. ICHA6MST 3.1.2 record 561: `cfont 3 1 2 8 6 2
+          // ...` styles ` | 1    Master Console Action`; the explanation
+          // rows below it, which the same segment carries, are plain
+          // (hosted DT 19910801172557), not `**T**he message`.
+          const auto styled = [&]() {
+            if (!record_framing_is_decided(record->ir))
+              return true;
+            const auto target = font_target_line(
+                records, *record, record->control_segments[row.segment_index]);
+            return target.first == record &&
+                   target.second ==
+                       display_line_of_token(*record, row.token_begin);
+          };
           if (record != nullptr &&
-              row.segment_index < record->control_segments.size()) {
+              row.segment_index < record->control_segments.size() &&
+              styled()) {
             const auto spans = decode_font_control_spans(
                 *record, record->control_segments[row.segment_index]);
             if (spans) {

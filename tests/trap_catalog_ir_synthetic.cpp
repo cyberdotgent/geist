@@ -4434,6 +4434,48 @@ int main() {
     }
   }
 
+  // A CFONT line styles the next drawn text line only. The rows below it
+  // that the same control segment still carries are plain text.
+  // ICHA6MST 3.1.2 record 561 lines 25-28 are `cfont 3 1 2 8 6 2 ...`,
+  // ` | 1    Master Console Action`, a blank line and ` |      The message
+  // indicates ...`; hosted (DT 19910801172557) bolds the code row only and
+  // serves `The message` plain.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({t("cfont", 111), t("3", 112), t("1", 270),
+                         t("2", 113)}));
+    // Each length byte spells a drawn glyph, as in the book, so LayoutIR
+    // opens a row on it.
+    const auto spelled = [](const std::string &glyph,
+                            const std::vector<Token> &content) {
+      auto out = line(content);
+      out.front().words = words(glyph);
+      return out;
+    };
+    append(tokens, spelled(")", {t(" ", 9), t("7", 271), t("   ", 11),
+                                 t("Master", 272)}));
+    append(tokens, line({}));
+    append(tokens, spelled(")", {t(" ", 9), t("The", 273),
+                                 t("message.", 274)}));
+    append(tokens, entry("641", 275));
+    const auto built = build({make_source(71, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "styled introduction row catalog declined: " + built.error);
+    if (built.catalog) {
+      bool found = false;
+      for (const auto &paragraph : built.catalog->introduction) {
+        if (paragraph.text.rfind("The", 0) != 0)
+          continue;
+        found = true;
+        require(paragraph.leading_spans.empty() &&
+                    paragraph.highlights.empty(),
+                "a CFONT line styled a row below its next text line: [" +
+                    paragraph.text + "]");
+      }
+      require(found, "the plain introduction row is missing");
+    }
+  }
+
   std::cout << "trap catalog IR synthetic tests passed\n";
   return 0;
 }
