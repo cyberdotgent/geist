@@ -945,6 +945,50 @@ void test_length_byte_before_control_is_not_content() {
           "the next line's length byte was printed as table text: " + text);
 }
 
+// A glued `,` that ends a framed table line is drawn, also before a control
+// line.  GC24-5841-01 4.6 record 7870 line 2 is `   531E   Timeliness check
+// failed on message from node nodeid.  Function=cc,`: its last token (value
+// 2 at 0x3183DF) is the attach control and `,`, inside the line, and line 3
+// (`cfont 23 7 V 44 8 V`) follows.  Hosted (DT 19990525154647) prints
+// `Function=<var>cc</var>,`.
+void test_glued_comma_before_control_is_content() {
+  RecordBuilder builder;
+  builder.line({words("cz"), words("OFF"), words("TABLE")});
+  builder.line({words("SRTBLTBLUNIQ710")});
+  builder.sized_line({{"   ", 1}, {"009E", 2}, {"   ", 1}, {"cmd", 2},
+                      {"is", 2}, {"valid", 2}});
+  builder.sized_line({{"   ", 1}, {"531E", 2}, {"   ", 1}, {"Function", 2},
+                      {"\x01", 1}, {"=", 2}, {"\x01", 1}, {"cc", 2},
+                      {"\x01,", 1}});
+  builder.sized_line({{"cfont", 2}, {"23", 2}, {"7", 2}, {"V", 2}},
+                     words("    "));
+  builder.sized_line({{"          ", 1}, {"Current", 2}, {"time", 2}});
+  builder.sized_line({{"   ", 1}, {"023I", 2}, {"   ", 1}, {"VMDUMP", 2},
+                      {"taken", 2}});
+  builder.line({words("SRETBL")});
+  std::vector<DecodedLogicalRecordSource> sources;
+  sources.push_back(builder.finish(7870));
+  require(sources.front().ir.display_lines_parse,
+          "glued-comma table: synthetic framing did not parse");
+  const auto layout = extract_layout_ir(sources);
+  const auto ownership = build_ownership_ir(sources, layout);
+  const LayoutRowRangeIR range{0, count_layout_rows(layout)};
+  const auto blocks =
+      extract_fixed_table_blocks_ir(sources, layout, ownership, range);
+  require(blocks.blocks.size() == 1,
+          "glued-comma table did not become one block" +
+              (blocks.declined.empty()
+                   ? std::string{}
+                   : ": " + blocks.declined.front().reason));
+  if (blocks.blocks.size() != 1) return;
+  std::string text;
+  for (const auto &row : blocks.blocks.front().body)
+    for (const auto &cell : row.cells)
+      for (const auto &line : cell.lines) text += line.text + "|";
+  require(text.find("Function=cc,") != std::string::npos,
+          "the glued comma ending a table line was dropped: " + text);
+}
+
 // A cell whose only word is a real `?`.  SC41-5401-00 2.3.2.111 record 804
 // line 28 is ` | | ?                   | Question mark   |`: token 306 is a
 // two-byte dictionary word whose single word is 0x3F (bytes `B7 12` at
@@ -1015,6 +1059,7 @@ int main() {
   test_word_past_right_border_is_not_hidden();
   test_lone_question_mark_cell();
   test_length_byte_before_control_is_not_content();
+  test_glued_comma_before_control_is_content();
   geist_test::exit_with_failures();
   std::cout << "fixed table block IR checks passed\n";
   return 0;

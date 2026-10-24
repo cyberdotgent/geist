@@ -1989,11 +1989,18 @@ private:
         // A display line's length byte draws nothing, whatever word it
         // spells: GC24-5841-01 4.6 record 7871 line 19 opens `cfont` behind
         // a length byte spelled `a`, after the last row `... to TSAF`.
+        // A word the framing places inside a display line is drawn there,
+        // also when a control line follows: GC24-5841-01 4.6 record 7870
+        // line 2 ends `Function=cc,` (attach control and `,` at 0x3183DF)
+        // before `cfont 23 7 V 44 8 V`; hosted (DT 19990525154647) prints
+        // the comma.  The shape rules stand only for an unframed record.
         const bool hidden =
             last.line_length ||
-            (after >= words.size() && envelope_end) ||
-            ((after >= words.size() || words[after].segment != last.segment) &&
-             terminal_slot(words, state.last_content));
+            (!last.line_content &&
+             ((after >= words.size() && envelope_end) ||
+              ((after >= words.size() ||
+                words[after].segment != last.segment) &&
+               terminal_slot(words, state.last_content))));
         if (hidden) {
           std::vector<PlacedWord> kept;
           for (const auto &placed : line.words) {
