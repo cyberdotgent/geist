@@ -27,6 +27,7 @@ EmphasisKindIR font_style_emphasis_kind(FontStyleIR style) {
   case FontStyleIR::sample_phrase:
   case FontStyleIR::keyword:
   case FontStyleIR::keyword_define:
+  case FontStyleIR::variable_define:
   case FontStyleIR::highlight_9:
   // WARNING (`W`) and WARNINGTEXT (`G`) are hosted `<em>` on all four books
   // that carry them, so both take the default emphasis.
@@ -45,7 +46,7 @@ bool font_style_is_code(FontStyleIR style) {
   // HP9 is the underscored HP4, the monospace example phrase.
   return font_style_is_example(style) ||
          style == FontStyleIR::keyword ||
-         style == FontStyleIR::keyword_define ||
+         font_style_is_definition(style) ||
          style == FontStyleIR::highlight_9 ||
          style == FontStyleIR::apl_symbol;
 }
@@ -56,13 +57,16 @@ PhraseKindIR font_style_phrase_kind(FontStyleIR style) {
   // `<samp>` in 33 books, `P` 4,845 of 4,849 `<kbd>` in 26, `C` 1,610 of
   // 1,630 `<cite>` in 34 (doc/boo-spec/markup.adoc, the message-entry
   // census; every remaining span a matcher fault), and `V` 225 of 225
-  // `<var>` in 28 (the variable census).  `X` and `4` are hosted `<tt>`,
-  // which HTML5 dropped; they stay plain code.
+  // `<var>` in 28 (the variable census), and `Q` 194 of 194 `<dfn>` in 38
+  // (the defined-keyword census).  `X` and `4` are hosted `<tt>`, which
+  // HTML5 dropped; they stay plain code.  `Z` is hosted `<dfn>` as well,
+  // but in too few books for a census, and stays plain code.
   switch (style) {
   case FontStyleIR::sample_phrase: return PhraseKindIR::sample;
   case FontStyleIR::keyword: return PhraseKindIR::keyboard;
   case FontStyleIR::citation: return PhraseKindIR::citation;
   case FontStyleIR::variable: return PhraseKindIR::variable;
+  case FontStyleIR::keyword_define: return PhraseKindIR::definition;
   default: break;
   }
   return PhraseKindIR::none;

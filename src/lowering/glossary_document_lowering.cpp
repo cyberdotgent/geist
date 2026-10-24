@@ -139,6 +139,7 @@ std::optional<EmphasisKindIR> emphasis_kind(FontStyleIR style) {
   case FontStyleIR::sample_phrase:
   case FontStyleIR::keyword:
   case FontStyleIR::keyword_define:
+  case FontStyleIR::variable_define:
   case FontStyleIR::variable:
   case FontStyleIR::bold_phrase:
   case FontStyleIR::italic_phrase:

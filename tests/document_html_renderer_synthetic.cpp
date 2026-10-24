@@ -145,6 +145,7 @@ DocumentIR build_document() {
   // Runs naming a phrase take the element hosted BookServer serves.
   rich.push_back(in(CodeInlineIR{"x<samp>", PhraseKindIR::sample}));
   rich.push_back(in(CodeInlineIR{"PF&3", PhraseKindIR::keyboard}));
+  rich.push_back(in(CodeInlineIR{"*CUR<&>", PhraseKindIR::definition}));
   rich.push_back(in(EmphasisInlineIR{"Guide<&>", EmphasisKindIR::emphasis,
                                      PhraseKindIR::citation}));
   rich.push_back(in(EmphasisInlineIR{"mem<&>", EmphasisKindIR::emphasis,
@@ -542,6 +543,10 @@ int main() {
   contains(fragment,
            "<kbd class=\"geist-monospace geist-keyboard\">PF&amp;3</kbd>",
            "a `P` keyboard phrase is not <kbd>");
+  contains(fragment,
+           "<dfn class=\"geist-monospace geist-definition\">*CUR&lt;&amp;&gt;"
+           "</dfn>",
+           "a `Q` definition phrase is not <dfn>");
   contains(fragment,
            "<cite class=\"geist-emphasis geist-citation\">Guide&lt;&amp;&gt;"
            "</cite>",

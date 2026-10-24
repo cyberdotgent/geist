@@ -65,6 +65,9 @@ struct DecodedLogicalRecordSource;
 // <dfn>terminator</dfn><kbd>]</kbd>`.  The two books share that sentence, so
 // the evidence is one phrase served identically by two books; a sample of
 // 87 further books (all of SC26-49xx among them) holds no other `Z` span.
+// A 248-book sample adds four more books, each hosted `<dfn>` (13 of 13
+// spans), still too few for a census; `Z` keeps a style of its own so it
+// presents as PKDEF everywhere but names no HTML phrase element.
 // `_` (UNDERSCORE) stays fail-closed: its first witness was SC24-5527-02
 // `COMMENTS`, which the hosted catalog does not serve, and the corpus
 // records repeatedly that identical geometry means different things in
@@ -98,7 +101,10 @@ enum class FontStyleIR {
   example_phrase,  // X, 4: monospace example phrase (hosted <tt>)
   sample_phrase,   // E: monospace example (XMP, hosted <samp>)
   keyword,         // P: monospace parameter keyword (<kbd>)
-  keyword_define,  // Q, Z: defined parameter keyword / variable (<dfn>)
+  keyword_define,  // Q: defined parameter keyword (PKDEF, hosted <dfn>)
+  variable_define, // Z: defined parameter variable (PVDEF, hosted <dfn>);
+                   //    presents exactly as Q
+
   variable,        // V: italic programming variable (<var>)
   bold_phrase,     // R, H, I, J, M, T, Y, B, F, D, O: bold phrase
   italic_phrase,   // K, L: italic inline heading (K is hosted <I>)
@@ -142,5 +148,9 @@ const char* font_style_name(FontStyleIR style);
 // family decision treats them alike; only the element HTML wraps a run in
 // tells them apart.
 bool font_style_is_example(FontStyleIR style);
+
+// The defined-term family: `Q` (PKDEF) and `Z` (PVDEF).  They present
+// alike everywhere; only `Q` names a phrase element.
+bool font_style_is_definition(FontStyleIR style);
 
 } // namespace geist::detail

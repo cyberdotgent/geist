@@ -725,7 +725,7 @@ int main() {
       return 1;
   }
 
-  // A run naming a phrase (`E`, `P`, `C`, `V`) is HTML's business only: Markdown
+  // A run naming a phrase (`E`, `P`, `C`, `V`, `Q`) is HTML's business only: Markdown
   // writes it exactly as the same run without one, in its own syntax and
   // in the HTML it embeds for abutting emphasis and styled literal rows.
   {
@@ -747,6 +747,8 @@ int main() {
       line.push_back(in(TextInlineIR{" to "}));
       line.push_back(in(EmphasisInlineIR{"mem", EmphasisKindIR::emphasis,
                                          phrase(PhraseKindIR::variable)}));
+      line.push_back(in(TextInlineIR{" as "}));
+      line.push_back(in(CodeInlineIR{"*LIBL", phrase(PhraseKindIR::definition)}));
       document.blocks.push_back(block(ParagraphBlockIR{std::move(line)}));
       PreformattedBlockIR rows;
       rows.lines = {"  NOSTAE"};
@@ -767,6 +769,7 @@ int main() {
                      phrased.find("`ENTER`") != std::string::npos &&
                      phrased.find("*Title*") != std::string::npos &&
                      phrased.find("*mem*") != std::string::npos &&
+                     phrased.find("`*LIBL`") != std::string::npos &&
                      phrased.find("<code class=\"geist-monospace\">NOSTAE"
                                   "</code>") != std::string::npos,
                  "phrase runs lost their Markdown presentation: " + phrased))

@@ -28,17 +28,17 @@ bool boundary(const std::string_view tag) {
   return std::find(std::begin(tags), std::end(tags), tag) != std::end(tags);
 }
 
-// `samp`, `kbd`, `cite` and `var` are the phrase elements hosted BookServer
-// serves for style codes; like `code` and `em` they are inline and keep
-// adjacency.
+// `samp`, `kbd`, `cite`, `var` and `dfn` are the phrase elements hosted
+// BookServer serves for style codes; like `code` and `em` they are inline
+// and keep adjacency.
 bool supported_tag(const std::string_view tag) {
   static constexpr std::string_view tags[] = {
-      "a",     "aside", "br",    "cite",       "code",    "dd",   "div",
-      "dl",    "dt",    "em",    "figcaption", "figure",  "h1",   "h2",
-      "h3",    "h4",    "h5",    "h6",         "hr",      "img",  "kbd",
-      "li",    "nav",   "ol",    "p",          "pre",     "samp", "section",
-      "span",  "strong", "table", "tbody",     "td",      "th",   "thead",
-      "tr",    "u",     "ul",    "var"};
+      "a",     "aside", "br",    "cite",       "code",    "dd",   "dfn",
+      "div",   "dl",    "dt",    "em",         "figcaption", "figure", "h1",
+      "h2",    "h3",    "h4",    "h5",         "h6",      "hr",   "img",
+      "kbd",   "li",    "nav",   "ol",         "p",       "pre",  "samp",
+      "section", "span", "strong", "table",    "tbody",   "td",   "th",
+      "thead", "tr",    "u",     "ul",         "var"};
   return std::find(std::begin(tags), std::end(tags), tag) != std::end(tags);
 }
 

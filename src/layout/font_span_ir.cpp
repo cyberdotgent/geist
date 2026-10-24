@@ -56,8 +56,8 @@ FontStyleIR style_for_code(const std::string& code) {
   if (code.size() != 1) return FontStyleIR::unknown;
   switch (ascii_lower_char(code[0])) {
   case 'c': return FontStyleIR::citation;
-  case 'q':
-  case 'z': return FontStyleIR::keyword_define;
+  case 'q': return FontStyleIR::keyword_define;
+  case 'z': return FontStyleIR::variable_define;
   case 'x':
   case '4': return FontStyleIR::example_phrase;
   case 'e': return FontStyleIR::sample_phrase;
@@ -103,6 +103,8 @@ const char* font_style_name(FontStyleIR style) {
     return "apl";
   case FontStyleIR::keyword_define:
     return "pkdef";
+  case FontStyleIR::variable_define:
+    return "pvdef";
   case FontStyleIR::citation:
     return "cit";
   case FontStyleIR::example_phrase:
@@ -132,6 +134,11 @@ const char* font_style_name(FontStyleIR style) {
 bool font_style_is_example(FontStyleIR style) {
   return style == FontStyleIR::example_phrase ||
          style == FontStyleIR::sample_phrase;
+}
+
+bool font_style_is_definition(FontStyleIR style) {
+  return style == FontStyleIR::keyword_define ||
+         style == FontStyleIR::variable_define;
 }
 
 std::optional<FontControlSpansIR>

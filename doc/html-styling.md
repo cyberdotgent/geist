@@ -157,6 +157,7 @@ would be a claim the source never made.
 | `geist-monospace` | `<code>` | `CodeInlineIR` |
 | `geist-monospace geist-sample` | `<samp>` | `CodeInlineIR` phrase `sample` (CFONT `E`, XMP) |
 | `geist-monospace geist-keyboard` | `<kbd>` | `CodeInlineIR` phrase `keyboard` (CFONT `P`, PK) |
+| `geist-monospace geist-definition` | `<dfn>` | `CodeInlineIR` phrase `definition` (CFONT `Q`, PKDEF) |
 | `geist-emphasis geist-citation` | `<cite>` | `EmphasisInlineIR` kind `emphasis`, phrase `citation` (CFONT `C`, CIT) |
 | `geist-emphasis geist-variable` | `<var>` | `EmphasisInlineIR` kind `emphasis`, phrase `variable` (CFONT `V`, PV) |
 | `geist-image` | `<img>` | `ImageInlineIR` |
@@ -170,7 +171,8 @@ codes. Each keeps the class of its family (`geist-monospace` or
 `geist-emphasis`) beside its own, so a rule written for code or emphasis
 still applies to it; select the family class, not `code.geist-monospace` or
 `em.geist-emphasis`. `X` (XPH) and `4` (HP4) are hosted `<tt>`, which HTML5
-dropped, and stay `<code>`. Markdown output never uses the phrase elements:
+dropped, and stay `<code>`. `Z` (PVDEF) is hosted `<dfn>` like `Q`, but on
+too few books to confirm the rule, and stays `<code>`. Markdown output never uses the phrase elements:
 where it embeds HTML it writes the generic `<code>`/`<em>` forms.
 
 Preformatted rows may contain these inline styles and links without losing

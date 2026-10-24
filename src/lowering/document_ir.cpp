@@ -134,13 +134,14 @@ bool valid_cross_reference_target(const CrossReferenceTargetIR& target) {
 }
 
 // A phrase refines the presentation a run already has and never changes it:
-// a sample or keyboard phrase is code, a citation or variable plain
-// emphasis.
+// a sample, keyboard or definition phrase is code, a citation or variable
+// plain emphasis.
 bool phrase_fits(PhraseKindIR phrase, bool code, EmphasisKindIR kind) {
   switch (phrase) {
   case PhraseKindIR::none: return true;
   case PhraseKindIR::sample:
-  case PhraseKindIR::keyboard: return code;
+  case PhraseKindIR::keyboard:
+  case PhraseKindIR::definition: return code;
   case PhraseKindIR::citation:
   case PhraseKindIR::variable:
     return !code && kind == EmphasisKindIR::emphasis;
@@ -651,6 +652,7 @@ const char* phrase_kind_name(PhraseKindIR value) {
   case PhraseKindIR::keyboard: return "keyboard";
   case PhraseKindIR::citation: return "citation";
   case PhraseKindIR::variable: return "variable";
+  case PhraseKindIR::definition: return "definition";
   }
   return "invalid";
 }

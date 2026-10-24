@@ -31,6 +31,7 @@
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/layout/ownership_ir.hpp"
 #include "geist/detail/ir/prose/prose_topic_ir.hpp"
+#include "geist/detail/lowering/font_style_inlines.hpp"
 #include "test_failures.hpp"
 
 #include <algorithm>
@@ -1090,7 +1091,9 @@ void a_length_byte_spelled_as_a_glued_glyph_stays_the_slot() {
 }
 
 // -------------------------------------------------------------------------
-// `Z` (PVDEF) presents as PKDEF does (#91).
+// `Z` (PVDEF) presents as PKDEF does (#91), but keeps a style of its own:
+// hosted serves `Q` and `Z` alike as `<dfn>`, and only `Q` has the census
+// behind it that lets HTML follow.
 // -------------------------------------------------------------------------
 
 // SC26-457 1.3 and SC26-4905-00 1.3 store
@@ -1111,9 +1114,30 @@ void a_pvdef_span_is_a_defined_term() {
   for (const auto &block : prose->blocks)
     for (const auto &fragment : block.inlines)
       if (fragment.text == "parameters" &&
-          fragment.style == geist::detail::FontStyleIR::keyword_define)
+          fragment.style == geist::detail::FontStyleIR::variable_define &&
+          geist::detail::font_style_phrase_kind(fragment.style) ==
+              geist::detail::PhraseKindIR::none)
         defined = true;
-  require(defined, "the PVDEF span did not present as PKDEF");
+  require(defined, "the PVDEF span did not stay its own phraseless style");
+
+  // `Q` and `Z` cells join one run, as cells of one presentation do; the
+  // run names no phrase, so `Z` never reaches `<dfn>` through a neighbour.
+  RecordBuilder joined;
+  metadata(joined, "1.17", {"Command", "Structure"});
+  joined.line({words("cfont"), words("3"), words("4"), words("Q"),
+               words("7"), words("6"), words("Z")});
+  joined.line({words("   "), words("*CURRENTLY")});
+  const auto both = extract(joined.build(47), "Command Structure", error);
+  require(both.has_value(), "a Q/Z run was rejected: " + error);
+  if (!both) return;
+  bool one_run = false;
+  for (const auto &block : both->blocks)
+    for (const auto &fragment : block.inlines)
+      if (fragment.text.find("RENTLY") != std::string::npos)
+        one_run = fragment.text.find("*CUR") != std::string::npos &&
+                  geist::detail::font_style_phrase_kind(fragment.style) ==
+                      geist::detail::PhraseKindIR::none;
+  require(one_run, "a Q/Z run split or named a phrase");
 }
 
 } // namespace

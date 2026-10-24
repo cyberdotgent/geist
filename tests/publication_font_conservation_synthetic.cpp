@@ -134,7 +134,8 @@ void check(const std::string &style, bool framed, bool admitted,
                     std::string::npos,
                 "Markdown flattened source " + style + " styling: " +
                     render_document_markdown(*document));
-      if (style == "E" || style == "P" || style == "X" || style == "4")
+      if (style == "E" || style == "P" || style == "X" || style == "4" ||
+          style == "Q" || style == "Z")
         require(render_document_markdown(*document).find("`Alpha`") !=
                         std::string::npos &&
                     render_document_markdown(*document).find('<') ==
@@ -167,15 +168,19 @@ void check(const std::string &style, bool framed, bool admitted,
 int main() {
   // HTML serves each phrase code in the element hosted BookServer uses
   // (doc/boo-spec/markup.adoc, the message-entry census): `C` (CIT)
-  // `<cite>`, `E` (XMP) `<samp>`, `P` (PK) `<kbd>`, `V` (PV) `<var>`.  `X`
-  // (XPH) and `4` (HP4) are hosted `<tt>`, obsolete in HTML5, and stay
-  // `<code>`.
+  // `<cite>`, `E` (XMP) `<samp>`, `P` (PK) `<kbd>`, `V` (PV) `<var>`, `Q`
+  // (PKDEF) `<dfn>`.  `X` (XPH) and `4` (HP4) are hosted `<tt>`, obsolete in
+  // HTML5, and stay `<code>`.  `Z` (PVDEF) is hosted `<dfn>` too, but on
+  // too few books for a census, and stays `<code>`.
   check("C", true, false,
         "<cite class=\"geist-emphasis geist-citation\">Alpha</cite>");
   check("E", true, false,
         "<samp class=\"geist-monospace geist-sample\">Alpha</samp>");
   check("P", true, false,
         "<kbd class=\"geist-monospace geist-keyboard\">Alpha</kbd>");
+  check("Q", true, false,
+        "<dfn class=\"geist-monospace geist-definition\">Alpha</dfn>");
+  check("Z", true, false, "<code class=\"geist-monospace\">Alpha</code>");
   check("X", true, false, "<code class=\"geist-monospace\">Alpha</code>");
   check("4", true, false, "<code class=\"geist-monospace\">Alpha</code>");
   check("V", true, false,

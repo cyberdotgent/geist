@@ -300,10 +300,11 @@
 }
 
 /* Phrase elements carry the base class of their family, so the rules above
-   style them; these only keep user-agent and site defaults (italic samp in
-   some agents, keycap kbd) from changing that look. */
+   style them; these only keep user-agent and site defaults (italic samp and
+   dfn in some agents, keycap kbd) from changing that look. */
 .geist-sample,
-.geist-keyboard {
+.geist-keyboard,
+.geist-definition {
   font-style: normal;
   font-weight: inherit;
 }

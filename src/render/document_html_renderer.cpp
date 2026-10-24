@@ -365,7 +365,8 @@ private:
 };
 
 // One code run: `<code>` unless it names a phrase hosted BookServer serves
-// in an element of its own -- `E` (XMP) `<samp>`, `P` (PK) `<kbd>`.  `X`
+// in an element of its own -- `E` (XMP) `<samp>`, `P` (PK) `<kbd>`, `Q`
+// (PKDEF) `<dfn>`.  `X`
 // and `4` are hosted `<tt>`, which HTML5 dropped; `<code>` stands for it.
 // The phrase element keeps `geist-monospace`, so every rule written for code
 // runs still applies, and adds its own class.
@@ -381,6 +382,11 @@ void append_code(HtmlSink &sink, const std::string &text,
     sink.markup("<kbd class=\"geist-monospace geist-keyboard\">");
     sink.text(text);
     sink.markup("</kbd>");
+    return;
+  case PhraseKindIR::definition:
+    sink.markup("<dfn class=\"geist-monospace geist-definition\">");
+    sink.text(text);
+    sink.markup("</dfn>");
     return;
   case PhraseKindIR::none:
   case PhraseKindIR::citation:

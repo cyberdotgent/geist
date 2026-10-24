@@ -129,6 +129,7 @@ std::optional<EmphasisKindIR> emphasis_for(FontStyleIR style) {
   case FontStyleIR::sample_phrase:
   case FontStyleIR::keyword:
   case FontStyleIR::keyword_define:
+  case FontStyleIR::variable_define:
   case FontStyleIR::apl_symbol:
   // `_` draws its blank columns as underscores, which only the prose family
   // models; here it stays the unmapped code it was.

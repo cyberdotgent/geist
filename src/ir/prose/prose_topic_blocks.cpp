@@ -21,10 +21,13 @@ namespace geist::detail::prose_internal {
 // ---------------------------------------------------------------------------
 
 // Cells join one run by presentation.  `E` (XMP) and `X`/`4` present alike
-// (monospace) and keep joining as they always have; the run they share
-// names no phrase of its own (see the run loop below).
+// (monospace), as do `Q` (PKDEF) and `Z` (PVDEF), and keep joining as they
+// always have; the run they share takes the style of its family that names
+// no phrase (see the run loop below).
 static FontStyleIR run_presentation(FontStyleIR style) {
-  return font_style_is_example(style) ? FontStyleIR::example_phrase : style;
+  if (font_style_is_example(style)) return FontStyleIR::example_phrase;
+  if (font_style_is_definition(style)) return FontStyleIR::variable_define;
+  return style;
 }
 
 struct Attr {
@@ -441,10 +444,11 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
     ProseInlineIR inline_node;
     const auto& attr = collapsed[run_begin].attr;
     inline_node.style = attr.style;
-    // A run joining `E` and `X`/`4` cells is the plain example phrase.
+    // A run joining `E` and `X`/`4` cells is the plain example phrase, and
+    // one joining `Q` and `Z` cells the phraseless defined term.
     for (auto index = run_begin; index < run_end; ++index)
       if (collapsed[index].attr.style != attr.style)
-        inline_node.style = FontStyleIR::example_phrase;
+        inline_node.style = run_presentation(attr.style);
     if (!attr.links.empty()) {
       const auto picture = attr.links.size() == 1 &&
                            targets[attr.links.front()].picture;

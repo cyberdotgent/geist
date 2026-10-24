@@ -1779,8 +1779,8 @@ quoted in the evidence column; every rule was checked on at least two books.
 |`C` |`CIT` |`<cite>` |ACPZMST1 `FRONT_1.1` `cfont 3 8 C ...` -> `<cite>Managing</cite>`; DREICMST `2.8.1`; inside message entries too, see <<markup_style_code_message_entry_census>>
 |`E` |`XMP` |`<samp>` |GC28-183 `2.2.1` `cfont 17 1 E,` -> `<samp>.</samp>`; FA1PLMM0 `3.5.1`; inside message entries too, see <<markup_style_code_message_entry_census>>
 |`P` |`PK` |`<kbd>` |SC26-457 `3.4.1.2`; PRG1SORT `2.1.4`; inside message entries too, see <<markup_style_code_message_entry_census>>
-|`Q` |`PKDEF` |`<dfn>` |PRG1SORT `2.1.4` -> `<dfn>*CURLIB</dfn>`; SC26-457 `3.4.1.2` -> `<dfn>LIST</dfn>`
-|`Z` |`PVDEF` |`<dfn>` |SC26-457 `1.3` and SC26-4905-00 `1.3` `cfont 3 7 P 11 10 Z ...` -> `<kbd>COMMAND</kbd> <dfn>parameters</dfn>` (one shared sentence, see below)
+|`Q` |`PKDEF` |`<dfn>` |PRG1SORT `2.1.4` -> `<dfn>*CURLIB</dfn>`; SC26-457 `3.4.1.2` -> `<dfn>LIST</dfn>`; 38 books, see <<markup_style_code_q_census>>
+|`Z` |`PVDEF` |`<dfn>` |SC26-457 `1.3` and SC26-4905-00 `1.3` `cfont 3 7 P 11 10 Z ...` -> `<kbd>COMMAND</kbd> <dfn>parameters</dfn>` (one shared sentence, see below); four more books in <<markup_style_code_q_census>>
 |`R` |`RK` |`<B>` |ACPZMST1 `FRONT_1.1` `cfont 4 4 R,` -> `<B>GUPI</B>`; ACPZMST1 `6.2`
 |`V` |`PV` |`<var>` |SC26-457 `3.4.1.2`; GC23-046 `6.0`; ACPZMST1 `2.2.1` record 79 `cfont 13 13 P 28 6 V` -> `<var>convid</var>`; 28 books, see <<markup_style_code_v_census>>
 |`K` |`H4` |`<I>` |SC09-2417-00 `PREFACE.2.1` record 28 segment 17 `cfont 3 6 K 10 3 K ...` -> `<I>Syntax</I> <I>for</I> <I>Commands,</I> ...`; SC09-2417-00 `1.1.4.2` record 62 segment 23 -> `<I>User-Defined</I> <I>Header</I> <I>File</I>`; 30 books in all, see <<markup_style_code_k_census>>
@@ -1816,6 +1816,9 @@ serves both rows (DTs `19911220191142` and `19930625182638`) as
 `<kbd>COMMAND</kbd> <dfn>parameters</dfn> <kbd>....</kbd> <kbd>[</kbd> <dfn>terminator</dfn><kbd>]</kbd>`.
 The two witnesses are two books serving one shared sentence, not two
 independent uses of the code.
+The `Q` census below finds `Z` in four more books, each served as `<dfn>`
+(see there).  Six books in all is still too few to call the rule verified
+over the library; it remains an open question.
 
 [[markup_style_code_underscore_census]]
 `_` (`UNDERSCORE`) underscores every column its span covers, the blank ones
@@ -2008,6 +2011,81 @@ runs on), and the last column counts the topic's matched spans.
 SV40-0368-00 `5.2` also shows a `V` span that ends record 50
 (`cfont 13 2 1 ... 45 3 V`) and draws no text in that record; the word it
 styles is drawn in the next record, whose own `CFONT` row is quoted above.
+
+[[markup_style_code_q_census]]
+`Q` (`PKDEF`) is a defined parameter keyword -- typically the default value
+of a parameter -- and hosted BookServer serves every word it covers as one
+`<dfn>` element.  The census used the same 248-book sample as the `V` census
+above, in which 44 books carry `Q`.  The 39 whose file name is not all
+lowercase were fetched from the hosted shelf, pinned to each book's own
+`DT`, and every `Q` span with drawn text in the first topic carrying the
+code was matched against the page.  SC31-7541-02 was left out because the
+hosted shelf serves SC31-7540-02 under its name.  In the remaining 38 books
+all 194 spans are served as `<dfn>`, and none as `<kbd>`, `<tt>` or plain
+text, although `Q` presents in the same monospace face as `P`.  The table
+quotes the first `CFONT` row of each book that carries a `Q` span, in the
+same form as the `V` table; the hosted column shows its first `Q` word.
+
+[cols="<12,<11,<10,<6,<9,<24,<20,<6",options="header"]
+|===
+|Book |DT |Topic |Record |File offset |Bytes / decoded operand |Hosted |Spans
+
+|DTOBMST |`19910927152537` |`1.2.4.2` |85 |`0x39013` |`3e ee b8 ca b7 ee ...` = `cfont 43 5 2 49 2 V 52 1 2 53 2 V 56 1 2 58 5 Q 63 1 2` |`<dfn>DITTO</dfn>` |1/1
+|ISTM1MST |`19920127140501` |`2.1.1.1` |177 |`0x7cc47` |`35 ee 89 ae 84` = `cfont 53 4 Q` |`<dfn>ONLY</dfn>` |2/2
+|ADMS2MST |`19911002082715` |`J.1.1` |775 |`0x562d9` |`3d 9e bc 7d 8b bd dd 66` = `cfont 3 8 P 12 9 Q` |`<dfn>'ADMDVSS'</dfn>` |6/6
+|SH19-6532-02 |`19930123154621` |`1.1.5` |67 |`0xf05a` |`3e cf cc 99 b2 ae ...` = `cfont 7 5 P 13 1 2 15 7 Q` |`<dfn>NOFORCE</dfn>` |1/1
+|CNMYA0MS |`19911015182653` |`PREFACE.2.3` |32 |`0xe577` |`3c be ae 9e b2 ad b6` = `cfont 3 11 Q 15 10 2` |`<dfn>underscored</dfn>` |1/1
+|SH24-5234-00 |`19910903100023` |`11.2.1` |383 |`0x64462` |`2e c2 c2 8a a0 c4 ...` = `cfont 5 5 P 11 6 P 23 5 V 32 5 Q 38 3 P` |`<dfn>NOFIX</dfn>` |1/1
+|QS3X38DF |`19910524081107` |`10.1` |620 |`0x48590` |`40 d3 cf e4 5c` = `cfont 7 4 Q` |`<dfn>*PRV</dfn>` |2/2
+|CNMYJ0MS |`19911015194907` |`PREFACE.2.3` |40 |`0x21103` |`3e ab 9f db 6e a3 ad a6` = `cfont 3 11 Q 15 4 2` |`<dfn>underscored</dfn>` |1/1
+|SC24-5575-01 |`19910927203157` |`3.4` |152 |`0x10fd3` |`2f c4 d8 9e db d8 ...` = `cfont 3 6 P 9 6 Q 15 9 P` |`<dfn>MSGNOH</dfn>` |5/5
+|SC33-1684-02 |`19990308120106` |`5.1.2` |565 |`0x52725` |`3e ac 9f 91 a3 ae ...` = `cfont 3 11 P 15 5 Q 20 28 P 49 9 P` |`<dfn>LOCAL</dfn>` |12/12
+|CXDH1MST |`19911216152444` |`1.1.2` |58 |`0x2463d` |`38 a8 c3 81 b2 b8 91 b5 ab 81` = `cfont 17 7 E 24 3 Q 27 2 E` |`<dfn>YES</dfn>` |3/3
+|SC31-8049-00 |`19950624054227` |`PREFACE.2.1.7` |74 |`0x113306` |`42 eb ff 96 e3 d7 ...` = `cfont 42 5 Z 51 4 Q` |`<dfn>INCL</dfn>` |1/1
+|EKCHSMST |`19911217093521` |`PREFACE.2.2` |41 |`0x12f4a` |`35 c7 8c e2 93 cd ...` = `cfont 7 1 Q 9 1 P 11 1 P 13 1 P 15 1 P` |`<dfn>0</dfn>` |2/2
+|GC38-8004-00 |`19920626155222` |`APPENDIX1.3.9.7.2` |799 |`0x59bcb` |`48 b1 b9 92 bc b5 ...` = `cfont 3 6 P 9 4 Q 14 1 P 16 3 P 20 1 P 22 2 P` |`<dfn>BOTH</dfn>` |5/5
+|SH21-0915-00 |`19970519091725` |`1.2.4.1` |65 |`0xbe47` |`40 d9 da af` = `cfont 7 8 Q` |`<dfn>*USRPRF:</dfn>` |24/24
+|SH12-5673-01 |`19921030121629` |`5.1` |176 |`0xa32b1` |`42 ee dd c5 e4 c7 ...` = `cfont 38 4 Q 43 4 Q` |`<dfn>LIKE</dfn> <dfn>THIS</dfn>` |2/2
+|SC09-1162-02 |`19920918153957` |`1.3.1.2` |172 |`0x42a92e` |`32 82 a5 c7 3a` = `cfont 11 8 Q` |`<dfn>*CTLSPEC</dfn>` |19/19
+|GC28-1829-02 |`19930625175542` |`10.10.1` |319 |`0x26171` |`40 b7 bb 98 be b7 d4 23` = `cfont 3 6 P 9 3 Q` |`<dfn>RCK</dfn>` |2/2
+|EZ2M3102 |`19920313000100` |`5.7` |329 |`0x23b8e` |`41 c2 ec 48 a4 ec ...` = `cfont 3 19 P 22 8 Q 30 1 P` |`<dfn>HASPFSSM</dfn>` |2/2
+|DFHKA601 |`19920327000100` |`1.4.11.4` |385 |`0xef257` |`34 ae c8 8e 99 a3 ...` = `cfont 3 7 P 10 2 Q 12 7 P` |`<dfn>60</dfn>` |1/1
+|SH19-6795-02 |`19931105193809` |`2.1.2` |753 |`0x46f63` |`43 ed 8b bb d7 60 ee 01 bb 9d` = `cfont 42 8 Q 51 8 V` |`<dfn>KEYWORD1</dfn>` |1/1
+|SC23-3817-02 |`19990415175953` |`2.1.5` |193 |`0x42844` |`3b b2 9d ea 75 b7 ...` = `cfont 48 3 X 52 1 Q 53 3 X` |`<dfn>B</dfn>` |1/1
+|SC41-3407-00 |`19950531083031` |`4.1.1` |146 |`0xc0ddb` |`37 c2 c0 dd 03` = `cfont 7 5 Q` |`<dfn>APPN:</dfn>` |10/10
+|SC31-8232-01 |`19980608184245` |`PREFACE.2.2.7` |29 |`0x3f56e` |`4f eb 3d b0 a0 ed b4 ad d2 b3` = `cfont 42 5 V 51 4 Q` |`<dfn>INCL</dfn>` |1/1
+|GC41-5434-04 |`19990219103922` |`APPENDIX1.1.2.1.2` |883 |`0x50542` |`35 cb ca e0 41` = `cfont 7 6 Q` |`<dfn>*SAME:</dfn>` |8/8
+|EZ2T2103 |`19920313000100` |`1.43.9` |861 |`0xe213c` |`3c b4 b2 a2 b5 c7 ...` = `cfont 10 1 P 11 6 Q 17 1 P` |`<dfn>SWITCH</dfn>` |1/1
+|SC09-2067-00 |`19950918172230` |`14.6` |1052 |`0x78928` |`40 bb b8 95` = `cfont 44 4 Q` |`<dfn>*YES</dfn>` |52/52
+|HCPA2MST |`19920529132045` |`F.1.1` |1062 |`0x6a348` |`35 ed 65 c3 da f4` = `cfont 29 7 Q` |`<dfn>CMSINST</dfn>` |1/1
+|SC41-3445-00 |`19951005225043` |`3.1` |48 |`0x34c8d` |`35 d3 c7 e5 9a` = `cfont 7 5 Q` |`<dfn>*NET:</dfn>` |3/3
+|SC09-1381-00 |`19920918183032` |`C.1` |586 |`0xc766b` |`45 c9 d6 e5 ed` = `cfont 11 6 Q` |`<dfn>*LIBL:</dfn>` |4/4
+|COMPROG |`19900828005111` |`4.3.3` |159 |`0x35521c` |`35 ab 98 d2 03` = `cfont 7 5 Q` |`<dfn>*NONE</dfn>` |1/1
+|SC09-1418-00 |`19920918110020` |`1.2.2` |31 |`0x140474` |`42 d9 da e6 f6` = `cfont 7 8 Q` |`<dfn>*SELECT:</dfn>` |8/8
+|DMSA6MST |`19920529132045` |`1.2.4` |130 |`0x1a5d2` |`3d ee e8 a4 90` = `cfont 54 2 Q` |`<dfn>NO</dfn>` |2/2
+|PRG2CLV2 |`19900803162205` |`1.2` |26 |`0x101ab` |`41 b0 bb a4` = `cfont 11 6 Q` |`<dfn>*LIBL:</dfn>` |3/3
+|DMSBMST |`19910329143510` |`1.8` |91 |`0x202d6` |`34 8a 7c ba 72` = `cfont 9 1 Q` |`<dfn>B</dfn>` |1/1
+|SC31-6533-00 |`19941010105640` |`2.6.2.1` |72 |`0x1a9e4` |`35 ca d8 a4 b5 d9 ...` = `cfont 3 6 P 10 7 P 18 2 Q 20 1 P 21 5 V` |`<dfn>16</dfn>` |1/1
+|DFHMA101 |`19920327000100` |`2.7.8.3` |729 |`0x15f2ed` |`37 ad b1 8a b6 96 ...` = `cfont 3 4 P 8 1 P 9 3 Q 12 33 P 46 9 P` |`<dfn>ALL</dfn>` |1/1
+|G544-3984-00 |`19940801080554` |`4.1.3` |221 |`0x43045` |`35 da da 9b b5 d4 ...` = `cfont 8 8 P 16 5 Q 22 1 P 24 4 P 29 1 P 31 5 P 37 1 P 39 4 P 44 1 P 46 1 P` |`<dfn>SHEET</dfn>` |2/2
+|===
+
+`Z` (`PVDEF`) occurs in 4 of the 248 sampled books, every one of which
+also carries `Q`.  All 13 of their `Z` spans are served as `<dfn>`:
+
+[cols="<14,<12,<14,<8,<52",options="header"]
+|===
+|Book |Topic |Spans |Record |First span
+
+|CNMYA0MS |`1.69` |6/6 |304 |`30`
+|SC31-8049-00 |`PREFACE.2.1.7` |1/1 |74 |`today`
+|SC41-3407-00 |`4.3.1.1` |1/1 |185 |`1440:`
+|DMSBMST |`2.45.13` |5/5 |823 |`ddname`
+|===
+
+With SC26-457 and SC26-4905-00 that makes six books, against 28 for `V` and
+38 for `Q`.  Whether `Z` is `<dfn>` in every book is open; until more books are found, the only verified fact is that it
+presents exactly as `Q` does in each book that has been checked.
 
 [[markup_style_code_bold_census]]
 `T` (`TP`), `Y` (`MDQUAL`), `B` (`CAUTION`), `F` (`CAUTIONTEXT`), `D`
