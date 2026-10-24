@@ -250,9 +250,70 @@ private:
   RenderSink &sink_;
 };
 
+void append_flat_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
+                         InlineContext context,
+                         const DocumentMarkdownRendererOptions &options);
+
+// Markdown has no margin, so a revised run prints its children in place and
+// the mark is dropped (the HTML form keeps it).
 void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
                     InlineContext context,
                     const DocumentMarkdownRendererOptions &options) {
+  if (!has_revised_inline(inlines)) {
+    append_flat_inlines(sink, inlines, context, options);
+    return;
+  }
+  // A run the mark split in two prints as the one run it was: a revised
+  // row inside a bold sentence keeps the sentence one `**...**`.
+  InlineSequenceIR flat;
+  const auto merge = [](InlineIR &into, const InlineIR &next) {
+    if (auto *left = std::get_if<EmphasisInlineIR>(&into.node)) {
+      const auto *right = std::get_if<EmphasisInlineIR>(&next.node);
+      if (right == nullptr || right->kind != left->kind ||
+          right->phrase != left->phrase)
+        return false;
+      left->text += right->text;
+      return true;
+    }
+    if (auto *left = std::get_if<CodeInlineIR>(&into.node)) {
+      const auto *right = std::get_if<CodeInlineIR>(&next.node);
+      if (right == nullptr || right->phrase != left->phrase) return false;
+      left->code += right->code;
+      return true;
+    }
+    if (auto *left = std::get_if<UnderlineInlineIR>(&into.node)) {
+      const auto *right = std::get_if<UnderlineInlineIR>(&next.node);
+      if (right == nullptr) return false;
+      left->text += right->text;
+      return true;
+    }
+    if (auto *left = std::get_if<TextInlineIR>(&into.node)) {
+      const auto *right = std::get_if<TextInlineIR>(&next.node);
+      if (right == nullptr) return false;
+      left->text += right->text;
+      return true;
+    }
+    return false;
+  };
+  bool boundary = false;
+  for (const auto &in : inlines) {
+    const auto *revised = std::get_if<RevisedInlineIR>(&in.node);
+    const auto children =
+        revised != nullptr ? revised->children : InlineSequenceIR{in};
+    for (std::size_t index = 0; index < children.size(); ++index) {
+      const auto at_boundary = index == 0 && (boundary || revised != nullptr);
+      if (at_boundary && !flat.empty() && merge(flat.back(), children[index]))
+        continue;
+      flat.push_back(children[index]);
+    }
+    boundary = revised != nullptr;
+  }
+  append_flat_inlines(sink, flat, context, options);
+}
+
+void append_flat_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
+                         InlineContext context,
+                         const DocumentMarkdownRendererOptions &options) {
   for (std::size_t index = 0; index < inlines.size(); ++index) {
     const PathScope step(sink, "inline", index);
     const auto &in = inlines[index];
@@ -561,6 +622,8 @@ void append_degradation_marker(RenderSink &sink, const BlockIR &block) {
 
 bool inline_sequence_ends_with_colon(const InlineSequenceIR &content) {
   if (content.empty()) return false;
+  if (const auto *revised = std::get_if<RevisedInlineIR>(&content.back().node))
+    return inline_sequence_ends_with_colon(revised->children);
   return std::visit(
       [](const auto &node) {
         using T = std::decay_t<decltype(node)>;

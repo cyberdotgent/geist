@@ -116,6 +116,7 @@ A block's parts are addressable too.
 | class | element | inside |
 | --- | --- | --- |
 | `geist-list-item` | `<li>` | `geist-list` |
+| `geist-revised` | `<span>`, `<li>`, `<tr>` | text, a list item or a table row from display rows the source marks as revised in its left margin; hosted BookServer prints the mark in the row's margin |
 | `geist-list-label` | `<span>` | `geist-list-item`, or its first `geist-paragraph`: a label the source printed in front of the item (`1.` of a `Step 1.` head), separate from the list's own number |
 | `geist-definition-term` | `<dt>` | `geist-definition-list` |
 | `geist-definition-description` | `<dd>` | `geist-definition-list` |
@@ -282,6 +283,7 @@ inside carries these.
 | `data-geist-depth="<n>"` | `geist-list-item` | the item's nesting level inside its own list, when non-zero |
 | `data-geist-empty="true"` | `geist-list-item` | the source wrote this item with no text of its own |
 | `value="<n>"` | `geist-list-item` in an `<ol>` | the ordinal the source stated, which may start above one or contain gaps |
+| `data-geist-revision-mark="<c>"` | `geist-revised` | the revision mark the source draws in the margin (`\|`, `#`, `:`, ...); a stored box-drawing vertical is given as `\|` |
 | `data-geist-generated="true"` | `geist-menu-lead` | text the reader synthesises, which no BOO byte states |
 | `data-geist-opaque-kind="<kind>"` | `geist-opaque`, `geist-opaque-inline` | the source-format kind of understood-but-unrepresentable content |
 | `data-geist-reason="<code>"` | `geist-diagnostic` | the reason code for a topic that could not be rendered |

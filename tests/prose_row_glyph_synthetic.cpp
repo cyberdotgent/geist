@@ -20,6 +20,7 @@
 
 #include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/lowering/document_ir.hpp"
+#include "geist/detail/render/document_html_renderer.hpp"
 #include "geist/detail/render/document_markdown_renderer.hpp"
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/layout/ownership_ir.hpp"
@@ -120,6 +121,7 @@ struct RecordBuilder {
         record.logical_record, record.assembled, record.encoded_tokens,
         record.ir.display_lines);
     geist::detail::demote_display_line_owned_controls(record);
+    geist::detail::assign_display_line_margin_marks(record);
     return std::move(record);
   }
 };
@@ -347,6 +349,61 @@ void a_change_bar_in_the_margin_is_no_bullet() {
           "the change bar opened a list item");
 }
 
+// The revised row inside a paragraph carries its margin mark through the IR.
+// BLGR3MST EDITION and N2AB1MST 2.8 are served by hosted BookServer with
+// ` | ` in front of each revised row and three blanks in front of the rows
+// around it; the paragraph is revised in part, so the mark wraps the revised
+// row's text only.  Markdown has no margin and prints the paragraph as
+// before; HTML marks the run.
+void a_revised_row_keeps_its_mark() {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({spaces(3), word("Plain"), word("text.")});
+  builder.line({spaces(1), glyph("|"), spaces(2), word("Revised"),
+                word("text.")});
+  builder.line({spaces(3), word("More"), word("text.")});
+  const auto record = builder.build(31);
+  require(record.ir.display_lines.size() == 12 &&
+              record.ir.display_lines[10].margin_mark == U'|',
+          "the barred line does not store its margin mark");
+  std::string error;
+  const auto prose = extract(record, error);
+  require(prose.has_value(), "the revised topic was rejected: " + error);
+  if (!prose) return;
+  const auto block = block_with(*prose, "Plain text. Revised text. More text.");
+  require(block != npos, "the three rows are not one paragraph: '" +
+                             body_text(*prose) + "'");
+  if (block == npos) return;
+  std::string marked;
+  std::string plain;
+  for (const auto &fragment : prose->blocks[block].inlines)
+    (fragment.revision_mark == U'|' ? marked : plain) += fragment.text;
+  require(marked == "Revised text.",
+          "the revised row's text is not marked: '" + marked + "'");
+  require(plain == "Plain text.  More text.",
+          "unrevised rows carry a mark: '" + plain + "'");
+
+  geist::detail::TopicIdentityIR topic;
+  topic.id = "1.2";
+  topic.title = topic_title;
+  const auto document =
+      geist::detail::lower_prose_topic_to_document_ir(topic, *prose, &error);
+  require(document.has_value(), "the revised topic did not lower: " + error);
+  if (!document) return;
+  require(geist::detail::verify_document_ir(*document, &error),
+          "the revised document does not verify: " + error);
+  const auto html =
+      geist::detail::render_document_html_blocks(*document, {});
+  require(contains(html, "Plain text. <span class=\"geist-revised\" "
+                         "data-geist-revision-mark=\"|\">Revised text."
+                         "</span> More text."),
+          "HTML does not mark the revised run: " + html);
+  require(contains(markdown(*prose),
+                   geist::detail::escape_markdown_text(
+                       "Plain text. Revised text. More text.")),
+          "Markdown changed the revised paragraph: " + markdown(*prose));
+}
+
 // Only the bullet's own geometry makes a list item: a glyph followed by a
 // wider gap is a definition-style row (N2AH1MST 1.2.4 `=      Marginal`).
 void a_glyph_before_a_wide_gap_is_no_bullet() {
@@ -441,6 +498,7 @@ void a_margin_bar_before_its_text_stays_a_marker() {
 } // namespace
 
 int main() {
+  a_revised_row_keeps_its_mark();
   a_dash_row_under_an_item_is_a_nested_item();
   a_dash_list_after_a_blank_line_is_still_nested();
   a_misaligned_dash_item_declines();

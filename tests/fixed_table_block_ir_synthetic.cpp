@@ -767,10 +767,11 @@ void test_revision_bar_before_box_border() {
     require(cell_text(*revised, 1) == "Y",
             "revision-barred row lost its second cell: '" +
                 cell_text(*revised, 1) + "'");
-    require(revised->revised, "revision-barred row lost its revision flag");
+    require(revised->revision_mark == char32_t{0x2502},
+            "revision-barred row lost its revision mark");
   }
   const auto *plain = find_row(block, "Ab");
-  require(plain != nullptr && !plain->revised,
+  require(plain != nullptr && !plain->revision_mark,
           "unrevised row is missing or carries a revision flag");
   std::string error;
   require(verify_fixed_table_blocks_ir(sources, layout, ownership, range,

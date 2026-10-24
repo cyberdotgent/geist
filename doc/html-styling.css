@@ -95,6 +95,15 @@
   list-style: none;
 }
 
+/* Revised in this edition: the source draws a mark (usually a bar) in the
+   row's left margin. */
+.geist-revised {
+  border-inline-start: 2px solid #888;
+  padding-inline-start: 0.25em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
 .geist-definition-list {
   margin-block: 0.75em;
 }

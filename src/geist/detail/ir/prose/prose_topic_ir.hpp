@@ -144,6 +144,10 @@ struct ProseInlineIR {
   std::vector<ProseCrossReferenceTargetIR> targets;
   // Contiguous source token ranges, in source order.
   std::vector<DocumentSourceSliceIR> slices;
+  // The revision mark the display rows of this run carry in their margin
+  // (`DisplayLineIR::margin_mark`), 0 for an unrevised run.  A run never
+  // straddles rows with different marks.
+  char32_t revision_mark = 0;
 };
 
 // The `CZ` dialect (doc/boo-spec/markup.adoc, "CZ layout directives") adds the

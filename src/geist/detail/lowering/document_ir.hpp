@@ -139,10 +139,26 @@ struct OpaqueInlineIR {
   std::string content;
 };
 
+struct InlineIR;
+
+// Text the source draws on display lines that carry a revision mark in their
+// margin.  The book compiler resolved SCRIPT revision codes and drew the
+// mark's character in cell 1 of each revised row (doc/boo-spec/markup.adoc,
+// "The three-column left margin"); the character is the only trace the file
+// keeps.  A paragraph is often revised in part, so the mark wraps the inlines
+// of the marked rows rather than flagging a whole block.  `children` holds
+// ordinary inlines, never another revised run.  Hosted BookServer prints the
+// mark in the row's margin (` | Second Edition ...`); HTML marks the run,
+// Markdown has no margin and prints the children only.
+struct RevisedInlineIR {
+  char32_t mark = 0;
+  std::vector<InlineIR> children;
+};
+
 using InlineNodeIR =
     std::variant<TextInlineIR, EmphasisInlineIR, CodeInlineIR,
                  CrossReferenceInlineIR, ImageInlineIR, HardBreakInlineIR,
-                 OpaqueInlineIR, UnderlineInlineIR>;
+                 OpaqueInlineIR, UnderlineInlineIR, RevisedInlineIR>;
 
 struct InlineIR {
   InlineNodeIR node;
@@ -231,6 +247,10 @@ struct ListItemIR {
   // (doc/boo-spec/markup.adoc, "List item heads").  Empty for every other
   // item; when set, it is serialized before `content` or the first block.
   InlineSequenceIR label = {};
+  // Every display row of the item carries this revision mark in its margin
+  // (see `RevisedInlineIR`); the item's content then holds no revised run of
+  // its own.
+  std::optional<char32_t> revision_mark = std::nullopt;
 };
 
 enum class OrderedListMarkerIR {
@@ -276,6 +296,10 @@ struct TableCellIR {
 struct TableRowIR {
   std::vector<TableCellIR> cells;
   DocumentNodeOriginIR origin;
+  // A display line of the row carries this revision mark in the margin, one
+  // cell left of the box's border (doc/boo-spec/markup.adoc, "Revision bar
+  // beside a box table").
+  std::optional<char32_t> revision_mark = std::nullopt;
 };
 
 struct TableBlockIR {
@@ -490,6 +514,15 @@ void normalize_document_origin_slices(DocumentIR& document);
 // conversion prints it (ACPZMST1 5.4 `<H2>| 5.4 ...`); any other mark is its
 // own character, UTF-8 encoded.
 std::string revision_mark_text(char32_t mark);
+
+// True when `mark` is a character a revision column can draw: printable,
+// not a blank, not the decoder's unmapped word.
+bool valid_revision_mark(char32_t mark);
+
+// `inlines` with every revised run replaced by its children, in place: what a
+// target without a margin (Markdown) prints.
+InlineSequenceIR flatten_revised_inlines(const InlineSequenceIR& inlines);
+bool has_revised_inline(const InlineSequenceIR& inlines);
 
 bool verify_document_ir(const DocumentIR& document,
                         std::string* error = nullptr);

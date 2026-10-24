@@ -639,6 +639,10 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
       case ProseInlineKindIR::line_break: out << "line_break"; break;
       }
       out << " '" << inline_node.text << "'";
+      if (inline_node.revision_mark != 0)
+        out << " revised=U+" << std::hex
+            << static_cast<std::uint32_t>(inline_node.revision_mark)
+            << std::dec;
       format_slices(out, inline_node.slices);
       out << '\n';
       for (const auto& target : inline_node.targets) {

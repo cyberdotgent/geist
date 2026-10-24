@@ -185,6 +185,13 @@ DocumentIR build_document() {
   }
   rich.push_back(in(ImageInlineIR{"resource:70", "alt \"<image>\" & more"}));
   rich.push_back(in(OpaqueInlineIR{"legacy<span>", "raw & value"}));
+  {
+    // Text from revised rows: the run carries its margin mark.
+    RevisedInlineIR revised;
+    revised.mark = 0x2502;
+    revised.children.push_back(in(TextInlineIR{"revised <row>"}));
+    rich.push_back(in(std::move(revised)));
+  }
 
   document.blocks.push_back(block(HeadingBlockIR{2, text("Heading <#1> & co")}));
   document.blocks.push_back(block(ParagraphBlockIR{rich}));

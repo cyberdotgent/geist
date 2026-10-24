@@ -97,6 +97,7 @@ InlineSequenceIR styled_row(const FixedTablePreformattedLineIR &line,
 TableRowIR lower_row(const FixedTableRowIR &row) {
   TableRowIR lowered;
   lowered.origin = origin_for("fixed table row");
+  lowered.revision_mark = row.revision_mark;
   for (const auto &cell : row.cells) {
     TableCellIR lowered_cell;
     lowered_cell.origin = origin_for("fixed table cell");

@@ -526,6 +526,17 @@ void append_inline(HtmlSink &sink, const InlineIR &node) {
           sink.markup(">");
         } else if constexpr (std::is_same_v<T, HardBreakInlineIR>) {
           sink.markup("<br>");
+        } else if constexpr (std::is_same_v<T, RevisedInlineIR>) {
+          // Text from revised rows: hosted BookServer prints the mark in the
+          // row's margin (` | Second Edition ...`); the run carries it for
+          // the stylesheet's margin bar.
+          sink.markup("<span");
+          sink.attribute("class", "geist-revised");
+          sink.attribute("data-geist-revision-mark",
+                         revision_mark_text(value.mark));
+          sink.markup(">");
+          append_inlines(sink, value.children);
+          sink.markup("</span>");
         } else if constexpr (std::is_same_v<T, OpaqueInlineIR>) {
           sink.markup("<code class=\"geist-opaque-inline\"");
           sink.attribute("data-geist-opaque-kind", value.kind);
@@ -634,6 +645,20 @@ void append_blocks(HtmlSink &sink, const BlockSequenceIR &blocks) {
   for (const auto &block : blocks) append_block(sink, block);
 }
 
+// A row revised in this edition carries its mark for the stylesheet's
+// margin bar.
+void open_table_row(HtmlSink &sink, const TableRowIR &row) {
+  if (!row.revision_mark) {
+    sink.markup("<tr class=\"geist-table-row\">");
+    return;
+  }
+  sink.markup("<tr");
+  sink.attribute("class", "geist-table-row geist-revised");
+  sink.attribute("data-geist-revision-mark",
+                 revision_mark_text(*row.revision_mark));
+  sink.markup(">");
+}
+
 void append_table(HtmlSink &sink, const TableBlockIR &node,
                   const DocumentNodeOriginIR &origin) {
   open_block(sink, "table", "geist-table", origin);
@@ -642,7 +667,7 @@ void append_table(HtmlSink &sink, const TableBlockIR &node,
   if (node.header_rows != 0) {
     sink.markup("<thead class=\"geist-table-head\">");
     for (std::size_t index = 0; index < node.header_rows; ++index) {
-      sink.markup("<tr class=\"geist-table-row\">");
+      open_table_row(sink, node.rows[index]);
       for (const auto &cell : node.rows[index].cells) {
         sink.markup("<th class=\"geist-table-header-cell\" scope=\"col\">");
         if (cell.blocks.empty())
@@ -658,7 +683,7 @@ void append_table(HtmlSink &sink, const TableBlockIR &node,
   if (node.header_rows < node.rows.size()) {
     sink.markup("<tbody class=\"geist-table-body\">");
     for (auto index = node.header_rows; index < node.rows.size(); ++index) {
-      sink.markup("<tr class=\"geist-table-row\">");
+      open_table_row(sink, node.rows[index]);
       for (const auto &cell : node.rows[index].cells) {
         sink.markup("<td class=\"geist-table-cell\">");
         if (cell.blocks.empty())
@@ -724,7 +749,14 @@ void append_block(HtmlSink &sink, const BlockIR &block) {
             open_block(sink, tag, block_class, origin);
           }
           for (const auto &item : node.items) {
-            sink.markup("<li class=\"geist-list-item\"");
+            if (item.revision_mark) {
+              sink.markup("<li");
+              sink.attribute("class", "geist-list-item geist-revised");
+              sink.attribute("data-geist-revision-mark",
+                             revision_mark_text(*item.revision_mark));
+            } else {
+              sink.markup("<li class=\"geist-list-item\"");
+            }
             if (item.depth != 0)
               sink.attribute("data-geist-depth", std::to_string(item.depth));
             if (node.ordered && item.source_ordinal)

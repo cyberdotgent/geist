@@ -274,10 +274,69 @@ bool link_table_cells(const ProseTopicIR& prose, std::size_t span,
 }
 
 
+// Wraps each maximal run of inlines from rows with one revision mark in a
+// `RevisedInlineIR` (`content[first..]`, one mark per inline).  The run's
+// origin covers its children's sources.
+void wrap_revised_runs(InlineSequenceIR& content, std::size_t first,
+                       const std::vector<char32_t>& marks) {
+  if (std::all_of(marks.begin(), marks.end(),
+                  [](const char32_t mark) { return mark == 0; }))
+    return;
+  InlineSequenceIR rebuilt(content.begin(),
+                           content.begin() + static_cast<std::ptrdiff_t>(first));
+  for (std::size_t index = 0; index < marks.size();) {
+    auto& node = content[first + index];
+    if (marks[index] == 0) {
+      rebuilt.push_back(std::move(node));
+      ++index;
+      continue;
+    }
+    RevisedInlineIR revised;
+    revised.mark = marks[index];
+    std::vector<DocumentSourceSliceIR> slices;
+    auto at = index;
+    for (; at < marks.size() && marks[at] == marks[index]; ++at) {
+      auto& child = content[first + at];
+      slices.insert(slices.end(), child.origin.slices.begin(),
+                    child.origin.slices.end());
+      revised.children.push_back(std::move(child));
+    }
+    // The run owns its children's tokens whole, in source order and once
+    // each, as a container origin does.
+    for (auto& slice : slices) {
+      slice.character_begin = 0;
+      slice.character_end = 0;
+    }
+    const auto key = [](const DocumentSourceSliceIR& slice) {
+      return std::make_tuple(slice.logical_record, slice.segment_index,
+                             slice.token_begin, slice.token_end,
+                             slice.byte_begin, slice.byte_end);
+    };
+    std::sort(slices.begin(), slices.end(),
+              [&](const auto& left, const auto& right) {
+                return key(left) < key(right);
+              });
+    slices.erase(std::unique(slices.begin(), slices.end(),
+                             [&](const auto& left, const auto& right) {
+                               return key(left) == key(right);
+                             }),
+                 slices.end());
+    InlineIR wrapper;
+    wrapper.node = std::move(revised);
+    wrapper.origin = origin(std::move(slices), "prose revised rows");
+    rebuilt.push_back(std::move(wrapper));
+    index = at;
+  }
+  content = std::move(rebuilt);
+}
+
 bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
                    std::size_t end, InlineSequenceIR& content,
                    std::string* error, bool flatten_emphasis = false) {
   std::vector<DocumentSourceSliceIR> imaged;
+  const auto first = content.size();
+  // The revision mark of every inline appended below, in order.
+  std::vector<char32_t> marks;
   for (auto index = begin; index < end && index < block.inlines.size();
        ++index) {
     const auto& node = block.inlines[index];
@@ -288,6 +347,7 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
       lowered.origin = origin(node.slices, "prose CZ highlighted label");
       if (node.text.empty()) return fail(error, "prose inline has no text");
       content.push_back(std::move(lowered));
+      marks.push_back(node.revision_mark);
       continue;
     }
     switch (node.kind) {
@@ -378,11 +438,14 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
       lowered.node = HardBreakInlineIR{};
       lowered.origin = origin({}, "prose title-page row break");
       content.push_back(std::move(lowered));
+      marks.push_back(node.revision_mark);
       continue;
     }
     if (node.text.empty()) return fail(error, "prose inline has no text");
     content.push_back(std::move(lowered));
+    marks.push_back(node.revision_mark);
   }
+  wrap_revised_runs(content, first, marks);
   return !content.empty() || fail(error, "prose block has no inlines");
 }
 
@@ -833,6 +896,16 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
             lowered.empty_content = true;
           else if (!lower_inlines(item, lowered.content, error))
             return false;
+          // Every row of the item revised under one mark: the item carries
+          // the mark (hosted ` | °   Defining the font size`, EFWUOMST 4.1),
+          // and its content no wrapper of its own.
+          if (lowered.label.empty() && lowered.content.size() == 1)
+            if (auto* revised =
+                    std::get_if<RevisedInlineIR>(&lowered.content.front().node)) {
+              lowered.revision_mark = revised->mark;
+              auto children = std::move(revised->children);
+              lowered.content = std::move(children);
+            }
         } else {
           if (!item.inlines.empty()) {
             ParagraphBlockIR paragraph;

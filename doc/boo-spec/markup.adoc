@@ -2655,6 +2655,47 @@ it the same measurement re-indents the verbatim rows of a `cz OFF XMP`
 listing, so it is limited to the flattened dialect and to lines whose leading
 whitespace really is more than one run.
 
+[[markup_revision_marks_as_stored]]
+==== Revision marks as stored
+
+The file carries no revision flag and no reference to a `c.rev` code on a
+revised row.  The book compiler resolved the SCRIPT revision codes and drew
+each mark's character into the display line, in one of two positions:
+
+* *a body row's margin* -- cell 0 a one-cell blank token, cell 1 a single-word
+token holding the mark, cell 2 blank (usually the space the assembler inserts
+behind the mark's token), and at least one drawn cell after it;
+* *the `ST` revision column* -- the cell glued directly after the two opcode
+cells of a title line (see "Title line" in the logical controls).  A bare
+attach prefix may be stored as a token of its own between the opcode and the
+mark: SC41-5401-00 `2.1.2.5` record 240 stores `98` (`ST`), `00` (an attach
+prefix token), `E4 E7` (`|`).
+
+The mark is the box-drawing vertical `U+2502` or a printable ASCII punctuation
+character.  A letter or digit in cell 1 is row text, never a mark.  Two rows
+with a mark other than a bar:
+
+[cols="<26,<44,<30",options="header"]
+|===
+|Book / record / line |Bytes from the length byte |Hosted row
+
+|IKJC5MST record 30 line 26 |`21` at `0x2F184`, `16` (one blank), `28` (`:`), `DA F9` (`MVS`) ... l| : MVS/ESA Interactive Product Control System (IPCS) Customization, GC28-1630
+|DFHKG501 record 27 line 16 |`16` at `0x95F86`, `08` (one blank), `1E` (`#`), `0B` (a four-cell run), `82` (`that`) ... l| #     that contain CICS code that has been restructured; that is, those
+|===
+
+Hosted DTs `19920313000100` and `19920327000100`.
+
+In a random sample of 150 library books whose files are named in upper case,
+94 store revision marks: 115,570 marked body rows, and 3,065 marked `ST` lines
+in 78 books.  The marks are `|` (ASCII, 67 books), `U+2502` (24), `#` (10
+CICS books), `+` (one VM book) and `:` (three TSO/E books).  Hosted BookServer prints the mark wherever it is stored,
+as one cell: in the row's three-column margin for a body row -- prose rows,
+list-bullet rows, ordinal selection rows of a generated list and the drawn
+rows of a box table alike -- and in front of the topic number for a title
+(`<H3>| 2.1.2.5   CSLBUFSIZE ...</H3>`, `<h1>|    Notices</h1>` for a title
+whose number the reader suppresses).  `U+2502` is printed `|`.  No hosted page
+of the sample prints a stored mark anywhere else or drops it.
+
 [[markup_the_list_bullet_is_display_structure_between_controls]]
 ==== The list bullet is display structure between controls
 

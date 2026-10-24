@@ -62,7 +62,8 @@ bool supported_attribute(const std::string_view tag,
       "data-geist-degradation", "data-geist-degraded",
       "data-geist-depth",       "data-geist-empty",
       "data-geist-generated",   "data-geist-opaque-kind",
-      "data-geist-reason",      "data-geist-severity",
+      "data-geist-reason",      "data-geist-revision-mark",
+      "data-geist-severity",
       "data-geist-topic"};
   return std::find(std::begin(attributes), std::end(attributes), name) !=
          std::end(attributes);

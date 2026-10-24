@@ -203,12 +203,22 @@ bool verify_inlines(const InlineSequenceIR& inlines, bool allow_empty,
             return !node.resource.empty();
           } else if constexpr (std::is_same_v<T, OpaqueInlineIR>) {
             return !node.kind.empty();
+          } else if constexpr (std::is_same_v<T, RevisedInlineIR>) {
+            // One level: a revised run holds ordinary inlines only.
+            return valid_revision_mark(node.mark) && !node.children.empty() &&
+                   std::none_of(node.children.begin(), node.children.end(),
+                                [](const InlineIR& child) {
+                                  return std::holds_alternative<
+                                      RevisedInlineIR>(child.node);
+                                });
           } else {
             return true;
           }
         },
         in.node);
     if (!valid) return fail(error, "inline node is not canonical");
+    if (const auto* revised = std::get_if<RevisedInlineIR>(&in.node))
+      if (!verify_inlines(revised->children, false, error)) return false;
   }
   return true;
 }
@@ -233,6 +243,8 @@ void collect_inline_origins(const InlineSequenceIR& inlines,
     if (const auto* reference = std::get_if<CrossReferenceInlineIR>(&in.node))
       for (const auto& claim : reference->targets)
         if (claim.control_origin) out.push_back(&*claim.control_origin);
+    if (const auto* revised = std::get_if<RevisedInlineIR>(&in.node))
+      collect_inline_origins(revised->children, out);
   }
 }
 
@@ -335,9 +347,7 @@ bool verify_block(const BlockIR& block, bool nested, std::string* error) {
           if (nested) return fail(error, "nested heading is not allowed");
           if (node.level == 0 || node.level > 6)
             return fail(error, "heading level is outside 1..6");
-          if (node.revision_mark &&
-              (*node.revision_mark <= U' ' || *node.revision_mark == 0x7f ||
-               *node.revision_mark == 0xffff || *node.revision_mark > 0x10ffff))
+          if (node.revision_mark && !valid_revision_mark(*node.revision_mark))
             return fail(error, "heading revision mark is not a drawn glyph");
           return verify_inlines(node.content, false, error);
         } else if constexpr (std::is_same_v<T, ParagraphBlockIR>) {
@@ -373,6 +383,8 @@ bool verify_block(const BlockIR& block, bool nested, std::string* error) {
                 (!item.content.empty() || !item.blocks.empty()))
               return fail(error, "empty list item carries content");
             if (!verify_origin(item.origin, error)) return false;
+            if (item.revision_mark && !valid_revision_mark(*item.revision_mark))
+              return fail(error, "list item revision mark is not a drawn glyph");
             // A label stands in front of the item's own text, so an item
             // that declares itself empty cannot carry one.
             if (!item.label.empty() &&
@@ -445,6 +457,8 @@ bool verify_block(const BlockIR& block, bool nested, std::string* error) {
           for (const auto& row : node.rows) {
             if (!verify_origin(row.origin, error) || row.cells.size() != width)
               return fail(error, "table row geometry is inconsistent");
+            if (row.revision_mark && !valid_revision_mark(*row.revision_mark))
+              return fail(error, "table row revision mark is not a drawn glyph");
             for (const auto& cell : row.cells) {
               if (!cell.content.empty() && !cell.blocks.empty())
                 return fail(error,
@@ -760,7 +774,11 @@ void format_inlines(std::ostringstream& out, const InlineSequenceIR& inlines) {
                 << quoted(node.alt_text);
           else if constexpr (std::is_same_v<T, HardBreakInlineIR>)
             out << "hard_break";
-          else
+          else if constexpr (std::is_same_v<T, RevisedInlineIR>) {
+            out << "revised=" << quoted(revision_mark_text(node.mark))
+                << (node.mark == 0x2502 ? ":U+2502" : "");
+            format_inlines(out, node.children);
+          } else
             out << "opaque=" << quoted(node.kind) << ':'
                 << quoted(node.content);
         },
@@ -985,6 +1003,10 @@ std::string format_document_ir(const DocumentIR& document) {
                 out << "depth=" << node.items[item].depth << ' ';
               if (node.items[item].source_ordinal)
                 out << "ordinal=" << *node.items[item].source_ordinal << ' ';
+              if (node.items[item].revision_mark)
+                out << "revision_mark="
+                    << quoted(revision_mark_text(*node.items[item].revision_mark))
+                    << ' ';
               format_inlines(out, node.items[item].content);
               if (!node.items[item].blocks.empty()) {
                 out << " blocks=";
@@ -1013,7 +1035,11 @@ std::string format_document_ir(const DocumentIR& document) {
             out << " table header_rows=" << node.header_rows << " rows=[";
             for (std::size_t row = 0; row < node.rows.size(); ++row) {
               if (row != 0) out << ' ';
-              out << "row=[";
+              out << "row=";
+              if (node.rows[row].revision_mark)
+                out << "revision_mark="
+                    << quoted(revision_mark_text(*node.rows[row].revision_mark));
+              out << '[';
               for (std::size_t cell = 0; cell < node.rows[row].cells.size();
                    ++cell) {
                 if (cell != 0) out << ' ';
@@ -1111,6 +1137,29 @@ std::string format_document_ir(const DocumentIR& document) {
     out << '\n';
   }
   return out.str();
+}
+
+bool has_revised_inline(const InlineSequenceIR& inlines) {
+  return std::any_of(inlines.begin(), inlines.end(), [](const InlineIR& in) {
+    return std::holds_alternative<RevisedInlineIR>(in.node);
+  });
+}
+
+InlineSequenceIR flatten_revised_inlines(const InlineSequenceIR& inlines) {
+  InlineSequenceIR flat;
+  for (const auto& in : inlines) {
+    if (const auto* revised = std::get_if<RevisedInlineIR>(&in.node))
+      flat.insert(flat.end(), revised->children.begin(),
+                  revised->children.end());
+    else
+      flat.push_back(in);
+  }
+  return flat;
+}
+
+bool valid_revision_mark(const char32_t mark) {
+  return mark > U' ' && mark != 0x7f && mark != 0xffff && mark <= 0x10ffff &&
+         !(mark >= 0x80 && mark < 0xa0);
 }
 
 std::string revision_mark_text(const char32_t mark) {

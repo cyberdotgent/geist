@@ -72,8 +72,8 @@ struct FixedTableRowIR {
   // Some display line of the row carries a revision bar in the margin, one
   // column left of the box's left border (` | |      Y     | ...`, see
   // `doc/boo-spec/markup.adoc`, "Revision bar beside a box table").  The bar
-  // itself is in `structural_cells`.
-  bool revised = false;
+  // itself is in `structural_cells`; this is its character, as stored.
+  std::optional<char32_t> revision_mark;
 };
 
 enum class FixedTableGeometryIR {

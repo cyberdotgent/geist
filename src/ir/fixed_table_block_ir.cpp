@@ -152,7 +152,8 @@ struct Line {
   std::vector<std::size_t> verticals;
   std::vector<FontSpanIR> font_spans;
   // A revision bar stood in the margin before the left border.
-  bool revised = false;
+  // The revision bar's character, 0 when the line carries none.
+  char32_t revision_mark = 0;
 };
 
 struct FlatRow {
@@ -1384,7 +1385,7 @@ private:
               pending.push_back(&words[index]);
             base = word.output;
             line.first_token = word.token;
-            line.revised = revision_bar;
+            line.revision_mark = revision_bar ? char32_t{kVertical} : 0;
             at = next;
           } else if (word.width == 1) {
             const auto stop = skip_token(words, at);
@@ -1676,8 +1677,9 @@ private:
       row.kind = caption ? FixedTableRowKindIR::caption
                          : FixedTableRowKindIR::body;
       row.line_count = group.size();
-      row.revised = std::any_of(group.begin(), group.end(),
-                                [](const auto *line) { return line->revised; });
+      for (const auto *line : group)
+        if (line->revision_mark != 0 && !row.revision_mark)
+          row.revision_mark = line->revision_mark;
       const auto cells = caption ? std::size_t{1} : column_count;
       row.cells.resize(cells);
       for (std::size_t index = 0; index < cells; ++index)
@@ -2699,7 +2701,7 @@ const char *row_kind_name(FixedTableRowKindIR kind) {
 
 void emit_row(std::ostringstream &out, const FixedTableRowIR &row) {
   out << "row kind=" << row_kind_name(row.kind) << " lines=" << row.line_count
-      << (row.revised ? " revised" : "") << '\n';
+      << (row.revision_mark ? " revised" : "") << '\n';
   for (const auto &cell : row.cells) {
     out << " cell column=" << cell.column << '\n';
     for (const auto &line : cell.lines) {

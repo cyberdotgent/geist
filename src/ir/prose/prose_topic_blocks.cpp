@@ -33,9 +33,11 @@ static FontStyleIR run_presentation(FontStyleIR style) {
 struct Attr {
   FontStyleIR style = FontStyleIR::unknown;
   std::vector<std::size_t> links;
+  // The revision mark of the cell's display row, 0 when it carries none.
+  char32_t revision = 0;
   bool operator==(const Attr& other) const {
     return run_presentation(style) == run_presentation(other.style) &&
-           links == other.links;
+           links == other.links && revision == other.revision;
   }
   bool operator!=(const Attr& other) const { return !(*this == other); }
 };
@@ -359,6 +361,32 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
   return true;
 }
 
+// The revision mark a row's display line stores in its margin
+// (`DisplayLineIR::margin_mark`, a body row's cell 1), when the row consumed
+// that cell as its margin rather than printing it as text: the mark token
+// holds no text role in the ledger.  Hosted BookServer prints the mark in the
+// row's three-column margin (doc/boo-spec/markup.adoc, "The three-column left
+// margin"; BLGR3MST EDITION is served ` | Second Edition (September 1989)`).
+// 0 when the row carries none.
+char32_t row_revision_mark(const std::vector<DecodedLogicalRecordSource>& records,
+                           const Line& line, Ledger& ledger) {
+  for (std::size_t cell = line.text_begin; cell < line.cells.size(); ++cell) {
+    const auto& source = line.cells[cell];
+    if (source.record == npos || source.record >= records.size()) continue;
+    const auto& record = records[source.record];
+    const auto* display = display_line_of_token(record, source.token);
+    if (display == nullptr || !display->margin_mark ||
+        display->margin_mark_place != MarginMarkPlaceIR::row_margin)
+      return 0;
+    const auto role = ledger.at(source.record, display->margin_mark_token).role;
+    if (role == ProseTokenRoleIR::text || role == ProseTokenRoleIR::title ||
+        role == ProseTokenRoleIR::unassigned)
+      return 0;
+    return *display->margin_mark;
+  }
+  return 0;
+}
+
 bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
                  const std::vector<Line>& lines, std::size_t begin,
                  std::size_t end, ProseBlockIR& block, Ledger& ledger,
@@ -373,6 +401,8 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
     if (!resolve_spans(line, attrs, line_targets, error)) return false;
     const auto target_base = targets.size();
     targets.insert(targets.end(), line_targets.begin(), line_targets.end());
+    const auto revision = row_revision_mark(records, line, ledger);
+    for (auto& attr : attrs) attr.revision = revision;
     if (index != begin) chars.push_back({" ", {}, npos, 0, true, 0, 0});
     // Byte offset of every cell inside its own token's decoded word: cells of
     // one token are emitted in word order, so the running total over the row
@@ -429,10 +459,32 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
     }
     const auto begin = index;
     while (index < collapsed.size() && collapsed[index].space) ++index;
+    // A gap between two rows with different revision marks keeps the style
+    // the two runs share, so a styled run continues across the margin change
+    // and only the mark splits it; the gap itself stays outside the revised
+    // side.
     if (begin != 0 && index < collapsed.size() &&
         collapsed[begin - 1].attr == collapsed[index].attr)
       for (auto cell = begin; cell < index; ++cell)
         collapsed[cell].attr = collapsed[index].attr;
+    else if (begin != 0 && index < collapsed.size() &&
+             collapsed[begin - 1].attr.revision !=
+                 collapsed[index].attr.revision) {
+      auto left = collapsed[begin - 1].attr;
+      left.revision = collapsed[index].attr.revision;
+      if (left == collapsed[index].attr) {
+        auto gap = collapsed[begin - 1].attr;
+        if (collapsed[index].attr.revision == 0) gap.revision = 0;
+        for (auto cell = begin; cell < index; ++cell)
+          collapsed[cell].attr = gap;
+      }
+    } else if (begin != 0 && index < collapsed.size() &&
+               collapsed[begin - 1].attr.revision ==
+                   collapsed[index].attr.revision) {
+      // A plain gap inside revised rows stays inside their revised run.
+      for (auto cell = begin; cell < index; ++cell)
+        collapsed[cell].attr.revision = collapsed[index].attr.revision;
+    }
   }
   std::vector<std::pair<std::size_t, std::size_t>> block_refs;
   std::size_t run_begin = 0;
@@ -444,6 +496,7 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
     ProseInlineIR inline_node;
     const auto& attr = collapsed[run_begin].attr;
     inline_node.style = attr.style;
+    inline_node.revision_mark = attr.revision;
     // A run joining `E` and `X`/`4` cells is the plain example phrase, and
     // one joining `Q` and `Z` cells the phraseless defined term.
     for (auto index = run_begin; index < run_end; ++index)
