@@ -125,6 +125,21 @@ HrefIR resource_href(const std::string &resource,
   return resource.empty() ? dead_link() : HrefIR{resource, false};
 }
 
+// `width`/`height` for an `<img>`: the display size the consumer's hook, or
+// the book's own resources, state for it.  Asked with the value
+// `resolve_resource` sees, so the two hooks agree on what an image is.
+template <typename Sink>
+void append_image_size(Sink &sink, const std::string &resource) {
+  const auto &resolve = sink.options().resolve_image_size;
+  if (!resolve)
+    return;
+  const auto size = resolve(resource_object_id(resource));
+  if (!size || size->width == 0 || size->height == 0)
+    return;
+  sink.attribute("width", std::to_string(size->width));
+  sink.attribute("height", std::to_string(size->height));
+}
+
 HrefIR external_href(const std::string &url,
                      const geist::HtmlRenderOptions &options) {
   if (options.resolve_external) {
@@ -486,6 +501,7 @@ void append_inline(HtmlSink &sink, const InlineIR &node) {
                                  : "geist-image");
               sink.attribute("src", image.href);
               sink.attribute("alt", value.label_image->alt_text);
+              append_image_size(sink, value.label_image->resource);
               sink.markup(">");
             }
             if (!value.label_emphasis && !value.label_code) {
@@ -506,6 +522,7 @@ void append_inline(HtmlSink &sink, const InlineIR &node) {
                                       : "geist-image");
           sink.attribute("src", href.href);
           sink.attribute("alt", value.alt_text);
+          append_image_size(sink, value.resource);
           sink.markup(">");
         } else if constexpr (std::is_same_v<T, HardBreakInlineIR>) {
           sink.markup("<br>");
@@ -803,6 +820,7 @@ void append_block(HtmlSink &sink, const BlockIR &block) {
           sink.attribute("alt", node.description.empty()
                                     ? figure_alt_text(node.resource)
                                     : node.description);
+          append_image_size(sink, node.resource);
           sink.markup(">");
           if (!node.caption.empty()) {
             sink.markup("<figcaption class=\"geist-figure-caption\">");

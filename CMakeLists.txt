@@ -182,6 +182,7 @@ set(GEIST_SOURCES
   src/layout/row_font_highlights.cpp
 
   # img/
+  src/img/display_size.cpp
   src/img/gdf.cpp
   src/img/gdf_raster.cpp
   src/img/mmr.cpp
@@ -564,6 +565,7 @@ endfunction()
 # Purely synthetic tests: they build their own records and touch no BOO file.
 foreach(synthetic_test
     gdf_synthetic
+    mmr_display_size_synthetic
     container_prologue_synthetic
     container_version_synthetic
     logical_synthetic

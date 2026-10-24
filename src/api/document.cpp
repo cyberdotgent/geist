@@ -43,6 +43,28 @@ std::shared_ptr<const std::set<std::string>> lowercase_resource_ids(
   return ids;
 }
 
+// Reads each image resource's display size from its stored header (see
+// `ResourceEntry::display_width`) and returns them by lower-cased id.
+std::shared_ptr<const std::map<std::string, HtmlImageSize>>
+fill_image_display_sizes(const std::vector<std::uint8_t>& bytes,
+                         std::vector<ResourceEntry>& resources) {
+  auto sizes = std::make_shared<std::map<std::string, HtmlImageSize>>();
+  for (auto& resource : resources) {
+    if (!byte_range_is_valid(bytes, resource.offset, resource.size))
+      continue;
+    const auto size = stored_image_display_size(
+        resource, bytes.data() + resource.offset,
+        static_cast<std::size_t>(resource.size));
+    if (!size)
+      continue;
+    resource.display_width = size->width;
+    resource.display_height = size->height;
+    sizes->emplace(ascii_lower(resource.id),
+                   HtmlImageSize{size->width, size->height});
+  }
+  return sizes;
+}
+
 struct TopicLoaderBundle {
   std::function<std::shared_ptr<const TopicLoweringOutcomeIR>()> document;
 };
@@ -284,6 +306,8 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   // Figure spans prove their `PIC<n>` selectors against the resource
   // catalog, so the catalog is built before the topic loaders that need it.
   document.resources_ = build_resources(bytes, document.directory_);
+  document.image_display_sizes_ =
+      fill_image_display_sizes(bytes, document.resources_);
   const auto resource_ids = lowercase_resource_ids(document.resources_);
   for (auto& entry : document.toc_) {
     const auto* topic = find_topic_data(topics, entry.id);
@@ -299,7 +323,8 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
         context, std::move(topic_data), make_topic_identity(entry), entry_id,
         entry_title, entry_level, entry_style, document.topic_catalog_ir_,
         topic_titles, resource_ids);
-    entry.attach_loaders(std::move(loaders.document));
+    entry.attach_loaders(std::move(loaders.document),
+                         document.image_display_sizes_);
   }
   return document;
 }
@@ -421,7 +446,7 @@ TocEntry BooDocument::synthesize_topic_entry(
       decode_context_, topic, make_topic_identity(entry), topic.id,
       topic.title, 0, 0, topic_catalog_ir_, topic_titles,
       lowercase_resource_ids(resources_));
-  entry.attach_loaders(std::move(loaders.document));
+  entry.attach_loaders(std::move(loaders.document), image_display_sizes_);
   return entry;
 }
 

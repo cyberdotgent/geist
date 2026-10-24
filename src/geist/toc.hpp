@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <utility>
@@ -100,14 +101,22 @@ private:
   // Attaching loaders defines what the caches would hold, so it starts a
   // fresh cache: an entry copied before its loaders were attached must not
   // inherit -- or share -- results computed without them.
+  //
+  // `image_sizes` is the book's own display size per image resource, keyed by
+  // the lower-cased resource id; `html_fragment()` answers an unset
+  // `HtmlRenderOptions::resolve_image_size` from it.
   void attach_loaders(
       std::function<std::shared_ptr<const detail::TopicLoweringOutcomeIR>()>
-          document) {
+          document,
+      std::shared_ptr<const std::map<std::string, HtmlImageSize>>
+          image_sizes = nullptr) {
     document_ir_loader_ = std::move(document);
+    image_sizes_ = std::move(image_sizes);
     cache_ = std::make_shared<CacheState>();
   }
   std::function<std::shared_ptr<const detail::TopicLoweringOutcomeIR>()>
       document_ir_loader_;
+  std::shared_ptr<const std::map<std::string, HtmlImageSize>> image_sizes_;
   std::shared_ptr<CacheState> cache_ = std::make_shared<CacheState>();
   friend class BooDocument;
 };

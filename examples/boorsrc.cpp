@@ -169,7 +169,14 @@ void write_png_resource(const geist::BooDocument& document,
   }
 
   std::cout << "Rendered " << resource->id << " to "
-            << output_path.string() << " (" << bytes.size() << " bytes)\n";
+            << output_path.string() << " (" << bytes.size() << " bytes";
+  // The PNG keeps every stored pixel; the size it is meant to be shown at
+  // can be smaller (a legacy fax bitmap is scanned at 240 dpi).
+  if (resource->display_width != 0 && resource->display_height != 0) {
+    std::cout << ", display " << resource->display_width << "x"
+              << resource->display_height;
+  }
+  std::cout << ")\n";
 }
 
 } // namespace

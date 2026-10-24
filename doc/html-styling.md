@@ -220,6 +220,18 @@ link as live.
 `geist-image--unresolved` is the same marker on an `<img>` whose resource
 could not be resolved.
 
+### Image size
+
+An `<img>` showing one of the book's stored pictures carries `width` and
+`height`: the size, in CSS pixels, the picture is meant to be shown at
+(`HtmlRenderOptions::resolve_image_size`, answered by default from
+`ResourceEntry::display_width`/`display_height`). The image itself is served
+at the resolution the book stores, which for a legacy fax bitmap is 240 dpi,
+two and a half times its display size, so a high-density screen or a printer
+gets every stored pixel. A stylesheet that limits images should keep the
+aspect ratio, as the example one does:
+`max-width: 100%; height: auto;`.
+
 ### Anchor roles
 
 An `AnchorBlockIR` carries `geist-anchor` plus one role modifier saying what

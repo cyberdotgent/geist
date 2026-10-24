@@ -341,8 +341,11 @@ used for visual comparison was:
 http://cbrdoc01.lan.cyber.gent/bookmgr/pictures/packet.20260614112503.P2.GIF
 ----
 
-That GIF is `1004x735`, matching `libgeist`'s current GDF PNG dimensions for
-this resource. The visible packet frame has four saturated color blocks and
+That GIF is `1004x735`. The size is a fixed canvas, not a property of the
+picture: all 17 kind `G` pictures of `KAKHMST.BOO` (`DT=19911011135123`) are
+served as `1004x735` GIFs too, whatever their coordinate extents. A GDF
+picture is vector graphics, so a reader rasterizing it to that canvas
+presents it at hosted's size with no resampling. The visible packet frame has four saturated color blocks and
 black stroke labels. Pixel samples from the upstream GIF:
 
 [cols=">12,<12,<34",options="header"]

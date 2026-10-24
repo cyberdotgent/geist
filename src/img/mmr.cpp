@@ -320,35 +320,6 @@ void sync_mh_eol(BitReader& reader, std::uint32_t y) {
                            ": MH bitstream ended before EOL");
 }
 
-RgbaImage scale_2_to_5(const RgbaImage& image) {
-  const auto scaled_width = std::max<std::uint32_t>(1, (image.width * 2) / 5);
-  const auto scaled_height = std::max<std::uint32_t>(1, (image.height * 2) / 5);
-
-  RgbaImage scaled;
-  scaled.width = scaled_width;
-  scaled.height = scaled_height;
-  scaled.rgba.assign(static_cast<std::size_t>(scaled_width) * scaled_height * 4,
-                     255);
-
-  for (std::uint32_t y = 0; y < scaled_height; ++y) {
-    const auto source_y =
-        std::min<std::uint32_t>(image.height - 1, (y * 5) / 2);
-    for (std::uint32_t x = 0; x < scaled_width; ++x) {
-      const auto source_x =
-          std::min<std::uint32_t>(image.width - 1, (x * 5) / 2);
-      const auto source =
-          (static_cast<std::size_t>(source_y) * image.width + source_x) * 4;
-      const auto target =
-          (static_cast<std::size_t>(y) * scaled_width + x) * 4;
-      std::copy_n(image.rgba.begin() + static_cast<std::ptrdiff_t>(source),
-                  4,
-                  scaled.rgba.begin() + static_cast<std::ptrdiff_t>(target));
-    }
-  }
-
-  return scaled;
-}
-
 RgbaImage decode_mh_image(const std::vector<std::uint8_t>& compressed,
                           std::uint32_t width,
                           std::uint32_t height) {
@@ -505,12 +476,12 @@ RgbaImage decode_mmr_to_rgba(const std::vector<std::uint8_t>& bytes) {
   }
   const auto compressed = read_segments(bytes);
   try {
-    return scale_2_to_5(decode_t6_image(compressed, width, height));
+    return decode_t6_image(compressed, width, height);
   } catch (const std::runtime_error& t6_error) {
     if (compressed.size() >= 2 && compressed[0] == 0x00 &&
         (compressed[1] & 0xf0) == 0x10) {
       try {
-        return scale_2_to_5(decode_mh_image(compressed, width, height));
+        return decode_mh_image(compressed, width, height);
       } catch (const std::runtime_error&) {
         throw std::runtime_error(t6_error.what());
       }

@@ -317,8 +317,8 @@ void fill_area(RgbaImage& image,
 RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
   const auto picture = parse_gdf_picture(bytes);
 
-  constexpr std::uint32_t output_width = 1004;
-  constexpr std::uint32_t output_height = 735;
+  constexpr std::uint32_t output_width = gdf_canvas_width;
+  constexpr std::uint32_t output_height = gdf_canvas_height;
   const auto width_units = std::max(1.0, picture.max_x - picture.min_x);
   const auto height_units = std::max(1.0, picture.max_y - picture.min_y);
   const auto scale_x = static_cast<double>(output_width) / width_units;

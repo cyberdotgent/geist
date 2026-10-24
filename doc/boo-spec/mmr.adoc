@@ -34,7 +34,8 @@ or a JPEG SOI marker. Every one of the 558 kind `I` descriptors across the
 repository fixtures points at a payload starting `00 08 d3 a8 7b`.
 
 The hosted BookServer serves these resources as GIFs generated on demand; see <<assets>>. The GIF is the rendered artifact, so it is usable as an
-independent check of a decoder's output but is not what the book stores.
+independent check of a decoder's output but is not what the book stores: it
+is reduced to two fifths of the stored size (see <<mmr_reference_render>>).
 
 [[mmr_the_payload_is_a_structured_field_chain]]
 === The Payload Is A Structured-Field Chain
@@ -227,54 +228,72 @@ the line to desynchronize.
 [[mmr_reference_render]]
 === Reference Render
 
-The hosted BookServer-backed fixture used for pixel-level validation is
-`QSYSNEWG.BOO` resource `1`:
+[[mmr_stored_resolution]]
+==== Stored Resolution And Presentation Size
+
+The bitmap a kind `I` payload stores is a 240-pixels-per-inch scan, and hosted
+BookServer presents it at 96 pixels per inch: two fifths of its stored size.
+
+[cols="<24,<45",options="header"]
+|===
+|Evidence |Value
+
+|Bitmap size |Image input descriptor, payload `0x42` (width) and `0x44` (height), in stored pixels.
+|Declared resolution |Payload `0x3e` = `09 60` and `0x40` = `09 60` (2400 each), with unit bases `01 01` at `0x30`. Read as units per ten inches, 2400 is 240 pixels per inch. Constant in all 559 payloads of the corpus.
+|Units per unit base |Payload `0x32` = `00 64` and `0x34` = `00 64` (100). Constant; their role is not established (see <<mmr_open_questions>>).
+|Hosted GIF size |`floor(width * 96 / 240)` by `floor(height * 96 / 240)`, which equals `floor(width * 2 / 5)` by `floor(height * 2 / 5)`. The ratio is a fixed constant of the hosted renderer: it does not follow the declared resolution words, so a payload declaring another resolution would still be presented at 96/240.
+|Hosted `<img>` markup |No `width` or `height` attributes; the GIF's own size is the presented size.
+|===
+
+A reader that wants hosted's presentation should therefore keep the bitmap at
+its stored resolution and display it at `(width * 96) / 240` by
+`(height * 96) / 240` CSS pixels, letting the display scale it. Resampling the
+bitmap itself to that size, as hosted does, loses detail: keeping two of every
+five rows and columns drops one-pixel strokes -- box edges, arrow shafts,
+diagonals -- outright. `SC41-3735-00.boo` picture `5` is a stored
+`1216 x 1150` bitmap (`0x42 = 04 c0`, `0x44 = 04 7e`) whose hosted GIF is
+`486 x 460`; strokes visible at full resolution are partly missing from the
+GIF.
+
+[[mmr_hosted_sampling]]
+==== Hosted Sampling
+
+The hosted GIF is a nearest-neighbour sample of the full decode, with no
+filtering: its pixels are strictly binary. Output column `i` of an output
+width `W'` takes source column `floor(i * W / W')`, and output row `j` takes
+source row `floor(j * H / H')`, where `W x H` is the stored size. This is
+*not* the same as `floor(i * 5 / 2)`: the two agree only while `W` and `H` are
+multiples of five, and drift apart by up to a pixel elsewhere.
+
+Checked on 2026-10-24 against hosted GIFs, comparing every pixel:
+
+[cols="<22,>10,>15,>21,>21",options="header"]
+|===
+|Book |Pictures |Stored sizes, e.g. |Mismatches, `floor(i*W/W')` |Mismatches, `floor(i*5/2)`
+
+|`QSYSNEWG.BOO` (`DT=19910524085706`) |89 |`205 x 413` -> `82 x 165` |0 in every picture |`P1` 0; `P12` 838 of 99960; `P56` 450 of 132440
+|`GG24-4071-00.boo` (`DT=19940131181916`) |52 |`1184 x 888` -> `473 x 355` |0 in every picture |`P1` 796 of 167915; `P10` 3461 of 113993
+|`KAKHMST.BOO` (`DT=19911011135123`) |1 |`1216 x 384` -> `486 x 153` |0 |1100 of 74358
+|`SC41-3735-00.boo` |1 |`1216 x 1150` -> `486 x 460` |0 |447 of 223560
+|===
+
+In all 143 pictures the hosted GIF's dimensions equal
+`floor(W * 96 / 240) x floor(H * 96 / 240)`. Every one of them carries a
+single picture-data field.
+
+The first-row evidence for the smallest fixture, `QSYSNEWG.BOO` resource `1`:
 
 [cols="<19,<45",options="header"]
 |===
 |Evidence |Value
 
-|Local fixture |`BOO/QSYSNEWG.BOO`, resource `1`, kind `I`, raw payload size `1383` bytes.
+|Local fixture |`QSYSNEWG.BOO`, resource `1`, kind `I`, raw payload size `1383` bytes.
 |Hosted book |`BOOKS/QSYSNEWG`, `DT=19910524085706`, topic `1.1`.
 |Hosted artifact l|http://cbrdoc01.lan.cyber.gent/bookmgr/pictures/QSYSNEWG.19910524085706.P1.GIF
 |Wrapper bitmap size |payload `0x42 = 00 cd` (`205`), payload `0x44 = 01 9d` (`413`).
 |First segment |payload `0x48 = 05 17`; compressed byte count `0x050f` after subtracting the 8-byte segment header.
-|BookServer GIF size |`82 x 165`. This is `floor(205 * 2 / 5)` by `floor(413 * 2 / 5)`.
+|BookServer GIF size |`82 x 165`: `floor(205 * 96 / 240)` by `floor(413 * 96 / 240)`.
 |===
-
-On 2026-06-18, `boorsrc --png BOO/QSYSNEWG.BOO 1` rendered a PNG that matched
-the BookServer GIF at pixel level after normalizing the GIF to RGB PNG:
-
-----
-dims: local 82x165, BookServer 82x165
-pixel mismatches: 0 of 13530
-----
-
-The regression test `mmr_qsysnewg_test` renders this resource through
-`BooDocument::read_resource_png()`, decodes the PNG to RGBA, and checks
-dimensions `82 x 165` plus FNV-1a pixel hash `0x9491199eae92882e`.
-
-A full `boo2git --force BOO/QSYSNEWG.BOO /tmp/geist-mmr/qsysnewg-boo2git`
-smoke test now renders all 88 of the book's PNG resources through the same
-public API. The two resources that previously failed are:
-
-[cols="<8,<8,<33,<16,<21,<36",options="header"]
-|===
-|Resource |Topic |Hosted artifact |Local dimensions |BookServer dimensions |Pixel comparison
-
-|`12` |`2.0` l|QSYSNEWG.19910524085706.P12.GIF |`340 x 294` |`340 x 294` |`838` mismatches of `99960` pixels.
-|`56` |`6.0` l|QSYSNEWG.19910524085706.P56.GIF |`344 x 385` |`344 x 385` |`450` mismatches of `132440` pixels.
-|===
-
-The remaining pixel deltas are sparse binary stroke differences after scaling,
-not decode failures or dimension mismatches. Visual inspection of the local PNGs
-and downloaded BookServer artifacts on 2026-06-18 judged resources `12` and
-`56` visually identical for BookManager rendering purposes.
-
-The hosted artifacts are scaled by two fifths, and their pixels are binary
-rather than grayscale, so the scaling is not an area average. Nearest-neighbor
-sampling at phase `(0,0)` is the closest match found against hosted output and
-preserves the exact `P1` match above.
 
 A decoder should treat a kind `I` payload as this structured-field chain, not
 as a raw TIFF Group 4 stream: the field framing, the tagged-EOL line form, and
@@ -286,9 +305,12 @@ the bottom-up storage all differ from a bare Group 4 strip.
 * The constant metadata the prologue carries. `2d`, `03 e8 03 e8` and `ff ff`
 in the image output control field, and `01 01`, `00 64 00 64`, `09 60 09 60`
 and `01 00` in the image input descriptor, are identical in all 559 kind `I`
-payloads of the corpus, so nothing here can distinguish them. A book whose
-images were built at a different resolution would separate the unit-base and
-units-per-base fields from the rest.
+payloads of the corpus, so nothing here can distinguish them. `09 60 09 60`
+is consistent with the 240 pixels per inch the hosted presentation assumes
+(<<mmr_stored_resolution>>), but hosted does not read it, so its meaning is
+inferred, not observed. A book whose images were built at a different
+resolution would separate the unit-base and units-per-base fields from the
+rest.
 * How a payload with more than one picture-data field decodes. 299 of the 559
 payloads carry more than one; the two fixtures validated against hosted
 artifacts at pixel level (`QSYSNEWG.BOO` resources `1`, `12`, `56` and

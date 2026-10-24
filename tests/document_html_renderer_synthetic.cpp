@@ -22,6 +22,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
@@ -420,6 +421,57 @@ void check_href_scheme_policy() {
            "an image lost its resource spelling");
 }
 
+// A stored picture is rendered at the resolution the book stores it, so the
+// `<img>` carries the size it is meant to be shown at.  The size comes from
+// `resolve_image_size`, asked with the same object id `resolve_resource` is,
+// for a figure and an inline image alike.  No hook, no answer, or a zero
+// dimension emits no size at all.
+void check_image_display_size() {
+  DocumentIR document;
+  document.topic.id = "SIZES";
+  document.topic.title = "Image sizes";
+  FigureBlockIR figure;
+  figure.resource = "resource:5";
+  document.blocks.push_back(block(std::move(figure)));
+  InlineSequenceIR inlines;
+  inlines.push_back(in(ImageInlineIR{"resource:7", "seven"}));
+  inlines.push_back(in(ImageInlineIR{"resource:404", "unknown"}));
+  inlines.push_back(in(ImageInlineIR{"resource:9", "nine"}));
+  document.blocks.push_back(block(ParagraphBlockIR{std::move(inlines)}));
+  std::string error;
+  if (!require(verify_document_ir(document, &error), error))
+    return;
+
+  const auto natural = render_document_html_fragment(document);
+  absent(natural, "width=", "an image was sized without a size hook");
+  absent(natural, "height=", "an image was sized without a size hook");
+
+  std::vector<std::string> asked;
+  geist::HtmlRenderOptions options;
+  options.resolve_image_size = [&asked](const std::string &resource)
+      -> std::optional<geist::HtmlImageSize> {
+    asked.push_back(resource);
+    if (resource == "5")
+      return geist::HtmlImageSize{486, 460};
+    if (resource == "7")
+      return geist::HtmlImageSize{82, 165};
+    if (resource == "9")
+      return geist::HtmlImageSize{17, 0};
+    return std::nullopt;
+  };
+  const auto sized = render_document_html_fragment(document, options);
+  contains(sized, "alt=\"PICTURE 5\" width=\"486\" height=\"460\">",
+           "a figure image did not carry its display size");
+  contains(sized, "alt=\"seven\" width=\"82\" height=\"165\">",
+           "an inline image did not carry its display size");
+  contains(sized, "alt=\"unknown\">",
+           "an image with no known size was sized");
+  contains(sized, "alt=\"nine\">",
+           "an image with a zero dimension was sized");
+  require(asked == std::vector<std::string>{"5", "7", "404", "9"},
+          "the size hook was not asked with the object ids");
+}
+
 void check_multiple_target_claims() {
   CrossReferenceTargetIR book{CrossReferenceTargetKindIR::book_heading,
                               "TARGETBOOK"};
@@ -494,6 +546,7 @@ std::string read_file(const std::string &path) {
 
 int main() {
   check_href_scheme_policy();
+  check_image_display_size();
   check_multiple_target_claims();
 
   const auto document = build_document();

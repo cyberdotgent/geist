@@ -50,7 +50,7 @@ bool supported_attribute(const std::string_view tag,
     return tag == "a" || tag == "span" || tag == "aside" || tag == "div";
   if (name == "href")
     return tag == "a";
-  if (name == "src" || name == "alt")
+  if (name == "src" || name == "alt" || name == "width" || name == "height")
     return tag == "img";
   if (name == "scope")
     return tag == "th";

@@ -168,6 +168,10 @@ private:
   std::vector<TopicInfo> topics_;
   std::map<std::string, std::string> topic_titles_;
   std::vector<ResourceEntry> resources_;
+  // `resources_`' display sizes by lower-cased id, shared with every topic
+  // entry so its HTML can size the images it shows.
+  std::shared_ptr<const std::map<std::string, HtmlImageSize>>
+      image_display_sizes_;
   std::shared_ptr<const detail::BookTopicCatalogIR> topic_catalog_ir_;
   std::shared_ptr<detail::LogicalDecodeContext> decode_context_;
 };

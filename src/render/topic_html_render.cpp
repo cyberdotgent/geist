@@ -59,7 +59,26 @@ void append_section(std::string& out, const std::string& section) {
 
 } // namespace
 
-std::string TocEntry::html_fragment(const HtmlRenderOptions& options) const {
+std::string TocEntry::html_fragment(const HtmlRenderOptions& requested) const {
+  // An unset image-size hook is answered from the book's own resources, so a
+  // full-resolution picture is still laid out at its intended size.
+  const HtmlRenderOptions* options_in_use = &requested;
+  HtmlRenderOptions with_book_sizes;
+  if (!requested.resolve_image_size && image_sizes_ &&
+      !image_sizes_->empty()) {
+    with_book_sizes = requested;
+    with_book_sizes.resolve_image_size =
+        [sizes = image_sizes_](const std::string& resource)
+        -> std::optional<HtmlImageSize> {
+      const auto found = sizes->find(detail::ascii_lower(resource));
+      if (found == sizes->end())
+        return std::nullopt;
+      return found->second;
+    };
+    options_in_use = &with_book_sizes;
+  }
+  const auto& options = *options_in_use;
+
   detail::TopicIdentityIR identity;
   identity.id = id;
   identity.title = title;

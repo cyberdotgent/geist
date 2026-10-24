@@ -24,6 +24,7 @@
 
 #include "geist/export.hpp"
 
+#include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
@@ -90,6 +91,13 @@ struct HtmlCrossBookReference {
   std::vector<std::string> alternatives;
 };
 
+// The size, in CSS pixels, an `<img>` is to be displayed at.  See
+// `ResourceEntry::display_width` and `HtmlRenderOptions::resolve_image_size`.
+struct HtmlImageSize {
+  std::uint32_t width = 0;
+  std::uint32_t height = 0;
+};
+
 // How the renderer turns what the source names into a URL the consumer's
 // route scheme can serve.
 //
@@ -117,6 +125,18 @@ struct HtmlRenderOptions {
   // resources before treating a value as one of its objects.
   std::function<std::optional<std::string>(const std::string& resource)>
       resolve_resource;
+  // The display size of the image an `<img>` shows, asked with the same value
+  // `resolve_resource` receives.  An answer becomes the element's `width` and
+  // `height` attributes; `std::nullopt` (or a zero dimension) emits neither.
+  //
+  // Left unset, a topic rendered through `BooDocument` or its `TocEntry`
+  // answers from the book's own resources (`ResourceEntry::display_width`),
+  // which is what scales a full-resolution legacy fax bitmap back to the
+  // size hosted BookServer presents it at.  Set it to override that, or to a
+  // function returning `std::nullopt` to leave every image at its natural
+  // size.
+  std::function<std::optional<HtmlImageSize>(const std::string& resource)>
+      resolve_image_size;
   // An absolute URL the source spells out.  Supplied so a consumer can
   // rewrite or proxy it; returning `std::nullopt` keeps the source URL.
   //
