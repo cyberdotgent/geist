@@ -133,8 +133,12 @@ const Line summary_3_4_6 = {words("CSUMMARY"), words("3.4.6"), words(".SP"),
 // EDCGV1R2 3.4.6, record 68: the envelope, the title and a body.  `summary`
 // stands where the book writes its `CSUMMARY` lines; `body` replaces the
 // body rows when given.
+const Line title_3_4_6 = {words("ST"), words(" "), words("Transaction"),
+                          words("Processing"), words("Facility")};
+
 std::vector<Line> topic(const std::vector<Line> &summary,
-                        const std::vector<Line> &body = {}) {
+                        const std::vector<Line> &body = {},
+                        const Line &title = title_3_4_6) {
   std::vector<Line> lines = {
       {words("SH3.4.6")},
       {words("CTOPIC#"), words("38")},
@@ -146,8 +150,7 @@ std::vector<Line> topic(const std::vector<Line> &summary,
   const std::vector<Line> rest = {
       {words("CHDLEVEL"), words(":H3")},
       {words("CSOURCEFN"), words("EDCGI")},
-      {words("ST"), words(" "), words("Transaction"), words("Processing"),
-       words("Facility")},
+      title,
   };
   lines.insert(lines.end(), rest.begin(), rest.end());
   if (body.empty()) {
@@ -269,9 +272,36 @@ void one_triple_font_lines() {
           "one-triple CFONT lines: control text is drawn: '" + text + "'");
 }
 
+void dash_in_title() {
+  // EDCIV1R2 2.1 record 44 line 8: `ST  Chapter 3.  Preparing for the
+  // Installation ── MVS`, the dash stored as one token of two U+2500 words
+  // (token 37).  The catalog string projects the run as `__`; hosted
+  // BookServer (DT 19891031000000) heads the topic `<H1> 2.1   Chapter 3.
+  // Preparing for the Installation __ MVS</H1>`.  EDCUSER 4.6.2.1 is the
+  // same with a one-byte dash token after `__ctrace`.
+  const TokenWords dash = {0x2500, 0x2500};
+  const Line title = {words("ST"),           words(" "),
+                      words("Chapter"),      words("3."),
+                      words("Preparing"),    words("for"),
+                      words("the"),          words("Installation"),
+                      dash,                  words("MVS")};
+  auto extracted = run(topic({summary_3_4_6}, {}, title),
+                       "Chapter 3.  Preparing for the Installation __ MVS");
+  require(extracted.topic.has_value(),
+          "dash in title: the topic was rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  require(extracted.topic->title ==
+              "Chapter 3. Preparing for the Installation __ MVS",
+          "dash in title: the title is '" + extracted.topic->title + "'");
+  require(topic_text(*extracted.topic).find("You can compile") !=
+              std::string::npos,
+          "dash in title: the body is missing");
+}
+
 }  // namespace
 
 int main() {
+  dash_in_title();
   summary_lines();
   script_lines();
   one_triple_font_lines();

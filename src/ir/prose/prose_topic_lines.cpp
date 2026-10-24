@@ -1116,6 +1116,9 @@ struct LineBuilder {
 
   // Accumulates the `ST` payload's visible word run (see LineBuild::title_run).
   void append_title_run(const TokenView& view) {
+    append_title_run(view, body_text(view));
+  }
+  void append_title_run(const TokenView& view, const std::string& text) {
     if (!in_title_segment) return;
     // Words on different display rows are separate words; inside one row the
     // token's own attach prefix decides, exactly as for the row cells.
@@ -1125,7 +1128,7 @@ struct LineBuilder {
         (row_changed ||
          (pending_space && view.prefix != 0 && view.prefix != 1)))
       out.title_run.push_back(' ');
-    out.title_run += body_text(view);
+    out.title_run += text;
     // The run only has to outlast the longest catalog title in the corpus;
     // no catalog title reaches this length.
     if (out.title_run.size() > 512) in_title_segment = false;
@@ -1934,6 +1937,31 @@ struct LineBuilder {
         }
         if (opens_display_line(view)) return row_control_length_byte(index);
         if (display_rule_line(index)) return true;
+        // A box-drawing run between title words on the `ST` display line is
+        // drawn title text: EDCIV1R2 2.1 record 44 line 8 is `ST  Chapter
+        // 3.  Preparing for the Installation -- MVS` with the dash stored as
+        // two U+2500 words (token 37), and hosted BookServer (DT
+        // 19891031000000) heads the topic `<H1> 2.1   Chapter 3.  Preparing
+        // for the Installation __ MVS</H1>`; EDCUSER 4.6.2.1 (DT
+        // 19900523000000) `<H3> 4.6.2.1   __ctrace __ Display Activation
+        // Stack</H3>`.  The cells carry the hosted display glyph, as a drawn
+        // row cell does.  Title words before it rule out the marker slot.
+        if (in_title && !out.title.empty() && title_record == view.record &&
+            title_line_end != npos && view.token < title_line_end &&
+            std::all_of(view.body.begin(), view.body.end(),
+                        [](const auto word) { return box_word(word); })) {
+          std::string drawn;
+          for (const auto word : view.body) drawn += figure_display_glyph(word);
+          if (pending_space && view.prefix != 0 && view.prefix != 1)
+            out.title.push_back(' ');
+          out.title += drawn;
+          append_title_run(view, drawn);
+          last_visible = body_text(view);
+          pending_space = view.prefix != 2;
+          out.title_refs.emplace_back(view.record, view.token);
+          trailing_bare = 0;
+          return assign(view, ProseTokenRoleIR::title);
+        }
         return fail(error, "placeholder run '" + body_text(view) +
                                "' is followed by visible text at " +
                                where(view));

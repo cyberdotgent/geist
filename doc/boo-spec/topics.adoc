@@ -363,6 +363,29 @@ The one-triple form is therefore the same control as the many-triple form
 of version 1.2, split across lines; a reader that collects the spans of
 every `CFONT` line since the last drawn row reads both.
 
+*Dashes in titles.* These books write a dash between title words as a
+dictionary token whose expansion is two box-drawing horizontals (U+2500
+U+2500). `EDCIV1R2.BOO` topic `2.1`, record 44, display line 8:
+
+[cols="<16,<34,<45",options="header"]
+|===
+|File offset |Bytes |Meaning
+
+|`0xce13` |`0e` |Length byte (14).
+|`0xce14` |`7d 08 5c 9b 01 08 b8 2d 34 4b 71` |`ST`, title column blank, `Chapter`, `3`, attach + `.`, blank, `Preparing`, `for`, `the`, `Installation`
+|`0xce1f` |`ac 75` |One token: U+2500 U+2500.
+|`0xce21` |`75` |`MVS`.
+|===
+
+The run stands inside the title, after title words on the same display line,
+so it is neither the title's revision column (the cell directly after `ST`)
+nor a rule line; it is drawn title text. Hosted BookServer folds U+2500 to
+`_` as it does in every drawn row and heads the topic `<H1> 2.1   Chapter 3.
+Preparing for the Installation __ MVS</H1>` (DT `19891031000000`); the
+catalog title string carries the same `__`. 28 topics of `EDCIV1R2.BOO` and
+`EDCUSER.BOO` have this shape (`EDCUSER.BOO` `8.1.6.2`, DT `19900523000000`:
+`<H3> 8.1.6.2   getenv __ Retrieve Environment Variables</H3>`).
+
 [[topics_chdlevel_observed_values]]
 ==== `CHDLEVEL` Observed Values
 
