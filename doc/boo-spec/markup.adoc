@@ -5668,9 +5668,18 @@ Evidence: `packet.boo` topic `3.2`, logical record 80 — `cz BREAK 3`,
 `cz FLOW DL 3 3` with five `cz FLOW DT 3 12` entries and `cz OFF EDL`.
 
 The last directive of a topic is frequently an empty `cz FLOW H<n>` that only
-announces the heading level of the next topic; it carries no display rows, and
-only the topic's footnotes may follow it (`packet` `1.1`, record 17,
-`cz FLOW H3 3 3` before `SRFTNFTNUNIQ1`).
+announces the heading level of the next topic; it carries no display rows
+(`packet` `1.1`, record 17, `cz FLOW H3 3 3` before `SRFTNFTNUNIQ1`).  An
+empty heading directive is not confined to the end: it draws nothing
+wherever it stands.  `SC31-8212-00` topic `2.3.3`, logical record 855 line 21
+at `0x57C0A` is `05 3F 76 78 A4 A4` (`cz FLOW H3 3 3`), and the next line,
+`03 ...` at `0x57C10`, is `cz BREAK 3` and then `cz FLOW P 3 3`; hosted DT
+`19950906051034` prints only the empty rows between the repeated `Purpose`
+heading and the paragraph.  A heading's words are the rows after its
+directive, and this one has none.  That book has 58 topics with an empty
+heading directive in mid-topic.  An anchor whose following rows are all empty (here `SRHDRHWEOP6`
+before the repeated heading and three empty rows) precedes the first block
+after those rows.
 
 A generated `CMENU` can occur before the closing directive of its enclosing
 list. In `GA19-5486-13.boo` topic `4.0`, logical record 125 ends its notes

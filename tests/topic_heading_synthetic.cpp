@@ -229,6 +229,35 @@ std::vector<Line> second_title_topic(const Line &first_title,
   };
 }
 
+// The SC31-8212-00 2.3.3 shape in the CZ dialect: the repeated title stands
+// before the first directive, three empty rows follow it, and a heading
+// directive with no rows of its own comes before the body paragraph.
+std::vector<Line> cz_second_title_topic() {
+  return {
+      {words("SH2.3.3")},
+      {words("ctopicn"), words("164")},
+      {words("cparent"), words("2.3")},
+      {words("cforwardlevel"), words("2.3.4")},
+      {words("cbacklevel"), words("2.3.2")},
+      {words("csummary"), words("9"), words("0"), words("9")},
+      {words("chdlevel"), words(":H2")},
+      {words("csourcefn"), words("DPML0O61")},
+      {words("ST")},
+      {words("cfont"), words("3"), words("4"), words("2")},
+      {words("   "), words("open")},
+      {words("SRHDRPURPOSE")},
+      {words("ST"), words("  "), words("Purpose")},
+      {},
+      {},
+      {},
+      {words("cz"), words("BREAK"), words("3")},
+      {words("cz"), words("FLOW"), words("H3"), words("3"), words("3")},
+      {words("cz"), words("BREAK"), words("3")},
+      {words("cz"), words("FLOW"), words("P"), words("3"), words("3")},
+      {words("   "), words("Opens"), words("a"), words("session.")},
+  };
+}
+
 void expect_heading(const std::string &label, const std::vector<Line> &lines,
                     const std::string &id, const std::string &catalog_title,
                     const std::string &expected) {
@@ -286,6 +315,13 @@ int main() {
                                      words("and"), words("use")}),
                  "2.3.3", "Open",
                  "h2:2.3.3 Open|p|a:HDRPURPOSE|h2:2.3.3 Purpose and use|p");
+
+  // The same in the CZ dialect: the anchor before the repeated title stays
+  // in front of it although only empty rows follow, and the empty `cz FLOW
+  // H3` draws nothing.
+  expect_outline("CZ dialect: empty ST, then ST Purpose",
+                 cz_second_title_topic(), "2.3.3", "",
+                 "h2:2.3.3|p|a:HDRPURPOSE|h2:2.3.3 Purpose|p");
 
   // A control-shaped first title word does not empty the title.
   expect_outline("ST  SREPLACE Command",

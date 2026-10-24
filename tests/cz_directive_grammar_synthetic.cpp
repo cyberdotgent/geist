@@ -349,9 +349,42 @@ void a_split_title_line_is_no_leading_row() {
           "the split title line became a body row:\n" + text);
 }
 
+// 4. A heading directive with no text draws nothing, wherever it stands.
+// BookServer closes its open `<pre>` at every `cz FLOW` line and otherwise
+// ignores `cz FLOW H<n>`; the heading's words are the rows after it.
+// SC31-8212-00 2.3.3 record 855 line 21 is `cz FLOW H3 3 3`, followed at
+// once by `cz BREAK 3` and `cz FLOW P 3 3`; hosted (DT 19950906051034)
+// prints only empty rows between the `Purpose` heading and the paragraph.
+void an_empty_heading_directive_draws_nothing() {
+  RecordBuilder builder;
+  builder.heading("2.3.3", "Purpose");
+  builder.line({words("cz"), words("FLOW"), words("P"), words("3"),
+                words("3")});
+  builder.line({words("   "), words("Opening"), words("row.")});
+  builder.line({words("cz"), words("FLOW"), words("H3"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("BREAK"), words("3")});
+  builder.line({words("cz"), words("FLOW"), words("P"), words("3"),
+                words("3")});
+  builder.line({words("   "), words("Closing"), words("row.")});
+  auto extracted = run(builder.build(855), "Purpose");
+  require(extracted.topic.has_value(),
+          "an empty mid-topic heading directive was rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  const auto &blocks = extracted.topic->blocks;
+  for (const auto &block : blocks)
+    require(block.kind != ProseBlockKindIR::heading,
+            "an empty heading directive produced a heading block");
+  const auto text = topic_text(*extracted.topic);
+  require(contains(text, "Opening") && contains(text, "Closing"),
+          "the rows around the empty heading directive were lost:\n" + text);
+}
+
 }  // namespace
 
 int main() {
+  an_empty_heading_directive_draws_nothing();
   rows_before_the_first_directive_are_body_rows();
   a_split_title_line_is_no_leading_row();
   a_length_byte_spelled_cz_is_the_row_slot();

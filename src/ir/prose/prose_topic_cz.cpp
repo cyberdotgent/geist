@@ -2005,32 +2005,16 @@ struct CzBuilder {
       }
       if (heading_tag(tag)) {
         if (groups.empty()) {
-          // A trailing empty heading directive announces the next topic's
-          // level; it carries no content.  Only the topic's footnotes may
-          // follow it (packet 1.1 record 17) -- but a footnote body is a
-          // block stream of its own, so the directives that build one belong
-          // to the footnote and not to the topic after the heading.  packet
-          // 4.5.1 record 225 ends `cz FLOW H5 3 3` / `SRFTNFTNUNIQ50` /
-          // `cz FLOW FN 3 7` and then opens `cz OFF XMP` .. `cz OFF EXMP 6 6`
-          // inside that footnote; hosted (DT 20260614112503) serves six
-          // separate `<pre width="80">` blocks for the topic, the last of
-          // them under the footnote anchor.  What must not follow the
-          // announcement is body content of the topic itself.
-          bool in_footnote = false;
-          for (auto later = index + 1; later < build.directives.size();
-               ++later) {
-            const auto& tail = build.directives[later];
-            if (tail.tag == "fn") {
-              in_footnote = true;
-              continue;
-            }
-            if (in_footnote && tail.mode == "off" &&
-                (tail.tag == "fn" || cz_verbatim_region_tag(tail.tag) ||
-                 cz_verbatim_region_closer(tail.tag)))
-              continue;
-            return fail(error,
-                        name + " without text is not the last directive");
-          }
+          // A heading directive with no rows of its own draws nothing,
+          // wherever it stands.  The reader closes its open `<pre>` at every
+          // `cz FLOW` line and otherwise ignores `cz FLOW H<n>`; a heading's
+          // words are the rows after it, and here there are none.  A
+          // trailing one announces the next topic's level (packet 1.1 record
+          // 17; packet 4.5.1 record 225 ends `cz FLOW H5 3 3` and then its
+          // footnote, hosted DT 20260614112503).  SC31-8212-00 2.3.3 record
+          // 855 line 21 is `cz FLOW H3 3 3` followed at once by `cz BREAK 3`
+          // and `cz FLOW P 3 3`, in the middle of the topic; hosted (DT
+          // 19950906051034) prints only the empty rows around it.
           return true;
         }
         ProseBlockIR block;
@@ -2110,6 +2094,27 @@ struct CzBuilder {
           }))
         return fail(error, "anchor " + placed.id +
                                " precedes a rule row outside a message list");
+      // An anchor whose row is an empty row, which opens no block, precedes the
+      // first block after that row, not the end of the topic.  SC31-8212-00
+      // 2.3.3 record 855: `SRHDRHWEOP6`, the repeated `ST  Purpose` heading
+      // and three empty rows stand before `cz FLOW P`; hosted (DT
+      // 19950906051034) serves `<a name="HDRHWEOP6"><H2> 2.3.3
+      // Purpose</H2></a>` ahead of the paragraph.
+      if (block == npos)
+        for (std::size_t line = 0; line < lines.size(); ++line) {
+          if (!lines[line].anchor_before || lines[line].anchor_index != anchor)
+            continue;
+          // Only an empty row: an anchor on a text row inside a block (a
+          // definition body) keeps its previous placement.
+          if (lines[line].cells.size() > lines[line].text_begin) break;
+          for (std::size_t candidate = 0; candidate < block_first_line.size();
+               ++candidate)
+            if (block_first_line[candidate] >= line) {
+              placed.position = candidate;
+              break;
+            }
+          break;
+        }
       topic.anchors.push_back(std::move(placed));
     }
     return true;
