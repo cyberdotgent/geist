@@ -1949,8 +1949,14 @@ struct LineBuilder {
       // the fill/origin pair cut in two (`   |` then `        |`).  The pair
       // still opens a row whose display line has not opened one yet, which is
       // the leading two-run margin the rule was written for.
-      if (space_at(next) && !(xmp_mode && line_open) &&
-          !interior_pair_of_spanned_row(view)) {
+      // The `ST` payload opens with its own blank title column, and that run
+      // belongs to the title, never to a pair with a run in front of the
+      // title: EHMPMST 3.2.2 record 73 ends its last `SI` line with a blank
+      // (token 50) and opens `ST  Attribute processing` with one (token 53);
+      // hosted (DT 19891020000000) heads the topic `<H3> 3.2.2   Attribute
+      // processing</H3>`.
+      if (space_at(next) && !items[next].title_start &&
+          !(xmp_mode && line_open) && !interior_pair_of_spanned_row(view)) {
         // Fill/origin pair: every run but the last is fill.
         auto cursor = index;
         auto last = next;

@@ -353,6 +353,28 @@ void index_lines_before_title() {
   require(extracted.topic->index_terms.size() == 2 &&
               extracted.topic->index_terms[0].term == "processing, element",
           "SI before ST: the index terms are not kept");
+
+  // EHMPMST 3.2.2 record 73: the last `SI` line ends with a blank token
+  // (line 9 `SI attribute processing ` , token 50) and the `ST` line opens
+  // with its blank title column (token 53).  The two blanks stand on two
+  // display lines, so they are not one row's gap; hosted (DT
+  // 19891020000000) heads the topic `<H3> 3.2.2   Attribute
+  // processing</H3>`.
+  std::vector<Line> blank_ended = lines;
+  blank_ended[9] = {words("SI"), words("element"), words("processing"),
+                    words(" ")};
+  // The `ST` line's length byte (token 51, value 5) spells a run of 37
+  // U+2500 words.
+  length_spellings = {{10, TokenWords(37, 0x2500)}};
+  auto trailing = run(blank_ended, "Element processing");
+  length_spellings.clear();
+  require(trailing.topic.has_value(),
+          "SI ending in a blank before ST: the topic was rejected: " +
+              trailing.error);
+  if (trailing.topic)
+    require(trailing.topic->title == "Element processing",
+            "SI ending in a blank before ST: the title is '" +
+                trailing.topic->title + "'");
 }
 
 void unmapped_words() {
