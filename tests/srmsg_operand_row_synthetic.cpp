@@ -32,6 +32,7 @@
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/layout/ownership_ir.hpp"
 #include "geist/detail/ir/prose/prose_topic_ir.hpp"
+#include "geist/detail/render/render_diagnostic_ir.hpp"
 #include "test_failures.hpp"
 
 #include <algorithm>
@@ -365,9 +366,34 @@ void an_unmapped_word_is_the_substitution_byte() {
               names);
 }
 
+// The anchors a best-effort topic publishes follow the same rows: a bare
+// `SRGLS` names nothing (the reader only looks ahead for a letter box), and
+// `SRGLS logical unit  (LU)` names `GLS logical unit  (LU)`.  Hosted
+// G544-3290-04 GLOSSARY.2 and GC30-3820-03 GLOSSARY serve every `GLS` name
+// the rows spell and no bare `GLS`.
+void best_effort_glossary_anchors() {
+  RecordBuilder builder;
+  builder.heading();
+  builder.line({words("SRGLS")});
+  builder.line({words("   "), words("A")});
+  builder.line({words("SRGLS"), words("logical"), words("unit"), words(" "),
+                words("(LU)")});
+  builder.line({words("   "), words("logical"), words("unit.")});
+  const std::vector<DecodedLogicalRecordSource> sources{builder.build(70)};
+  const auto anchors = geist::detail::best_effort_anchors(sources);
+  std::string names;
+  for (const auto &anchor : anchors) names += "[" + anchor + "]";
+  require(std::find(anchors.begin(), anchors.end(), "GLS") == anchors.end(),
+          "a bare SRGLS names a best-effort anchor: " + names);
+  require(std::find(anchors.begin(), anchors.end(),
+                    "GLS logical unit  (LU)") != anchors.end(),
+          "the SRGLS row is not the best-effort anchor's name: " + names);
+}
+
 }  // namespace
 
 int main() {
+  best_effort_glossary_anchors();
   an_unmapped_word_is_the_substitution_byte();
   a_footnote_ends_at_its_end_marker();
   a_stored_blank_run_stays_in_the_name();

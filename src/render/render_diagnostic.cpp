@@ -515,6 +515,9 @@ std::vector<std::string> best_effort_anchors(
             ascii_equals_case_insensitive(stored->substr(0, id.size()), id) &&
             (*stored)[id.size()] == ' ')
           id = *stored;
+      // A bare `SRGLS` names nothing: the reader only looks ahead for a
+      // glossary letter box after it.
+      if (ascii_lower(id) == "gls") continue;
       if (std::find(anchors.begin(), anchors.end(), id) == anchors.end())
         anchors.push_back(std::move(id));
     }
