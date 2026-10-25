@@ -194,9 +194,11 @@ jobs:
             Copy-Item -Destination $dist -Force
 
           # Apache-2.0 section 4 requires the licence to travel with the
-          # binaries, and the bundled libpng, zlib and giflib DLLs carry
-          # their own notices.
+          # binaries, the bundled libpng, zlib and giflib DLLs carry their
+          # own notices, and the Hershey fonts acknowledgement must travel
+          # with the glyph data inside geist.dll (THIRD-PARTY-NOTICES).
           Copy-Item -Path "LICENSE" -Destination $dist -Force
+          Copy-Item -Path "THIRD-PARTY-NOTICES" -Destination $dist -Force
           New-Item -ItemType Directory -Force -Path "$dist/ThirdPartyLicenses" | Out-Null
           foreach ($port in 'libpng', 'zlib', 'giflib') {
             $copyright = "build/vcpkg_installed/x64-windows/share/$port/copyright"
@@ -226,6 +228,7 @@ jobs:
           $required = @(
             'booinfo.exe', 'bootoc.exe', 'boorsrc.exe',
             'boorender.exe', 'bootrace.exe', 'boo2git.exe',
+            'THIRD-PARTY-NOTICES',
             'ThirdPartyLicenses/libpng.txt', 'ThirdPartyLicenses/zlib.txt',
             'ThirdPartyLicenses/giflib.txt'
           )
@@ -423,11 +426,18 @@ jobs:
       # and the library it links, and not the CLI tools: they are unreachable
       # from an AppImage's single entry point, and their presence makes
       # linuxdeploy resolve dependencies for binaries nobody can run.
+      #
+      # LICENSE and THIRD-PARTY-NOTICES travel inside the image: Apache-2.0
+      # section 4 asks for the former, and the Hershey fonts acknowledgement
+      # in the latter must accompany the glyph data inside libgeist.so.
       - name: Assemble the AppDir
         run: |
           mkdir -p AppDir/usr/bin AppDir/usr/lib
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
+          mkdir -p AppDir/usr/share/doc/geist-hardcopy
+
+          cp LICENSE THIRD-PARTY-NOTICES AppDir/usr/share/doc/geist-hardcopy/
 
           cp build/gui/geist-hardcopy AppDir/usr/bin/
           cp -a build/libgeist.so* AppDir/usr/lib/
@@ -500,7 +510,9 @@ jobs:
             usr/lib/libgeist.so \
             usr/libexec/QtWebEngineProcess \
             usr/resources/qtwebengine_resources.pak \
-            usr/share/applications/geist-hardcopy.desktop
+            usr/share/applications/geist-hardcopy.desktop \
+            usr/share/doc/geist-hardcopy/LICENSE \
+            usr/share/doc/geist-hardcopy/THIRD-PARTY-NOTICES
           do
             [ -e "squashfs-root/$path" ] || missing="$missing $path"
           done
