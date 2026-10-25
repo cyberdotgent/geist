@@ -763,9 +763,38 @@ void box_in_cz_flow_declines() {
         "a box in flowed CZ text was typed");
 }
 
+// The broken bar U+00A6 is a row-margin revision mark like `|`: SC34-5559-00
+// 4.1.3 record 990 line 18 stores a blank, `¦` (the two-byte token at
+// 0x61C82, U+00A6), the bullet word (`03` at 0x61C84), a gap and `CL
+// commands: COMMIT and ROLLBACK` under `cz FLOW LI 3 7`; hosted (DT
+// 20000125132847) serves `<li> <br> ¦     CL commands: COMMIT and ROLLBACK`.
+// A paragraph row keeps it out of its text as well (SC34-5390-01 CHANGES,
+// hosted DT 20000119152808 `<p><br> ¦ This section describes ...`).
+void broken_bar_margin_mark() {
+  const Tok mark{TokenWords{0x00A6}, 2, 0};
+  Builder builder(true);
+  builder.line({sp(1), mark, w("Lead"), w("in:")});
+  builder.blank();
+  builder.line({w("cz"), w("FLOW"), w("UL"), w("3"), w("3")});
+  builder.line({w("cz"), w("FLOW"), w("LI"), w("3"), w("7")});
+  builder.line({sp(1), mark, b({0x2666}, 3), sp(2), w("Visit"), w("us.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("EUL"), w("0"), w("0")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "rows behind a broken-bar mark declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(html, "data-geist-revision-mark=\"\xC2\xA6\"") &&
+            contains(html, "Visit us.</") && !contains(html, "°") &&
+            !contains(html, "\xC2\xA6 Lead"),
+        "the broken bar was not read as the rows' revision mark: " + html);
+}
+
 } // namespace
 
 int main() {
+  broken_bar_margin_mark();
   box_in_cz_pre_zone(false);
   box_in_cz_pre_zone(true);
   box_in_cz_flow_declines();

@@ -289,11 +289,15 @@ bool is_display_line_margin_revision_bar(
 
 namespace {
 
-// A character a row margin draws as a revision mark: the box-drawing vertical
-// or a printable ASCII punctuation character.  Letters and digits in cell 1
-// are row text (markup.adoc, "Fixed selection rows in generated lists").
+// A character a row margin draws as a revision mark: the box-drawing vertical,
+// the broken bar U+00A6, or a printable ASCII punctuation character.  Letters
+// and digits in cell 1 are row text (markup.adoc, "Fixed selection rows in
+// generated lists").  SC34-5559-00 4.1.3 record 990 line 18 stores a blank,
+// the two-byte U+00A6 at 0x61C82 and the bullet word; hosted (DT
+// 20000125132847) serves `<li> <br> ¦     CL commands: ...`, the bar in the
+// margin and the bullet blanked, as for `|`.
 bool margin_mark_glyph(const std::uint16_t word) {
-  if (word == 0x2502) return true;
+  if (word == 0x2502 || word == 0x00A6) return true;
   if (word < 0x21 || word > 0x7e) return false;
   return !((word >= '0' && word <= '9') || (word >= 'A' && word <= 'Z') ||
            (word >= 'a' && word <= 'z'));
