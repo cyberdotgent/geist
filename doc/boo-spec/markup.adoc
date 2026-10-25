@@ -7893,3 +7893,50 @@ A term field can be genuinely empty: `SH20-918` record 636 token 275 is a
 two-byte token spelling the delimiter twice, so that `citerm` states a level
 and a `See` child but no term text.  Hosted DT `19910520154851` truncates its
 own output before that group, so nothing adjudicates it.
+
+[[markup_index_body_shapes]]
+==== Further index body shapes
+
+Four more shapes occur in generated `INDEX` topics outside the 29-book corpus
+above.  Each was checked against the hosted page of the book named.
+
+* *Terms before the first `CGPSEP`.*  `SC41-5612-02` record 2061 lines 10-11
+are `citerm <D>' (apostrophe)<D>1<D>2.3.1<D>2.9.4` and
+`citerm <D>- (subtraction)<D>1<D>2.15.3`, and only line 12 is
+`cgpsep <D>Special Characters`.  Hosted (DT `19980522111551`) prints the two
+terms first, with no divider, and then the `Special Characters` divider.
+The same shape opens the indexes of `SC28-1883-06`, `SC41-4612-00`,
+`SC26-3114-00`, `SC09-1905-00` and `SG24-4554-00`.
+* *Plain text lines.*  A display line that holds no control and opens with
+blank cells is printed as it stands, on the output line of the term before
+it, and is never a link.  `SH12-2230-00-de` record 942 line 16 is
+`citerm <D>RGZPFM (Physische Teildatei reorganisieren)<D>1<D>` (a trailing
+empty field) and line 17 is `    Befehl  10.9` (tokens 271-277: four blanks,
+`Befehl`, a blank, `10`, `.`, `9`); hosted (DT `19940919125937`) serves
+`RGZPFM (Physische Teildatei reorganisieren)    Befehl  10.9` with no
+link.  `SH20-9186-07` record 686 (`citerm <D>compartment<D>1` then
+`    in a table`, hosted DT `19910507103243`: `compartment    in a table`)
+and `SC09-2540-01` record 2784 show the same.  Such a line may also follow
+`CENDINDEX`, and is then printed after the last term:
+`SC41-5300-02` record 970 line 22 and `SC41-5713-02` record 2250 line 54
+(`    IBMMAIL, to IBMMAIL(USIB56RZ)'`) appear on the last entry's line on
+both hosted pages (DT `19980626175518`, `19980608114601`).
+* *An index with no terms.*  `eyua1b01` record 2462 is the envelope, `cidelm
+<D>`, `cendindex`, `c.sp 1 p` and `cz BREAK 3`: the index body is empty.
+BookServer serves a termless index as its heading alone (`SC33-0668-02`
+`INDEX`, hosted DT `19930625001740`, where the index carries no index
+controls at all).
+* *Target spellings.*  A target names a topic id as the book spells it, and
+topic ids may contain `/` and parentheses.  `SC09-1714-00` (DT
+`19940917171754`) has the topic `GENDCESTB/SRCMBR`; its index line
+`citerm <D>parameters<D>2<D>GENDCESTB/SRCMBR<D>GENDCESTB/DEFINES` is served
+with `<a href="GENDCESTB%2FSRCMBR?...">`.  The GDDM master index `ADMG3MST`
+(DT `19911001151136`) targets `ISM(VM)`, which hosted links verbatim even
+though the book has no such topic (the master index names other books).
+That index also writes target fields of free text (`see 'GDDM Messages'`),
+which hosted serves as a link to the first word alone; that shape remains
+unresolved.
+
+After `CENDINDEX` a book can open an empty paragraph: `SC33-6733-01` record
+2077 is `cendindex`, `c.sp 1 p`, `cz BREAK 3`, `cz FLOW P 3 3`, `cz BREAK 3`
+and nothing else; hosted (DT `20000720144410`) serves `<p><br>` and no text.

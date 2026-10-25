@@ -34,6 +34,8 @@
 
 #include <cstdint>
 #include <iostream>
+#include <optional>
+#include <variant>
 #include <string>
 #include <utility>
 #include <vector>
@@ -283,11 +285,210 @@ void an_unproven_empty_term_still_declines() {
   }
 }
 
+// An `:INDEX` envelope with the body lines given verbatim: no `cgpsep` is
+// added, so a test decides where (and whether) the groups start.
+DecodedLogicalRecordSource index_body(
+    const std::vector<std::vector<TokenWords>> &body) {
+  RecordBuilder builder;
+  const TokenWords bullet{bullet_glyph};
+  builder.line(bullet, {words("SHINDEX")});
+  builder.line(bullet, {words("chdlevel"), words(":INDEX")});
+  builder.line(bullet, {words("ST"), words("Index")});
+  builder.line(bullet, {words("cidelm"), TokenWords{sentinel_glyph}});
+  for (const auto &line : body) builder.line(bullet, line);
+  return builder.build(42);
+}
+
+std::vector<TokenWords> group_line(const std::string &label) {
+  TokenWords field{sentinel_glyph};
+  for (const auto ch : label) field.push_back(static_cast<std::uint16_t>(ch));
+  return {words("cgpsep"), std::move(field)};
+}
+
+std::optional<geist::detail::DocumentIR> lower(
+    const DecodedLogicalRecordSource &record,
+    const geist::detail::GeneratedTocIndexTopicIR &topic) {
+  geist::detail::TopicIdentityIR identity;
+  identity.id = "INDEX";
+  identity.title = "Index";
+  identity.start_logical_record = record.logical_record;
+  identity.end_logical_record = record.logical_record;
+  std::string error;
+  auto document = geist::detail::lower_generated_toc_index_topic_to_document_ir(
+      identity, topic, &error);
+  require(document.has_value(), "the index did not lower: " + error);
+  if (document)
+    require(geist::detail::verify_document_ir(*document, &error),
+            "the lowered index failed verification: " + error);
+  return document;
+}
+
+std::size_t count_headings(const geist::detail::DocumentIR &document) {
+  std::size_t headings = 0;
+  for (const auto &block : document.blocks)
+    if (std::holds_alternative<geist::detail::HeadingBlockIR>(block.node))
+      ++headings;
+  return headings;
+}
+
+// SC41-5612-02 INDEX writes two terms before its first `cgpsep`; hosted
+// serves them above the first divider with no divider of their own.
+void terms_before_the_first_group_stand_without_a_divider() {
+  const auto record = index_body({index_term("' (apostrophe)", "1", "2.3.1"),
+                                  index_term("- (subtraction)", "1", "2.15.3"),
+                                  group_line("Special Characters"),
+                                  index_term("/ (divide)", "1", "2.15.3"),
+                                  {words("cendindex")}});
+  std::string error;
+  const auto topic = geist::detail::extract_generated_toc_index_topic_ir(
+      {record}, nullptr, &error);
+  require(topic.has_value(),
+          "terms before the first CGPSEP were rejected: " + error);
+  if (!topic) return;
+  require(topic->groups.size() == 2 && !topic->groups[0].separated &&
+              topic->groups[0].label.empty() &&
+              topic->groups[0].terms.size() == 2 &&
+              topic->groups[1].separated &&
+              topic->groups[1].label == "Special Characters" &&
+              topic->groups[1].terms.size() == 1,
+          "the leading terms did not form one unlabelled group");
+  require(geist::detail::verify_generated_toc_index_topic_ir({record}, nullptr,
+                                                             *topic, &error),
+          "the index failed its own verifier: " + error);
+  const auto document = lower(record, *topic);
+  if (!document) return;
+  // The title and the one real divider, nothing for the leading group.
+  require(count_headings(*document) == 2,
+          "the leading group was given a divider heading");
+}
+
+// eyua1b01 INDEX is `cidelm` straight followed by `cendindex`; BookServer
+// serves such an index as its heading over an empty body (SC33-0668-02).
+void an_index_with_no_terms_is_its_heading() {
+  const auto record = index_body({{words("cendindex")}});
+  std::string error;
+  const auto topic = geist::detail::extract_generated_toc_index_topic_ir(
+      {record}, nullptr, &error);
+  require(topic.has_value(), "an empty index was rejected: " + error);
+  if (!topic) return;
+  require(topic->groups.empty(), "an empty index grew a group");
+  const auto document = lower(record, *topic);
+  if (document)
+    require(count_headings(*document) == 1 && document->blocks.size() == 1,
+            "an empty index lowered to more than its heading");
+
+  // Without its `cendindex` the body is not proven complete.
+  const auto open = index_body({});
+  require(!geist::detail::extract_generated_toc_index_topic_ir({open}, nullptr,
+                                                               &error),
+          "an index body with no CENDINDEX was admitted as empty");
+}
+
+// A plain line after a term prints on that term's line (SH12-2230-00-de
+// record 942: `citerm <D>RGZPFM (...)<D>1<D>` then `    Befehl  10.9`).
+void a_plain_line_continues_the_term_before_it() {
+  const auto record = index_body(
+      {group_line("R"), index_term("RGZPFM (reorganize)", "1", ""),
+       {words("    "), words("Befehl"), words("10.9")},
+       index_term("RMVDIRE", "1", "2.3.1"),
+       {words("cendindex")},
+       {words("   "), words("U."), words("S."), words("A.")}});
+  std::string error;
+  const auto topic = geist::detail::extract_generated_toc_index_topic_ir(
+      {record}, nullptr, &error);
+  require(topic.has_value(),
+          "a plain text line inside an index was rejected: " + error);
+  if (!topic) return;
+  const auto *group = only_group(*topic);
+  require(group != nullptr && group->terms.size() == 2,
+          "the text line was not attached to a term");
+  if (group == nullptr || group->terms.size() != 2) return;
+  require(group->terms[0].continuations.size() == 1 &&
+              group->terms[0].continuations[0].text.find("Befehl") == 0 &&
+              group->terms[0].continuations[0].text.find("10.9") !=
+                  std::string::npos &&
+              group->terms[0].targets.empty(),
+          "the continuation line did not stay plain text on its term");
+  require(group->terms[1].continuations.size() == 1 &&
+              group->terms[1].continuations[0].text.find("U.") == 0,
+          "the line after CENDINDEX did not attach to the last term");
+  const auto document = lower(record, *topic);
+  if (!document) return;
+  const auto rendered = geist::detail::format_document_ir(*document);
+  require(rendered.find("Befehl") != std::string::npos,
+          "the lowered index lost the continuation text");
+
+  // A line that opens with a word is an unknown control, not text.
+  const auto control = index_body(
+      {group_line("R"), index_term("RGZPFM", "1", ""),
+       {words("cfoo"), words("bar")}, {words("cendindex")}});
+  require(!geist::detail::extract_generated_toc_index_topic_ir({control},
+                                                               nullptr, &error),
+          "an unknown control line was admitted as index text");
+  // And a text line with no term before it has nothing to continue.
+  const auto orphan = index_body(
+      {{words("    "), words("orphan")}, {words("cendindex")}});
+  require(!geist::detail::extract_generated_toc_index_topic_ir({orphan},
+                                                               nullptr, &error),
+          "a text line with no term before it was admitted");
+}
+
+// Index targets are topic ids, and those may contain `/` and parentheses.
+void a_target_may_name_a_slashed_or_parenthesized_topic() {
+  const auto record = index_body(
+      {group_line("G"), index_term("parameters", "1", "GENDCESTB/SRCMBR"),
+       index_term("abend code 1064", "1", "ISM(VM)"), {words("cendindex")}});
+  std::string error;
+  const auto topic = geist::detail::extract_generated_toc_index_topic_ir(
+      {record}, nullptr, &error);
+  require(topic.has_value(),
+          "a slashed or parenthesized target was rejected: " + error);
+  if (!topic) return;
+  const auto *group = only_group(*topic);
+  require(group != nullptr && group->terms.size() == 2 &&
+              group->terms[0].targets.size() == 1 &&
+              group->terms[0].targets[0].topic_id == "GENDCESTB/SRCMBR" &&
+              group->terms[1].targets[0].topic_id == "ISM(VM)",
+          "the target ids were not kept as written");
+  const auto quoted = index_body(
+      {group_line("G"), index_term("x", "1", "A'B"), {words("cendindex")}});
+  require(!geist::detail::extract_generated_toc_index_topic_ir({quoted},
+                                                               nullptr, &error),
+          "a target with a quote was admitted");
+}
+
+// A paragraph opened after `cendindex` and never filled draws nothing
+// (SC33-6733-01 INDEX: `cz FLOW P 3 3`); before the end it still declines.
+void an_empty_trailing_paragraph_after_the_index_draws_nothing() {
+  const auto cz_flow = std::vector<TokenWords>{
+      words("cz"), words("FLOW"), words("P"), words("3"), words("3")};
+  const auto after = index_body({group_line("Y"),
+                                 index_term("year", "1", "4.4"),
+                                 {words("cendindex")}, cz_flow});
+  std::string error;
+  const auto admitted = geist::detail::extract_generated_toc_index_topic_ir(
+      {after}, nullptr, &error);
+  require(admitted.has_value(),
+          "an empty paragraph after CENDINDEX was rejected: " + error);
+  const auto inside = index_body({group_line("Y"), cz_flow,
+                                  index_term("year", "1", "4.4"),
+                                  {words("cendindex")}});
+  require(!geist::detail::extract_generated_toc_index_topic_ir({inside},
+                                                               nullptr, &error),
+          "a paragraph opened inside the index body was admitted");
+}
+
 } // namespace
 
 int main() {
   the_bullet_in_the_sentinel_slot_is_a_length_byte();
   a_term_the_book_wrote_empty_keeps_its_children();
   an_unproven_empty_term_still_declines();
+  terms_before_the_first_group_stand_without_a_divider();
+  an_index_with_no_terms_is_its_heading();
+  a_plain_line_continues_the_term_before_it();
+  a_target_may_name_a_slashed_or_parenthesized_topic();
+  an_empty_trailing_paragraph_after_the_index_draws_nothing();
   return 0;
 }
+

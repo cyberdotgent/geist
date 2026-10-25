@@ -144,7 +144,12 @@ TopicLoaderBundle make_topic_loaders(
         state->resource_ids.get(), state->contents_grammar.get());
     outcome->typed_claimed = typed.has_value();
     outcome->source_decoded = !loaded.fixed_layout_sources.empty();
-    if (typed && document_ir_has_body(*typed)) {
+    // A generated navigation topic types every display line it holds or
+    // declines, so an index it lowers to a heading alone is proven to draw
+    // nothing else; the source rows of its framing controls are not a body.
+    const auto proven_empty =
+        typed && outcome->trace.family == "generated navigation";
+    if (typed && (document_ir_has_body(*typed) || proven_empty)) {
       outcome->document = std::move(typed);
       outcome->representation = TopicRepresentationKindIR::structured;
       return outcome;

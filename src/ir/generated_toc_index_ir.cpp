@@ -134,6 +134,20 @@ bool valid_topic_id(const std::string& value) {
          });
 }
 
+// An index target names a topic the way the book's own topic ids are spelled,
+// and those also use `/` and parentheses: SC09-1714-00 (DT 19940917171754)
+// has the topic `GENDCESTB/SRCMBR`, which its index targets and hosted links
+// as `GENDCESTB%2FSRCMBR`, and the GDDM master index ADMG3MST (DT
+// 19911001151136) targets `ISM(VM)`, served as `<a href="ISM(VM)?...">`.
+bool valid_index_target(const std::string& value) {
+  return !value.empty() && value.size() <= 64 &&
+         std::all_of(value.begin(), value.end(), [](const unsigned char ch) {
+           return std::isalnum(ch) != 0 || ch == '_' || ch == '-' ||
+                  ch == '.' || ch == '$' || ch == '#' || ch == '@' ||
+                  ch == '/' || ch == '(' || ch == ')';
+         });
+}
+
 // A word-delimited field of a display line, in cell coordinates.
 struct FieldRange {
   std::size_t begin = 0;
@@ -275,6 +289,7 @@ private:
         if (!term(view, error)) return false;
         kind = GeneratedTocIndexLineKindIR::index_term;
       } else if (opcode == "cendindex") {
+        index_ended_ = true;
         kind = GeneratedTocIndexLineKindIR::index_end;
       } else if (opcode.rfind("c.", 0) == 0) {
         // The reader skips every display line whose control name starts
@@ -284,6 +299,8 @@ private:
       } else if (opcode == "cz") {
         if (!region(view, error)) return false;
         kind = GeneratedTocIndexLineKindIR::region_directive;
+      } else if (index_text(view)) {
+        kind = GeneratedTocIndexLineKindIR::index_text;
       } else {
         return fail(error,
                     "generated navigation line is not a known control: '" +
@@ -446,8 +463,6 @@ private:
   bool term(const LineView& view, std::string* error) {
     if (topic_.delimiter == 0)
       return fail(error, "CITERM precedes CIDELM");
-    if (topic_.groups.empty())
-      return fail(error, "CITERM precedes every CGPSEP group");
     const auto fields = delimiter_fields(view.cells, view.body,
                                          view.cells.size(), topic_.delimiter);
     if (fields.size() < 2)
@@ -498,9 +513,9 @@ private:
                                                    fields[field].end)) +
                                "'");
       }
-      if (!valid_topic_id(target.topic_id) ||
+      if (!valid_index_target(target.topic_id) ||
           (!target.range_end_topic_id.empty() &&
-           !valid_topic_id(target.range_end_topic_id)))
+           !valid_index_target(target.range_end_topic_id)))
         return fail(error, "CITERM target is not an identifier: '" +
                                target.topic_id + "'");
       cell_slices(*view.record, view.cells, fields[field].begin,
@@ -512,7 +527,36 @@ private:
     term.source = whole_line_slice(*view.record, view.line);
     cell_slices(*view.record, view.cells, fields[0].begin, fields[0].end,
                 term.term_slices);
+    // Terms before the first `cgpsep` form a group of their own with no
+    // label and no divider.
+    if (topic_.groups.empty()) {
+      GeneratedIndexGroupIR leading;
+      leading.separated = false;
+      topic_.groups.push_back(std::move(leading));
+    }
     topic_.groups.back().terms.push_back(std::move(term));
+    return true;
+  }
+
+  // A plain line of an index body: no control, blank cells first.  It belongs
+  // to the term printed before it.
+  bool index_text(const LineView& view) {
+    if (topic_.kind != GeneratedTocIndexKindIR::index ||
+        topic_.heading_level.empty() || topic_.delimiter == 0 ||
+        topic_.groups.empty() || topic_.groups.back().terms.empty())
+      return false;
+    if (view.cells.empty() || view.cells.front().word != ' ') return false;
+    const auto fields = space_fields(view.cells, 0, view.cells.size());
+    if (fields.empty()) return false;
+    // A delimiter word on the line would make it an unrecognised term, not
+    // text.
+    for (const auto& cell : view.cells)
+      if (cell.word == topic_.delimiter) return false;
+    GeneratedIndexTextIR text;
+    text.text = cell_text(view.cells, fields.front().begin, fields.back().end);
+    cell_slices(*view.record, view.cells, fields.front().begin,
+                fields.back().end, text.slices);
+    topic_.groups.back().terms.back().continuations.push_back(std::move(text));
     return true;
   }
 
@@ -522,9 +566,14 @@ private:
     // The reader's region directives around a generated navigation body.
     // `off toc`/`off etoc 0 0` bracket the TOC exactly as `off figlist`
     // brackets a figure list; `break 3` is the page break before it.
+    // After `cendindex` a book may open an empty paragraph that the reader
+    // closes again with nothing in it (SC33-6733-01 INDEX record 2077:
+    // `cz FLOW P 3 3`, then only `cz BREAK 3`; hosted DT 20000720144410
+    // serves `<p><br>` after the index and no text).
+    const auto trailing_paragraph = index_ended_ && operands == "flow p 3 3";
     if (operands != "break 3" && operands != "off toc" &&
         operands != "off etoc 0 0" && operands != "off index" &&
-        operands != "off eindex 0 0")
+        operands != "off eindex 0 0" && !trailing_paragraph)
       return fail(error, "CZ directive is outside the generated navigation "
                          "grammar: '" + operands + "'");
     return true;
@@ -548,7 +597,11 @@ private:
         first = false;
       }
     } else {
-      if (topic_.groups.empty())
+      // An index with no term at all is the `cidelm` line and the
+      // `cendindex` line and nothing between them; BookServer serves the
+      // heading over an empty body (SC33-0668-02 INDEX, hosted DT
+      // 19930625001740).  Anything less complete still declines.
+      if (topic_.groups.empty() && (topic_.delimiter == 0 || !index_ended_))
         return fail(error, "generated index has no groups");
       if (!topic_.definitions.empty() || !topic_.entries.empty())
         return fail(error, "generated index carries table-of-contents controls");
@@ -573,6 +626,7 @@ private:
   const GeneratedContentsGrammarIR* contents_;
   std::vector<LineView> views_;
   GeneratedTocIndexTopicIR topic_;
+  bool index_ended_ = false;
 };
 
 bool same_slice(const DocumentSourceSliceIR& left,
@@ -627,8 +681,8 @@ bool same_topic(const GeneratedTocIndexTopicIR& left,
   for (std::size_t index = 0; index < left.groups.size(); ++index) {
     const auto& a = left.groups[index];
     const auto& b = right.groups[index];
-    if (a.label != b.label || !same_slice(a.source, b.source) ||
-        a.terms.size() != b.terms.size())
+    if (a.label != b.label || a.separated != b.separated ||
+        !same_slice(a.source, b.source) || a.terms.size() != b.terms.size())
       return false;
     for (std::size_t term = 0; term < a.terms.size(); ++term) {
       const auto& x = a.terms[term];
@@ -636,8 +690,14 @@ bool same_topic(const GeneratedTocIndexTopicIR& left,
       if (x.level != y.level || x.term != y.term ||
           !same_slice(x.source, y.source) ||
           !same_slices(x.term_slices, y.term_slices) ||
-          x.targets.size() != y.targets.size())
+          x.targets.size() != y.targets.size() ||
+          x.continuations.size() != y.continuations.size())
         return false;
+      for (std::size_t line = 0; line < x.continuations.size(); ++line)
+        if (x.continuations[line].text != y.continuations[line].text ||
+            !same_slices(x.continuations[line].slices,
+                         y.continuations[line].slices))
+          return false;
       for (std::size_t target = 0; target < x.targets.size(); ++target)
         if (x.targets[target].topic_id != y.targets[target].topic_id ||
             x.targets[target].range_end_topic_id !=

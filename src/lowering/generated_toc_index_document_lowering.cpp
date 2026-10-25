@@ -104,10 +104,13 @@ std::optional<DocumentIR> canonical_document(
          origin(std::move(list_slices), "generated contents list")});
   } else {
     for (const auto& group : navigation.groups) {
-      auto group_origin = origin({group.source}, "generated index group");
-      document.blocks.push_back(
-          {HeadingBlockIR{2, {{TextInlineIR{group.label}, group_origin}}},
-           group_origin});
+      // Terms written before the first `cgpsep` have no divider to draw.
+      if (group.separated) {
+        auto group_origin = origin({group.source}, "generated index group");
+        document.blocks.push_back(
+            {HeadingBlockIR{2, {{TextInlineIR{group.label}, group_origin}}},
+             group_origin});
+      }
       ListBlockIR list;
       std::vector<DocumentSourceSliceIR> list_slices;
       for (const auto& term : group.terms) {
@@ -139,6 +142,16 @@ std::optional<DocumentIR> canonical_document(
                     target.range_end_topic_id},
                    target.range_end_topic_id},
                target_origin});
+        }
+        // A plain text line after the term prints on the term's own output
+        // line, after its targets, exactly as written.
+        for (const auto& continuation : term.continuations) {
+          auto text_origin =
+              origin(continuation.slices, "generated index text line");
+          item.content.push_back(
+              {TextInlineIR{(item.content.empty() ? "" : " ") +
+                            continuation.text},
+               text_origin});
         }
         // An entry the book wrote with no term text and no target of its own
         // draws nothing, but it is still the parent of the entries below it.

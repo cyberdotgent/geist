@@ -76,6 +76,10 @@ enum class GeneratedTocIndexLineKindIR {
   index_group,
   index_term,
   index_end,
+  // A display line that opens with blank cells and holds no control: the
+  // reader prints it verbatim, glued to the end of the term before it
+  // (GeneratedIndexTermIR::continuations).
+  index_text,
   spacing,  // any `C.` line (`c.sp`, `C.CP`): the reader draws nothing
   region_directive,
 };
@@ -123,6 +127,19 @@ struct GeneratedIndexTargetIR {
   std::vector<DocumentSourceSliceIR> slices;
 };
 
+// A plain display line inside an index body.  It holds no control and opens
+// with blank cells, and BookServer prints it as it stands, on the output line
+// of the term before it: SH12-2230-00-de INDEX (DT 19940919125937) record 942
+// writes `citerm <D>RGZPFM (Physische Teildatei reorganisieren)<D>1<D>` and
+// then the line `    Befehl  10.9`, and hosted serves `RGZPFM (Physische
+// Teildatei reorganisieren)    Befehl  10.9` with no link.  The same happens
+// after `cendindex` (SC41-5300-02 record 970, hosted DT 19980626175518).
+struct GeneratedIndexTextIR {
+  // The line's text without its leading and trailing blanks.
+  std::string text;
+  std::vector<DocumentSourceSliceIR> slices;
+};
+
 struct GeneratedIndexTermIR {
   // 1-based nesting level exactly as the source writes it.
   std::uint32_t level = 1;
@@ -130,6 +147,8 @@ struct GeneratedIndexTermIR {
   std::vector<GeneratedIndexTargetIR> targets;
   DocumentSourceSliceIR source;
   std::vector<DocumentSourceSliceIR> term_slices;
+  // Plain text lines that follow this term, in source order.
+  std::vector<GeneratedIndexTextIR> continuations;
 };
 
 struct GeneratedIndexGroupIR {
@@ -138,6 +157,12 @@ struct GeneratedIndexGroupIR {
   std::string label;
   DocumentSourceSliceIR source;
   std::vector<GeneratedIndexTermIR> terms;
+  // False for the terms a book writes before its first `cgpsep`: they form a
+  // group with no label and no source line of its own, which BookServer
+  // serves as plain entries above the first letter divider (SC41-5612-02
+  // INDEX, hosted DT 19980522111551: `' (apostrophe)` and `- (subtraction)`
+  // precede the `Special Characters` divider).
+  bool separated = true;
 };
 
 struct GeneratedTocIndexTopicIR {
