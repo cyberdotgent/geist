@@ -71,6 +71,10 @@ struct LineBuilder {
   // The closer tag of the open generic `cz OFF` region (see
   // `generic_region_opener`), empty when none is open.
   std::string generic_region_closer;
+  // The open verbatim region holds an immediately closed verbatim pair
+  // (`cz OFF XMP` .. `cz OFF EXMP` inside `cz OFF SCREEN`): its closer
+  // leaves the outer region open.
+  bool nested_verbatim = false;
   // Inside `cz OFF XMP` .. `cz OFF EXMP`: the rows are verbatim example
   // text, not reflowed prose, so no visible token is a row-control slot.
   bool xmp_mode = false;
@@ -1502,6 +1506,17 @@ struct LineBuilder {
     return false;
   }
 
+  // True when the directive after layout item `index` is its own
+  // `cz OFF E<tag>` closer.
+  bool next_directive_closes(std::size_t index) const {
+    for (auto next = index + 1; next < items.size(); ++next) {
+      if (items[next].kind != ItemKind::layout) continue;
+      return items[next].directive.mode == "off" &&
+             items[next].directive.tag == "e" + items[index].directive.tag;
+    }
+    return false;
+  }
+
   // True when every directive of the topic is a `cz OFF E<tag>` verbatim
   // region closer.  With no other directive there is no opener either, so
   // each of them closes a region the topic never opened.
@@ -1601,11 +1616,23 @@ struct LineBuilder {
           if (cz_verbatim_region_tag(item.directive.tag) ||
               cz_artwork_region_tag(item.directive.tag) ||
               cz_tabdata_region_tag(item.directive.tag)) {
+            // A verbatim pair nested inside an open verbatim region, its
+            // closer the very next directive, leaves the outer region open
+            // after it -- the reading the CZ block builder gives it
+            // (GX27-3999-00 2.6.1/2.6.2 nest XMP and LINES): the outer
+            // region's rows after the inner closer are still drawn.
+            // acca2000 3.2.1 nests `cz OFF XMP` .. `cz OFF EXMP 4 4` inside
+            // `cz OFF SCREEN` (record 66 line 16 .. record 67 line 20) and
+            // draws the screen's last rails and bottom rule after `EXMP`.
+            nested_verbatim =
+                xmp_mode && cz_verbatim_region_tag(item.directive.tag) &&
+                next_directive_closes(index);
             xmp_mode = true;
           } else if (cz_verbatim_region_closer(item.directive.tag) ||
                      cz_artwork_region_closer(item.directive.tag) ||
                      cz_tabdata_region_closer(item.directive.tag)) {
-            xmp_mode = false;
+            xmp_mode = nested_verbatim;
+            nested_verbatim = false;
           } else if (generic_region_opener(index)) {
             xmp_mode = true;
             generic_region_closer = "e" + item.directive.tag;

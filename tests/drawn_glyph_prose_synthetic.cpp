@@ -349,6 +349,33 @@ void bullet_in_verbatim_region() {
         "the bullet was not drawn in its region row: " + html);
 }
 
+// A verbatim pair nested in an open verbatim region leaves the outer region
+// open after its closer: acca2000 3.2.1 nests `cz OFF XMP` .. `cz OFF EXMP
+// 4 4` inside `cz OFF SCREEN` (record 66 line 16 .. record 67 line 20) and
+// draws the screen's last rails and bottom rule after `EXMP`.
+void box_rows_after_nested_verbatim_pair() {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("SCREEN")});
+  builder.line({sp(3), box(run(0x250C, 0x2500, 12, 0x2510))});
+  builder.line({w("cz"), w("OFF"), w("XMP")});
+  builder.line({sp(3), box({0x2502}), w("Inside"), sp(4), box({0x2502})});
+  builder.line({w("cz"), w("OFF"), w("EXMP"), w("4"), w("4")});
+  builder.line({sp(3), box({0x2502}), sp(12), box({0x2502})});
+  builder.line({sp(3), box(run(0x2514, 0x2500, 12, 0x2518))});
+  builder.line({w("cz"), w("OFF"), w("ESCREEN"), w("0"), w("0")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(),
+        "box rows after a nested verbatim pair declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(html, "   | Inside     |\n   |             |\n   |____________|"),
+        "the outer region's rows after the nested pair were not drawn: " +
+            html);
+}
+
 // SY27-0327-05 4.5 record 691: `cz OFF DANGER` ... `cz OFF EDANGER 0 0`
 // around a closed box.  The reader serves the generic `CZ OFF` region as
 // `<pre width="80">` with every row at its columns (hosted DT
@@ -405,6 +432,7 @@ int main() {
   marked_styled_term(w("|"));
   marked_styled_term(b({'|'}, 0x7C));
   bullet_in_verbatim_region();
+  box_rows_after_nested_verbatim_pair();
   box_in_generic_region();
   linked_generic_region_declines();
   return 0;
