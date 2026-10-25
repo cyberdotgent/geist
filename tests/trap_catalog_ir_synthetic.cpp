@@ -1548,11 +1548,11 @@ int main() {
   }
 
   // A drawn figure row keeps the style its own `CFONT` states, at the columns
-  // its display cells prove, and leaves out the revision bar in its margin.
+  // its display cells prove, and the revision bar in its margin as drawn.
   // Hosted N2AH1MST 10.0 (DT 19910329000100) serves FIGFIGUNIQ20's rows as
   // ` |          <B>ACTIVE</B> <B>LU'S</B> ...` for `cfont 12 6 2 19 4 2 ...`
-  // above record 533 line 17; the bar is the same revision mark the entry's
-  // reflowed rows drop.
+  // above record 533 line 17, and SC34-425 2.4.14.1 (DT 19921112160049)
+  // ` |    @EJEC  BNO ...`: a drawn row prints its mark where it stands.
   {
     const Token bar{TokenWords{'|'}, 252};
     const Token rule{TokenWords{0x2502}, 253};
@@ -1587,9 +1587,9 @@ int main() {
               "styled figure lost its rows");
       if (drawn != nullptr && drawn->lines.size() == 3 &&
           drawn->line_highlights.size() == 3) {
-        require(drawn->lines[0] == "      Styled row" &&
-                    drawn->lines[1] == "      Plain row",
-                "figure revision bar was kept: '" + drawn->lines[0] + "'");
+        require(drawn->lines[0] == " |    Styled row" &&
+                    drawn->lines[1] == " |    Plain row",
+                "figure revision bar was not drawn: '" + drawn->lines[0] + "'");
         require(drawn->lines[2].find('|') == 1,
                 "box rule row lost its left rule: '" + drawn->lines[2] + "'");
         require(drawn->line_highlights[0].size() == 1 &&
@@ -1618,8 +1618,8 @@ int main() {
       if (document) {
         const auto html =
             geist::detail::render_document_html_blocks(*document, {});
-        require(html.find(">      <strong class=\"geist-strong\">Styled"
-                          "</strong> row\n      Plain row\n") !=
+        require(html.find("> |    <strong class=\"geist-strong\">Styled"
+                          "</strong> row\n |    Plain row\n") !=
                     std::string::npos,
                 "styled figure rows did not render in place: " + html);
       }

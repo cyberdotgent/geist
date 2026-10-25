@@ -1663,31 +1663,6 @@ region_row_highlights(const std::vector<DisplayLineCellIR> &cells,
   return highlights;
 }
 
-// A revision bar in a drawn region row: the row opens with a one-cell blank
-// and a width-one `U+2502` or `|` at column 1, followed by a blank or the
-// row's end, with no other box-drawing cell anywhere in the row and no span
-// styling the bar. It is the reader's revision margin, the same mark the
-// prose and fixed-table rows already leave out of their text (a one-space
-// origin followed by the bar). N2AH1MST record 533 lines 17-21 and record
-// 534 lines 0-2 are ` |` + the figure row. A box drawn into the region
-// keeps its rules: packet `1.3` stores its left rule at column 3 beside a
-// matching right rule.
-bool region_revision_bar(const std::vector<DisplayLineCellIR> &cells,
-                         const std::vector<TrapBodyHighlightIR> &highlights,
-                         const std::vector<std::size_t> &offsets) {
-  if (cells.size() < 2 || cells[0].word != ' ' ||
-      (cells[1].word != 0x2502 && cells[1].word != '|') ||
-      (cells.size() > 2 && cells[2].word != ' '))
-    return false;
-  for (std::size_t column = 2; column < cells.size(); ++column)
-    if (cells[column].word >= 0x2500 && cells[column].word <= 0x257f)
-      return false;
-  for (const auto &highlight : highlights)
-    if (highlight.begin < offsets[2] && highlight.end > offsets[1])
-      return false;
-  return true;
-}
-
 // Projects the display lines an embedded `SRTBL` ... `SRETBL` envelope draws.
 //
 // The bounds are given in the records' own token coordinates: `start_token`
@@ -1863,14 +1838,10 @@ bool project_embedded_region(const std::vector<DecodedLogicalRecordSource> &reco
       if (pending_font)
         highlights = region_row_highlights(row_cells, offsets, *pending_font);
       pending_font.reset();
-      if (region_revision_bar(row_cells, highlights, offsets)) {
-        const auto bar_bytes = offsets[2] - offsets[1];
-        text.replace(offsets[1], bar_bytes, " ");
-        for (auto &highlight : highlights) {
-          highlight.begin = highlight.begin - bar_bytes + 1;
-          highlight.end = highlight.end - bar_bytes + 1;
-        }
-      }
+      // A revision mark in the row's margin stays where the row draws it:
+      // hosted BookServer prints the region's rows as stored, mark included
+      // (N2AH1MST 10.0, DT 19910329000100, ` |          <B>ACTIVE</B> ...`
+      // for record 533 line 17).
       while (!text.empty() && text.back() == ' ')
         text.pop_back();
       region.lines.push_back(std::move(text));
