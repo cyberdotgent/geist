@@ -16,7 +16,12 @@ sr_row_anchor_name(const DecodedLogicalRecordSource &record,
   if (line == nullptr || line->prefix_token + 1 != opcode_token)
     return std::nullopt;
   TokenWords words;
-  for (const auto word : display_line_columns(record, *line)) {
+  for (auto word : display_line_columns(record, *line)) {
+    // A word the dictionary does not map is the reader's substitution byte
+    // 0xFF in the served name (AFM41MST 1.3 `LEN GPCLWS -\xff  Close
+    // Workstation`, SC31-6081-00 12.1.10 `MSG Code:\xff   102`).
+    if (word == 0xFFFF)
+      word = 0x00FF;
     const auto printable = (word >= 0x20 && word <= 0x7E) ||
                            (word >= 0xA0 && word <= 0xFF);
     if (!printable)

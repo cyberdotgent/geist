@@ -21,7 +21,9 @@ namespace geist::detail {
 // `opcode_token` is the control's first token; it must open its native
 // display line.  Nullopt where the record's framing is undecided, the token
 // does not open its line, the line does not spell `SR`, or the row draws a
-// word the name cannot spell (anything but printable ASCII or Latin-1).
+// word the name cannot spell (anything but printable ASCII or Latin-1).  A
+// word the dictionary does not map is spelled `ÿ`, the reader's substitution
+// byte 0xFF, as the hosted name has it.
 std::optional<std::string>
 sr_row_anchor_name(const DecodedLogicalRecordSource &record,
                    std::size_t opcode_token);

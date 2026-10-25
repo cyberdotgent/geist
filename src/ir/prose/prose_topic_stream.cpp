@@ -549,6 +549,11 @@ bool claim_envelope_anchor(const std::vector<DecodedLogicalRecordSource>& record
       return false;
   }
   anchor.id = std::move(id);
+  // Named after the row as stored where the control opens its own: blank
+  // runs kept, an unmapped word as the reader's substitution byte.
+  if (const auto stored =
+          sr_row_anchor_name(record, segment.source_tokens.front()))
+    anchor.id = *stored;
   anchor.source = token_slice(record, segment.source_tokens.front(),
                               segment.source_tokens.back() + 1);
   return true;

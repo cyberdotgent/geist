@@ -1582,6 +1582,14 @@ message number. Of 18 sampled books whose `SRMSG` rows hold a blank run
 name keeps the stored row. `SRGLS` and `SRLEN` rows are named the same way
 (`SH12-5915-01` `GLOSSARY` `<a name="GLS Interactive Control Service  (ICS)">`,
 `SC26-4399-06` `J.9` `<a name="LEN Identify_Resource_Manager  (XCIDRM)">`).
+A word of the row that the dictionary table does not map is written as the
+reader's substitution byte `0xff` in the name: `AFM41MST` `1.3` logical
+record 56 stores the envelope row `SRLEN GPCLWS -?  Close Workstation`,
+whose token 22 (one byte, value `1b`, at `0x11336`) is the dictionary word
+`-` followed by an unmapped word, and hosted (DT `19910927164256`) serves
+`<a name="LEN GPCLWS -\xff  Close Workstation">` around the topic heading;
+`SC31-6081-00` `12.1.10` (`Code:` + unmapped word, served
+`MSG Code:\xff   102`) and `SC23-0098-01` `GLOSSARY` are the same.
 
 .Observed body `SRMSG <id>` rows outside message catalogs and `CZ` lists
 [cols="2,3,3",options="header"]

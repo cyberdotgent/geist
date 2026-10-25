@@ -332,9 +332,43 @@ void a_footnote_ends_at_its_end_marker() {
           "the line after SREFTN does not open a block of its own");
 }
 
+// An `SR` row naming its anchor with a word the dictionary does not map:
+// AFM41MST 1.3 record 56 stores `SRLEN GPCLWS -?  Close Workstation` between
+// `csummary` and `chdlevel`, the `?` being the unmapped word (0xFFFF) of
+// token 22 at 0x11336.  Hosted (DT 19910927164256) serves
+// `<a name="LEN GPCLWS -\xff  Close Workstation">`: the reader's
+// substitution byte 0xFF (`ÿ`) in place of the word, the blanks as stored.
+void an_unmapped_word_is_the_substitution_byte() {
+  RecordBuilder builder;
+  builder.line({words("sh1.3")});
+  builder.line({words("ctopicn"), words("19")});
+  builder.line({words("cparent"), words("1.0")});
+  builder.line({words("cforwardlevel"), words("1.4")});
+  builder.line({words("cbacklevel"), words("1.2")});
+  builder.line({words("csummary"), words("38"), words("0"), words("38")});
+  builder.line({words("SRLEN"), words("GPCLWS"), TokenWords{'-', 0xFFFF},
+                words(" "), words("Close"), words("Workstation")});
+  builder.line({words("chdlevel"), words(":H3")});
+  builder.line({words("csourcefn"), words("AFM41CTL")});
+  builder.line({words("ST"), words("Close"), words("Workstation")});
+  builder.line({words("   "), words("Text.")});
+  auto extracted = run(builder.build(56));
+  require(extracted.topic.has_value(),
+          "an SRLEN envelope anchor topic was rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto &topic = *extracted.topic;
+  std::string names;
+  for (const auto &anchor : topic.anchors) names += "[" + anchor.id + "]";
+  require(anchors_named(topic, "LEN GPCLWS -\xC3\xBF  Close Workstation")
+                  .size() == 1,
+          "the SRLEN anchor is not `LEN GPCLWS -\xC3\xBF  Close Workstation`: " +
+              names);
+}
+
 }  // namespace
 
 int main() {
+  an_unmapped_word_is_the_substitution_byte();
   a_footnote_ends_at_its_end_marker();
   a_stored_blank_run_stays_in_the_name();
   an_operand_row_is_the_message_anchor();
