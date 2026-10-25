@@ -50,25 +50,6 @@ CrossReferenceTargetIR prose_target(
 
 bool code_style(FontStyleIR style) { return font_style_is_code(style); }
 
-// The label of a definition entry or a note is rendered emphasised by the
-// document renderer (`- **term:** ...`).  When the source emphasises the whole
-// label as well (SC41-485 1.1 `<dt>   <B>List</B>`), keeping the CFONT node
-// would double the emphasis, so a fully highlighted label lowers as plain
-// text.  A code-styled or partly styled label keeps its nodes.
-bool label_is_wholly_highlighted(const ProseBlockIR& block, std::size_t begin,
-                                 std::size_t end) {
-  if (begin >= end) return false;
-  for (auto index = begin; index < end && index < block.inlines.size();
-       ++index) {
-    const auto& node = block.inlines[index];
-    if (node.kind != ProseInlineKindIR::emphasis) return false;
-    if (code_style(node.style) || node.style == FontStyleIR::unknown ||
-        node.style == FontStyleIR::underscore)
-      return false;
-  }
-  return true;
-}
-
 // A table span inside a picture-less frame that draws rows of its own
 // (`ProseSpanIR::frame_before`/`frame_after`).  Hosted BookServer serves the
 // frame and the table as one `<pre>` (ITPPIBOK 4.3.5.4, DT 19910628074854):
@@ -800,10 +781,8 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
               return fail(error,
                           "empty prose definition term carries inline text");
             lowered.empty_term = true;
-          } else if (!lower_inlines(
-                         entry, 0, entry.term_inline_count, lowered.term, error,
-                         label_is_wholly_highlighted(
-                             entry, 0, entry.term_inline_count))) {
+          } else if (!lower_inlines(entry, 0, entry.term_inline_count,
+                                    lowered.term, error)) {
             return false;
           }
           const auto has_inline_body =

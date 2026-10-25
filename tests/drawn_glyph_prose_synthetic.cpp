@@ -28,6 +28,7 @@
 #include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/lowering/topic_document_lowering.hpp"
 #include "geist/detail/render/document_html_renderer.hpp"
+#include "geist/detail/render/document_markdown_renderer.hpp"
 #include "test_failures.hpp"
 
 #include <cstdint>
@@ -310,9 +311,8 @@ void marked_verbatim_row(Tok mark) {
 // and `cfont 3 4 2`; hosted (DT 19970421115044) serves
 // `<dt><br> | <B>*YES</B>     <dd>(Default) The AS/400 ...`.  The mark is
 // the entry's revision mark, never term text; the term is then wholly
-// highlighted, and a wholly highlighted label lowers as plain text because
-// the renderer emphasises every term itself (prose lowering,
-// `label_is_wholly_highlighted`).
+// highlighted and keeps its `<B>` as hosted does (the Markdown term syntax
+// is already bold, so Markdown prints the wholly emphasised term plain).
 void marked_styled_term(Tok mark) {
   Builder builder(true);
   builder.line({w("cz"), w("FLOW"), w("DL"), w("3"), w("3")});
@@ -329,8 +329,13 @@ void marked_styled_term(Tok mark) {
   const auto html = render_document_html_fragment(*doc);
   check(contains(html, "<dt class=\"geist-definition-term\"><span "
                        "class=\"geist-revised\" data-geist-revision-mark="
-                       "\"|\">*YES</span></dt>"),
-        "the marked term is not a revised term: " + html);
+                       "\"|\"><strong class=\"geist-strong\">*YES</strong>"
+                       "</span></dt>"),
+        "the marked term is not a revised bold term: " + html);
+  const auto markdown = render_document_markdown(*doc);
+  check(contains(markdown, "- **\\*YES:** ") && !contains(markdown, "****"),
+        "the wholly bold term is not a plain bold Markdown label: " +
+            markdown);
 }
 
 // SC33-1697-02 1.3 record 123: inside `cz OFF LBLBOX` the rows of the

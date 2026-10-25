@@ -256,6 +256,32 @@ void append_flat_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
 
 // Markdown has no margin, so a revised run prints its children in place and
 // the mark is dropped (the HTML form keeps it).
+// A definition term every inline of which is emphasis (inside a revised
+// run or not): the source styles the whole label.
+bool wholly_emphasised_label(const InlineSequenceIR &inlines) {
+  return !inlines.empty() &&
+         std::all_of(inlines.begin(), inlines.end(), [](const InlineIR &in) {
+           if (const auto *revised = std::get_if<RevisedInlineIR>(&in.node))
+             return wholly_emphasised_label(revised->children);
+           return std::holds_alternative<EmphasisInlineIR>(in.node);
+         });
+}
+
+// The same label with its emphasis printed as plain text.
+InlineSequenceIR plain_label(const InlineSequenceIR &inlines) {
+  InlineSequenceIR plain;
+  for (const auto &in : inlines) {
+    if (const auto *revised = std::get_if<RevisedInlineIR>(&in.node))
+      plain.push_back(
+          {RevisedInlineIR{revised->mark, plain_label(revised->children)},
+           in.origin});
+    else
+      plain.push_back(
+          {TextInlineIR{std::get<EmphasisInlineIR>(in.node).text}, in.origin});
+  }
+  return plain;
+}
+
 void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
                     InlineContext context,
                     const DocumentMarkdownRendererOptions &options) {
@@ -795,8 +821,16 @@ void append_block(RenderSink &sink, const BlockIR &block,
             sink.boundary("- **", "definition term syntax", entry_origin);
             {
               const PathScope field(sink, "term", 0);
-              append_inlines(sink, node.entries[index].term,
-                             InlineContext::single_line, options);
+              // The term syntax is already bold.  A term the source
+              // emphasises whole (hosted `<dt><B>List</B>`) prints its text
+              // inside it rather than nesting a second emphasis.
+              const auto &term = node.entries[index].term;
+              if (wholly_emphasised_label(term))
+                append_inlines(sink, plain_label(term),
+                               InlineContext::single_line, options);
+              else
+                append_inlines(sink, term, InlineContext::single_line,
+                               options);
             }
             const auto compound_definition =
                 !node.entries[index].definition_blocks.empty();
