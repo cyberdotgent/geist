@@ -101,7 +101,7 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
   // the catalog string is the book's separate projection, so there is nothing
   // to corroborate positionally.  Provenance is the control's own tokens.
   const auto empty_title = stream.empty_title_source.has_value();
-  if (!empty_title) {
+  if (!empty_title && !stream.untitled) {
     const auto typed = normalize_title(lines.title);
     const auto catalog = normalize_title(title);
     const auto run = normalize_title(lines.title_run);
@@ -120,7 +120,12 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
   topic.heading_level = envelope.heading_level;
   topic.heading_form = envelope.heading_form;
   topic.title = lines.title;
-  if (empty_title) {
+  topic.untitled = stream.untitled;
+  if (stream.untitled) {
+    if (!lines.title.empty())
+      return reject("a topic without an ST line collected title words");
+    topic.title.clear();
+  } else if (empty_title) {
     topic.title.clear();
     topic.title_source = *stream.empty_title_source;
   } else {
@@ -578,7 +583,8 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
   out << "prose_topic records=" << topic.record_count
       << " tokens=" << topic.token_count << " heading_level="
       << topic.heading_level << " heading_form=" << topic.heading_form
-      << " title='" << topic.title << "'";
+      << " title='" << topic.title << "'"
+      << (topic.untitled ? " untitled" : "");
   format_slices(out, {topic.title_source});
   out << '\n';
   for (const auto& anchor : topic.anchors) {

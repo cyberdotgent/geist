@@ -397,6 +397,27 @@ catalog title string carries the same `__`. 28 topics of `EDCIV1R2.BOO` and
 `EDCUSER.BOO` have this shape (`EDCUSER.BOO` `8.1.6.2`, DT `19900523000000`:
 `<H3> 8.1.6.2   getenv __ Retrieve Environment Variables</H3>`).
 
+*A topic with no `ST` line.* Six `EDCUSER.BOO` topics, `8.4.2.1` to
+`8.4.2.6` (logical records 1156-1176), store no `ST` line anywhere: the envelope ends
+with `CSOURCEFN` and the next display line is already the first body row.
+Record 1156:
+
+[cols="<16,<34,<45",options="header"]
+|===
+|File offset |Bytes |Meaning
+
+|`0xbdc18` |`03` |Length byte (3).
+|`0xbdc19` |`78 cc03` |`CSOURCEFN`, `EDCULOCL`
+|`0xbdc1c` |`08` |Length byte (8).
+|`0xbdc1d` |`12 d558 00 2c 00 c9 20` |three blanks, `LC`, attach + `_`, attach + `CTYPE`: the row `   LC_CTYPE`
+|===
+
+The reader emits a topic heading only when it reads an `ST` line, so such a
+topic has no heading at all: hosted BookServer (DT `19900523000000`) serves
+`8.4.2.1` as the body alone, opening with `LC_CTYPE`, with neither the topic
+number nor the contents title (`LC_CTYPE`) as a heading. The contents entry
+and the catalog still carry the topic's title; only the topic page lacks one.
+
 [[topics_chdlevel_observed_values]]
 ==== `CHDLEVEL` Observed Values
 

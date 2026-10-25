@@ -528,7 +528,10 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
   // identity prefix alone, which is what hosted BookServer serves
   // (`<H3> 8.1.1.1 </H3>`, SC09-138 DT 19910321130500).
   std::vector<InlineIR> heading_content;
-  if (prose.title.empty()) {
+  // A topic with no `ST` line has no heading: the reader emits one only for
+  // an `ST` line (hosted EDCUSER 8.4.2.1, DT 19900523000000).
+  if (prose.untitled) {
+  } else if (prose.title.empty()) {
     InlineIR identity_only;
     identity_only.node = TextInlineIR{document.topic.id};
     identity_only.origin.derivation = DocumentDerivationIR::synthesized;
@@ -538,8 +541,9 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
     heading_content.push_back(
         InlineIR{TextInlineIR{prose.title}, heading_origin});
   }
-  document.blocks.push_back(
-      {HeadingBlockIR{level, std::move(heading_content)}, heading_origin});
+  if (!prose.untitled)
+    document.blocks.push_back(
+        {HeadingBlockIR{level, std::move(heading_content)}, heading_origin});
 
   // Table and figure spans lower through their own typed blocks; the prose
   // family only places them.

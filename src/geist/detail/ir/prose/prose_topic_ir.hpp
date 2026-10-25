@@ -344,6 +344,12 @@ struct ProseTopicIR {
   std::string heading_form;
   std::string title;
   DocumentSourceSliceIR title_source;
+  // The topic stores no `ST` line at all.  The reader emits a heading only
+  // for an `ST` line, so such a topic is served with no heading: EDCUSER
+  // 8.4.2.1 record 1156 runs `CSOURCEFN EDCULOCL` straight into the row
+  // `   LC_CTYPE`, and hosted BookServer (DT 19900523000000) serves the body
+  // alone.  `title` is then empty and `title_source` unset.
+  bool untitled = false;
   std::vector<ProseAnchorIR> anchors;
   std::vector<ProseBlockIR> blocks;
   std::vector<ProseIndexTermIR> index_terms;

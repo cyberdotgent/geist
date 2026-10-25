@@ -390,9 +390,51 @@ void unmapped_words() {
           "unmapped words: an unmapped word is drawn as `?`: '" + text + "'");
 }
 
+void topic_without_title_line() {
+  // EDCUSER 8.4.2.1 record 1156: the envelope ends with `CSOURCEFN
+  // EDCULOCL` (line 7) and line 8 is already the body row `   LC_CTYPE`; the
+  // topic stores no `ST` line anywhere.  The reader emits a heading only for
+  // an `ST` line, and hosted BookServer (DT 19900523000000) serves the body
+  // alone, starting `   LC_CTYPE`.
+  std::vector<Line> lines = {
+      {words("SH8.4.2.1")},
+      {words("CTOPIC#"), words("278")},
+      {words("CPARENT"), words("8.4.2")},
+      {words("CFORWARDLEVEL"), words("8.4.2.2")},
+      {words("CBACKLEVEL")},
+      {words("CSUMMARY"), words("8.4.2.1"), words(".SK"), words("1#T2#.SK")},
+      {words("CHDLEVEL"), words(":H3")},
+      {words("CSOURCEFN"), words("EDCULOCL")},
+      {words("   "), words("LC_CTYPE")},
+      {words("C.SK"), words("1")},
+      {words("   "), words("CHARTYP"), words("     "), words("Takes"),
+       words("on"), words("the"), words("value"), words("1.")},
+  };
+  auto extracted = run(lines, "LC_CTYPE");
+  require(extracted.topic.has_value(),
+          "no ST line: the topic was rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  require(extracted.topic->untitled && extracted.topic->title.empty(),
+          "no ST line: the topic was given a title '" +
+              extracted.topic->title + "'");
+  const auto text = topic_text(*extracted.topic);
+  require(text.find("LC_CTYPE") != std::string::npos &&
+              text.find("Takes on the value 1.") != std::string::npos,
+          "no ST line: the body is missing: '" + text + "'");
+  require(text.find("EDCULOCL") == std::string::npos,
+          "no ST line: the source file name is drawn: '" + text + "'");
+
+  // An `ST` line later in such a topic is a shape no book shows: declined.
+  auto later = lines;
+  later.push_back({words("ST"), words(" "), words("Late"), words("title")});
+  require(!run(later, "LC_CTYPE").topic,
+          "no ST line: a later ST line was admitted");
+}
+
 }  // namespace
 
 int main() {
+  topic_without_title_line();
   unmapped_words();
   summary_with_glued_length_byte();
   index_lines_before_title();

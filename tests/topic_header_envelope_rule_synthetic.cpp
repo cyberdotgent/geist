@@ -298,11 +298,23 @@ int main() {
                                          words("HCPLOGR")});
     declined("metadata after the title", lines, "Recording");
   }
-  // No title at all.
+  // No title line at all: the reader emits a heading only for an `ST`
+  // line, so the topic is its body alone (EDCUSER 8.4.2.1, hosted DT
+  // 19900523000000).
   {
     auto lines = numbered_topic({"chdlevel"});
     lines.erase(lines.begin() + 7);
-    declined("no ST", lines, "Recording");
+    auto extracted = run(lines, "Recording");
+    require(extracted.topic.has_value(),
+            "no ST: the topic was rejected: " + extracted.error);
+    if (extracted.topic) {
+      require(extracted.topic->untitled && extracted.topic->title.empty(),
+              "no ST: the topic was given a title");
+      require(topic_text(*extracted.topic).find("An installation may write.") !=
+                  std::string::npos,
+              "no ST: the body is missing: '" +
+                  topic_text(*extracted.topic) + "'");
+    }
   }
   // The envelope must open with the topic-start control.
   {

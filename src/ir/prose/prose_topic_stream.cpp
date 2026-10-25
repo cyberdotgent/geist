@@ -738,7 +738,9 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
   bool heading_seen = false;
   for (std::size_t index = 0;; ++index) {
     if (index != 0) {
-      if (envelope.glued_title || seen.size() + 1 == required.size()) break;
+      if (envelope.glued_title || envelope.untitled ||
+          seen.size() + 1 == required.size())
+        break;
       const auto next = next_metadata_kind();
       if (!next) break;
       if (already_seen(*next) && !repeatable(*next))
@@ -915,8 +917,38 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
       // into the source-file segment (ACPZMST1 record 78).
       const auto operands = operand_tokens(record, segment);
       bool st_seen = false;
+      // Where the record's display lines parse, `CSOURCEFN` owns exactly its
+      // own display line.  When the line after it does not open with `ST`,
+      // the topic has no title line and that line is the first body row:
+      // EDCUSER 8.4.2.1-8.4.2.6 (records 1156-1176) write `CSOURCEFN
+      // EDCULOCL` and then `   LC_CTYPE`, and the reader, which emits a
+      // heading only for an `ST` line, serves no heading at all (hosted DT
+      // 19900523000000).
+      const auto* own_line =
+          segment.source_tokens.empty()
+              ? nullptr
+              : display_line_of_token(record, segment.source_tokens.front());
+      const auto next_line_opens_title = [&](std::size_t from) {
+        for (const auto token : segment.source_tokens) {
+          if (token < from) continue;
+          const auto view = view_token(records, record_index, token);
+          if (is_display_line_length_token(record, token) ||
+              is_padding(view) || is_separator(view))
+            continue;
+          return ascii_lower(body_text(view)) == "st";
+        }
+        return true;
+      };
       for (const auto token : segment.source_tokens) {
         const auto view = view_token(records, record_index, token);
+        if (!st_seen && own_line != nullptr && token >= own_line->token_end &&
+            !next_line_opens_title(token)) {
+          for (const auto rest : segment.source_tokens)
+            if (rest >= token) envelope.untitled_tokens.push_back(rest);
+          envelope.untitled = true;
+          envelope.untitled_record = record_index;
+          break;
+        }
         if (std::binary_search(operands.begin(), operands.end(), token)) {
           if (!ledger.assign(record_index, token, ProseTokenRoleIR::envelope,
                              error))
@@ -976,7 +1008,7 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
   // Fail-closed in both directions: an unframed record decides nothing and
   // keeps the old reading, and a tail that does not open with `ST` is left
   // to the body stream, which declines it as before.
-  while (!at_end() && !envelope.glued_title &&
+  while (!at_end() && !envelope.glued_title && !envelope.untitled &&
          envelope_anchor_segment(current())) {
     const auto& segment = current();
     const auto anchor_record = cursor.record;
@@ -1200,6 +1232,25 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
     end.kind = ItemKind::segment_end;
     build.items.push_back(std::move(end));
   }
+  if (envelope.untitled) {
+    // No title line: the (absent) title is complete before the first body
+    // row, which the envelope handed over from the `CSOURCEFN` segment.
+    title_seen = true;
+    build.untitled = true;
+    Item done;
+    done.kind = ItemKind::segment_end;
+    done.empty_title = true;
+    build.items.push_back(std::move(done));
+    for (const auto token : envelope.untitled_tokens) {
+      Item item;
+      item.kind = ItemKind::token;
+      item.token = view_token(records, envelope.untitled_record, token);
+      build.items.push_back(std::move(item));
+    }
+    Item end;
+    end.kind = ItemKind::segment_end;
+    build.items.push_back(std::move(end));
+  }
   for (std::size_t record_index = 0; record_index < records.size();
        ++record_index) {
     const auto& record = records[record_index];
@@ -1212,6 +1263,9 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
     std::vector<bool> claimed(record.ir.tokens.size(), false);
     if (envelope.glued_title && record_index == envelope.glued_title_record)
       for (const auto token : envelope.glued_title_tokens)
+        if (token < claimed.size()) claimed[token] = true;
+    if (envelope.untitled && record_index == envelope.untitled_record)
+      for (const auto token : envelope.untitled_tokens)
         if (token < claimed.size()) claimed[token] = true;
     // Tokens claimed by no segment are inter-control separators.  Inside the
     // body they carry layout state (a bare spacing token before a control is
@@ -1700,6 +1754,10 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
       switch (segment.kind) {
       case BookControlKind::title: {
         if (segment.malformed) return fail(error, "ST control is malformed");
+        // A title line after a body that opened without one is a shape no
+        // book has shown; decline rather than guess its heading.
+        if (build.untitled)
+          return fail(error, "ST line follows a topic body with no title");
         if (title_seen) {
           // Every `ST` line heads the topic: the reader keeps no "title
           // already printed" state, so a second one prints a second heading

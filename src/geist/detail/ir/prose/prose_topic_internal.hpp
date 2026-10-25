@@ -339,6 +339,13 @@ struct Envelope {
   bool glued_title = false;
   std::size_t glued_title_record = 0;
   std::vector<std::size_t> glued_title_tokens;
+  // The topic has no `ST` line at all: the display line after `CSOURCEFN`
+  // is already a body row, and the flattened splitter glued it into the
+  // `CSOURCEFN` segment.  These are that segment's tokens from the row's
+  // length byte on; they open the body.
+  bool untitled = false;
+  std::size_t untitled_record = 0;
+  std::vector<std::size_t> untitled_tokens;
 };
 
 struct StreamBuild {
@@ -356,6 +363,9 @@ struct StreamBuild {
   // Source slice of an `ST` control with no payload: an empty title still
   // needs provenance, and the control's own tokens are it.
   std::optional<DocumentSourceSliceIR> empty_title_source;
+  // The topic has no `ST` line, so it has no title and no heading
+  // (`Envelope::untitled`).
+  bool untitled = false;
   // Input: the number of table/figure spans the plan admitted.  A second
   // `ST` line becomes span `span_base + n` for the n-th entry of
   // `repeated_titles`.
