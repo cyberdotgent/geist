@@ -426,9 +426,10 @@ void check_picture_placeholder_rows() {
     return record;
   };
   const auto build = [&](const std::string &operand_column,
-                         const std::string &number) {
+                         const std::string &number,
+                         const std::string &length = "9") {
     return build_lines(1, {{"   ", "Intro"},
-                           {"cselect", operand_column, "9", "PIC1"},
+                           {"cselect", operand_column, length, "PIC1"},
                            {"|", "PICTURE", number, "kept"}});
   };
   const auto drawn_words = [](const DecodedLogicalRecordSource &record,
@@ -459,6 +460,16 @@ void check_picture_placeholder_rows() {
           "a row spelling another number is not the placeholder");
   require(drawn_words(build("3", "1"), &shown) == "intro,picture,1,kept",
           "columns that do not spell exactly the placeholder stay drawn");
+  // Blank cells the selector covers around the placeholder are not words:
+  // dfhwsb02 2.0 record 31 lines 18-19 are `cselect 3 10 PIC1` over
+  // `    PICTURE 1`, ten cells from column 3 spelling ` PICTURE 1`, and the
+  // image takes their place like any other placeholder.
+  require(drawn_words(build("1", "1", "10"), &shown) == "intro,kept",
+          "a selector covering a blank before the placeholder still names it");
+  require(drawn_words(build("1", "1", "11"), &shown) == "intro,kept",
+          "a selector covering blanks around the placeholder still names it");
+  require(drawn_words(build("1", "1", "9"), &shown) == "intro,picture,1,kept",
+          "a selector cutting the placeholder number off names nothing");
   // The selector on a record's last line names the first line of the next
   // record: the reader reads display lines as one stream across records.
   // SC31-8573-00 B.1 record 2282 line 49 is `cselect 3 10 PIC74` and record
@@ -542,7 +553,8 @@ void check_picture_placeholder_rows() {
 //     19960419120629 `<li>    <B>    </B> <B>1.</B>  Power OFF ...`).
 //     Outside a list the same directive blanks nothing.
 //   * a `cvselect` artwork-description selector line, operands only
-//     (SC33-0668-02 1.2.6 `cvselect 13 8 FIGDSTAB`, never served).
+//     (SC33-0668-02 1.2.6 `cvselect 13 8 FIGDSTAB`, never served), and the
+//     `cvfont` font line of the same descriptions.
 void check_reader_blanked_words() {
   using namespace geist::detail;
   const auto project = [](const std::vector<std::vector<std::string>> &lines) {
@@ -610,6 +622,15 @@ void check_reader_blanked_words() {
               selector.find("figdstab") == std::string::npos,
           "the operands of a `cvselect` line are counted as drawn: " +
               selector);
+  // `cvfont` is the escaped font control of an artwork description:
+  // dfht7a00 2.5.6 record 224 line 26 `cvfont 5 6 E 12 1 E ...` over the
+  // `cartdesc` line after it.  The reader takes `cartdesc` lines only.
+  const auto font = project({{"cvfont", "5", "6", "E", "12", "1", "E"},
+                             {"cartdesc", "  ", "System", "A"}});
+  require(font.find("12") == std::string::npos &&
+              font.find(",e") == std::string::npos &&
+              font.find("cvfont") == std::string::npos,
+          "the operands of a `cvfont` line are counted as drawn: " + font);
   // Every `C.` line is skipped by the reader, operands included, whatever
   // its name: EDCGV1R2 3.4.6 record 68 line 11 is `C.SK 1` (hosted DT
   // 19891031000000 serves no `1`), and `C.PA`/`C.CC 4` likewise.

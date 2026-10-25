@@ -139,6 +139,12 @@ using ControlCells = std::unordered_map<std::uint32_t, std::vector<CellKey>>;
 //                (SC33-0668-02 1.2.6 record 141 line 39
 //                `cvselect 13 8 FIGDSTAB`; hosted DT 19930625001740 serves
 //                the description, and no `13 8 FIGDSTAB`, anywhere).
+//   `cvfont`     a font control inside an artwork description, escaped the
+//                same way: `<column> <length> <font>` triples over the
+//                `cartdesc` line after it (dfht7a00 2.5.6 record 224 line 26
+//                `cvfont 5 6 E 12 1 E 30 11 E ...`).  The reader builds the
+//                description from `cartdesc` lines only, so no operand of it
+//                reaches any output.
 //
 // An opcode that carries its first operand in the same token is matched on the
 // part before the `=`, which is how `ctocdef=0` is stored.
@@ -153,7 +159,7 @@ bool unmodelled_control_opcode(std::string opcode) {
   if (operand != std::string::npos) opcode.resize(operand);
   static const char* const opcodes[] = {"si",     "citerm",    "cidelm",
                                         "cgpsep", "cendindex", "ctoce",
-                                        "ctocdef", "cvselect"};
+                                        "ctocdef", "cvselect", "cvfont"};
   if (opcode.size() > 2 && opcode.compare(0, 2, "c.") == 0 &&
       std::all_of(opcode.begin() + 2, opcode.end(), [](const unsigned char ch) {
         return ch >= 'a' && ch <= 'z';
@@ -267,7 +273,8 @@ std::string picture_number(const std::string& target) {
 
 // Every placeholder row of one record: a framing-proven `cselect <col> <len>
 // PIC<n>` whose picture the document shows, and whose columns on the display
-// line directly below the selector spell exactly `<word> <n>`.  The reader
+// line directly below the selector spell exactly `<word> <n>`, blanks either
+// side aside.  The reader
 // reads display lines as one stream, so a selector on a record's last line
 // names the first line of the record that follows (`next`, when it is the
 // adjacent framed record; SC31-8573-00 B.1 records 2282-2283).  Anything
@@ -328,6 +335,14 @@ std::vector<PlaceholderColumns> picture_placeholder_columns(
     std::string spelled;
     for (auto at = column; at < column + length; ++at)
       spelled += token_words_to_ascii({cells[at].word});
+    // Blank cells the selector covers either side of the placeholder are
+    // not words: dfhwsb02 2.0 record 31 lines 18-19 are `cselect 3 10 PIC1`
+    // over `    PICTURE 1`, ten cells from column 3 spelling ` PICTURE 1`.
+    const auto first = spelled.find_first_not_of(' ');
+    spelled = first == std::string::npos
+                  ? std::string{}
+                  : spelled.substr(first,
+                                   spelled.find_last_not_of(' ') + 1 - first);
     if (spelled != pictures.word + " " + number) continue;
     found.push_back({row, column, column + length, crosses});
   }
