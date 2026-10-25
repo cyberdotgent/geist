@@ -7124,7 +7124,18 @@ record 371 stores line 0 as length byte `01` at `0x301F9E` and `SRGLS`
 a three-blank origin (`13`) and `Much of the information in this section is
 procedural ...`; two more text lines and a blank line follow before
 `cmenu`.  Hosted (DT `19920710083758`) serves those three lines as an
-ordinary paragraph and no `GLS` anchor.
+ordinary paragraph and no `GLS` anchor.  When the box does follow, the
+reader prints its letter row as a divider and none of the box art:
+`GA32-0100-05` `GLOSSARY` logical record 1227 lines 20-24 are `SRGLS`
+(two-byte token at `0x6fddf7`), the top rule (`U+250C`, attach, a ten-word
+`U+2500` run, attach, `U+2510`), `cfont 8 8 2`, the row
+`      | Numerics |` (`U+2502`, `Numerics` at `0x6fde09`, `U+2502`) and the
+bottom rule; hosted (DT `19960213104337`) serves
+`<!-- glossary --><hr><br><center><b><font size="+4">Numerics</font></b></center><hr size=4 width=100 align=center>`
+and no box row.  151 of 180 sampled typed topics with such boxes serve
+exactly the letter sequence the rows spell; the others are pages where the
+catalog serves another edition of the book or count genuine boxes of the
+same topic.
 * The decoder can glue its `,` separator onto the last `CFONT` code word
 (`packet` `3.6.1` `cfont 5 1 E,`); the style code is the letter before it.
 The single-digit style codes `5`..`9` render as hosted `<U>`: `packet`

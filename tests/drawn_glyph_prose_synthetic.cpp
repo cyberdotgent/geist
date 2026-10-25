@@ -798,7 +798,43 @@ void broken_bar_margin_mark() {
 
 } // namespace
 
+// A bare `SRGLS` makes the reader look ahead for a glossary letter box and
+// print it as a letter divider, not as box art: GA32-0100-05 GLOSSARY
+// record 1227 lines 20-24 are `SRGLS`, `       __________ `,
+// `cfont 8 8 2`, `      | Numerics |`, `      |__________|`, and hosted
+// (DT 19960213104337) serves `<!-- glossary --><hr><br><center><b><font
+// size="+4">Numerics</font></b></center><hr ...>` and no box row; 20 of 20
+// sampled glossary books do the same.  The divider is the letter heading
+// the glossary catalog family already writes (`## C`).
+void glossary_letter_box(bool cz) {
+  Builder builder(cz);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("SRGLS")});
+  // As GA32-0100-05 stores it: corner, attach, rule run, attach, corner.
+  builder.line({sp(6), box({0x250C}), attach(), box(TokenWords(3, 0x2500)),
+                attach(), box({0x2510})});
+  builder.line({w("cfont"), w("8"), w("1"), w("2")});
+  builder.line({sp(6), box({0x2502}), w("A"), box({0x2502})});
+  builder.line({sp(6), box({0x2514}), attach(), box(TokenWords(3, 0x2500)),
+                attach(), box({0x2518})});
+  builder.blank();
+  builder.line({w("SRGLS"), w("access")});
+  builder.line({sp(3), w("access."), sp(2), w("Entry.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "glossary letter box declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(html, "<h2") && contains(html, ">A</strong></h2>") &&
+            !contains(html, "<pre") && !contains(html, "___"),
+        "the letter box is not a letter heading: " + html);
+  check(contains(html, "id=\"GLS access\""),
+        "the entry anchor after the letter box was lost: " + html);
+}
+
 int main() {
+  glossary_letter_box(false);
   broken_bar_margin_mark();
   box_in_cz_pre_zone(false);
   box_in_cz_pre_zone(true);

@@ -2092,6 +2092,12 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           }
           if (first == npos)
             return fail(error, "SRGLS control has no source token");
+          if (term.empty()) {
+            Item lookahead;
+            lookahead.kind = ItemKind::segment_end;
+            lookahead.glossary_letter = true;
+            build.items.push_back(std::move(lookahead));
+          }
           if (!term.empty()) {
             ProseAnchorIR anchor;
             anchor.id = "GLS " + collapse_ascii_whitespace(term);

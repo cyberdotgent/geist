@@ -142,6 +142,9 @@ struct Item {
   // `</h5></a>` on its line, so the footnote's paragraph ends here whatever
   // row follows (ICHA6MST 5.0, hosted DT 19910801172557).
   bool footnote_end = false;
+  // A bare `SRGLS`: the reader looks ahead for a glossary letter box and,
+  // when the next drawn rows are one, prints a letter divider instead.
+  bool glossary_letter = false;
   bool index_start = false;
   bool continuation_start = false;
   std::vector<FontSpanIR> spans;
@@ -405,6 +408,9 @@ struct Line {
   // empty display line or a table/figure span in front of it starts a new
   // preformatted block (prose_topic_blocks.cpp, `build_blocks`).
   bool box_first = false;
+  // The row belongs to a glossary letter box after a bare `SRGLS`: the box
+  // prints as its letter, a level-2 heading (see `build_box_block`).
+  bool letter_box = false;
   // The row belongs to an implicit CFONT grid region rather than a drawn
   // box; it is printed the same way (see `implicit_grid_region`).
   bool grid = false;

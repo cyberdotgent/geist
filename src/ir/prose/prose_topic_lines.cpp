@@ -58,6 +58,9 @@ struct LineBuilder {
   std::vector<std::size_t> pending_controls;
   bool line_open = false;
   std::size_t line_visible_cells = 0;
+  // A bare `SRGLS` was seen and no drawn text since: the next closed box is
+  // a glossary letter box if it is one.
+  bool letter_lookahead = false;
   // Drawn box regions of the topic (prose_topic_boxes.cpp), admitted only
   // where no table/figure span already owns their tokens.
   std::vector<BoxRegion> boxes;
@@ -708,6 +711,11 @@ struct LineBuilder {
   bool emit_box(const BoxRegion& region) {
     if (!finish_title() || !finish_index()) return false;
     const auto first_row = out.lines.size();
+    // The reader's glossary look-ahead after a bare `SRGLS`: a closed box
+    // of a top rule, one row and a bottom rule is the letter box.
+    const auto letter = letter_lookahead && region.closed && !region.grid &&
+                        region.lines.size() == 3;
+    letter_lookahead = false;
     const auto controls_before = pending_controls;
     pending_controls.clear();
     line_open = false;
@@ -719,6 +727,7 @@ struct LineBuilder {
       Line row;
       row.box = true;
       row.box_first = first;
+      row.letter_box = letter;
       row.grid = region.grid;
       row.box_record = box_line.record;
       row.box_token_begin = box_line.line.prefix_token;
@@ -1177,6 +1186,7 @@ struct LineBuilder {
                                       : word_text(word),
            word == ' '});
     ++line_visible_cells;
+    letter_lookahead = false;
     last_visible = body_text(view);
     pending_space = view.prefix != 2;
     if (!assign(view, role)) return false;
@@ -1661,6 +1671,7 @@ struct LineBuilder {
         // the topic's heading is then its number alone (see
         // `prose_topic_stream.cpp`, the empty-title case).
         if (item.empty_title) title_done = true;
+        if (item.glossary_letter) letter_lookahead = true;
         if (item.footnote_end) {
           // `SREFTN` closes the footnote: the next row opens a new block.
           line_open = false;
@@ -2009,6 +2020,7 @@ struct LineBuilder {
         append_space_cells(gap, true);
         if (!assign(gap, ProseTokenRoleIR::gap)) return false;
         ++line_visible_cells;
+    letter_lookahead = false;
         pending_space = false;
         skip_until = next;
         line().text_begin = line().cells.size();
@@ -2113,6 +2125,7 @@ struct LineBuilder {
         line().cells.push_back(
             {view.record, view.token, figure_display_glyph(word), false});
       ++line_visible_cells;
+    letter_lookahead = false;
       last_visible.clear();
       pending_space = view.prefix != 2;
       trailing_bare = 0;
@@ -2381,6 +2394,7 @@ struct LineBuilder {
       line().cells.push_back({view.record, view.token, body_text(view),
                               false});
       ++line_visible_cells;
+    letter_lookahead = false;
       const auto next = next_token(index);
       line().cells.push_back({npos, 0, " ", true});
       pending_space = false;
@@ -2497,6 +2511,7 @@ struct LineBuilder {
       line().cells.push_back({view.record, view.token, word_text(view.body[0]),
                               false});
       ++line_visible_cells;
+    letter_lookahead = false;
       pending_space = true;
       const auto next = next_token(index);
       if (space_at(next) && !space_at(next_token(next))) {

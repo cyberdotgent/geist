@@ -608,10 +608,76 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
 // those rows, so the ordinary inline builder partitions each non-blank row
 // without changing its cells. The exact row extent is carried separately:
 // a genuine empty display row has no cell from which to reconstruct it.
+// A glossary letter box after a bare `SRGLS` (`Line::letter_box`): the
+// reader's look-ahead prints the box's one row as a letter divider and none
+// of its art -- GA32-0100-05 GLOSSARY (hosted DT 19960213104337) serves
+// `      | Numerics |` between its rules as `<center><b><font size="+4">
+// Numerics</font></b></center>` between two `<hr>`; 20 of 20 sampled books
+// do the same.  The divider is a level-2 heading of the row's words, as the
+// glossary catalog family writes its letter sections.  The rules and rails
+// draw nothing.  Nullopt where the box is not exactly a top rule, a row whose
+// words stand between its two rails, and a bottom rule: it is then drawn as
+// any other box.
+std::optional<ProseBlockIR> letter_box_block(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const std::vector<Line>& lines, std::size_t begin, std::size_t end,
+    Ledger& ledger, std::size_t block_index) {
+  if (end != begin + 3) return std::nullopt;
+  const auto& row = lines[begin + 1];
+  std::vector<std::size_t> drawn;
+  for (std::size_t cell = 0; cell < row.cells.size(); ++cell)
+    if (!row.cells[cell].space && row.cells[cell].text != " ")
+      drawn.push_back(cell);
+  if (drawn.size() < 3 || row.cells[drawn.front()].text != "|" ||
+      row.cells[drawn.back()].text != "|")
+    return std::nullopt;
+  const auto first = drawn[1];
+  const auto last = drawn[drawn.size() - 2];
+  // A rail may not share its token with a word of the letter.
+  const auto token_of = [&](std::size_t cell) {
+    return std::make_pair(row.cells[cell].record, row.cells[cell].token);
+  };
+  for (auto cell = first; cell <= last; ++cell)
+    if (row.cells[cell].record != npos &&
+        (token_of(cell) == token_of(drawn.front()) ||
+         token_of(cell) == token_of(drawn.back())))
+      return std::nullopt;
+  auto native = row;
+  native.text_begin = first;
+  for (auto cell = last + 1; cell < native.cells.size(); ++cell)
+    native.cells[cell] = {npos, 0, " ", true};
+  ProseBlockIR block;
+  std::string ignored;
+  if (!build_block(records, {native}, 0, 1, block, ledger, block_index,
+                   &ignored, false))
+    return std::nullopt;
+  // Every other drawn cell of the box is art the divider replaces.
+  for (auto index = begin; index < end; ++index)
+    for (std::size_t cell = 0; cell < lines[index].cells.size(); ++cell) {
+      const auto& source = lines[index].cells[cell];
+      if (source.record == npos ||
+          (index == begin + 1 && cell >= first && cell <= last))
+        continue;
+      auto& entry = ledger.at(source.record, source.token);
+      if (entry.role == ProseTokenRoleIR::text)
+        entry.role = ProseTokenRoleIR::padding;
+    }
+  block.kind = ProseBlockKindIR::heading;
+  block.heading_level = 2;
+  return block;
+}
+
 bool build_box_block(const std::vector<DecodedLogicalRecordSource>& records,
                      const std::vector<Line>& lines, std::size_t begin,
                      std::size_t end, ProseBlockIR& block, Ledger& ledger,
                      std::size_t block_index, std::string* error) {
+  if (lines[begin].letter_box) {
+    if (auto letter = letter_box_block(records, lines, begin, end, ledger,
+                                       block_index)) {
+      block = std::move(*letter);
+      return true;
+    }
+  }
   block.kind = ProseBlockKindIR::preformatted;
   block.verbatim_kind = lines[begin].grid ? "prose-implicit-grid-verbatim"
                                            : "prose-drawn-box-verbatim";
