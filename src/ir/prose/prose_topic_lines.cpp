@@ -65,6 +65,9 @@ struct LineBuilder {
   // CZ dialect: the stream carries layout items; every display line belongs
   // to the most recent directive.
   bool cz_mode = false;
+  // Every directive of the topic is an unopened verbatim-region closer
+  // (`only_unopened_region_closers`): the topic is read as flattened.
+  bool inert_closers = false;
   // Inside `cz OFF XMP` .. `cz OFF EXMP`: the rows are verbatim example
   // text, not reflowed prose, so no visible token is a row-control slot.
   bool xmp_mode = false;
@@ -1448,10 +1451,42 @@ struct LineBuilder {
     return true;
   }
 
+  // True when every directive of the topic is a `cz OFF E<tag>` verbatim
+  // region closer.  With no other directive there is no opener either, so
+  // each of them closes a region the topic never opened.
+  bool only_unopened_region_closers() const {
+    bool any = false;
+    for (const auto& item : items) {
+      if (item.kind != ItemKind::layout) continue;
+      if (item.directive.mode != "off" ||
+          !cz_verbatim_region_closer(item.directive.tag))
+        return false;
+      any = true;
+    }
+    return any;
+  }
+
   bool run() {
-    cz_mode = std::any_of(items.begin(), items.end(), [](const auto& item) {
-      return item.kind == ItemKind::layout;
-    });
+    // A verbatim-region closer whose opener the topic never wrote is inert
+    // (prose_topic_cz.cpp, the unopened-closer branch): it opens no CZ block
+    // and draws nothing.  A topic whose only directives are such closers is
+    // therefore a flattened-dialect topic, its boxes drawn and its rows
+    // read as the flattened dialect reads them.  SC41-3512-05 1.3.3.2
+    // records 106-107 draw the closed `Important` box (top rule record 106
+    // line 26, bottom rule record 107 line 2) and close it with
+    // `cz OFF ELBLBOX 0 0` (record 107 line 3), with no `cz OFF LBLBOX` and
+    // no other directive in the topic; hosted BookServer (DT 19980528085436)
+    // prints the box verbatim in the topic's own `<pre width="132">`, with no
+    // `<!-- lblbox -->` block.  1.3.4 of the same book closes its `Tip` box
+    // with `cz OFF ELBLBOX 7 7` (record 109 line 28) and goes on with the
+    // list item `__ 5.  Type a 1 next to each ...`; hosted ends its `<pre>`
+    // after the box and prints the following rows at their stored columns
+    // in a new one, as it prints any flattened row.
+    inert_closers = only_unopened_region_closers();
+    cz_mode = !inert_closers &&
+              std::any_of(items.begin(), items.end(), [](const auto& item) {
+                return item.kind == ItemKind::layout;
+              });
     // Drawn box regions are a flattened-dialect shape; the CZ dialect names
     // its own verbatim blocks (`cz OFF XMP`).
     if (cz_mode) boxes.clear();
@@ -1497,6 +1532,13 @@ struct LineBuilder {
         break;
       case ItemKind::layout: {
         if (!finish_title() || !finish_index()) return false;
+        if (inert_closers) {
+          // No directive: the closer ends the row it follows and opens
+          // nothing.
+          line_open = false;
+          pending_space = false;
+          break;
+        }
         if (item.directive.mode == "off" && item.directive.tag == "fn" &&
             !trim_footnote_terminator())
           return false;

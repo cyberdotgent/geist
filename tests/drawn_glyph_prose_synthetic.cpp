@@ -10,7 +10,9 @@
 // shapes below are the ones the typed prose model now reads:
 //
 //  * a closed box whose rows carry a revision mark stored as `U+2502` in the
-//    row margin (SH45-5547-00 2.6 record 321).
+//    row margin (SH45-5547-00 2.6 record 321);
+//  * a closed box in a topic whose only directive is a `cz OFF E<tag>` closer
+//    that closes nothing (SC41-3512-05 1.3.3.2 records 106-107).
 //
 // Everything here is synthetic: the tests build whole topics'
 // `DecodedLogicalRecordSource` values by hand and open no book.
@@ -202,9 +204,44 @@ void marked_box_rows() {
         "marked box rows were not drawn verbatim: " + html);
 }
 
+// SC41-3512-05 1.3.3.2: the closed `Important` box (records 106-107) is
+// closed by `cz OFF ELBLBOX 0 0` with no opener and no other directive in the
+// topic.  Hosted (DT 19980528085436) prints the box verbatim in the topic's
+// own `<pre width="132">` and the prose before it as ordinary rows.
+void box_closed_by_unopened_closer(bool trailing_text) {
+  Builder builder(false);
+  builder.line({sp(3), w("Before.")});
+  builder.blank();
+  note_box(builder, "Inside", 12, false);
+  if (trailing_text) {
+    // 1.3.4 record 109 line 28: `cz OFF ELBLBOX 7 7`, then a list item.
+    builder.line({w("cz"), w("OFF"), w("ELBLBOX"), w("7"), w("7")});
+    builder.line({sp(3), w("After"), w("the"), w("box.")});
+  } else {
+    builder.line({w("cz"), w("OFF"), w("ELBLBOX"), w("0"), w("0")});
+  }
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(),
+        "box closed by an unopened closer declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  check(contains(pre, "    ____________ \n   | Inside     |\n   |____________|"),
+        "box closed by an unopened closer was not drawn: " + html);
+  check(contains(html, "<p class=\"geist-paragraph\">Before.</p>"),
+        "prose before the box was not a paragraph: " + html);
+  check(!trailing_text ||
+            contains(html, "<p class=\"geist-paragraph\">After the box.</p>"),
+        "prose after the closer was not a paragraph: " + html);
+  check(!contains(html, "ELBLBOX"), "the closer leaked as text: " + html);
+}
+
 } // namespace
 
 int main() {
   marked_box_rows();
+  box_closed_by_unopened_closer(false);
+  box_closed_by_unopened_closer(true);
   return 0;
 }
