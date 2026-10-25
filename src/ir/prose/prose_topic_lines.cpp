@@ -170,6 +170,15 @@ struct LineBuilder {
     return nullptr;
   }
 
+  // True when `view` is the revision mark its display line stores in the
+  // body row's margin (cell 1; `DisplayLineIR::margin_mark`).
+  bool stored_row_margin_mark(const TokenView& view) {
+    const auto* line = display_line_of(view.record, view.token);
+    return line != nullptr && line->margin_mark &&
+           line->margin_mark_place == MarginMarkPlaceIR::row_margin &&
+           line->margin_mark_token == view.token;
+  }
+
   // True when `view` is a single word standing in the title's revision
   // column: its display line opens with the two cells `ST` and the word is
   // the cell directly after them, glued to the opcode.  False for an
@@ -2213,7 +2222,20 @@ struct LineBuilder {
       line().text_begin = line().cells.size();
       return true;
     }
-    if (line_visible_cells == 0 && view.width == 1 &&
+    // The revision mark the display line stores in its margin
+    // (`DisplayLineIR::margin_mark`, decided from the line's own cells) is the
+    // row's marker whatever width the record stores it at and in either
+    // dialect: hosted BookServer prints it in the margin column.
+    // GC24-5841-01 PREFACE.5 record 32 line 18 stores the mark `|` as the
+    // two-byte token 103 (`C3 E4`) and the `U+2666` bullet after it as the
+    // two-byte token 104, under `cz FLOW LI 3 7`; hosted (DT
+    // 19990525154647) serves `<li> <br> |     Visit our home page at:`.
+    // dfhla313 stores one-byte `+` and `#` marks in front of its CZ list
+    // bullets, which the ordinary-glyph conditions below admit only as `|`
+    // in that dialect.  Those conditions still apply to every other glyph.
+    if (line_visible_cells == 0 &&
+        ((stored_row_margin_mark(view) && line().cells.size() <= 1) ||
+         (view.width == 1 &&
         (punctuation_glyph(view) || is_placeholder_run(view)) &&
         // CZ rows carry their markers as explicit slots (bullet, change bar,
         // `?`), so an ordinary punctuation glyph opening a row is display
@@ -2229,7 +2251,7 @@ struct LineBuilder {
         // (DT 19910329000100), SC24-5520-00 1.1.30 record 272 token 29
         // `* The last entry ...`, SC33-033 4.106 record 648 `' ' gives a
         // complete list ...`, GC23-046 F.0 record 284 `( ) MVS/SP ...`.
-        (is_placeholder_run(view) || line().cells.size() <= 1) &&
+        (is_placeholder_run(view) || line().cells.size() <= 1))) &&
         // A pending CFONT/CSELECT span that opens on the glyph's own display
         // column proves the glyph is styled display text, not a row marker:
         // FA1PLMM0 3.5.1 `cfont 5 2 E 8 3 E ...` over `     // JOB COPY ...`

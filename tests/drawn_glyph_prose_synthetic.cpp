@@ -12,7 +12,10 @@
 //  * a closed box whose rows carry a revision mark stored as `U+2502` in the
 //    row margin (SH45-5547-00 2.6 record 321);
 //  * a closed box in a topic whose only directive is a `cz OFF E<tag>` closer
-//    that closes nothing (SC41-3512-05 1.3.3.2 records 106-107).
+//    that closes nothing (SC41-3512-05 1.3.3.2 records 106-107);
+//  * a row-margin revision mark stored as a two-byte token, or as `+`/`#` in
+//    the CZ dialect, in front of a list bullet (GC24-5841-01 PREFACE.5
+//    record 32).
 //
 // Everything here is synthetic: the tests build whole topics'
 // `DecodedLogicalRecordSource` values by hand and open no book.
@@ -74,6 +77,8 @@ TokenWords run(std::uint16_t first, std::uint16_t middle, std::size_t count,
   words.push_back(last);
   return words;
 }
+// The bare attach control, as the decoder spells a no-space prefix.
+Tok attach() { return b({1}, 0); }
 
 struct Builder {
   DecodedLogicalRecordSource record;
@@ -237,11 +242,71 @@ void box_closed_by_unopened_closer(bool trailing_text) {
   check(!contains(html, "ELBLBOX"), "the closer leaked as text: " + html);
 }
 
+// A row-margin revision mark is the row's marker whatever width it is
+// stored at.  GC24-5841-01 PREFACE.5 record 32 line 18 stores `|` as the
+// two-byte token 103 and the bullet as the two-byte token 104 under
+// `cz FLOW LI 3 7`; hosted (DT 19990525154647) serves
+// `<li> <br> |     Visit our home page at:`.  dfhla313 stores the one-byte
+// marks `+` and `#` the same way in front of its CZ list bullets.
+void marked_cz_bullet(Tok mark) {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead"), w("in:")});
+  builder.blank();
+  builder.line({w("cz"), w("FLOW"), w("UL"), w("3"), w("3")});
+  builder.line({w("cz"), w("FLOW"), w("LI"), w("3"), w("7")});
+  builder.line({sp(1), mark, b({0x2666}, 3), sp(2), w("Visit"), w("us.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("EUL"), w("0"), w("0")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "marked CZ bullet declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto mark_text = token_words_to_ascii(mark.words);
+  check(contains(html, "data-geist-revision-mark=\"" + mark_text + "\"") &&
+            contains(html, "Visit us.</") && !contains(html, "°"),
+        "marked CZ bullet is not a revised list item: " + html);
+}
+
+// The mark stays a marker when the row is a definition term styled by a
+// `cfont` span: SC41-5401-00 2.1.2.21 record 269 line 23 stores ` ` + the
+// two-byte `|` (token 161) + `*` + attach + `YES` under `cz FLOW DT 3 13`
+// and `cfont 3 4 2`; hosted (DT 19970421115044) serves
+// `<dt><br> | <B>*YES</B>     <dd>(Default) The AS/400 ...`.  The mark is
+// the entry's revision mark, never term text; the term is then wholly
+// highlighted, and a wholly highlighted label lowers as plain text because
+// the renderer emphasises every term itself (prose lowering,
+// `label_is_wholly_highlighted`).
+void marked_styled_term(Tok mark) {
+  Builder builder(true);
+  builder.line({w("cz"), w("FLOW"), w("DL"), w("3"), w("3")});
+  builder.line({w("cz"), w("FLOW"), w("DT"), w("3"), w("13")});
+  builder.line({w("cfont"), w("3"), w("4"), w("2")});
+  builder.line({sp(1), mark, b({'*'}, 38), attach(), w("YES"), sp(5),
+                w("Default"), w("value.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("EDL"), w("0"), w("0")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "marked styled term declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(html, "<dt class=\"geist-definition-term\"><span "
+                       "class=\"geist-revised\" data-geist-revision-mark="
+                       "\"|\">*YES</span></dt>"),
+        "the marked term is not a revised term: " + html);
+}
+
 } // namespace
 
 int main() {
   marked_box_rows();
   box_closed_by_unopened_closer(false);
   box_closed_by_unopened_closer(true);
+  marked_cz_bullet(w("|"));
+  marked_cz_bullet(b({'+'}, 0x2B));
+  marked_cz_bullet(b({'#'}, 0x23));
+  marked_styled_term(w("|"));
+  marked_styled_term(b({'|'}, 0x7C));
   return 0;
 }
