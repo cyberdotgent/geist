@@ -387,6 +387,29 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
     return result;
   }
 
+  // A bare `SR<id>` anchor inside a declared table is a second name of the
+  // table, which hosted BookServer opens right behind the table's own
+  // anchor, ahead of the `<table>`: SH24-5221-02 6.1.1 `SRTBLQCOL1`,
+  // `SRSPTTQCOL1` is served as `<a name="TBLQCOL1"></a><a
+  // name="SPTTQCOL1"></a>` (dfhla313 1.1.3.1 `SRSPTXAKUSER` has the same
+  // shape).  A grid has no row to open it on, so one that stands further
+  // down the region is placed there too and says so.
+  for (const auto &spot : block.spot_anchors) {
+    BlockIR anchor_block;
+    anchor_block.node = AnchorBlockIR{spot.id};
+    anchor_block.origin = origin_for("fixed table: spot anchor");
+    anchor_block.origin.slices.push_back(spot.source);
+    if (spot.line != 0) {
+      anchor_block.origin.fidelity = DocumentFidelityIR::degraded;
+      anchor_block.origin.degradation_code = "table-spot-anchor-position";
+      anchor_block.origin.degradation_detail =
+          "anchor '" + spot.id + "' opens display line " +
+          std::to_string(spot.line) +
+          " of a declared table; placed ahead of the table";
+    }
+    result.push_back(std::move(anchor_block));
+  }
+
   if (block.caption && !block.caption->cells.empty()) {
     BlockIR caption;
     ParagraphBlockIR paragraph;

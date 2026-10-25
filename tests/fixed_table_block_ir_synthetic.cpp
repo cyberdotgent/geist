@@ -328,6 +328,20 @@ void test_declared_address_classes() {
   require(std::holds_alternative<AnchorBlockIR>(lowered.front().node),
           "2.4.4 lowers behind its own anchor");
 
+  // An `SR<id>` anchor between `SRTBL` and the grid names the table too, and
+  // hosted BookServer opens it right after the table's own anchor, ahead of
+  // the `<table>`: SH24-5221-02 6.1.1 (`SRTBLQCOL1`, `SRSPTTQCOL1`) is served
+  // as `<a name="TBLQCOL1"></a><a name="SPTTQCOL1"></a></pre><table ...>`.
+  // The declared table used to drop it.
+  auto spotted = block;
+  spotted.spot_anchors.push_back({"SPTTQCOL1", 0, block.object_source});
+  const auto with_spot = lower_fixed_table_block_to_document_ir(spotted);
+  require(with_spot.size() >= 3 &&
+              std::holds_alternative<AnchorBlockIR>(with_spot[1].node) &&
+              std::get<AnchorBlockIR>(with_spot[1].node).id == "SPTTQCOL1" &&
+              lowered_table(with_spot) != nullptr,
+          "declared table dropped the spot anchor before its grid");
+
   // Row-range API: the exact span admits, a disjoint span ignores, and a
   // partial span declines without admitting anything.
   const auto exact = extract_fixed_table_blocks_ir(
