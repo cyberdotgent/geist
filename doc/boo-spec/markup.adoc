@@ -4182,8 +4182,8 @@ Three further shapes occur in the lists of a 500-book random census.
 line, as in any other topic: `dfhtkb00` `FIGURES`, logical record 30,
 stores `02 E5 C3` at `0x787EA` (length byte, then the two-byte token
 `SRHDRFIGURES`) and then `04 9B 09 D6 25` (`ST`, one blank, `Figures`).  It
-names the topic for links and draws nothing.  47 of the census's list
-topics, all in CICS books, have it.
+names the topic for links and draws nothing.  49 list topics of a 500-book
+random census have it, all in 25 CICS books.
 * A `c.rev` line may stand between two selections.  Like every `C.` control
 line it draws nothing: `SC41-4304-00` `TABLES`, logical record 31 line 31,
 is `05 CB 52 E9 EA 86` at `0xFE8D` (`c.rev TRANS |`) after the last
