@@ -68,6 +68,9 @@ struct LineBuilder {
   // Every directive of the topic is an unopened verbatim-region closer
   // (`only_unopened_region_closers`): the topic is read as flattened.
   bool inert_closers = false;
+  // The closer tag of the open generic `cz OFF` region (see
+  // `generic_region_opener`), empty when none is open.
+  std::string generic_region_closer;
   // Inside `cz OFF XMP` .. `cz OFF EXMP`: the rows are verbatim example
   // text, not reflowed prose, so no visible token is a row-control slot.
   bool xmp_mode = false;
@@ -1460,6 +1463,45 @@ struct LineBuilder {
     return true;
   }
 
+  // A `cz OFF <tag>` the CZ dialect gives no structure of its own -- no
+  // table, figure, footnote, message-list or title-page reading, and none of
+  // the named verbatim, artwork or table-data regions -- whose very next
+  // directive is its own `cz OFF E<tag>` closer.  The reader serves any such
+  // region as the generic `CZ OFF` block: `</pre><pre width="80">` and the
+  // region's rows column for column (re-notes: the generic "CZ OFF" rule),
+  // and the CZ block builder emits it as a verbatim block bounded by that
+  // closer (`degraded_region`, prose_topic_cz.cpp).  Its stored box words
+  // are therefore drawn cells, exactly as inside `cz OFF XMP`.
+  // SY27-0327-05 4.5 record 691 line 25 opens `cz OFF DANGER` and record 692
+  // line 4 closes it with `cz OFF EDANGER 0 0`; between them the `DANGER`
+  // notice is a closed box of `U+2500` rules and `U+2502` rails, and hosted
+  // BookServer (DT 19961016091447) prints it inside
+  // `<pre width="80"><!-- * -->` row for row; 5.1, A.1.1, A.1.39 and E.1.2
+  // of the same book draw the same notice.  A region with no closer of its
+  // own (`cz OFF CGRAPHIC` ended by the next `cz FLOW`, SC33-0824-02
+  // 2.1.1.1) is not this shape and keeps its old reading.
+  bool generic_region_opener(std::size_t index) const {
+    const auto& directive = items[index].directive;
+    const auto& tag = directive.tag;
+    if (directive.mode != "off" || tag.empty() || tag.front() == 'e' ||
+        tag == "table" || tag == "fig" || tag == "fn" || tag == "msgl" ||
+        cz_title_page_tag(tag))
+      return false;
+    // The block the CZ builder emits for such a region keeps no inline
+    // model, so a region whose rows carry a cross-reference (`cselect`)
+    // would lose it: SY27-0327-05 2.1.8 draws its step diagram in a
+    // `cz OFF MAP` region whose `Yes` branches and `"Cable Signal Quality
+    // Check."` references hosted links.  Such a region keeps its old
+    // reading.
+    for (auto next = index + 1; next < items.size(); ++next) {
+      if (items[next].kind == ItemKind::select) return false;
+      if (items[next].kind != ItemKind::layout) continue;
+      return items[next].directive.mode == "off" &&
+             items[next].directive.tag == "e" + tag;
+    }
+    return false;
+  }
+
   // True when every directive of the topic is a `cz OFF E<tag>` verbatim
   // region closer.  With no other directive there is no opener either, so
   // each of them closes a region the topic never opened.
@@ -1558,16 +1600,24 @@ struct LineBuilder {
           // artwork regions each hold one 74-column `U+2500` comment rule).
           if (cz_verbatim_region_tag(item.directive.tag) ||
               cz_artwork_region_tag(item.directive.tag) ||
-              cz_tabdata_region_tag(item.directive.tag))
+              cz_tabdata_region_tag(item.directive.tag)) {
             xmp_mode = true;
-          else if (cz_verbatim_region_closer(item.directive.tag) ||
-                   cz_artwork_region_closer(item.directive.tag) ||
-                   cz_tabdata_region_closer(item.directive.tag))
+          } else if (cz_verbatim_region_closer(item.directive.tag) ||
+                     cz_artwork_region_closer(item.directive.tag) ||
+                     cz_tabdata_region_closer(item.directive.tag)) {
             xmp_mode = false;
-          else if (cz_title_page_tag(item.directive.tag))
+          } else if (generic_region_opener(index)) {
+            xmp_mode = true;
+            generic_region_closer = "e" + item.directive.tag;
+          } else if (!generic_region_closer.empty() &&
+                     item.directive.tag == generic_region_closer) {
+            xmp_mode = false;
+            generic_region_closer.clear();
+          } else if (cz_title_page_tag(item.directive.tag)) {
             title_page_mode = true;
-          else if (cz_title_page_closer(item.directive.tag))
+          } else if (cz_title_page_closer(item.directive.tag)) {
             title_page_mode = false;
+          }
         }
         out.directives.push_back(item.directive);
         current_directive = out.directives.size() - 1;
@@ -2331,6 +2381,19 @@ struct LineBuilder {
       return true;
     }
     if (attached_inline_glyph(view))
+      return append_visible(view, ProseTokenRoleIR::text);
+    // Inside a `cz OFF` verbatim region every stored cell is display
+    // content, the bullet word as much as the box words around it: hosted
+    // BookServer prints the region's rows column for column, the bullet as
+    // its display glyph.  SC33-1697-02 1.3 record 123 line 16 opens
+    // `cz OFF LBLBOX` around the `Examples in this section` box (closed by
+    // `cz OFF ELBLBOX 0 0`, record 125 line 22); line 25 stores `U+2502`
+    // (the byte 0x7E at 0x2CEFD), `U+2666` (the byte 0x03 at 0x2CEFE), a
+    // two-cell gap and the text, `U+2502` again; hosted (DT 19990308125631)
+    // serves `   | °   The examples do not show complete CEDA screens, but
+    // only options   |` inside `<pre width="132"><!-- lblbox -->`.  The row
+    // already holds the drawn rail, so the glyph is no list bullet.
+    if (xmp_mode && is_bullet_glyph(view))
       return append_visible(view, ProseTokenRoleIR::text);
     if (is_glyph(view) || is_placeholder_run(view))
       return fail(error, "placeholder glyph '" + body_text(view) +

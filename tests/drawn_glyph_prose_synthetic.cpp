@@ -15,7 +15,11 @@
 //    that closes nothing (SC41-3512-05 1.3.3.2 records 106-107);
 //  * a row-margin revision mark stored as a two-byte token, or as `+`/`#` in
 //    the CZ dialect, in front of a list bullet (GC24-5841-01 PREFACE.5
-//    record 32).
+//    record 32);
+//  * the bullet word inside a `cz OFF` verbatim region (SC33-1697-02 1.3
+//    record 123);
+//  * box words inside a generic `cz OFF <tag>` region (SY27-0327-05 4.5
+//    record 691, `cz OFF DANGER`).
 //
 // Everything here is synthetic: the tests build whole topics'
 // `DecodedLogicalRecordSource` values by hand and open no book.
@@ -77,6 +81,8 @@ TokenWords run(std::uint16_t first, std::uint16_t middle, std::size_t count,
   words.push_back(last);
   return words;
 }
+// The one-byte bullet word (byte 0x03 in the corpus).
+Tok bullet() { return b({0x2666}, 3); }
 // The bare attach control, as the decoder spells a no-space prefix.
 Tok attach() { return b({1}, 0); }
 
@@ -297,6 +303,72 @@ void marked_styled_term(Tok mark) {
         "the marked term is not a revised term: " + html);
 }
 
+// SC33-1697-02 1.3 record 123: inside `cz OFF LBLBOX` the rows of the
+// `Examples in this section` box store `U+2502`, the bullet word, a gap and
+// the text; hosted (DT 19990308125631) serves
+// `   | °   The examples do not show ...   |` in its `<pre>`.
+void bullet_in_verbatim_region() {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("LBLBOX")});
+  builder.line({sp(3), box(run(0x250C, 0x2500, 12, 0x2510))});
+  builder.line({sp(3), box({0x2502}), bullet(), sp(2), w("Item"), sp(3),
+                box({0x2502})});
+  builder.line({sp(3), box(run(0x2514, 0x2500, 12, 0x2518))});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("ELBLBOX"), w("0"), w("0")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "bullet inside a verbatim region declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(pre_body(html), "   | °   Item    |"),
+        "the bullet was not drawn in its region row: " + html);
+}
+
+// SY27-0327-05 4.5 record 691: `cz OFF DANGER` ... `cz OFF EDANGER 0 0`
+// around a closed box.  The reader serves the generic `CZ OFF` region as
+// `<pre width="80">` with every row at its columns (hosted DT
+// 19961016091447).
+void box_in_generic_region() {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("DANGER")});
+  builder.line({sp(3), box(run(0x250C, 0x2500, 12, 0x2510))});
+  builder.line({sp(3), box({0x2502}), w("Inside"), sp(4), box({0x2502})});
+  builder.line({sp(3), box(run(0x2514, 0x2500, 12, 0x2518))});
+  builder.line({w("cz"), w("OFF"), w("EDANGER"), w("0"), w("0")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "box in a generic cz OFF region declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(pre_body(html), "   | Inside     |\n   |____________|"),
+        "the generic region's box was not drawn: " + html);
+}
+
+// The CZ builder's block for a generic region keeps no inline model, so a
+// region whose rows carry a cross-reference keeps its old reading and the
+// topic still declines: SY27-0327-05 2.1.8 draws a step diagram with linked
+// `Yes` branches inside `cz OFF MAP`, and hosted links them.
+void linked_generic_region_declines() {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("MAP")});
+  builder.line({sp(3), box(run(0x250C, 0x2500, 12, 0x2510))});
+  builder.line({w("cselect"), w("5"), w("6"), w("TARGET")});
+  builder.line({sp(3), box({0x2502}), w("Inside"), sp(4), box({0x2502})});
+  builder.line({sp(3), box(run(0x2514, 0x2500, 12, 0x2518))});
+  builder.line({w("cz"), w("OFF"), w("EMAP"), w("0"), w("0")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(!doc.has_value(),
+        "a generic region with a cross-reference was typed without it");
+}
+
 } // namespace
 
 int main() {
@@ -308,5 +380,8 @@ int main() {
   marked_cz_bullet(b({'#'}, 0x23));
   marked_styled_term(w("|"));
   marked_styled_term(b({'|'}, 0x7C));
+  bullet_in_verbatim_region();
+  box_in_generic_region();
+  linked_generic_region_declines();
   return 0;
 }
