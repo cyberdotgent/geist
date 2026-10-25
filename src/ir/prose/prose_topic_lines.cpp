@@ -893,6 +893,22 @@ struct LineBuilder {
   // origin run and two spaces in front of the row's first word, exactly the
   // shape a `cz FLOW LI` bullet slot has.  Reading it as that slot spends
   // the rule's column on a marker and prints the decoder's `?` in its place.
+  // A full-width rule: more than 71 consecutive `U+2500` cells from display
+  // column 3.  The reader empties such a line everywhere but in a `cz OFF
+  // TABLE` region and the page shows `<hr>` in its place (SC09-2123-00
+  // 2.2.1.2, hosted DT 19951101111056, frames a `cz OFF SYNTAX` diagram with
+  // two of them).
+  bool full_width_rule(const TokenView& view) {
+    const auto* line = display_line_of(view.record, view.token);
+    if (line == nullptr) return false;
+    const auto columns = display_line_columns(records[view.record], *line);
+    std::size_t run = 0;
+    for (auto column = std::size_t{3};
+         column < columns.size() && columns[column] == 0x2500; ++column)
+      ++run;
+    return run > 71;
+  }
+
   bool drawn_region_cell(const TokenView& view) const {
     return xmp_mode && is_placeholder_run(view) &&
            std::all_of(view.body.begin(), view.body.end(),
@@ -2113,6 +2129,9 @@ struct LineBuilder {
     // title line is written `ST` + slot + title (ACPZMST1 record 284 tokens
     // 26/28/29 `ST` `U+2502` `/`), where the box word is the documented title
     // marker slot and not a drawn cell.
+    if (xmp_mode && drawn_region_cell(view) && full_width_rule(view) &&
+        display_rule_line(index))
+      return true;
     if (drawn_region_cell(view) || leading_native_box_cell(view) ||
         (is_placeholder_run(view) && line_open && line_visible_cells != 0 &&
          display_word_precedes_in_line(view) &&

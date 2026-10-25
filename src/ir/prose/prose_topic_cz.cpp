@@ -1116,6 +1116,25 @@ struct CzBuilder {
   bool preformatted(std::size_t begin, std::size_t end,
                     const std::string& degradation_code = {},
                     const std::string& degradation_detail = {}) {
+    // A full-width rule inside the region is the page's `<hr>`, not a drawn
+    // row (`full_width_rule` in the line builder): the region's rows on
+    // either side of it are blocks of their own.
+    for (auto line = begin; line < end; ++line) {
+      if (!lines[line].thematic_break) continue;
+      const auto draws = [&](std::size_t from, std::size_t to) {
+        return std::any_of(
+            lines.begin() + static_cast<std::ptrdiff_t>(from),
+            lines.begin() + static_cast<std::ptrdiff_t>(to),
+            [](const Line& row) { return has_text(row); });
+      };
+      if (draws(begin, line) &&
+          !preformatted(begin, line, degradation_code, degradation_detail))
+        return false;
+      if (!message_rule(line)) return false;
+      if (!draws(line + 1, end)) return true;
+      return preformatted(line + 1, end, degradation_code,
+                          degradation_detail);
+    }
     ProseBlockIR block;
     block.kind = ProseBlockKindIR::preformatted;
     block.degradation_code = degradation_code;

@@ -833,7 +833,35 @@ void glossary_letter_box(bool cz) {
         "the entry anchor after the letter box was lost: " + html);
 }
 
+// A full-width rule -- more than 71 `U+2500` cells from column 3 -- is not
+// drawn in a verbatim region: the reader empties the line and the page shows
+// `<hr>` there.  SC09-2123-00 2.2.1.2 (hosted DT 19951101111056) frames its
+// `cz OFF SYNTAX` railroad diagram with two such rows and serves
+// `<pre width="80"><hr>` ... `<hr>`, the diagram rows between them.  Only a
+// `cz OFF TABLE` region keeps the row.
+void full_width_rule_in_verbatim_region() {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("SYNTAX")});
+  builder.line({sp(3), box(TokenWords(74, 0x2500))});
+  builder.line({sp(3), w(">>__name__><")});
+  builder.line({sp(3), box(TokenWords(74, 0x2500))});
+  builder.line({w("cz"), w("OFF"), w("ESYNTAX"), w("0"), w("0")});
+  builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "rule-framed syntax region declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(!contains(html, "__________") && contains(html, "&gt;&gt;__name__&gt;&lt;") &&
+            contains(html, "<hr"),
+        "the full-width rules are drawn instead of breaking: " + html);
+}
+
 int main() {
+  full_width_rule_in_verbatim_region();
   glossary_letter_box(false);
   broken_bar_margin_mark();
   box_in_cz_pre_zone(false);

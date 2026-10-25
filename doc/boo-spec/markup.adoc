@@ -4620,7 +4620,15 @@ needs.  Such a drawing still has one row that no prose row has: a display line
 whose every non-blank cell is a box-drawing word (`U+2500`--`U+257F`), at
 least one of them a corner, rail or junction rather than the plain rule
 `U+2500`.  (A row of nothing but `U+2500` is the reader's horizontal rule; see
-<<logical-controls>>.)  Hosted BookServer prints such a row, and every other
+<<logical-controls>>.  Inside a `cz OFF` verbatim region such a row is drawn
+when it is short, but a full-width rule -- more than 71 consecutive `U+2500`
+cells from display column 3 -- is not: the reader empties the line and the
+page shows `<hr>` there, in every region but `cz OFF TABLE`.
+`SC09-2123-00.boo` topic `2.2.1.2` logical record 226 frames its
+`cz OFF SYNTAX` diagram (line 25) with lines 26 and 33, each a three-blank
+origin and a 74-cell `U+2500` run (77 columns); hosted (DT
+`19951101111056`) serves `<pre width="80"><hr>`, the diagram rows, and
+`<hr>` again.)  Hosted BookServer prints such a row, and every other
 display row of the run of non-blank display lines around it, column for
 column inside its `<pre>`, with the same display glyphs as a closed region.
 The run is bounded by blank display lines; `cfont`/`cselect` lines and `SI`
