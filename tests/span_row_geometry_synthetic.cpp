@@ -1221,6 +1221,40 @@ void a_pvdef_span_is_a_defined_term() {
   require(one_run, "a Q/Z run split or named a phrase");
 }
 
+
+// -------------------------------------------------------------------------
+// A font span inside another span of the same style.
+// -------------------------------------------------------------------------
+
+// SC09-1905-00 1.2.2 record 48 line 6 is `cfont 3 5 2 9 6 2 14 1 2` over
+// ` | Usage Notes:`: the colon at column 14 is styled twice, once by the
+// `Notes:` span and once on its own.  Hosted (DT 19940711122820) nests the
+// two `<B>` elements (`<B>Usage</B> <B>Notes<B>:</B></B>`), which draws the
+// same bold text.  A second span of the same style adds nothing; one of a
+// different style is still unproven and declines.
+void a_nested_span_of_the_same_style(bool same_style, bool expect_typed) {
+  RecordBuilder builder;
+  metadata(builder, "1.2.2", {"Commands"});
+  builder.line({words("cfont"), words("3"), words("5"), words("2"),
+                words("9"), words("6"), words("2"), words("14"), words("1"),
+                words(same_style ? "2" : "1")});
+  builder.line({words("   "), words("Usage"), words("Notes:")});
+  const auto record = builder.build(48);
+  std::string error;
+  const auto prose = extract(record, "Commands", error);
+  if (!expect_typed) {
+    require(!prose.has_value(),
+            "overlapping spans of different styles were admitted");
+    return;
+  }
+  require(prose.has_value(),
+          "a span nested in a same-style span was rejected: " + error);
+  if (!prose) return;
+  require(verify(record, "Commands", *prose, error),
+          "the nested span topic does not verify: " + error);
+  require(body_text(*prose).find("Notes:") != std::string::npos,
+          "the styled words were lost: '" + body_text(*prose) + "'");
+}
 } // namespace
 
 int main() {
@@ -1256,5 +1290,7 @@ int main() {
   a_glued_placeholder_run_stays_a_marker();
   a_length_byte_spelled_as_a_glued_glyph_stays_the_slot();
   a_pvdef_span_is_a_defined_term();
+  a_nested_span_of_the_same_style(true, true);
+  a_nested_span_of_the_same_style(false, false);
   return 0;
 }

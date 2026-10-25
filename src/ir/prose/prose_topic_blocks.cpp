@@ -404,7 +404,11 @@ bool resolve_spans(const std::vector<DecodedLogicalRecordSource>& records,
           return fail(error, "selector overlaps a picture selector");
         attr.links.push_back(target_index);
       } else {
-        if (attr.style != FontStyleIR::unknown)
+        // A span inside another of the same style draws the same text:
+        // SC09-1905-00 1.2.2 `cfont 3 5 2 9 6 2 14 1 2` over `Usage Notes:`
+        // styles the colon twice, and hosted (DT 19940711122820) nests the
+        // two `<B>` elements around it.  A different style stays unproven.
+        if (attr.style != FontStyleIR::unknown && attr.style != span.style)
           return fail(error, "overlapping font spans" + where());
         attr.style = span.style;
       }
