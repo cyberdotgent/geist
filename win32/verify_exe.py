@@ -12,8 +12,10 @@ build (Linux) and the MSVC build (Windows):
     per-monitor (v2) DPI awareness, Common Controls 6, asInvoker and long
     paths;
   * the icon and version resources are present;
-  * the licence notices (RCDATA 103) carry the Apache License and, with
-    --require-notices, the libpng, zlib and giflib licence texts.
+  * the licence notices (RCDATA 103), which Help > About shows, carry the
+    Apache License and the Hershey fonts acknowledgement and, with
+    --require-notices, the libpng, zlib and giflib licence texts;
+    --print also prints the embedded manifest.
 
     python3 win32/verify_exe.py path/to/geist-boo-reader.exe [--print] [--require-notices]
 """
@@ -135,6 +137,8 @@ def main() -> int:
     notices = b"".join(resources.get((RT_RCDATA, NOTICES), []))
     if b"Apache License" not in notices:
         problems.append("no licence notices resource carrying the Apache License")
+    if b"=== Hershey fonts ===" not in notices or b"Dr. A. V. Hershey" not in notices:
+        problems.append("licence notices lack the Hershey fonts acknowledgement")
     if "--require-notices" in sys.argv:
         for component in ("libpng", "zlib", "giflib"):
             if f"=== {component} ===".encode() not in notices:

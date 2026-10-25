@@ -128,11 +128,14 @@ std::wstring grouped(std::uint64_t value) {
   return out;
 }
 
-struct InformationState {
+// The book information and about dialogs lay their controls out at the
+// window's DPI; this is what they keep for painting and cleaning up.
+struct LayoutState {
   const BookInformation* information = nullptr;
   std::vector<HFONT> fonts;
   std::set<HWND> secondary;
   HBRUSH background = nullptr;
+  HWND licences = nullptr;
 };
 
 HWND add_text(HWND dialog, const std::wstring& text, HFONT font, int x, int y, int width, bool selectable,
@@ -153,11 +156,74 @@ HWND add_text(HWND dialog, const std::wstring& text, HFONT font, int x, int y, i
   return control;
 }
 
+// Puts the Close/Done button under the laid-out content, sizes the window to
+// `width` by the content and centres it over its owner.
+void finish_layout(HWND dialog, int width, int y, int pad, UINT dpi) {
+  HWND done = GetDlgItem(dialog, IDOK);
+  RECT button{};
+  GetWindowRect(done, &button);
+  const int button_width = button.right - button.left, button_height = button.bottom - button.top;
+  const int total = y + button_height + scale(20, dpi);
+  MoveWindow(done, width - pad - button_width, y, button_width, button_height, FALSE);
+  RECT frame{0, 0, width, total};
+  AdjustWindowRectEx(&frame, static_cast<DWORD>(GetWindowLongPtrW(dialog, GWL_STYLE)), FALSE,
+                     static_cast<DWORD>(GetWindowLongPtrW(dialog, GWL_EXSTYLE)));
+  RECT owner{};
+  GetWindowRect(GetParent(dialog), &owner);
+  const int frame_width = frame.right - frame.left, frame_height = frame.bottom - frame.top;
+  const int top = static_cast<int>(owner.bottom - owner.top) - frame_height;
+  SetWindowPos(dialog, nullptr, owner.left + (owner.right - owner.left - frame_width) / 2,
+               owner.top + (top > 0 ? top / 3 : 0), frame_width, frame_height, SWP_NOZORDER);
+  SetFocus(done);
+}
+
+// Painting and closing, shared by the laid-out dialogs.
+INT_PTR laid_out_message(LayoutState* state, HWND dialog, UINT message, WPARAM wparam, LPARAM lparam) {
+  switch (message) {
+  case WM_CTLCOLORSTATIC: {
+    HDC dc = reinterpret_cast<HDC>(wparam);
+    const HWND control = reinterpret_cast<HWND>(lparam);
+    if (state && control == state->licences) {
+      SetBkColor(dc, GetSysColor(COLOR_WINDOW));
+      SetTextColor(dc, GetSysColor(COLOR_WINDOWTEXT));
+      return reinterpret_cast<INT_PTR>(GetSysColorBrush(COLOR_WINDOW));
+    }
+    SetBkColor(dc, GetSysColor(COLOR_BTNFACE));
+    SetTextColor(dc, state && state->secondary.count(control) ? GetSysColor(COLOR_GRAYTEXT)
+                                                              : GetSysColor(COLOR_WINDOWTEXT));
+    return reinterpret_cast<INT_PTR>(state ? state->background : GetSysColorBrush(COLOR_BTNFACE));
+  }
+  case WM_COMMAND:
+    if (LOWORD(wparam) == IDOK || LOWORD(wparam) == IDCANCEL) EndDialog(dialog, 0);
+    return TRUE;
+  default:
+    return FALSE;
+  }
+}
+
+// The embedded licence notices (RCDATA), with Windows line ends for an edit
+// control.
+std::wstring licence_text() {
+  HINSTANCE instance = App::get().instance();
+  std::string text;
+  if (HRSRC found = FindResourceW(instance, MAKEINTRESOURCEW(IDR_LICENSE), MAKEINTRESOURCEW(10)))
+    if (HGLOBAL loaded = LoadResource(instance, found))
+      if (const void* data = LockResource(loaded))
+        text.assign(static_cast<const char*>(data), SizeofResource(instance, found));
+  std::wstring wide;
+  for (wchar_t c : widen(text)) {
+    if (c == L'\r') continue;
+    if (c == L'\n') wide += L'\r';
+    wide += c;
+  }
+  return wide;
+}
+
 INT_PTR CALLBACK information_proc(HWND dialog, UINT message, WPARAM wparam, LPARAM lparam) {
-  auto* state = reinterpret_cast<InformationState*>(GetWindowLongPtrW(dialog, DWLP_USER));
+  auto* state = reinterpret_cast<LayoutState*>(GetWindowLongPtrW(dialog, DWLP_USER));
   switch (message) {
   case WM_INITDIALOG: {
-    state = reinterpret_cast<InformationState*>(lparam);
+    state = reinterpret_cast<LayoutState*>(lparam);
     SetWindowLongPtrW(dialog, DWLP_USER, reinterpret_cast<LONG_PTR>(state));
     const BookInformation& info = *state->information;
     const UINT dpi = window_dpi(dialog);
@@ -222,38 +288,66 @@ INT_PTR CALLBACK information_proc(HWND dialog, UINT message, WPARAM wparam, LPAR
                       {L"Size", std::wstring(size_text) + L" (" + grouped(info.file_size) + L" bytes)"},
                       {L"Location", info.file.parent_path().wstring()}});
 
-    HWND done = GetDlgItem(dialog, IDOK);
-    RECT button{};
-    GetWindowRect(done, &button);
-    const int button_width = button.right - button.left, button_height = button.bottom - button.top;
-    const int width = scale(640, dpi);
-    const int total = y + button_height + scale(20, dpi);
-    MoveWindow(done, width - pad - button_width, y, button_width, button_height, FALSE);
-    RECT frame{0, 0, width, total};
-    AdjustWindowRectEx(&frame, static_cast<DWORD>(GetWindowLongPtrW(dialog, GWL_STYLE)), FALSE,
-                       static_cast<DWORD>(GetWindowLongPtrW(dialog, GWL_EXSTYLE)));
-    RECT owner{};
-    GetWindowRect(GetParent(dialog), &owner);
-    const int frame_width = frame.right - frame.left, frame_height = frame.bottom - frame.top;
-    SetWindowPos(dialog, nullptr, owner.left + (owner.right - owner.left - frame_width) / 2,
-                 owner.top + std::max(0L, (owner.bottom - owner.top - frame_height) / 3), frame_width, frame_height,
-                 SWP_NOZORDER);
-    SetFocus(done);
+    finish_layout(dialog, scale(640, dpi), y, pad, dpi);
     return FALSE;
   }
-  case WM_CTLCOLORSTATIC: {
-    HDC dc = reinterpret_cast<HDC>(wparam);
-    SetBkColor(dc, GetSysColor(COLOR_BTNFACE));
-    SetTextColor(dc, state && state->secondary.count(reinterpret_cast<HWND>(lparam)) ? GetSysColor(COLOR_GRAYTEXT)
-                                                                                      : GetSysColor(COLOR_WINDOWTEXT));
-    return reinterpret_cast<INT_PTR>(state ? state->background : GetSysColorBrush(COLOR_BTNFACE));
-  }
-  case WM_COMMAND:
-    if (LOWORD(wparam) == IDOK || LOWORD(wparam) == IDCANCEL) EndDialog(dialog, 0);
-    return TRUE;
   default:
-    return FALSE;
+    return laid_out_message(state, dialog, message, wparam, lparam);
   }
+}
+
+INT_PTR CALLBACK about_proc(HWND dialog, UINT message, WPARAM wparam, LPARAM lparam) {
+  auto* state = reinterpret_cast<LayoutState*>(GetWindowLongPtrW(dialog, DWLP_USER));
+  if (message != WM_INITDIALOG) return laid_out_message(state, dialog, message, wparam, lparam);
+  state = reinterpret_cast<LayoutState*>(lparam);
+  SetWindowLongPtrW(dialog, DWLP_USER, reinterpret_cast<LONG_PTR>(state));
+  const UINT dpi = window_dpi(dialog);
+  HFONT title_font = create_ui_font(dpi, 158, FW_SEMIBOLD);
+  HFONT heading_font = create_ui_font(dpi, 108, FW_SEMIBOLD);
+  HFONT body_font = create_ui_font(dpi, 108);
+  HFONT small_font = create_ui_font(dpi, 100);
+  state->fonts = {title_font, heading_font, body_font, small_font};
+  state->background = CreateSolidBrush(GetSysColor(COLOR_BTNFACE));
+  const int pad = scale(24, dpi);
+  const int width = scale(600, dpi);
+  int height = 0;
+  const int icon = scale(64, dpi);
+  HWND image = CreateWindowExW(0, WC_STATICW, nullptr, WS_CHILD | WS_VISIBLE | SS_ICON | SS_REALSIZEIMAGE, pad, pad,
+                               icon, icon, dialog, nullptr, App::get().instance(), nullptr);
+  SendMessageW(image, STM_SETICON, reinterpret_cast<WPARAM>(App::get().icon(icon)), 0);
+  const int text_x = pad + icon + scale(16, dpi);
+  const int text_width = width - text_x - pad;
+  int y = pad;
+  add_text(dialog, L"Geist BOO Reader", title_font, text_x, y, text_width, false, height);
+  y += height + scale(4, dpi);
+  std::wstring version = L"Version " + widen(GEIST_READER_VERSION);
+  if (std::string(GEIST_READER_REVISION) != "unknown") version += L" (" + widen(GEIST_READER_REVISION) + L")";
+  version += L", libgeist " + widen(geist::library_version());
+  state->secondary.insert(add_text(dialog, version, small_font, text_x, y, text_width, true, height));
+  y += height + scale(12, dpi);
+  add_text(dialog, L"A reader for IBM BookManager BOO books.", body_font, text_x, y, text_width, false, height);
+  y += height + scale(4, dpi);
+  state->secondary.insert(add_text(dialog,
+                                   L"Copyright 2026 Yvan Janssens. Licensed under the Apache License, Version 2.0. "
+                                   L"It includes the Hershey fonts, libpng, zlib and giflib, used under the "
+                                   L"licences below.",
+                                   small_font, text_x, y, text_width, false, height));
+  y = std::max(pad + icon, y + height) + scale(22, dpi);
+  state->secondary.insert(add_text(dialog, L"Licences", heading_font, pad, y, width - 2 * pad, false, height));
+  y += height + scale(8, dpi);
+
+  const int box_height = scale(300, dpi);
+  state->licences = CreateWindowExW(
+      WS_EX_CLIENTEDGE, WC_EDITW, nullptr,
+      WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL, pad, y,
+      width - 2 * pad, box_height, dialog, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_LICENSE_TEXT)),
+      App::get().instance(), nullptr);
+  SendMessageW(state->licences, WM_SETFONT, reinterpret_cast<WPARAM>(small_font), FALSE);
+  SendMessageW(state->licences, EM_SETLIMITTEXT, 0, 0);
+  SetWindowTextW(state->licences, licence_text().c_str());
+  y += box_height + scale(16, dpi);
+  finish_layout(dialog, width, y, pad, dpi);
+  return FALSE;
 }
 
 } // namespace
@@ -267,61 +361,24 @@ HWND create_settings_dialog(HWND owner) {
   return dialog;
 }
 
-void show_book_information(HWND owner, const BookInformation& information) {
-  InformationState state;
-  state.information = &information;
-  DialogBoxParamW(App::get().instance(), MAKEINTRESOURCEW(IDD_INFORMATION), owner, information_proc,
-                  reinterpret_cast<LPARAM>(&state));
+namespace {
+// Runs a laid-out dialog and frees what its layout made.
+void run_laid_out(HWND owner, int id, DLGPROC proc, LayoutState& state) {
+  DialogBoxParamW(App::get().instance(), MAKEINTRESOURCEW(id), owner, proc, reinterpret_cast<LPARAM>(&state));
   for (HFONT font : state.fonts) DeleteObject(font);
   if (state.background) DeleteObject(state.background);
 }
-
-void show_about_dialog(HWND owner) {
-  std::wstring text = L"Geist BOO Reader " + widen(GEIST_READER_VERSION);
-  if (std::string(GEIST_READER_REVISION) != "unknown") text += L" (" + widen(GEIST_READER_REVISION) + L")";
-  text += L"\nlibgeist " + widen(geist::library_version());
-  text += L"\n\nA reader for IBM BookManager BOO books.\n\nCopyright 2026 Yvan Janssens.\n"
-          L"Licensed under the Apache License, Version 2.0. The program includes libpng, zlib and "
-          L"giflib, used under their own licences; see Help > Licences.";
-  MSGBOXPARAMSW box{};
-  box.cbSize = sizeof box;
-  box.hwndOwner = owner;
-  box.hInstance = App::get().instance();
-  box.lpszText = text.c_str();
-  box.lpszCaption = L"About Geist BOO Reader";
-  box.dwStyle = MB_OK | MB_USERICON;
-  box.lpszIcon = MAKEINTRESOURCEW(IDI_APP);
-  MessageBoxIndirectW(&box);
-}
-
-namespace {
-INT_PTR CALLBACK licenses_proc(HWND dialog, UINT message, WPARAM wparam, LPARAM) {
-  if (message == WM_INITDIALOG) {
-    HINSTANCE instance = App::get().instance();
-    std::string text;
-    if (HRSRC found = FindResourceW(instance, MAKEINTRESOURCEW(IDR_LICENSE), MAKEINTRESOURCEW(10)))
-      if (HGLOBAL loaded = LoadResource(instance, found))
-        if (const void* data = LockResource(loaded))
-          text.assign(static_cast<const char*>(data), SizeofResource(instance, found));
-    std::wstring wide;
-    for (wchar_t c : widen(text)) {
-      if (c == L'\r') continue;
-      if (c == L'\n') wide += L'\r';
-      wide += c;
-    }
-    SetDlgItemTextW(dialog, IDC_LICENSE_TEXT, wide.c_str());
-    return TRUE;
-  }
-  if (message == WM_COMMAND && (LOWORD(wparam) == IDOK || LOWORD(wparam) == IDCANCEL)) {
-    EndDialog(dialog, 0);
-    return TRUE;
-  }
-  return FALSE;
-}
 } // namespace
 
-void show_licenses_dialog(HWND owner) {
-  DialogBoxParamW(App::get().instance(), MAKEINTRESOURCEW(IDD_LICENSES), owner, licenses_proc, 0);
+void show_book_information(HWND owner, const BookInformation& information) {
+  LayoutState state;
+  state.information = &information;
+  run_laid_out(owner, IDD_INFORMATION, information_proc, state);
+}
+
+void show_about_dialog(HWND owner) {
+  LayoutState state;
+  run_laid_out(owner, IDD_ABOUT, about_proc, state);
 }
 
 } // namespace geist_reader

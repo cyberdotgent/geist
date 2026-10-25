@@ -43,7 +43,9 @@ prefix; the project's CMake never downloads anything.
 that only Windows DLLs are imported, that exactly one RT_MANIFEST resource
 (id 1) asks for per-monitor v2 DPI awareness, Common Controls 6, `asInvoker`
 and long paths, and that the icon, version and licence-notice resources are
-present. CTest runs it as `win32_reader_executable_test`.
+present; the notices must carry the Apache License and the Hershey fonts
+acknowledgement, and with `--require-notices` the libpng, zlib and giflib
+texts. CTest runs it as `win32_reader_executable_test`.
 
 ## Using it
 
@@ -97,6 +99,6 @@ The reader does not print.
 - **Icon.** `geist-boo-reader.ico` is made from `gui/geist-hardcopy.svg`, the
   icon the macOS app uses, by `make_icon.py` (committed, because the CI
   Windows runner has no SVG rasteriser).
-- **Licences.** libpng, zlib and giflib are inside the executable, so their
-  licence texts are too: Help > Licences shows them with this project's
-  LICENSE. The CI artifact also carries them as files.
+- **Licences.** libpng, zlib, giflib and libgeist's Hershey stroke font
+  are inside the executable, so their licence texts are too: Help > About
+  shows them, with this project's LICENSE, under the version information. The CI artifact also carries them as files.

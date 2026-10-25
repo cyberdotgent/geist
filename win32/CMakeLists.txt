@@ -9,10 +9,11 @@ set(GEIST_W32_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/geist-boo-reader.manifest")
 set(GEIST_W32_ICON "${CMAKE_CURRENT_SOURCE_DIR}/geist-boo-reader.ico")
 set(GEIST_W32_CSS "${PROJECT_SOURCE_DIR}/doc/html-styling.css")
 set(GEIST_W32_IE_CSS "${CMAKE_CURRENT_SOURCE_DIR}/ie11-compat.css")
-# Licence notices, embedded in the executable and shown by Help > Licences:
-# this project's LICENSE and the texts of the statically linked libpng, zlib
-# and giflib. They are looked for in GEIST_WIN32_LICENSE_DIR (<name>.txt),
-# in <prefix>/licenses of each CMAKE_PREFIX_PATH entry (as
+# Licence notices, embedded in the executable and shown by Help > About:
+# this project's LICENSE, the Hershey fonts acknowledgement and the texts of
+# the statically linked libpng, zlib and giflib. The last three are looked
+# for in GEIST_WIN32_LICENSE_DIR (<name>.txt), in <prefix>/licenses of each
+# CMAKE_PREFIX_PATH entry (as
 # build_mingw_dependencies.sh lays them out) and in vcpkg's share/<port>/
 # copyright files.
 set(GEIST_WIN32_LICENSE_DIR "" CACHE PATH
@@ -20,6 +21,9 @@ set(GEIST_WIN32_LICENSE_DIR "" CACHE PATH
 set(GEIST_W32_NOTICES "${CMAKE_CURRENT_BINARY_DIR}/notices.txt")
 file(READ "${PROJECT_SOURCE_DIR}/LICENSE" _geist_license)
 set(_geist_notices "Geist BOO Reader is licensed under the Apache License, Version 2.0.\n\n${_geist_license}")
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/hershey-fonts.txt" _geist_hershey)
+string(APPEND _geist_notices "\n\n=== Hershey fonts ===\n\n${_geist_hershey}")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/hershey-fonts.txt")
 set(_geist_missing_notices "")
 foreach(_geist_component libpng zlib giflib)
   set(_geist_candidates "")

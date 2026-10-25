@@ -117,8 +117,7 @@ HMENU build_menu() {
   HMENU help = popup(L"&Help");
   AppendMenuW(help, MF_STRING, ID_HELP_INFORMATION, L"Book &Information");
   AppendMenuW(help, MF_SEPARATOR, 0, nullptr);
-  AppendMenuW(help, MF_STRING, ID_HELP_LICENSES, L"&Licences…");
-  AppendMenuW(help, MF_STRING, ID_HELP_ABOUT, L"&About Geist BOO Reader");
+  AppendMenuW(help, MF_STRING, ID_HELP_ABOUT, L"&About Geist BOO Reader…");
   return bar;
 }
 
@@ -567,7 +566,6 @@ void ReaderWindow::command(int id) {
     break;
   case ID_HELP_INFORMATION: show_information(); break;
   case ID_HELP_ABOUT: App::get().show_about(hwnd_); break;
-  case ID_HELP_LICENSES: show_licenses_dialog(hwnd_); break;
   default: break;
   }
 }

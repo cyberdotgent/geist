@@ -16,8 +16,8 @@ namespace geist_reader {
 HWND create_settings_dialog(HWND owner);
 // Modal to `owner`.
 void show_book_information(HWND owner, const BookInformation& information);
+// Versions, copyright and the embedded licence notices (this program, the
+// Hershey fonts and the statically linked libraries).
 void show_about_dialog(HWND owner);
-// The embedded licence notices (this program and its static libraries).
-void show_licenses_dialog(HWND owner);
 
 } // namespace geist_reader

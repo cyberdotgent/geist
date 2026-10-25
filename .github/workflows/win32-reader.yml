@@ -139,7 +139,7 @@ jobs:
 
       # The directory is uploaded (GitHub zips it): the executable, its
       # checksum and the licence texts, which are also inside the executable
-      # (Help > Licences).
+      # (Help > About).
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
