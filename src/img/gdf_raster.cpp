@@ -313,6 +313,21 @@ void draw_text(RgbaImage& image,
   }
 }
 
+// Markers are ten-pixel symbols centred on their point, each stroke drawn
+// from one end to the other without its final pixel: a diagonal cross runs
+// from (-5, -5) to (5, 5) and from (-5, 5) to (5, -5); an upright cross from
+// (0, -5) to (0, 5) and from (-5, 0) to (5, 0).
+void draw_marker(RgbaImage& image, const Marker& marker, int x, int y) {
+  auto pen = make_pen(marker.color, GdfLineStyle::solid);
+  if (marker.shape == GdfMarkerShape::cross) {
+    draw_segment(image, x - 5, y - 5, x + 5, y + 5, pen);
+    draw_segment(image, x - 5, y + 5, x + 5, y - 5, pen);
+  } else {
+    draw_segment(image, x, y - 5, x, y + 5, pen);
+    draw_segment(image, x - 5, y, x + 5, y, pen);
+  }
+}
+
 // Fills a figure: all its contours together, each implicitly closed.  An edge
 // and its exact reverse cancel (stroke-font construction edges run out and
 // back), and the rest fill by the non-zero winding rule.
@@ -544,6 +559,13 @@ RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
       charge(strokes, static_cast<std::size_t>(metrics.pen) * metrics.pen);
       const auto [x0, y0] = map(text.point);
       draw_text(image, text, x0, y0, metrics);
+      break;
+    }
+    case GdfPrimitive::marker: {
+      const auto& marker = picture.markers[step.index];
+      const auto [x, y] = map(marker.point);
+      charge(2, 12);
+      draw_marker(image, marker, x, y);
       break;
     }
     }

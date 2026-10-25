@@ -65,6 +65,8 @@ struct Attributes {
   int quarter_turns = 0;
   // Whether a character-set order (or the pop of one) has selected a font.
   bool font_selected = false;
+  // The marker type byte of the last marker-type order, or -1 before one.
+  int marker_type = -1;
   FillStyle fill_style = FillStyle::solid;
   int pattern_density = 0;
   GdfHatch hatch = GdfHatch::rising;
@@ -97,6 +99,8 @@ struct ParserState {
   bool in_figure = false;
   // Entries in the font-list prolog.
   std::size_t font_list_entries = 0;
+  // A pop restored a saved marker scale, which sets the marker size.
+  bool marker_size_restored = false;
   // An area order that asked for boundary lines begins its figure at the next
   // line order, not at once.
   bool figure_pending = false;
@@ -621,6 +625,42 @@ void handle_text(ParserState& state,
                   : GdfTextFace::proportional});
 }
 
+// Marker orders: `c2` marks every point; `82` marks the current position and
+// then every point.  The current position moves to the last point.  Marker
+// types 1 (a diagonal cross) and 2 (an upright cross) are reproduced; other
+// types, a marker before any marker-type order and a marker size restored by
+// a pop decline.
+void handle_markers(ParserState& state,
+                    const std::vector<std::uint8_t>& bytes,
+                    std::size_t offset,
+                    std::size_t length,
+                    bool at_current) {
+  const std::uint8_t opcode = at_current ? 0x82 : 0xc2;
+  GdfMarkerShape shape = GdfMarkerShape::cross;
+  if (state.attr.marker_type == 1) {
+    shape = GdfMarkerShape::cross;
+  } else if (state.attr.marker_type == 2) {
+    shape = GdfMarkerShape::plus;
+  } else {
+    unsupported(opcode, "marker type");
+  }
+  if (state.marker_size_restored) {
+    unsupported(opcode, "marker size");
+  }
+  auto points = read_points(state, bytes, offset, length);
+  if (at_current) {
+    points.insert(points.begin(), state.attr.current);
+  } else if (points.empty()) {
+    require_length(opcode, length, point_size);
+  }
+  for (const auto& point : points) {
+    state.picture.steps.push_back(
+        GdfDrawStep{GdfPrimitive::marker, state.picture.markers.size()});
+    state.picture.markers.push_back(Marker{point, palette(state.line_color), shape});
+  }
+  state.attr.current = points.back();
+}
+
 // --- attribute orders --------------------------------------------------------
 
 void handle_pattern(ParserState& state, std::uint8_t opcode, std::uint8_t value) {
@@ -801,8 +841,16 @@ void pop_attribute(ParserState& state) {
     state.attr.extended_color = value.extended_color;
     apply_color(state, state.attr.extended_color);
     break;
+  case 0x69:
+    state.attr.marker_type = value.marker_type;
+    break;
   case 0x74:
     state.attr.quarter_turns = value.quarter_turns;
+    break;
+  case 0x77:
+    // The marker scale order itself has no effect, but its pop applies the
+    // saved scale as the marker size.
+    state.marker_size_restored = true;
     break;
   case 0x78:
     // The pop selects the saved font again, whatever it was.
@@ -1080,9 +1128,16 @@ GdfPicture parse_gdf_picture(const std::vector<std::uint8_t>& bytes) {
     case 0xc1:
       handle_line(state, bytes, offset, length, false);
       break;
+    case 0x29:
+    case 0x69:
+      state.attr.marker_type = byte0;
+      break;
     case 0x82:
+      handle_markers(state, bytes, offset, length, true);
+      break;
     case 0xc2:
-      unsupported(opcode, "marker");
+      handle_markers(state, bytes, offset, length, false);
+      break;
     case 0x83:
       handle_text(state, bytes, offset, length, true);
       break;

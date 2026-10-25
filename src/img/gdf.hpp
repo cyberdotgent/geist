@@ -84,7 +84,16 @@ struct TextRun {
   GdfTextFace face = GdfTextFace::fixed_pitch;
 };
 
-enum class GdfPrimitive : std::uint8_t { line, area, text };
+// A marker symbol, ten pixels across whatever the picture's scale.
+enum class GdfMarkerShape : std::uint8_t { cross, plus };
+
+struct Marker {
+  Point point;
+  Color color;
+  GdfMarkerShape shape = GdfMarkerShape::cross;
+};
+
+enum class GdfPrimitive : std::uint8_t { line, area, text, marker };
 
 struct GdfDrawStep {
   GdfPrimitive kind = GdfPrimitive::line;
@@ -105,6 +114,7 @@ struct GdfPicture {
   std::vector<Polyline> lines;
   std::vector<FilledArea> areas;
   std::vector<TextRun> texts;
+  std::vector<Marker> markers;
   // Every primitive, in the order the stream draws it.
   std::vector<GdfDrawStep> steps;
 };

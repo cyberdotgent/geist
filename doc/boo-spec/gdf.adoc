@@ -324,9 +324,10 @@ push-and-set orders: they save the attribute's current value
 |`0x24` / `0x64` |Model transform |See <<gdf_model_transform>>.
 |`0x26` / `0x66` |Color set extended |Two bytes; see <<gdf_colors>>.
 |`0x27` / `0x67` |Clipping |Sets a clip rectangle. Not observed.
-|`0x29` / `0x69` |Marker type |Marker glyph.
+|`0x29` / `0x69` |Marker type |Marker symbol; see <<gdf_markers>>.
 |`0x34` / `0x74` |Character angle |Text baseline direction `(x, y)`, untransformed; `(1, 0)` is upright. See <<gdf_text_and_font_handling>>.
 |`0x35`, `0x39`, `0x3a` and their push forms |Character shear, mode, direction |None.
+|`0x37` / `0x77` |Marker scale |None; a pop that restores a saved marker scale sets the marker size. See <<gdf_markers>>.
 |`0x36` / `0x76` |Character spacing |Flag byte, padding byte, then a coordinate pair: with flag `0`, the x operand is extra advance per character; any other flag resets it to `0`. Not observed.
 |`0x38` / `0x78` |Character set |Local character-set id of later text; selects the face (<<gdf_text_and_font_handling>>).
 |`0x3f` |Pop |Restores the last saved attribute; see <<gdf_attribute_stack>>.
@@ -338,7 +339,7 @@ push-and-set orders: they save the attribute's current value
 |`0xc1` |Line |Polyline through the points.
 |`0xa1` |Relative line at current position |Signed one-byte `dx dy` pairs, accumulated from the current position.
 |`0xe1` |Relative line |One coordinate pair, then signed one-byte `dx dy` pairs accumulated from it before transformation.
-|`0x82` / `0xc2` |Marker |Markers at the current position and/or the points.
+|`0x82` / `0xc2` |Marker |`c2` marks every point; `82` marks the current position, then every point. The current position moves to the last point. See <<gdf_markers>>.
 |`0x83` / `0xc3` |Character |Text at the current position, or at the leading point; the bytes after it are EBCDIC text up to the end of the record or a `0x00` byte. The current position does not change.
 |`0x85` / `0xc5` |Fillet |None: the hosted reference draws nothing for fillets.
 |`0x86` / `0xc6` |Arc |Three-point arc; see <<gdf_arcs>>.
@@ -592,6 +593,28 @@ An arc runs from `p0` (the current position for `0x86`, the first point for
 
 `packet.boo` resources 7 and 8 draw their circles with `62` and `c6` / `86`
 orders; `OFCLRNWP.BOO` resource 18 draws pie charts the same way.
+
+[[gdf_markers]]
+==== Markers
+
+Marker type `1` is a diagonal cross and `2` an upright cross. Each is ten
+pixels across, centred on the pixel its point maps to, whatever the
+picture's scale and whatever the marker-scale orders say; each stroke runs
+from one end to the other without its final pixel: `(-5, -5)` to `(5, 5)`
+and `(-5, 5)` to `(5, -5)`, or `(0, -5)` to `(0, 5)` and `(-5, 0)` to
+`(5, 0)`, in pixels. Markers take the current color. Evidence,
+`BLGR8MST.BOO` resource 15: `69 01` at payload offset `0x7ee`, then
+`c2 60` + 12 points at `0x800` (first point `(7.0, 84.36)`, pixel
+`(72, 116)`) draws red diagonal crosses; `69 02` at `0x868` and the same 12
+points at `0x870` draw blue upright crosses over them; the hosted GIF
+matches pixel for pixel.
+
+Types `0` and `3`..`10` are unobserved. Type bytes of `11` and up
+(`0x45`, `0x46`, `0x4a`, `0x60`, `0x65` in `GC24-5673-01.boo` resources 8,
+13, 15, 16 and 19) show in hosted GIFs as asterisk-like symbols of more than
+one size; how the type byte selects them is not established. The marker
+scale order (`37` / `77`, two coordinates) does not change the markers that
+follow it in any observed picture.
 
 [[gdf_attribute_stack]]
 ==== Attribute Stack

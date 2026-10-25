@@ -480,6 +480,65 @@ void test_text_fails_closed() {
   require_rejected(spaced, "character spacing", "character spacing");
 }
 
+// --- markers -----------------------------------------------------------------
+
+Bytes marker_picture(const std::function<void(Bytes&)>& add) {
+  Bytes gdf = header();
+  segment(gdf);
+  normal(gdf, 0x66, {0xff, 0x07});
+  add(gdf);
+  return gdf;
+}
+
+// Marker type 2 is an upright cross and type 1 a diagonal one, ten pixels
+// across around the point, each stroke without its final pixel.  `82` marks
+// the current position too, and markers move the current position to their
+// last point.
+void test_markers() {
+  // (50, 50) maps to (500, 368); (20, 20) to (201, 587).
+  const auto plus = geist::detail::decode_gdf_to_rgba(marker_picture([](Bytes& g) {
+    short_order(g, 0x29, 0x02);
+    normal(g, 0xc2, points({50.0, 50.0}));
+  }));
+  require_pixel(plus, 500, 363, black, "plus top");
+  require_pixel(plus, 500, 372, black, "plus bottom");
+  require_pixel(plus, 500, 373, white, "plus end excluded");
+  require_pixel(plus, 495, 368, black, "plus left");
+  require_pixel(plus, 504, 368, black, "plus right");
+  require_pixel(plus, 498, 366, white, "plus has no diagonal");
+  const auto cross = geist::detail::decode_gdf_to_rgba(marker_picture([](Bytes& g) {
+    short_order(g, 0x29, 0x01);
+    normal(g, 0x21, points({20.0, 20.0}));
+    normal(g, 0x82, points({50.0, 50.0}));
+    normal(g, 0x81, points({50.0, 20.0}));
+  }));
+  require_pixel(cross, 495, 363, black, "cross corner");
+  require_pixel(cross, 504, 372, black, "cross far corner");
+  require_pixel(cross, 495, 373, black, "cross other corner");
+  require_pixel(cross, 500, 363, white, "cross has no upright");
+  require_pixel(cross, 196, 582, black, "current position marked");
+  require_pixel(cross, 500, 450, black, "line from the last marker");
+}
+
+void test_markers_fail_closed() {
+  require_rejected(marker_picture([](Bytes& g) {
+                     normal(g, 0xc2, points({50.0, 50.0}));
+                   }),
+                   "marker type", "marker before a marker-type order");
+  require_rejected(marker_picture([](Bytes& g) {
+                     short_order(g, 0x29, 0x03);
+                     normal(g, 0xc2, points({50.0, 50.0}));
+                   }),
+                   "marker type", "marker type 3");
+  require_rejected(marker_picture([](Bytes& g) {
+                     short_order(g, 0x29, 0x02);
+                     normal(g, 0x77, points({2.0, 2.0}));
+                     normal(g, 0x3f, {});
+                     normal(g, 0xc2, points({50.0, 50.0}));
+                   }),
+                   "marker size", "marker after a restored marker scale");
+}
+
 // Orders the reference renderer draws but this decoder cannot reproduce
 // reject the whole picture.
 void test_unsupported_orders_fail_closed() {
@@ -612,6 +671,8 @@ int main() {
     test_text_quarter_turn();
     test_text_control_bytes();
     test_text_fails_closed();
+    test_markers();
+    test_markers_fail_closed();
     test_unsupported_orders_fail_closed();
     test_inert_orders_are_skipped();
     test_other_formats();
