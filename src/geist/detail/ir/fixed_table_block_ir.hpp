@@ -44,6 +44,8 @@ struct FixedTableCellLineIR {
   std::vector<OwnedSourceCellIR> unpositioned_cells;
   // Record/segment/token extent of the source cells above.
   DocumentSourceSliceIR slice;
+  // The runs of `text` the `CFONT` governing the line styles (gap tables).
+  std::vector<RowFontHighlightIR> highlights;
 };
 
 struct FixedTableCellIR {

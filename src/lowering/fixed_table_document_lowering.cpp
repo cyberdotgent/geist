@@ -58,7 +58,39 @@ InlineSequenceIR cell_inlines(const FixedTableCellIR &cell,
     cell_origin.slices.push_back(line.slice);
     for (const auto &row : text.origin.rows)
       add_row(cell_origin, row);
-    content.push_back(std::move(text));
+    if (line.highlights.empty()) {
+      content.push_back(std::move(text));
+      continue;
+    }
+    // The runs the line's `CFONT` styles: a code span for a monospace style,
+    // emphasis for every other, plain text between them (SC31-6552-00
+    // 4.4.69, hosted `<I>macroinstructions:</I>    ASLPLU`).
+    std::size_t cursor = 0;
+    const auto plain = [&](std::size_t end) {
+      if (end <= cursor)
+        return;
+      InlineIR piece;
+      piece.node = TextInlineIR{line.text.substr(cursor, end - cursor)};
+      piece.origin = text.origin;
+      content.push_back(std::move(piece));
+    };
+    for (const auto &run : line.highlights) {
+      plain(run.begin);
+      InlineIR piece;
+      auto styled = line.text.substr(run.begin, run.end - run.begin);
+      if (font_style_is_code(run.style))
+        piece.node =
+            CodeInlineIR{std::move(styled), font_style_phrase_kind(run.style)};
+      else
+        piece.node = EmphasisInlineIR{std::move(styled),
+                                      font_style_emphasis_kind(run.style),
+                                      font_style_phrase_kind(run.style)};
+      piece.origin = text.origin;
+      piece.origin.detail = "fixed table cell line: CFONT run";
+      content.push_back(std::move(piece));
+      cursor = run.end;
+    }
+    plain(line.text.size());
   }
   return content;
 }

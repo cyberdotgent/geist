@@ -173,16 +173,39 @@ bool link_table_cells(const ProseTopicIR& prose, std::size_t span,
     for (std::size_t cell = 0; cell < rows[row].cells.size(); ++cell) {
       auto& content = rows[row].cells[cell].content;
       const auto& lines = block.body[row].cells[cell].lines;
-      // Lines alternate with hard breaks: text, break, text, ...
-      if (content.size() != (lines.empty() ? 0 : lines.size() * 2 - 1))
+      // Lines alternate with hard breaks; a line is its text, or the runs
+      // its `CFONT` styles (`FixedTableCellLineIR::highlights`).
+      std::vector<InlineSequenceIR> parts(1);
+      InlineSequenceIR breaks;
+      for (auto& node : content) {
+        if (std::holds_alternative<HardBreakInlineIR>(node.node)) {
+          breaks.push_back(std::move(node));
+          parts.emplace_back();
+          continue;
+        }
+        parts.back().push_back(std::move(node));
+      }
+      if (lines.empty() ? !content.empty() : parts.size() != lines.size())
         return fail(error, "lowered table cell lines differ from the block");
       for (std::size_t line = 0; line < lines.size(); ++line) {
-        auto& node = content[line * 2];
+        auto& part = parts[line];
+        const auto links = line_links(prose, span, block, cell, lines[line]);
+        if (links.empty()) continue;
+        // A selector replaces the whole line, so the line is read as its
+        // text (a styled line's runs give way to the link, as they did
+        // before cells were styled).
+        if (part.size() != 1) {
+          InlineIR whole;
+          whole.node = TextInlineIR{lines[line].text};
+          whole.origin = part.front().origin;
+          whole.origin.detail = "fixed table cell line";
+          part.clear();
+          part.push_back(std::move(whole));
+        }
+        auto& node = part.front();
         const auto* text = std::get_if<TextInlineIR>(&node.node);
         if (text == nullptr)
           return fail(error, "lowered table cell line is not text");
-        const auto links = line_links(prose, span, block, cell, lines[line]);
-        if (links.empty()) continue;
         const auto picture_links = std::count_if(
             links.begin(), links.end(), [](const auto* link) {
               return link->picture;
@@ -231,6 +254,13 @@ bool link_table_cells(const ProseTopicIR& prose, std::size_t span,
                 ? "fixed table cell line (CSELECT LNK reference)"
                 : "fixed table cell line (CSELECT reference)";
       }
+      // Reassemble the cell: the lines with a hard break between them.
+      InlineSequenceIR rebuilt;
+      for (std::size_t line = 0; line < parts.size(); ++line) {
+        if (line != 0) rebuilt.push_back(std::move(breaks[line - 1]));
+        for (auto& node : parts[line]) rebuilt.push_back(std::move(node));
+      }
+      if (!lines.empty()) content = std::move(rebuilt);
     }
   }
   return true;

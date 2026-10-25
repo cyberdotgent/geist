@@ -2591,6 +2591,65 @@ private:
 
   // Distributes the lines' words over `row.cells` by the cell start columns
   // and claims their structure on the row.
+  // The runs of one gap-table cell line the line's `CFONT` styles, as byte
+  // ranges of the cell's text.  A span counts only for the columns of the
+  // cell it reaches, trimmed of blanks, and must cover whole words: it may
+  // leave out only punctuation a word ends with.  Anything else -- a span
+  // opening or closing inside a word, or two overlapping -- leaves the line
+  // plain: the text is right either way.  SC31-6552-00 4.4.69 (hosted DT
+  // 19950503072955) serves `<I>macroinstructions:</I>    ASLPLU`.
+  static std::vector<RowFontHighlightIR>
+  gap_cell_highlights(const Line &line, std::size_t start,
+                      const TokenWords &cells, const std::string &text) {
+    const auto full = token_words_to_ascii(cells);
+    if (trim_ascii(full) != text)
+      return {};
+    std::size_t lead = 0;
+    while (lead < full.size() && full[lead] == ' ')
+      ++lead;
+    std::vector<std::size_t> offsets{0};
+    for (const auto value : cells)
+      offsets.push_back(offsets.back() + token_word_ascii_width(value));
+    const auto blank = [&](std::size_t at) {
+      return cells[at] == ' ' || cells[at] == 0xA0;
+    };
+    std::vector<RowFontHighlightIR> result;
+    for (const auto &span : line.font_spans) {
+      if (span.length == 0 || span.style == FontStyleIR::unknown ||
+          span.style == FontStyleIR::underscore)
+        continue;
+      const auto from = std::max(span.column, start);
+      const auto to = std::min(span.column + span.length, start + cells.size());
+      if (from >= to)
+        continue;
+      auto first = from - start;
+      auto last = to - start;
+      while (first < last && blank(first))
+        ++first;
+      while (last > first && blank(last - 1))
+        --last;
+      if (first == last)
+        continue;
+      if (first != 0 && !blank(first - 1))
+        return {};
+      for (auto at = last; at < cells.size() && !blank(at); ++at)
+        if (cells[at] > 0x7F ||
+            std::isalnum(static_cast<unsigned char>(cells[at])) != 0)
+          return {};
+      if (offsets[first] < lead || offsets[last] - lead > text.size())
+        return {};
+      result.push_back({offsets[first] - lead, offsets[last] - lead,
+                        span.style});
+    }
+    std::sort(result.begin(), result.end(), [](const auto &a, const auto &b) {
+      return a.begin < b.begin;
+    });
+    for (std::size_t index = 1; index < result.size(); ++index)
+      if (result[index].begin < result[index - 1].end)
+        return {};
+    return result;
+  }
+
   bool fill_gap_row(FixedTableRowIR &row,
                     const std::vector<const Line *> &group,
                     const std::vector<std::size_t> &starts,
@@ -2646,6 +2705,8 @@ private:
             row.structural_cells.push_back(claim);
           continue;
         }
+        cell_line.highlights = gap_cell_highlights(*line, starts[cell],
+                                                   texts[cell], cell_line.text);
         cell_line.source_cells = std::move(claims[cell]);
         cell_line.unpositioned_cells = std::move(unpositioned[cell]);
         cell_line.slice = line_slice(cell_words[cell]);

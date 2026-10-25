@@ -1027,6 +1027,54 @@ void test_glued_mark_before_gap_is_content() {
               text);
 }
 
+// The cells of a gap table keep the styles their line's CFONT gives:
+// SC31-6552-00 4.4.69 (DT 19950503072955) serves the same two-column
+// operand table as `<I>macroinstructions:</I>    ASLPLU` and
+// `<I>dependencies:</I>         none`, the colon inside the italics because
+// `cfont 3 18 1` covers it.
+void test_gap_table_cells_keep_their_styles() {
+  RecordBuilder builder;
+  builder.line({words("cz"), words("OFF"), words("TABLE")});
+  builder.line({words("SRTBLTBLUNIQ912")});
+  builder.sized_line({{"cfont", 2}, {"3", 2}, {"18", 2}, {"1", 2}});
+  builder.sized_line({{"   ", 1}, {"macroinstructions", 2}, {"\x01", 1},
+                      {":", 1}, {"   ", 1}, {"ASLPLU", 2}});
+  builder.sized_line({{"cfont", 2}, {"3", 2}, {"13", 2}, {"1", 2}});
+  builder.sized_line({{"   ", 1}, {"dependencies", 2}, {"\x01", 1},
+                      {":", 1}, {"         ", 1}, {"none", 2}});
+  builder.line({words("SRETBL")});
+  std::vector<DecodedLogicalRecordSource> sources;
+  sources.push_back(builder.finish(2333));
+  const auto layout = extract_layout_ir(sources);
+  const auto ownership = build_ownership_ir(sources, layout);
+  const LayoutRowRangeIR range{0, count_layout_rows(layout)};
+  const auto blocks =
+      extract_fixed_table_blocks_ir(sources, layout, ownership, range);
+  require(blocks.blocks.size() == 1, "the operand table was declined");
+  if (blocks.blocks.size() != 1) return;
+  std::size_t styled = 0, plain = 0;
+  for (const auto &row : blocks.blocks.front().body)
+    for (const auto &cell : row.cells)
+      for (const auto &line : cell.lines) {
+        if (line.text == "macroinstructions:" ||
+            line.text == "dependencies:") {
+          require(line.highlights.size() == 1 &&
+                      line.highlights.front().begin == 0 &&
+                      line.highlights.front().end == line.text.size() &&
+                      line.highlights.front().style ==
+                          geist::detail::FontStyleIR::highlight_1,
+                  "the label cell lost its italics: " + line.text);
+          ++styled;
+        } else {
+          require(line.highlights.empty(),
+                  "an unstyled cell gained a style: " + line.text);
+          ++plain;
+        }
+      }
+  require(styled == 2 && plain == 2, "the table is not two styled labels and "
+                                     "two plain values");
+}
+
 // A cell whose only word is a real `?`.  SC41-5401-00 2.3.2.111 record 804
 // line 28 is ` | | ?                   | Question mark   |`: token 306 is a
 // two-byte dictionary word whose single word is 0x3F (bytes `B7 12` at
@@ -1099,6 +1147,7 @@ int main() {
   test_length_byte_before_control_is_not_content();
   test_glued_comma_before_control_is_content();
   test_glued_mark_before_gap_is_content();
+  test_gap_table_cells_keep_their_styles();
   geist_test::exit_with_failures();
   std::cout << "fixed table block IR checks passed\n";
   return 0;
