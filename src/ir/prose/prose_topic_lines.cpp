@@ -1692,6 +1692,32 @@ struct LineBuilder {
     return cz_reader_pre_open(first);
   }
 
+  // A closed three-row box (top rule, one row, bottom rule) whose first item
+  // comes straight after a bare `SRGLS` look-ahead.  The reader prints it as
+  // a letter divider in flowed CZ text too: SC31-8219-00 BACK_1 record 431
+  // lines 18-22 (`SRGLS`, `       ___ `, `cfont 8 1 2`, `      | B |`,
+  // `      |___|`) stand under `cz FLOW GD 3 3`, and hosted (DT
+  // 19950907050427) serves `<center><b><font size="+4">B  </font></b>
+  // </center>` and an `<hr>`.  `emit_box` and `letter_box_block` still
+  // prove the shape; anything else stays a box CZ text cannot hold.
+  bool cz_letter_box(const BoxRegion& region) const {
+    if (!region.closed || region.grid || region.lines.size() != 3)
+      return false;
+    for (std::size_t index = 0; index < items.size(); ++index) {
+      const auto& item = items[index];
+      if (item.kind != ItemKind::token) continue;
+      const auto record = item.token.record;
+      const auto token = item.token.token;
+      if (record < region.begin_record || record > region.end_record ||
+          (record == region.begin_record && token < region.begin_token) ||
+          (record == region.end_record && token > region.end_token))
+        continue;
+      return index > 0 && items[index - 1].kind == ItemKind::segment_end &&
+             items[index - 1].glossary_letter;
+    }
+    return false;
+  }
+
   bool only_unopened_region_closers() const {
     bool any = false;
     for (const auto& item : items) {
@@ -1730,10 +1756,13 @@ struct LineBuilder {
     // its own verbatim blocks (`cz OFF XMP`).  Only where the reader is
     // already inside a `<pre>` by its own layout rules does a closed box of
     // a CZ topic stay drawn (`cz_pre_zone_box`).
+    // A glossary letter box is the reader's look-ahead after a bare `SRGLS`,
+    // whatever region it stands in (`cz_letter_box`).
     if (cz_mode)
       boxes.erase(std::remove_if(boxes.begin(), boxes.end(),
                                  [&](const BoxRegion& region) {
-                                   return !cz_pre_zone_box(region);
+                                   return !cz_pre_zone_box(region) &&
+                                          !cz_letter_box(region);
                                  }),
                   boxes.end());
     for (std::size_t index = 0; index < items.size(); ++index) {

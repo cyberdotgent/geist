@@ -1199,6 +1199,38 @@ void glossary_letter_box(bool cz) {
         "the entry anchor after the letter box was lost: " + html);
 }
 
+// The look-ahead does not depend on the region the reader is in: a letter
+// box straight after `cz FLOW P`, with no empty line to reopen the reader's
+// `<pre>`, still draws the divider.  SC41-3425-00 GLOSSARY.1 record 1495
+// lines 40-46 are `cz OFF EDL 0 0`, `cz FLOW P 3 3`, `SRGLS`,
+// `       ___ `, `cfont 8 1 2`, `      | A |`, `      |___|`; hosted serves
+// `<center><b><font size="+4">A  </font></b></center>` and an `<hr>`.
+void glossary_letter_box_in_flowed_text() {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  builder.line({w("SRGLS")});
+  builder.line({sp(6), box({0x250C}), attach(), box(TokenWords(3, 0x2500)),
+                attach(), box({0x2510})});
+  builder.line({w("cfont"), w("8"), w("1"), w("2")});
+  builder.line({sp(6), box({0x2502}), w("A"), box({0x2502})});
+  builder.line({sp(6), box({0x2514}), attach(), box(TokenWords(3, 0x2500)),
+                attach(), box({0x2518})});
+  builder.blank();
+  builder.line({w("SRGLS"), w("access")});
+  builder.line({w("cz"), w("FLOW"), w("GD"), w("3"), w("3")});
+  builder.line({sp(3), w("access."), sp(2), w("Entry.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "flowed glossary letter box declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(html, ">A</strong></h2>") && !contains(html, "___"),
+        "the flowed letter box is not a letter heading: " + html);
+  check(contains(html, "id=\"GLS access\"") && contains(html, "Entry."),
+        "the entry after the flowed letter box was lost: " + html);
+}
+
 // A full-width rule -- more than 71 `U+2500` cells from column 3 -- is not
 // drawn in a verbatim region: the reader empties the line and the page shows
 // `<hr>` there.  SC09-2123-00 2.2.1.2 (hosted DT 19951101111056) frames its
@@ -1442,6 +1474,7 @@ int main() {
   rows_after_named_closer(true);
   full_width_rule_in_verbatim_region();
   glossary_letter_box(false);
+  glossary_letter_box_in_flowed_text();
   broken_bar_margin_mark();
   box_in_cz_pre_zone(false);
   box_in_cz_pre_zone(true);

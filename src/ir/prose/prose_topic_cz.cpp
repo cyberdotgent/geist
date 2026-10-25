@@ -1993,6 +1993,53 @@ struct CzBuilder {
             boxed = line;
             break;
           }
+      // A glossary letter box (`cz_letter_box`) closes the rows of the
+      // directive it follows and prints as its own letter divider: the
+      // reader's look-ahead after a bare `SRGLS`, in flowed text as in
+      // verbatim text.  Rows after it under the same paragraph directive are
+      // the paragraphs of the next entry; under any other directive they
+      // would be content the directive no longer owns, and decline.
+      if (boxed != npos && lines[boxed].letter_box) {
+        const auto paragraph_directive =
+            directive.mode == "break" ||
+            (directive.mode == "flow" &&
+             (directive.tag == "p" || directive.tag == "gd"));
+        if (boxed + 3 > range.second ||
+            (boxed + 3 != range.second && !paragraph_directive))
+          return fail(error, "cz " + directive.mode + " " + directive.tag +
+                                 ": rows follow a glossary letter box");
+        const auto head_range =
+            boxed == range.first
+                ? std::pair<std::size_t, std::size_t>{npos, npos}
+                : std::pair<std::size_t, std::size_t>{range.first, boxed};
+        const auto head =
+            head_range.first == npos
+                ? std::vector<std::pair<std::size_t, std::size_t>>{}
+                : group_lines(lines, head_range.first, head_range.second,
+                              in_message_list(), &full_rules);
+        const auto name = "cz " + directive.mode + " " + directive.tag;
+        if (directive.mode == "break") {
+          // A break's rows are plain paragraphs (see below); one owning a
+          // pending parameter term is not this shape.
+          if (!stack.empty() && stack.back().tag == "parml")
+            return fail(error, name + ": glossary letter box in a parameter "
+                                      "list");
+          if (!paragraphs(head, 0)) return false;
+        } else if (!handle(index, directive, head_range, head, name,
+                           directive.tag)) {
+          if (error != nullptr && error->rfind("cz ", 0) != 0)
+            *error = name + ": " + *error;
+          return false;
+        }
+        return rows_around_boxes(boxed, range.second,
+                                 [&](std::size_t begin, std::size_t stop) {
+                                   return paragraphs(
+                                       group_lines(lines, begin, stop,
+                                                   in_message_list(),
+                                                   &full_rules),
+                                       0);
+                                 });
+      }
       if (boxed != npos) {
         const auto tail = range;
         range = boxed == range.first
