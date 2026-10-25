@@ -1314,6 +1314,42 @@ struct CzBuilder {
     return rule;
   }
 
+  // A rule row the reader empties: more than 71 consecutive `U+2500` cells
+  // from display column 3 of its native display line, the rule it replaces
+  // with the page's `<hr>` everywhere but in a `cz OFF TABLE` region
+  // (`full_width_rule` in the line builder).  The region's rule rows are
+  // such rows on every sampled hosted cover (26 of 26 `cz OFF COVER`
+  // books, SC41-4715-00 COVER DT 19950620134301 `<hr>` .. `<hr>`).
+  // Returns the row's single record and token extent, or nothing for a
+  // shorter rule.
+  std::optional<std::tuple<std::size_t, std::size_t, std::size_t>>
+  full_width_rule_row(const Line& line) const {
+    std::size_t record = npos, first = npos, last = 0;
+    if (line.thematic_break && line.thematic_record < records.size() &&
+        line.thematic_token_begin < line.thematic_token_end) {
+      record = line.thematic_record;
+      first = line.thematic_token_begin;
+      last = line.thematic_token_end - 1;
+    }
+    for (const auto& cell : line.cells) {
+      if (cell.record == npos) continue;
+      if (record != npos && cell.record != record) return std::nullopt;
+      record = cell.record;
+      first = std::min(first, cell.token);
+      last = std::max(last, cell.token);
+    }
+    if (record == npos) return std::nullopt;
+    const auto* native = display_line_of_token(records[record], first);
+    if (native == nullptr || last >= native->token_end) return std::nullopt;
+    const auto columns = display_line_columns(records[record], *native);
+    std::size_t run = 0;
+    for (auto column = std::size_t{3};
+         column < columns.size() && columns[column] == 0x2500; ++column)
+      ++run;
+    if (run <= 71) return std::nullopt;
+    return std::make_tuple(record, first, last + 1);
+  }
+
   // The rule draws no word, so its cells are structural like the row markers
   // `display_rule_line` assigns in the flattened dialect.
   void claim_rule_row(const Line& line) {
@@ -1385,9 +1421,18 @@ struct CzBuilder {
     const auto blocks_before = topic.blocks.size();
     auto rows_begin = begin;
     for (auto line = begin; line < end; ++line) {
-      if (!rule_row(lines[line])) continue;
+      if (!rule_row(lines[line]) && !lines[line].thematic_break) continue;
       if (!title_rows(rows_begin, line)) return false;
       claim_rule_row(lines[line]);
+      if (const auto rule = full_width_rule_row(lines[line])) {
+        ProseBlockIR block;
+        block.kind = ProseBlockKindIR::thematic_break;
+        block.origin = lines[line].origin;
+        block.slices.push_back(token_slice(records[std::get<0>(*rule)],
+                                           std::get<1>(*rule),
+                                           std::get<2>(*rule)));
+        append(std::move(block), line);
+      }
       rows_begin = line + 1;
     }
     if (!title_rows(rows_begin, end)) return false;

@@ -105,6 +105,15 @@ int main() {
                    "File Number PACKET",
                    "cover projection");
   require_not_contains(cover, "____", "cover frame rule drawn as text");
+  // The two frame rows are full-width rules (74 `U+2500` from column 3,
+  // record 2 lines 11 and 27), which the reader empties and the page shows
+  // as `<hr>` (26 of 26 sampled `cz OFF COVER` books, e.g. SC41-4715-00
+  // COVER DT 19950620134301 `<hr>` ... `Document Number SC41-4715-00` ...
+  // `<hr>`).
+  require_contains(cover, "---\n\n**Amateur Packet Radio**",
+                   "cover top rule is not the page's rule");
+  require_contains(cover, "File Number PACKET\n\n---",
+                   "cover bottom rule is not the page's rule");
   require_not_contains(cover, "**Evie Cooper**",
                        "cover author emphasised without a CFONT triple");
 

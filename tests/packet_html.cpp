@@ -132,7 +132,7 @@ int main() {
       "a",   "aside", "body",       "br",    "cite",  "code", "dd",
       "div", "kbd",   "samp",       "var",
       "dl",  "dt",    "em",         "figcaption", "figure", "h1", "h2",
-      "h3",  "h4",    "h5",         "h6",    "head",  "html", "img",
+      "h3",  "h4",    "h5",         "h6",    "head",  "hr",   "html", "img",
       "li",  "meta",  "nav",        "ol",    "p",     "pre",  "section",
       "span", "strong", "style",    "table", "tbody", "td",   "th",
       "thead", "title", "tr",       "ul",    "link",  "doctype"};

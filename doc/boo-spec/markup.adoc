@@ -1318,6 +1318,20 @@ verified generated-cover labels (`Document Number`, `Part Number`, and
 `File Number`) back into separate paragraphs to match BookServer's visual
 structure.
 
+The region's frame rows are full-width rules, and the page shows each as a
+horizontal rule.  `packet.boo` topic `COVER`, logical record 2, opens
+`cz OFF COVER` with display line 11 at BOO byte `0x41170`: length byte `06`,
+`0d` (three blanks), `d629` (63 `U+2500` words), attach `00`, `d61b` (11
+`U+2500` words) -- 74 rule cells from column 3 -- and closes with the same six
+bytes at `0x411cd` (line 27) before `cz OFF ECOVER 0 0`.  A row of more than
+71 consecutive `U+2500` cells from column 3 is the full-width rule the reader
+empties outside `cz OFF TABLE` (see "Open drawings in prose"); hosted
+BookServer serves `<hr>` in its place.  All 26 sampled `cz OFF COVER` books
+(one cover each, of 201 cover topics with such rows in a 650-book sample)
+serve exactly two `<hr>` around the cover's fields, e.g. `SC41-4715-00.boo`
+`COVER` (DT `19950620134301`): `<hr>`, `AS/400 Advanced Series` ...
+`Document Number SC41-4715-00`, `<hr>`.
+
 The `File Number PACKET` value specifically verifies the logical-record spacing
 rule documented in <<encoding>>: the `PACKET` token is present in
 full in the BOO token stream, followed by two consecutive prefix-0 spacing
