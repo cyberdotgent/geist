@@ -514,8 +514,10 @@ std::vector<BoxLine> drawn_box_rows(
     const std::vector<DecodedLogicalRecordSource>& records);
 
 // The `SRTBL<id>` / `SRETBL` controls that stand inside a closed drawn box
-// as the box's own markup, as (record index, first source token) pairs.  See
-// prose_topic_boxes.cpp for the shape and its evidence.
+// as the box's own markup, and the `SRTBL<id>` / `SRFIG<id>` openers directly
+// above a box whose `SRETBL` / `SREFIG` closers stand inside it, as (record
+// index, first source token) pairs.  See prose_topic_boxes.cpp for the
+// shapes and their evidence.
 std::set<std::pair<std::size_t, std::size_t>> box_enclosed_envelopes(
     const std::vector<DecodedLogicalRecordSource>& records);
 

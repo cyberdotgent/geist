@@ -2131,11 +2131,13 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         if (list_item_closer && !list_owners.count(lower_opcode.substr(6)))
           return fail(error, "list closer " + segment.opcode +
                                  " names no SRLIS item of the topic");
-        // A box's own `SRETBL` names nothing either; its payload is the
-        // box rows after it.
+        // A box's own `SRETBL` or `SREFIG` names nothing either; its payload
+        // is the box rows after it (hosted SH09-8098-02 3.3.3.4.1 serves no
+        // anchor for either).
         const auto list_closer =
             list_item_closer ||
-            (in_box && segment.kind == BookControlKind::table_end);
+            (in_box && (segment.kind == BookControlKind::table_end ||
+                        lower_opcode == "srefig"));
         // A body anchor can carry the first display line of the text it
         // names.  Hosted BookServer wraps that text in the anchor element
         // and keeps it as body content -- unlike the metadata-envelope

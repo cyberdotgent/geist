@@ -909,11 +909,128 @@ std::vector<BoxLine> drawn_box_rows(
 // (`|_____|_____|` rules between them), which the table pass types.  An open
 // drawing has no rails that bound it, so an envelope beside one stays a
 // table envelope.
+//
+// An envelope may also straddle the box: its opener stands in the run of
+// control lines directly above the top rule and its closer inside the box,
+// before the bottom rule.  SH09-8098-02 3.3.3.4.1 record 191 stores
+// `SRSPTOPEN`, `SRFIGTBLUNIQ17` and `SRTBLTBLUNIQ17` alone on lines 14-16,
+// the top rule on line 17, the box rows on lines 19-22, `SRETBL` and
+// `SREFIG` alone on lines 23-24 and the bottom rule on line 25.  Hosted
+// BookServer (DT 19930430114900) serves
+// `<a name="SPTOPEN"><a name="FIGTBLUNIQ17"><a name="TBLTBLUNIQ17">` around
+// the top rule, the five box rows verbatim and nothing for either closer.
+// The envelope cannot be a table or figure of its own -- its rows are cut by
+// the box's bottom rule -- whatever its rows draw, so the inner-structure
+// rule above does not apply: SH35-0119-01 3.2 record 79 opens
+// `SRTBLTBLUNIQ3` above a two-column grid drawn as one closed box and closes
+// it before the grid's bottom border (record 86 lines 10-11); hosted (DT
+// 19940113084351) prints the grid verbatim and emits no `<table>`.  Hosted
+// census: 25 topics in 17 books of a 650-book sample draw the shape, every
+// one served verbatim with no `<table>`.  A
+// straddling `SRFIG<id>` opener is box markup in the same way when its
+// `SREFIG` stands inside the box; the set then holds its two structural
+// controls as well.
 std::set<std::pair<std::size_t, std::size_t>> box_enclosed_envelopes(
     const std::vector<DecodedLogicalRecordSource>& records) {
   std::set<std::pair<std::size_t, std::size_t>> enclosed;
+  // The display lines of the topic in source order.
+  std::vector<std::pair<std::size_t, const DisplayLineIR*>> all_lines;
+  for (std::size_t index = 0; index < records.size(); ++index)
+    if (const auto* lines = record_display_lines(records[index]))
+      for (const auto& line : *lines) all_lines.emplace_back(index, &line);
+  const auto figure_opcode = [](const ControlSegmentIR& segment,
+                                const char* prefix) {
+    if (segment.kind != BookControlKind::structural || segment.malformed)
+      return false;
+    const auto opcode = ascii_lower(segment.opcode);
+    const std::string want(prefix);
+    return want == "srefig" ? opcode == want
+                            : opcode.rfind(want, 0) == 0 &&
+                                  opcode.size() > want.size();
+  };
   for (const auto& region : plan_boxes(records)) {
     if (!region.closed) continue;
+    // The straddling openers: the run of control lines directly above the
+    // top rule, each one control; an `SR<id>` anchor, an `SRTBL<id>` or
+    // `SRFIG<id>` opener, or a line that draws nothing (`cfont`, `cselect`,
+    // `SI`).
+    std::vector<std::pair<std::size_t, std::size_t>> head_tables;
+    std::vector<std::pair<std::size_t, std::size_t>> head_figures;
+    {
+      std::size_t at = 0;
+      while (at < all_lines.size() &&
+             !(all_lines[at].first == region.begin_record &&
+               all_lines[at].second->prefix_token == region.begin_token))
+        ++at;
+      bool clean = at < all_lines.size();
+      while (clean && at > 0) {
+        --at;
+        const auto record = all_lines[at].first;
+        const auto& line = *all_lines[at].second;
+        const auto& source = records[record];
+        if (index_line(source, line)) continue;
+        if (!control_only_line(source, line)) break;
+        const auto segment_index = segment_of(source, line.prefix_token + 1);
+        if (segment_index >= source.control_segments.size()) break;
+        bool single = true;
+        for (auto token = line.prefix_token + 1; token < line.token_end; ++token)
+          if (segment_of(source, token) != segment_index) single = false;
+        if (!single) break;
+        const auto& segment = source.control_segments[segment_index];
+        if (segment.source_tokens.empty()) break;
+        const std::pair<std::size_t, std::size_t> key{
+            record, segment.source_tokens.front()};
+        if (segment.kind == BookControlKind::font ||
+            segment.kind == BookControlKind::select)
+          continue;
+        if (segment.kind == BookControlKind::table_start) {
+          head_tables.push_back(key);
+          continue;
+        }
+        if (figure_opcode(segment, "srfig")) {
+          head_figures.push_back(key);
+          continue;
+        }
+        const auto opcode = ascii_lower(segment.opcode);
+        if (segment.kind == BookControlKind::structural && !segment.malformed &&
+            opcode.rfind("sr", 0) == 0 && opcode.size() > 2 &&
+            opcode.rfind("sre", 0) != 0)
+          continue;
+        break;
+      }
+    }
+    // The figure controls inside the box.
+    std::vector<std::pair<std::size_t, std::size_t>> inner_figures;
+    std::vector<bool> inner_figure_opens;
+    for (auto record = region.begin_record; record <= region.end_record;
+         ++record) {
+      const auto& source = records[record];
+      for (const auto& segment : source.control_segments) {
+        const auto opens = figure_opcode(segment, "srfig");
+        if ((!opens && !figure_opcode(segment, "srefig")) ||
+            segment.source_tokens.empty())
+          continue;
+        const auto token = segment.source_tokens.front();
+        if ((record == region.begin_record && token < region.begin_token) ||
+            (record == region.end_record && token > region.end_token))
+          continue;
+        const auto* line = display_line_of_token(source, token);
+        if (line == nullptr || !control_only_line(source, *line)) {
+          inner_figures.clear();
+          inner_figure_opens.assign(1, true);
+          break;
+        }
+        inner_figures.push_back({record, token});
+        inner_figure_opens.push_back(opens);
+      }
+    }
+    // One straddling figure: its opener above the box, its `SREFIG` the only
+    // figure control inside.
+    if (head_figures.size() == 1 && inner_figures.size() == 1 &&
+        !inner_figure_opens.front()) {
+      enclosed.insert(head_figures.front());
+      enclosed.insert(inner_figures.front());
+    }
     std::vector<std::pair<std::size_t, std::size_t>> controls;
     std::vector<bool> opens;
     bool proven = true;
@@ -938,7 +1055,20 @@ std::set<std::pair<std::size_t, std::size_t>> box_enclosed_envelopes(
         opens.push_back(segment.kind == BookControlKind::table_start);
       }
     }
-    if (!proven || controls.empty() || opens.size() % 2 != 0) continue;
+    if (!proven) continue;
+    // One straddling table: its opener above the box, the first table
+    // control inside the box its closer.
+    std::vector<std::pair<std::size_t, std::size_t>> straddling;
+    if (head_tables.size() == 1 && !controls.empty() && !opens.front()) {
+      straddling = {head_tables.front(), controls.front()};
+      controls.erase(controls.begin());
+      opens.erase(opens.begin());
+      if (controls.empty()) {
+        enclosed.insert(straddling.begin(), straddling.end());
+        continue;
+      }
+    }
+    if (controls.empty() || opens.size() % 2 != 0) continue;
     for (std::size_t index = 0; index < opens.size(); ++index)
       if (opens[index] != (index % 2 == 0)) proven = false;
     if (!proven || region.lines.empty()) continue;
@@ -972,6 +1102,7 @@ std::set<std::pair<std::size_t, std::size_t>> box_enclosed_envelopes(
     }
     if (!proven) continue;
     enclosed.insert(controls.begin(), controls.end());
+    enclosed.insert(straddling.begin(), straddling.end());
   }
   return enclosed;
 }

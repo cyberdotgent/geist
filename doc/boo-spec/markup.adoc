@@ -4714,6 +4714,55 @@ a frame.  ITPPIBOK `4.3.5.4` record 158 line 23 opens `SRTBLTBLUNIQ34`
 `| TASK | START | ...` grid, with `|_____|_____|` rules between them, and
 that grid is a table.
 
+[[markup_box_straddling_envelopes]]
+==== An envelope that straddles a closed box
+
+An envelope can also open above a closed box and close inside it.  Its
+opener stands in the run of control lines directly above the box's top rule;
+its closer stands inside the box, before the bottom rule.  Such an envelope
+is the box's markup too, whatever its rows draw: the box's bottom rule cuts
+its rows, so it is neither a table nor a figure of its own.  SH09-8098-02
+`3.3.3.4.1` (logical record 191) shows the shape with a figure and a table
+envelope at once.  Offsets are absolute file offsets.
+
+[cols="<10,<44,<40",options="header"]
+|===
+|Line |Bytes |Reading
+
+|14 |`02` at `0x818F5`, then `E7 4A` |`SRSPTOPEN`, a line of its own
+|15 |`02` at `0x818F8`, then `E5 4A` |`SRFIGTBLUNIQ17`, a line of its own
+|16 |`02` at `0x818FB`, then `E7 7E` |`SRTBLTBLUNIQ17`, a line of its own
+|17 |`08` at `0x818FE`, then `14`, `06` (`U+250C`) ... |the box's top rule
+|18--22 |-- |`cfont` lines and side rows; line 22 draws a syntax diagram's main path with `U+2500` rules
+|23 |`02` at `0x81943`, then `E3 E8` |`SRETBL`, a line of its own
+|24 |`01` at `0x81946`, then `9A` |`SREFIG`, a line of its own
+|25 |`08` at `0x81948`, then `14`, `07` (`U+2514`) ... |the box's bottom rule
+|===
+
+Hosted (DT `19930430114900`) wraps the top rule in `<a name="SPTOPEN">`,
+`<a name="FIGTBLUNIQ17">` and `<a name="TBLTBLUNIQ17">`, prints the five box
+rows verbatim and prints nothing for `SRETBL` or `SREFIG`; it emits no
+`<table>`.  The table envelope need not be a plain note either:
+SH35-0119-01 `3.2` opens `SRTBLTBLUNIQ3` (record 79 line 35) above a
+two-column grid drawn as one closed box and writes `SRETBL` (record 86
+line 10) before the grid's bottom border; hosted (DT `19940113084351`)
+prints the grid verbatim.  In a sample of 650 books, 25 topics in 17 books
+draw the shape, and hosted serves every one of them verbatim with no
+`<table>`.
+
+The reading applies only when:
+
+* the box is closed;
+* the lines between the opener and the top rule are control lines of one
+  control each: `SR<id>` anchors, `SRTBL<id>` or `SRFIG<id>` openers,
+  `cfont`, `cselect` or `SI` lines;
+* at most one table opener and one figure opener stand there;
+* the first table control inside the box is `SRETBL` and the only figure
+  control inside the box is `SREFIG`, each on a line of its own.
+
+Any further envelope inside the same box follows the rules for an envelope
+drawn wholly inside the box.
+
 [[markup_anchor_above_closed_box]]
 ==== An anchor directly above a closed box
 

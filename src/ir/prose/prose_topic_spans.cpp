@@ -170,14 +170,19 @@ bool has_table_envelope(
   return false;
 }
 
-bool has_figure_region(const std::vector<DecodedLogicalRecordSource>& records,
-                       const std::vector<CzVerbatimRegion>& verbatim) {
+// A figure envelope that straddles a closed box is the box's markup
+// (`box_enclosed_envelopes`) and opens no figure region.
+bool has_figure_region(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const std::vector<CzVerbatimRegion>& verbatim,
+    const std::set<std::pair<std::size_t, std::size_t>>& box_markup) {
   for (std::size_t index = 0; index < records.size(); ++index) {
     const auto& record = records[index];
     const auto text = token_words_to_ascii(record.assembled.words);
     for (const auto& segment : record.control_segments) {
       if (!segment.source_tokens.empty() &&
-          inside_cz_verbatim(verbatim, index, segment.source_tokens.front()))
+          (inside_cz_verbatim(verbatim, index, segment.source_tokens.front()) ||
+           box_markup.count({index, segment.source_tokens.front()}) != 0))
         continue;
       const auto opcode = ascii_lower(segment.opcode);
       if (segment.kind == BookControlKind::structural &&
@@ -988,7 +993,17 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
       regions.push_back(std::move(region));
     }
   }
-  if (has_figure_region(records, verbatim)) {
+  // The figure pass reports a declined region by its opener; an opener that
+  // is box markup names the box and opens nothing.
+  const auto box_figure_markup = [&](const FigureSegmentRefIR& ref) {
+    const auto record = record_index_of(records, ref.logical_record);
+    if (!record || ref.segment_index >= records[*record].control_segments.size())
+      return false;
+    const auto& segment = records[*record].control_segments[ref.segment_index];
+    return !segment.source_tokens.empty() &&
+           box_markup.count({*record, segment.source_tokens.front()}) != 0;
+  };
+  if (has_figure_region(records, verbatim, box_markup)) {
     std::string selector_error;
     SelectorCatalogIR selectors;
     if (const auto catalog = extract_selector_catalog_ir(records, &selector_error))
@@ -1000,6 +1015,7 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
         records, layout, ownership, selectors,
         resource_ids != nullptr ? *resource_ids : no_resources);
     for (const auto& decline : topic.figures.declined) {
+      if (box_figure_markup(decline.begin)) continue;
       // A picture selector inside an admitted table is a table cell; the
       // figure extractor reports it as table-owned and the table claims it.
       if ((decline.reason == "picture selector is table-owned" ||
@@ -1135,7 +1151,8 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
     plan.regions.push_back(planned);
   }
   for (const auto& decline : topic.figures.declined) {
-    if (decline.reason != "figure region contains a table" || !decline.end)
+    if (decline.reason != "figure region contains a table" || !decline.end ||
+        box_figure_markup(decline.begin))
       continue;
     if (!plan_frame(records, decline, ledger, topic, plan, error))
       return false;

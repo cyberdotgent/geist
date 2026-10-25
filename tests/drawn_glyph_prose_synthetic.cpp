@@ -620,9 +620,57 @@ void box_closed_by_unopened_figure_closer() {
   check(!contains(html, "EFIG"), "the figure closer leaked as text: " + html);
 }
 
+// An `SRFIG`/`SRTBL` envelope whose openers stand directly above a closed
+// box's top rule and whose closers stand inside the box, before its bottom
+// rule, is the box's own markup.  SH09-8098-02 3.3.3.4.1 record 191 stores
+// `SRSPTOPEN`, `SRFIGTBLUNIQ17` and `SRTBLTBLUNIQ17` alone on lines 14-16,
+// the top rule on line 17, the rows on lines 19-22, `SRETBL` and `SREFIG`
+// alone on lines 23-24 and the bottom rule on line 25; hosted (DT
+// 19930430114900) wraps the top rule in the three anchors, prints the five
+// box rows verbatim and nothing for the closers.
+void envelope_straddling_box(bool figure) {
+  Builder builder(false);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("SRSPTOPEN")});
+  if (figure) builder.line({w("SRFIGTBLUNIQ17")});
+  builder.line({w("SRTBLTBLUNIQ17")});
+  builder.line({sp(3), box(run(0x250C, 0x2500, 12, 0x2510))});
+  builder.line({sp(3), box({0x2502}), w("Format:"), sp(3), box({0x2502})});
+  // The envelope's rows may draw rules of their own (the syntax diagram's
+  // main path in the book).
+  builder.line({sp(3), box(run(0x2502, 0x2500, 12, 0x2502))});
+  builder.line({w("SRETBL")});
+  if (figure) builder.line({w("SREFIG")});
+  builder.line({sp(3), box(run(0x2514, 0x2500, 12, 0x2518))});
+  builder.blank();
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), std::string("envelope straddling a box declined") +
+                             (figure ? " (figure)" : "") + ": " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(untagged(pre_body(html)) ==
+            "    ____________ \n   | Format:    |\n   |____________|"
+            "\n   |____________|",
+        "the straddled box was not drawn: " + html);
+  check(contains(html, "id=\"TBLTBLUNIQ17\"") &&
+            contains(html, "id=\"SPTOPEN\"") &&
+            (!figure || contains(html, "id=\"FIGTBLUNIQ17\"")),
+        "the box lost its envelope anchors: " + html);
+  check(!contains(html, "<table") && !contains(html, "ETBL") &&
+            !contains(html, "EFIG"),
+        "the envelope was read as a table or its closers leaked: " + html);
+  check(contains(html, "<p class=\"geist-paragraph\">After.</p>"),
+        "prose after the box is not a paragraph: " + html);
+}
+
 } // namespace
 
 int main() {
+  envelope_straddling_box(false);
+  envelope_straddling_box(true);
   anchor_before_body_control_line(false);
   anchor_before_body_control_line(true);
   box_closed_by_unopened_figure_closer();
