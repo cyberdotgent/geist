@@ -3908,6 +3908,47 @@ int main() {
     }
   }
 
+  // An entry row whose length byte spells a control word that takes an
+  // operand is drawn whole: the byte is a length and opens no control, so
+  // the row's first word is no operand of it.
+  //   * SC26-4222-06 E.1 record 1872 line 12 opens with `2E` (46), spelled
+  //     `cbacklevel`, and draws `              U(I,J) = U(I+N,J) + U(I,J+N)`
+  //     under `cfont 14 6 E 21 1 E 23 8 E 32 1 E 34 8 E` on line 11; hosted
+  //     E.1 (DT 19910927174757) serves `<samp>U(I,J)</samp> <samp>=</samp>`.
+  //   * SC31-6173-01 A.4.2 record 961 line 25 opens with `46` (70), spelled
+  //     `ctopicn`, and draws `   MINIMUM (X'00'), LAN (X'4C'), ...` inside the
+  //     `Explanation:` field, unstyled; hosted A.4.2 (DT 19931101081508)
+  //     serves `must be\n   MINIMUM (X'00'), LAN ...`.
+  for (const bool styled : {true, false}) {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, entry("719", 548));
+    if (styled)
+      append(tokens, line({t("cfont", 111), t("3", 112), t("6", 600),
+                           t("2", 113)}));
+    const std::vector<Token> row = {origin(), t("U(I,J)", 601), t("=", 602),
+                                    t("V(I)", 603)};
+    tokens.push_back({words(styled ? "cbacklevel" : "ctopicn"),
+                      static_cast<std::uint16_t>(row.size())});
+    append(tokens, row);
+    const auto built = build({make_source(130, tokens)}, "Sample Messages");
+    require(built.catalog.has_value(),
+            "an entry row whose length byte spells an operand-taking control "
+            "declined: " +
+                built.error);
+    if (built.catalog && built.catalog->entries.size() == 1) {
+      const auto text = entry_text(built.catalog->entries.front());
+      require(text.find("U(I,J) = V(I)") != std::string::npos,
+              std::string(styled ? "styled" : "plain") +
+                  " row lost the word after a control-spelled length byte: [" +
+                  text + "]");
+      std::string error;
+      require(geist::detail::verify_trap_catalog_ir(
+                  built.sources, built.layout, *built.ownership,
+                  *built.catalog, &error),
+              "the control-spelled row failed verification: " + error);
+    }
+  }
+
   // An introduction row whose length byte spells a control word is prose.
   // SC31-711 4.3.5 record 151 line 13 opens at 0x146F1 with `2D` (45), the
   // row's length, whose dictionary word is `cbacklevel`; the row is

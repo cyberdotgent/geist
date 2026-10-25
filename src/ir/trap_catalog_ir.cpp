@@ -1020,6 +1020,18 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
         gap.push_back(' ');
     }
   }
+  // A segment the splitter opened on a display line's length byte names no
+  // control: the byte is the row's length whatever its dictionary word, so
+  // the words the splitter read as that control's operand are the row's
+  // first drawn words, though the ledger counts them as control operands.
+  // SC26-4222-06 E.1 record 1872 line 12 opens with `2E` (46), spelled
+  // `cbacklevel`, then `              U(I,J) = U(I+N,J) + U(I,J+N)`; hosted
+  // E.1 (DT 19910927174757) serves `<samp>U(I,J)</samp> <samp>=</samp> ...`.
+  const auto length_byte_operand =
+      whole_segment && segment_opcode_is_display_line_prefix(record, segment)
+          ? decoded_byte_range_to_word_range(record.assembled,
+                                             segment.operand_range)
+          : OutputRangeIR{0, 0};
   for (std::size_t output = range.begin;
        output < range.end && output < record.assembled.sources.size();
        ++output) {
@@ -1189,6 +1201,12 @@ bool walk_payload(const DecodedLogicalRecordSource &record,
         if (gap.empty())
           gap.push_back(' ');
       }
+    } else if (disposition == SourceDisposition::control_operand &&
+               output >= length_byte_operand.begin &&
+               output < length_byte_operand.end && value > ' ' &&
+               value <= 0xff) {
+      cell.role = TrapCellRoleIR::text;
+      emit_char(token, word, value, false);
     } else if (disposition == SourceDisposition::control_operand) {
       cell.role = TrapCellRoleIR::control;
     } else if (value < 0x20) {
