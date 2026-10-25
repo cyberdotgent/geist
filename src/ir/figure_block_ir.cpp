@@ -238,6 +238,43 @@ std::string segment_text(const DecodedLogicalRecordSource &record,
                      std::min(range.end, text.size()) - range.begin);
 }
 
+// The payload range of a `cartdesc` segment cut at the end of the display
+// line its opcode stands on.  The reader collects an artwork description line
+// by line: a line whose opcode is `cartdesc` contributes the rest of that
+// line, and any other line of the envelope contributes nothing.  The escaped
+// controls written between description lines (`cvselect <col> <len>
+// <target>`, `cvfont <col> <len> <font> ...`) open no segment of their own,
+// so the segment's payload runs on across them; only its first line is
+// description text.  SC33-0668-02 1.2.6 record 141 lines 38-43: `cartdesc` /
+// `cvselect 13 8 FIGDSTAB` / four `cartdesc` lines, served (DT
+// 19930625001740) as `alt="             Figure 7 gives ...  It ..."` without
+// the selector.  The range is returned unchanged where the record's framing
+// is undecided or the opcode does not open its line.
+OutputRangeIR description_line_payload(const DecodedLogicalRecordSource &record,
+                                       const ControlSegmentIR &segment) {
+  const auto &assembled = record.assembled;
+  const auto opcode = decoded_byte_range_to_word_range(assembled,
+                                                       segment.opcode_range);
+  if (opcode.begin >= assembled.sources.size() ||
+      assembled.sources[opcode.begin].kind != LogicalWordSourceKind::token_word)
+    return segment.payload_range;
+  const auto *line = display_line_of_token(
+      record, assembled.sources[opcode.begin].token_index);
+  if (line == nullptr ||
+      assembled.sources[opcode.begin].token_index != line->prefix_token + 1)
+    return segment.payload_range;
+  const auto payload = decoded_byte_range_to_word_range(assembled,
+                                                        segment.payload_range);
+  auto end = payload.begin;
+  while (end < payload.end && end < assembled.sources.size() &&
+         (assembled.sources[end].kind != LogicalWordSourceKind::token_word ||
+          assembled.sources[end].token_index < line->token_end))
+    ++end;
+  if (end >= payload.end)
+    return segment.payload_range;
+  return decoded_word_range_to_byte_range(assembled, {payload.begin, end});
+}
+
 // A `cselect` written inside a `cartdesc` line is escaped as `cvselect`, with
 // the selector's three operands: column, length and target (DFHPA608 1.2.6
 // record 137 line 27 `cvselect 13 8 FIGDSTAB`, the `Figure 7` reference of
@@ -1491,8 +1528,8 @@ struct Extractor {
       case BookControlKind::art_description: {
         // One `cartdesc` line of the description; a bare `cartdesc` is a
         // blank line (SG24-4815-01 1.1 record 25 line 41).
-        const auto text = collapse_ascii_whitespace(
-            trim_ascii(segment_text(*view.record, segment.payload_range)));
+        const auto text = collapse_ascii_whitespace(trim_ascii(segment_text(
+            *view.record, description_line_payload(*view.record, segment))));
         if (text.empty())
           break;
         if (description_target.empty())

@@ -312,6 +312,34 @@ DecodedLogicalRecordSource escaped_selector_topic() {
   return builder.build(137);
 }
 
+// SC33-0668-02 `1.2.6` record 141 lines 38-43 and dfht7a00 `2.5.6` record
+// 224 lines 24-27, reduced: the escaped `cvselect` and `cvfont` controls
+// stand on lines of their own between description lines, and open no
+// segment, so the payload of the `cartdesc` before them runs on across them.
+DecodedLogicalRecordSource escaped_control_lines_topic() {
+  RecordBuilder builder;
+  builder.heading("1.1", "Internet");
+  builder.line({words("SRFIGFIGUNIQ1")});
+  builder.line({words("csart")});
+  builder.line({words("cselect"), words("3"), words("9"), words("PIC1")});
+  builder.line({words("   "), words("PICTURE"), words("1")});
+  builder.line({words("ceart")});
+  builder.line({words("csartdesc"), words("1")});
+  builder.line({words("SRPIC1")});
+  builder.line({words("cartdesc")});
+  builder.line({words("cvselect"), words("13"), words("8"), words("FIGDSTAB")});
+  builder.line({words("cartdesc"), words("  "), words("Figure"), words("7"),
+                words("shows")});
+  builder.line({words("cvfont"), words("5"), words("6"), words("E"),
+                words("12"), words("1"), words("E")});
+  builder.line({words("cartdesc"), words("  "), words("System"), words("A")});
+  builder.line({words("ceartdesc")});
+  builder.line({words("   "), words("Figure"), words("1."), words("Internet"),
+                words("World"), words("Map")});
+  builder.line({words("SREFIG")});
+  return builder.build(141);
+}
+
 const geist::detail::FigureSourceBlockIR *
 the_figure(const Extracted &extracted, const std::string &label,
            const std::optional<std::string> &expected_caption =
@@ -526,6 +554,18 @@ void an_escaped_selector_line_is_not_description_text() {
   require(figure->description == "Figure 7 shows sharing.",
           label + ": description changed: '" + figure->description + "'");
   check_lowering(*figure, "Figure 7 shows sharing.", label);
+}
+
+// Only `cartdesc` lines are description text; an escaped control line
+// between them contributes nothing to the image's description.
+void escaped_control_lines_are_not_description_text() {
+  const std::string label = "escaped-control-lines";
+  auto extracted = run(escaped_control_lines_topic(), "Internet");
+  const auto *figure = the_figure(extracted, label);
+  if (figure == nullptr) return;
+  require(figure->description == "Figure 7 shows System A",
+          label + ": description changed: '" + figure->description + "'");
+  check_lowering(*figure, "Figure 7 shows System A", label);
 }
 
 // GA19-5486-13 2.1: the unnumbered title starts the next record.
@@ -787,6 +827,7 @@ int main() {
   an_unnumbered_caption_is_bounded_by_the_picture_and_end_marker();
   each_picture_of_a_figure_keeps_its_own_envelope();
   an_escaped_selector_line_is_not_description_text();
+  escaped_control_lines_are_not_description_text();
   a_described_picture_is_one_figure_with_its_description();
   an_empty_description_is_still_the_picture();
   a_description_of_another_picture_fails_closed();
