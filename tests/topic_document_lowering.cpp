@@ -148,9 +148,10 @@ int main() {
       // a selector label broken over two display rows
       {"6.2", "Web Locations of Packet", "block[1]/inline[1]", "link label", 2,
        308, 364738, 364739, "\""},
-      // a preformatted line inside a prose topic
-      {"A.0", "rsync", "block[3]/line[0]", "preformatted line", 6, 364, 379674,
-       379678, "$rsync-"},
+      // a preformatted line inside a prose topic: a native styled row names
+      // its whole display row, origin run included
+      {"A.0", "rsync", "block[3]/line[0]", "preformatted line", 7, 364, 379672,
+       379697, "                      $rsync-awww.langelaar.net::officialjnos"},
   };
   for (const auto &pin : pins) {
     const auto *entry = document.find_toc_entry(pin.topic);

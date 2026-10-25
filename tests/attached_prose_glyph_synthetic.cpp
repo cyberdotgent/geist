@@ -755,10 +755,11 @@ void verbatim_anchor_keeps_rail_row() {
     return;
   const auto html = render_document_html_fragment(*doc);
   const auto pre = pre_body(html);
-  // Top rule, the `ABC` row, the rail row after the anchor, bottom rule.
+  // Top rule, the `ABC` row, the rail row after the anchor (which may now
+  // open that row inside the block), bottom rule.
   check(std::count(pre.begin(), pre.end(), '\n') == 3 &&
             pre.find("|ABC") != std::string::npos &&
-            pre.find("\n   |    |\n") != std::string::npos &&
+            pre.find("   |    |\n") != std::string::npos &&
             pre.find("|___|") != std::string::npos,
         "verbatim region lost the rail row after its anchor: " + html);
 }

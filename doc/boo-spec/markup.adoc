@@ -6763,6 +6763,31 @@ one topic of each of forty-one books of a random hosted sample, among them
 `SC24-5784-00`, `SC26-4834-03`, `SC31-6546-00`, `SC41-3500-02` and
 `SY27-0327-05`.
 
+*Highlighting inside a verbatim region.*  The rows of a verbatim region,
+of its closer, and of the stretch after a named closer are printed with
+their `CFONT` highlighting and `CSELECT` links, like any other row.
+`GC35-0316-00.boo` `3.1.6`, logical record 118, closes an example with
+`06 4A 9D D4 0A C1 C1` at `0x164C8` (`cz OFF EXMP 0 0`); the closer's rows
+follow, the first preceded by the line `cfont 64 6 1` (columns 64--69,
+font code `1`), the next row holding `except` at `0x164E8`.  Hosted (DT
+`19980403120326`) serves that row inside the example's `<pre width="80">`
+as `You can enter any of the other DSMADMC command options (<I>except</I>`.
+`SC41-5401-00.boo` `APPENDIX1.6.1.2` keeps the `LNK` book links of the rows
+after a named closer the same way:
+pass:[<literal>&lt;a href="../../DOCNUM/SC41-5402/CCONTENTS"&gt;&lt;cite&gt;Remote&lt;/cite&gt; ...</literal>]
+inside the `<pre>`.
+
+*A break after a region closer.*  A `cz BREAK` after a region closer prints
+`<br>` into the `<pre>` the closer left open, so the rows after it are rows
+of that `<pre>` up to the next directive.  `GC24-5837-01.boo` `5.2.8.3`,
+logical record 1344, stores `05 3E 79 83 AA 92` at `0xCD389`
+(`cz FLOW PT 7 11`, no row of its own), `04 3E 7F DE B7` at `0xCD38F`
+(`cz OFF SYNTAX`) and the `MODENUM` diagram, then `06 3E 7F BA 15 A7 A7` at
+`0xCD411` (`cz OFF ESYNTAX 4 4`) and `03 3E 6F AA` at `0xCD418`
+(`cz BREAK 7`) followed by the parameter's description.  Hosted (DT
+`19990503161545`) serves `<p><p>` for the term, then one
+`<pre width="80">` holding the diagram, `<br>` and the description rows.
+
 *A split title line.*  `S85G-8681-00.boo` topic `11.1`, record 1217, stores
 its title as the single display line `06 91 15 E0 F5 C9 FF` at `0x6DE9A`:
 `ST`, a blank, `SRPI`, `Compatibility`.  The word `SRPI` begins with `SR`

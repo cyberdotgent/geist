@@ -411,6 +411,107 @@ void an_anchor_before_a_parameter_body_stays_at_its_entry() {
 }
 
 std::size_t count_kind(const geist::detail::ProseTopicIR &topic,
+                       ProseBlockKindIR kind);
+
+// Verbatim rows keep their highlighting and links.  BookServer prints every
+// row of a `<pre>` with its `CFONT` and `CSELECT` markup: GC35-0316-00
+// `3.1.6` (DT 19980403120326) serves the `except` of a row its
+// `cz OFF EXMP` closer carries as `<I>except</I>` inside the example's
+// `<pre width="80">`, and the rows after a named closer (`cz OFF EDL`) keep
+// their links in the `<pre width="132">` it opens.
+void verbatim_rows_keep_highlighting_and_links() {
+  RecordBuilder builder;
+  builder.heading("3.1.6", "Batch");
+  builder.cz({"cz", "OFF", "XMP"});
+  builder.cz({"cfont", "5", "6", "2"});
+  builder.row("     ", {"except", "this"});
+  builder.cz({"cz", "OFF", "EXMP", "0", "0"});
+  builder.cz({"cz", "FLOW", "DL", "3", "3"});
+  builder.cz({"cz", "FLOW", "DT", "3", "13"});
+  builder.row("   ", {"Term", "Its", "body."});
+  builder.cz({"cz", "OFF", "EDL", "0", "0"});
+  builder.cz({"cselect", "7", "5", "HDRBATCH"});
+  builder.row("   ", {"See", "Batch", "mode."});
+  auto extracted = run(builder.build(316), "Batch");
+  require(extracted.topic.has_value(),
+          "styled verbatim rows were rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto &blocks = extracted.topic->blocks;
+  const auto styled = [](const geist::detail::ProseBlockIR &block) {
+    return block.kind == ProseBlockKindIR::preformatted &&
+           !block.preformatted_line_inline_ends.empty();
+  };
+  require(!blocks.empty() && styled(blocks.front()) &&
+              std::any_of(blocks.front().inlines.begin(),
+                          blocks.front().inlines.end(),
+                          [](const auto &in) {
+                            return in.text == "except" &&
+                                   in.kind == geist::detail::
+                                                  ProseInlineKindIR::emphasis;
+                          }),
+          "the example row lost its highlighting:\n" +
+              topic_text(*extracted.topic));
+  require(!blocks.empty() && styled(blocks.back()) &&
+              std::any_of(blocks.back().inlines.begin(),
+                          blocks.back().inlines.end(),
+                          [](const auto &in) {
+                            return in.kind == geist::detail::ProseInlineKindIR::
+                                                  cross_reference &&
+                                   in.text == "Batch";
+                          }),
+          "the row after the named closer is not a verbatim row with its "
+          "link:\n" +
+              topic_text(*extracted.topic));
+}
+
+// A parameter whose term is the syntax diagram after it.  GC24-5837-01
+// `5.2.8.3` (DT 19990503161545) stores a row-less `cz FLOW PT 7 11`,
+// `cz OFF SYNTAX`, the `MODENUM` diagram, `cz OFF ESYNTAX 4 4`, then
+// `cz BREAK 7` and the description.  BookServer prints nothing for the PT,
+// opens `<pre width="80">` for the region, and since the closer leaves the
+// `<pre>` open and the break only prints `<br>`, the description rows are
+// served inside that same `<pre>`.
+void a_parameter_term_that_is_a_syntax_diagram() {
+  RecordBuilder builder;
+  builder.heading("5.2.8.3", "Options");
+  builder.cz({"cz", "FLOW", "PARML", "7", "7"});
+  builder.cz({"cz", "FLOW", "PT", "7", "11"});
+  builder.cz({"cz", "OFF", "SYNTAX"});
+  builder.row("           ", {">>__MODENUM__2__><"});
+  builder.cz({"cz", "OFF", "ESYNTAX", "4", "4"});
+  builder.cz({"cz", "BREAK", "7"});
+  builder.row("       ", {"specifies", "the", "mode."});
+  builder.cz({"cz", "FLOW", "PT", "7", "11"});
+  builder.row("       ", {"LIBTYPE"});
+  builder.cz({"cz", "BREAK", "11"});
+  builder.row("           ", {"specifies", "the", "format."});
+  builder.cz({"cz", "OFF", "EPARML", "4", "4"});
+  auto extracted = run(builder.build(1344), "Options");
+  require(extracted.topic.has_value(),
+          "a row-less PT before its syntax diagram was rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  const auto &topic = *extracted.topic;
+  require(count_kind(topic, ProseBlockKindIR::definition_entry) == 2,
+          "expected two parameter entries:\n" + topic_text(topic));
+  const auto entry = std::find_if(
+      topic.blocks.begin(), topic.blocks.end(), [](const auto &block) {
+        return block.kind == ProseBlockKindIR::definition_entry;
+      });
+  require(entry != topic.blocks.end() && entry->inlines.empty() &&
+              entry->body_blocks.size() == 1 &&
+              topic.blocks[entry->body_blocks.front()].kind ==
+                  ProseBlockKindIR::preformatted,
+          "the empty term does not own the diagram:\n" + topic_text(topic));
+  if (entry == topic.blocks.end() || entry->body_blocks.size() != 1) return;
+  const auto &diagram = topic.blocks[entry->body_blocks.front()];
+  require(diagram.preformatted_lines.size() == 3 &&
+              contains(diagram.preformatted_lines.back(), "specifies the mode."),
+          "the description after the break is not a row of the diagram:\n" +
+              topic_text(topic));
+}
+
+std::size_t count_kind(const geist::detail::ProseTopicIR &topic,
                        ProseBlockKindIR kind) {
   std::size_t count = 0;
   for (const auto &block : topic.blocks)
@@ -753,6 +854,8 @@ int main() {
   a_flow_inside_an_unclosed_region_declines();
   a_region_closed_by_another_regions_closer();
   an_anchor_before_a_parameter_body_stays_at_its_entry();
+  a_parameter_term_that_is_a_syntax_diagram();
+  verbatim_rows_keep_highlighting_and_links();
   an_empty_region_draws_nothing();
   rows_after_an_empty_region_are_verbatim();
   return 0;

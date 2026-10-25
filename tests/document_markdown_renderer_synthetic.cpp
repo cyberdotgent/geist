@@ -770,8 +770,7 @@ int main() {
                      phrased.find("*Title*") != std::string::npos &&
                      phrased.find("*mem*") != std::string::npos &&
                      phrased.find("`*LIBL`") != std::string::npos &&
-                     phrased.find("<code class=\"geist-monospace\">NOSTAE"
-                                  "</code>") != std::string::npos,
+                     phrased.find("```\n  NOSTAE\n```") != std::string::npos,
                  "phrase runs lost their Markdown presentation: " + phrased))
       return 1;
   }

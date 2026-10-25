@@ -207,13 +207,14 @@ int main() {
                        "****VOX**** cont**rol for**",
                        "old torn VOX/control emphasis");
   // The audio callout is a `cz OFF LBLBOX` verbatim region, reproduced
-  // character for character inside a fence the way hosted serves its
-  // `<pre width="132"><!-- lblbox -->`.  Hosted bolds words inside that
-  // `<pre>`; a preformatted block carries no inlines, so the region keeps
-  // the words and drops the emphasis (recorded residual).
+  // character for character the way hosted serves its
+  // `<pre width="132"><!-- lblbox -->`, with the words hosted bolds inside
+  // that `<pre>` bold here too -- so Markdown keeps the block as raw HTML.
   require_contains(figures,
-                   "by  tapping the discriminator and directly driving "
-                   "the modulator. This",
+                   "by  <strong class=\"geist-strong\">tapping the "
+                   "discriminator</strong> and <strong "
+                   "class=\"geist-strong\">directly driving the "
+                   "modulator.</strong> This",
                    "audio callout text inside the verbatim lblbox region");
   require_contains(figures,
                    "<a id=\"FIGFIGUNIQ5\"></a>",

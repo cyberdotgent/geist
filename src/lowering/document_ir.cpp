@@ -571,7 +571,17 @@ bool verify_block(const BlockIR& block, bool nested, std::string* error) {
               if (!verify_inlines(node.styled_lines[line], true, error, true))
                 return false;
               std::string flattened;
+              // A revised run wraps whole inlines of the row; its children
+              // spell the row exactly as they would unwrapped.
+              InlineSequenceIR row;
               for (const auto& in : node.styled_lines[line]) {
+                if (const auto* revised = std::get_if<RevisedInlineIR>(&in.node))
+                  row.insert(row.end(), revised->children.begin(),
+                             revised->children.end());
+                else
+                  row.push_back(in);
+              }
+              for (const auto& in : row) {
                 const auto valid = std::visit([&](const auto& value) {
                   using Inline = std::decay_t<decltype(value)>;
                   if constexpr (std::is_same_v<Inline, TextInlineIR> ||

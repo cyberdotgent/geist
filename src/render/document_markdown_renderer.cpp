@@ -610,6 +610,28 @@ bool row_places_image(const InlineSequenceIR &row) {
   });
 }
 
+// True when a styled row needs more than a fence can show: a cross
+// reference, or highlighting other than monospace.  Inside a code fence every
+// character is already monospace, so rows styled only as code (`<samp>`,
+// `<kbd>`, `<tt>` runs of an example) lose nothing there; emphasis, an
+// underline or a link keeps the raw `<pre>`.  A revised run is looked into.
+bool styled_rows_need_html(const PreformattedBlockIR &node) {
+  const auto needs = [](const InlineSequenceIR &row, const auto &self) -> bool {
+    return std::any_of(row.begin(), row.end(), [&](const InlineIR &in) {
+      if (std::holds_alternative<TextInlineIR>(in.node) ||
+          std::holds_alternative<CodeInlineIR>(in.node))
+        return false;
+      if (const auto *revised = std::get_if<RevisedInlineIR>(&in.node))
+        return self(revised->children, self);
+      return true;
+    });
+  };
+  return std::any_of(node.styled_lines.begin(), node.styled_lines.end(),
+                     [&](const InlineSequenceIR &row) {
+                       return needs(row, needs);
+                     });
+}
+
 bool places_images(const PreformattedBlockIR &node) {
   return std::any_of(node.styled_lines.begin(), node.styled_lines.end(),
                      row_places_image);
@@ -1014,10 +1036,12 @@ void append_block(RenderSink &sink, const BlockIR &block,
           // source rows selected for verbatim HTML serialization. It may be
           // present with no accepted links; that still preserves the exact
           // source-row route instead of silently changing it to a fence.
+          // Monospace highlighting alone does not need HTML: a fence holds
+          // the literal rows, already monospace (`styled_rows_need_html`).
           if (places_images(node))
             append_preformatted_with_images(sink, node, block_origin,
                                             options);
-          else if (!node.styled_lines.empty() || !node.line_links.empty() ||
+          else if (styled_rows_need_html(node) || !node.line_links.empty() ||
                    !node.line_anchors.empty())
             append_preformatted_html_block(sink, node, block_origin, options);
           else

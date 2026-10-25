@@ -958,11 +958,38 @@ struct CzBuilder {
 
   bool parameter_term(
       const LayoutDirective& directive,
-      const std::vector<std::pair<std::size_t, std::size_t>>& groups) {
+      const std::vector<std::pair<std::size_t, std::size_t>>& groups,
+      std::size_t directive_index) {
+    const auto next_is_verbatim_region =
+        directive_index + 1 < build.directives.size() &&
+        build.directives[directive_index + 1].mode == "off" &&
+        cz_verbatim_region_tag(build.directives[directive_index + 1].tag);
     if (stack.empty() || stack.back().tag != "parml")
       return fail(error, "cz FLOW PT outside an open parameter list");
     auto& frame = stack.back();
     term_alone(frame);
+    if (groups.empty() && next_is_verbatim_region) {
+      // A term with no row of its own whose words are the syntax diagram
+      // after it: BookServer prints nothing for the generic `CZ FLOW` and
+      // the region's `<pre>` follows.  GC24-5837-01 `5.2.8.3` (DT
+      // 19990503161545) stores `cz FLOW PT 7 11` and directly
+      // `cz OFF SYNTAX` with the `MODENUM` diagram, hosted as `<p><p>`
+      // and the diagram's `<pre width="80">`.  The entry's term is empty
+      // and the region is its body, as for an empty `DT` before a region.
+      frame.body_owner = npos;
+      ++frame.items;
+      ProseBlockIR block;
+      block.kind = ProseBlockKindIR::definition_entry;
+      block.list_ordinal = frame.list_ordinal;
+      block.slices.push_back(directive.source);
+      block.origin = directive.left;
+      const auto block_index = topic.blocks.size();
+      append(std::move(block), next_line_after(directive_index) == npos
+                                   ? lines.size()
+                                   : next_line_after(directive_index));
+      frame.body_owner = block_index;
+      return true;
+    }
     if (groups.empty()) return fail(error, "cz FLOW PT has no text");
     // A term split over source paragraphs needs compound definition content;
     // flattening the groups here would erase a source-declared boundary.
@@ -1161,11 +1188,49 @@ struct CzBuilder {
     // of generic regions does not verify for margin-marked rows here.)
     if (std::any_of(lines.begin() + static_cast<std::ptrdiff_t>(range.first),
                     lines.begin() + static_cast<std::ptrdiff_t>(range.second),
-                    [](const Line& line) { return !line.links.empty(); }))
+                    [](const Line& line) { return !line.links.empty(); })) {
+      bool matched = false;
+      if (!native_preformatted(range.first, range.second, matched))
+        return false;
+      if (matched) return true;
       return paragraphs(group_lines(lines, range.first, range.second,
                                     in_message_list(), &full_rules),
                         0);
+    }
     return preformatted(range.first, range.second);
+  }
+
+  // The rows [begin, end) as one verbatim block that keeps their `CFONT`
+  // highlighting and `CSELECT` links, when every text row is one whole
+  // native display row (`build_native_verbatim_block`).  BookServer prints
+  // the rows of every `<pre>` with their highlighting: GC35-0316-00 3.1.6
+  // (DT 19980403120326) serves the `except` on a row its `cz OFF EXMP` closer
+  // carries, inside the example's `<pre width="80">`, as `<I>except</I>`, and
+  // GC33-1177-01 2.3.34 (DT 19990318184419) its `X'8001' - WRITE` rows as
+  // `<samp>` words.  `matched` is false when the rows have no such reading
+  // (a `cz BREAK` row boundary, a rule row, a row the line builder
+  // assembled); the caller keeps its plain reading then.
+  bool native_preformatted(std::size_t begin, std::size_t end, bool& matched) {
+    matched = false;
+    if (begin >= end) return true;
+    for (auto line = begin; line < end; ++line) {
+      if (lines[line].thematic_break) return true;
+      if (line != begin &&
+          std::find(verbatim_breaks.begin(), verbatim_breaks.end(), line) !=
+              verbatim_breaks.end())
+        return true;
+    }
+    ProseBlockIR block;
+    std::vector<std::pair<std::size_t, std::size_t>> line_rows;
+    if (!build_native_verbatim_block(records, lines, begin, end, block,
+                                     ledger, topic.blocks.size(), matched,
+                                     line_rows))
+      return false;
+    if (!matched) return true;
+    for (const auto& [line, row] : line_rows)
+      verbatim_rows[line] = {topic.blocks.size(), row};
+    append(std::move(block), begin);
+    return true;
   }
 
   // `cz OFF XMP` .. `cz OFF EXMP`: the display rows verbatim.  CFONT spans
@@ -1191,6 +1256,11 @@ struct CzBuilder {
       if (!draws(line + 1, end)) return true;
       return preformatted(line + 1, end, degradation_code,
                           degradation_detail);
+    }
+    if (degradation_code.empty()) {
+      bool matched = false;
+      if (!native_preformatted(begin, end, matched)) return false;
+      if (matched) return true;
     }
     ProseBlockIR block;
     block.kind = ProseBlockKindIR::preformatted;
@@ -2266,8 +2336,34 @@ struct CzBuilder {
         // address row, `<p>` and `   Note that zeros are omitted ...` in
         // one `<pre width="80">`; 70 closer rows sampled in 40 books are
         // all served inside the region's `<pre width="80">`.
-        const auto closer =
+        auto closer =
             closed ? ranges[closer_index] : std::make_pair(npos, npos);
+        // The closer leaves the `<pre>` open, and a `cz BREAK` after it only
+        // prints `<br>` into it, so the rows of the breaks that follow the
+        // closer are rows of the same block, up to the next other directive.
+        // GC24-5837-01 `5.2.8.3` (DT 19990503161545) closes the syntax
+        // diagram of its `MODENUM` parameter with `cz OFF ESYNTAX 4 4` and
+        // follows it with `cz BREAK 7` and the parameter's description;
+        // hosted serves `<br>` and the description inside the diagram's
+        // `<pre width="80">`.
+        std::vector<std::size_t> tail_breaks;
+        auto last_absorbed = closer_index;
+        if (closed) {
+          for (auto next = closer_index + 1;
+               next < build.directives.size() &&
+               build.directives[next].mode == "break";
+               ++next) {
+            const auto rows = ranges[next];
+            last_absorbed = next;
+            if (rows.first == npos) continue;
+            if (closer.first == npos) {
+              closer = rows;
+            } else {
+              tail_breaks.push_back(rows.first);
+              closer.second = rows.second;
+            }
+          }
+        }
         const auto closer_draws =
             closer.first != npos &&
             std::any_of(
@@ -2276,13 +2372,22 @@ struct CzBuilder {
                 [](const Line& line) { return has_text(line); });
         const auto joined = closer_draws && closer.first == region_end;
         verbatim_breaks = breaks;
+        if (joined) {
+          if (ranges[closer_index].first == npos)
+            verbatim_breaks.push_back(closer.first);
+          verbatim_breaks.insert(verbatim_breaks.end(), tail_breaks.begin(),
+                                 tail_breaks.end());
+        }
         const auto drawn =
             preformatted(region_begin, joined ? closer.second : region_end);
         verbatim_breaks.clear();
         if (!drawn) return false;
-        index = closer_index;
+        index = closed ? last_absorbed : closer_index;
         if (!closed || !closer_draws || joined) return true;
-        return preformatted(closer.first, closer.second);
+        verbatim_breaks = tail_breaks;
+        const auto tail = preformatted(closer.first, closer.second);
+        verbatim_breaks.clear();
+        return tail;
       }
       // The generated title-page projection, ahead of the unmodelled path:
       // its rows are re-flowed, not reproduced (see `title_page`).
@@ -2404,7 +2509,7 @@ struct CzBuilder {
             implicit_parameter_list(index)) {
           stack.push_back({"parml", next_list_ordinal++, 0});
         }
-        return parameter_term(directive, groups);
+        return parameter_term(directive, groups, index);
       }
       if (tag == "p" || tag == "pc" || tag == "gd") {
         if (!paragraphs(groups, 0)) return false;

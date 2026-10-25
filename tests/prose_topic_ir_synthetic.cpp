@@ -239,8 +239,12 @@ void positive_fixtures() {
   {
     Extracted kept;
     const auto markdown = admit("packet.boo", "2.2.1", &kept);
+    // Hosted (DT 20260614112503) bolds the box label inside its
+    // `<pre width="132"><!-- lblbox -->`, so the block keeps the bold and
+    // Markdown carries it as raw HTML.
     require(contains(markdown,
-                     "```\n    ___ So, what are all these layers? "),
+                     "    ___ <strong class=\"geist-strong\">So, what are all "
+                     "these layers?</strong> "),
             "2.2.1 box top rule");
     // The row is the whole display line, left rule included: record 50 line
     // 1 is `   | Network stacks are divvied up into "layers," and this

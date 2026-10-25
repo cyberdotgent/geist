@@ -302,7 +302,9 @@ void marked_verbatim_row(Tok mark) {
   check(doc.has_value(), "marked verbatim row declined: " + error);
   if (!doc) return;
   const auto html = render_document_html_fragment(*doc);
-  check(pre_body(html) == " |        http://x",
+  // The row keeps its highlighting now, so a revised span may wrap it; the
+  // drawn text is unchanged.
+  check(untagged(pre_body(html)) == " |        http://x",
         "the verbatim row lost its stored mark: " + html);
 }
 
