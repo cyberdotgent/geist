@@ -5826,6 +5826,16 @@ control, and the attach control plus `.`), and hosted (DT `19950308184737`)
 closes the footnote with `</h5></a>` and prints neither the opcode nor the
 stop.
 
+The `SREFTN` line ends the footnote by itself; no empty line has to follow
+it. `ICHA6MST` `5.0` logical record 945 line 26 is the footnote body
+`    () VM/XA and VM/ESA are trademarks of the IBM Corporation.`, line 27 the
+row `SREFTN` (length byte `02` at `0x6046d` ... two-byte `SREFTN` at
+`0x6046e`), line 28 `cfont 14 12 2` and line 29 the next message's
+` |            Explanation:  A nonzero IPRCODE ...`, with no empty line
+between. Hosted (DT `19910801172557`) prints `</h5></a>` on the `SREFTN`
+line and the explanation after it, outside the footnote; `BLGM9MSC` `1.4`
+(DT `19920131154755`) is the same.
+
 [[markup_front_matter_heading_forms]]
 ==== Front-matter heading forms
 

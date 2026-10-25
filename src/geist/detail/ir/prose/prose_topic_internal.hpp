@@ -138,6 +138,10 @@ struct Item {
   // The `ST` control carried no payload token at all, so the topic's title is
   // empty and this segment end completes it.
   bool empty_title = false;
+  // The flattened dialect's footnote end marker `SREFTN`: the reader prints
+  // `</h5></a>` on its line, so the footnote's paragraph ends here whatever
+  // row follows (ICHA6MST 5.0, hosted DT 19910801172557).
+  bool footnote_end = false;
   bool index_start = false;
   bool continuation_start = false;
   std::vector<FontSpanIR> spans;

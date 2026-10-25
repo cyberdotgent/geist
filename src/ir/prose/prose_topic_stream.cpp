@@ -2006,6 +2006,10 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           if (!assign_segment_tokens(records, ledger, record_index, segment,
                                      ProseTokenRoleIR::control, false, error))
             return false;
+          Item end;
+          end.kind = ItemKind::segment_end;
+          end.footnote_end = true;
+          build.items.push_back(std::move(end));
           break;
         }
         if (!segment.malformed && title_seen && lower_opcode == "sreftn") {
@@ -2628,6 +2632,10 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                                error))
               return false;
           }
+          Item end;
+          end.kind = ItemKind::segment_end;
+          end.footnote_end = true;
+          build.items.push_back(std::move(end));
           break;
         }
         // The decoded-string splitter opens a segment wherever a word is

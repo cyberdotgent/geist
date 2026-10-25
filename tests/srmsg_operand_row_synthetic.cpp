@@ -299,9 +299,43 @@ void a_stored_blank_run_stays_in_the_name() {
           "`SRMSG 96  to  98` is not the anchor `MSG 96  to  98`");
 }
 
+// `SREFTN` ends the footnote whatever follows it.  ICHA6MST 5.0 record 945
+// lines 25-29 are `SRFTNFTNUNIQ72`, `    () VM/XA and VM/ESA are trademarks
+// of the IBM Corporation.`, `SREFTN`, `cfont 14 12 2` and
+// ` |            Explanation:  A nonzero IPRCODE ...` with no empty line
+// between; hosted (DT 19910801172557) closes the footnote with `</h5></a>`
+// on the `SREFTN` line and prints the explanation after it.
+void a_footnote_ends_at_its_end_marker() {
+  RecordBuilder builder;
+  builder.heading();
+  builder.line({words("   "), words("Opening"), words("text.")});
+  builder.line({});
+  builder.line({words("SRFTNFTNUNIQ72")});
+  builder.line({words("    "), words("()"), words("VM/XA"), words("is"),
+                words("a"), words("trademark.")});
+  builder.line({words("SREFTN")});
+  builder.line({words("cfont"), words("12"), words("12"), words("2")});
+  builder.line({words("            "), words("Explanation:"), words("A"),
+                words("nonzero"), words("code.")});
+  auto extracted = run(builder.build(945));
+  require(extracted.topic.has_value(),
+          "a flattened footnote topic was rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto &topic = *extracted.topic;
+  const auto footnote = block_starting(topic, "() VM/XA");
+  const auto explanation = block_starting(topic, "Explanation:");
+  require(footnote != static_cast<std::size_t>(-1) &&
+              block_text(topic.blocks[footnote]).find("Explanation") ==
+                  std::string::npos,
+          "the footnote runs on past its SREFTN end marker");
+  require(explanation != static_cast<std::size_t>(-1),
+          "the line after SREFTN does not open a block of its own");
+}
+
 }  // namespace
 
 int main() {
+  a_footnote_ends_at_its_end_marker();
   a_stored_blank_run_stays_in_the_name();
   an_operand_row_is_the_message_anchor();
   chained_anchors_precede_the_same_line();

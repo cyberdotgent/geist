@@ -1661,6 +1661,12 @@ struct LineBuilder {
         // the topic's heading is then its number alone (see
         // `prose_topic_stream.cpp`, the empty-title case).
         if (item.empty_title) title_done = true;
+        if (item.footnote_end) {
+          // `SREFTN` closes the footnote: the next row opens a new block.
+          line_open = false;
+          pending_space = false;
+          trailing_bare = std::max<std::size_t>(trailing_bare, 1);
+        }
         if (!title_line_open_after(index) && !finish_title()) return false;
         // A segment boundary that stands inside the `SI` keyword's own
         // display line is not one the record encoder wrote, so it does not
