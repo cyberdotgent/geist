@@ -41,8 +41,8 @@ each. Built by default when Qt6 is present.
 
 Needs Qt6 Widgets, WebEngineWidgets and PrintSupport; see
 [Building and installing](#building-and-installing). Tagged releases carry it
-prebuilt: a Windows zip, and Linux AppImages for amd64 and arm64 that bundle
-Qt and need nothing installed.
+prebuilt as Linux AppImages for amd64 and arm64 that bundle Qt and need
+nothing installed. On Windows the native reader below replaces it.
 
 ## Geist BOO Reader for macOS
 
@@ -58,6 +58,15 @@ open "build/macos/Geist BOO Reader.app"
 The bundle identifier is `gent.cyber.geist-viewer`. See
 [macOS build and distribution notes](macos/README.md) for signing, sandboxing,
 and universal builds.
+
+## Geist BOO Reader for Windows
+
+A native Win32 reader around the system MSHTML WebBrowser control, with the
+macOS reader's features: one window per book, contents tree, book-wide
+search, settings, book information and Print Book. It builds with MSVC and
+with MinGW-w64, and is one statically linked `geist-boo-reader.exe` that
+needs nothing installed; tagged releases attach it, and every push to `main`
+leaves one in the Actions run. See [win32/README.md](win32/README.md).
 
 ## mod_geist
 
@@ -382,7 +391,8 @@ The library and its command-line tools are always built. The Qt reader and the
 Apache module are `AUTO`: each is built when its dependencies are present and
 skipped with an explanation when they are not, so a missing Qt or httpd is
 never an error unless you ask for one.
-The native macOS reader is also `AUTO` and is built on macOS only.
+The native macOS reader is also `AUTO` and is built on macOS only; the native
+Win32 reader likewise for Windows targets.
 
 | Component | Needs | Debian/Ubuntu | Fedora/RHEL |
 |---|---|---|---|
@@ -470,5 +480,5 @@ mapped, so a newly added directive is rejected and the server stops.
 
 ## Licence
 
-Apache-2.0; see `LICENSE`. Bundled Qt, libpng and giflib components are
+Apache-2.0; see `LICENSE`. Bundled Qt, libpng, zlib and giflib components are
 covered by their own licences.

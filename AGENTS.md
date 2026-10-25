@@ -26,6 +26,13 @@ closing correctness gaps against real books.
 - `macos/` — the native AppKit **Geist BOO Reader**. It is a separate consumer
   of the public API, builds only on macOS, and must remain eligible for Mac
   App Store submission.
+- `win32/` — the native **Geist BOO Reader for Windows**: plain Win32 and
+  COM around the system MSHTML WebBrowser control, a separate consumer of the
+  public API with its own `geist:` URL space (an asynchronous pluggable
+  protocol) and chrome. It must build with both MinGW-w64 and MSVC, so no
+  ATL, MFC or WebView2, and it ships as one statically linked executable that
+  imports only Windows DLLs. `book_source.*` and `print_plan.*` are portable
+  C++ and are tested on every platform.
 - `gui/` — the **Geist Hardcopy Reader**, an optional Qt6 desktop reader
   modelled on IBM's BookManager SoftCopy Reader. It is a pure consumer of the
   public API: no parsing or rendering logic lives here, and Qt appears in no
@@ -106,6 +113,15 @@ The GUI reader is controlled by `GEIST_BUILD_GUI`:
   broken Qt setup silently degrades to a green library-only build.
 - `OFF` never builds it.
 
+The Win32 reader is controlled by `GEIST_BUILD_WIN32_READER` (`AUTO`, the
+default, builds it for Windows targets; `ON` fails on other targets; `OFF`).
+Release builds use MSVC with vcpkg's `x64-windows-static` triplet and the
+static runtime (`CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded`); locally it
+cross-builds with `win32/toolchain-mingw-w64.cmake` against the static
+libraries `win32/build_mingw_dependencies.sh` prepares outside the checkout.
+`win32/verify_exe.py` is the standalone check (imports, manifest, notices).
+It replaces the Qt reader in Windows releases.
+
 Qt is never a dependency of `libgeist` itself, and the user supplies it:
 `qt6-base-dev` + `qt6-webengine-dev` on Linux, `brew install qt` on macOS, and
 on Windows an `aqtinstall`/official Qt build pointed at with
@@ -175,11 +191,14 @@ link map, and `html_fragment()` is for a consumer that owns the page.
 - Apache-2.0 is compatible with GPLv3 and LGPLv3 but **not** with GPLv2-only.
   Keep that in mind before taking on a dependency or courting a consumer that
   is GPLv2-only.
-- The Windows distribution ships `LICENSE` beside the binaries, which is what
-  Apache-2.0 section 4 requires for our own code. It does **not** yet ship the
-  third-party notices for the Qt, Chromium, libpng and giflib binaries it
-  bundles; that is an open compliance gap, and Qt is conveyed under LGPLv3, so
-  it must stay dynamically linked and its corresponding source must be offered.
+- The Windows zip ships `LICENSE` beside the binaries, which is what
+  Apache-2.0 section 4 requires for our own code, and the libpng, zlib and
+  giflib notices for the DLLs it bundles. The Win32 reader links those
+  libraries statically, so it embeds their licence texts (Help > Licences)
+  and its CI artifact carries them as files too. Qt is no longer shipped on
+  Windows; where Qt is shipped (the Linux AppImage) it is conveyed under
+  LGPLv3, so it must stay dynamically linked and its corresponding source
+  must be offered.
 
 ## Documentation Style
 
