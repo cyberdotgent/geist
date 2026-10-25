@@ -370,6 +370,19 @@ bool body_control_display_line(const DecodedLogicalRecordSource& record,
     if (word > 0x7F) return false;
     text.push_back(static_cast<char>(word));
   }
+  // A version 1.0/1.1 book spells these controls in capitals and with any
+  // number of operands -- `C.SP 5 P`, `C.CP 12DV`, `C.SK 1` (EDCUSER 9.0
+  // record 1220 lines 9-11) -- and the reader skips every line whose control
+  // name starts with `C.`, operands included; hosted (DT 19900523000000)
+  // serves 9.0 as its heading alone.  The opcode must open the line: a row
+  // of text has its origin run in front.
+  if (text.size() >= 4 && text.compare(0, 2, "C.") == 0) {
+    std::size_t at = 2;
+    while (at < text.size() &&
+           std::isupper(static_cast<unsigned char>(text[at])) != 0)
+      ++at;
+    return at >= 4 && (at == text.size() || text[at] == ' ');
+  }
   text = trim_ascii(text);
   if (text.size() < 4 || text.compare(0, 2, "c.") != 0) return false;
   for (std::size_t at = 2; at < text.size(); ++at)

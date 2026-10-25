@@ -942,9 +942,39 @@ void a_framed_separator_inside_a_line_is_text(bool on_length_byte) {
                   "segment: " + payloads);
 }
 
+// The reader skips every display line whose control name starts with `C.`,
+// operands included.  Version 1.0/1.1 books spell these controls in capitals
+// and give them more than one operand: EDCUSER 9.0 record 1220 lines 9-11
+// are `C.SP 5 P`, `C.CP` and `C.CP 12DV`, and hosted (DT 19900523000000)
+// serves that topic as its heading alone.  The verbatim route drew `P`,
+// `C.CP` and `C.CP 12DV`.  A row of text that has `C.` after its origin run
+// is still drawn.
+void capital_script_control_lines_draw_nothing() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 1220;
+  const auto line = [&](std::vector<TokenWords> tokens) {
+    append(record, static_cast<std::uint16_t>(2 * tokens.size()), 1,
+           {3, 0x2500});
+    for (auto &token : tokens) append(record, 0x8000, 2, std::move(token));
+  };
+  line({{'C', '.', 'S', 'P'}, {'5'}, {'P'}});
+  line({{'C', '.', 'C', 'P'}});
+  line({{'C', '.', 'C', 'P'}, {'1', '2', 'D', 'V'}});
+  line({{'C', '.', 'S', 'K'}, {'1'}});
+  line({{' ', ' ', ' '}, {'C', '.'}, {'i', 's'}, {'t', 'e', 'x', 't'}});
+  refresh(record);
+  const auto lines = geist::detail::best_effort_lines({record}, "");
+  require(lines.size() == 1 && lines.front().find("C. is text") !=
+                                   std::string::npos,
+          "capital C. control lines were drawn, or the text row was lost: " +
+              std::to_string(lines.size()) + " line(s), first '" +
+              (lines.empty() ? std::string() : lines.front()) + "'");
+}
+
 } // namespace
 
 int main() {
+  capital_script_control_lines_draw_nothing();
   an_opcode_stops_at_the_display_line();
   cz_operands_stop_at_the_display_line();
   an_unframed_record_decides_nothing();
