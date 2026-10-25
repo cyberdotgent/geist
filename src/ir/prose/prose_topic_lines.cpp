@@ -1717,7 +1717,11 @@ struct LineBuilder {
           } else if (cz_verbatim_region_closer(item.directive.tag) ||
                      cz_artwork_region_closer(item.directive.tag) ||
                      cz_tabdata_region_closer(item.directive.tag)) {
-            xmp_mode = nested_verbatim;
+            // The closer prints nothing and leaves the `<pre>` open: its own
+            // rows are drawn rows of the region too, margin marks included
+            // (SC31-6552-00 1.5.1, hosted ` | After MVS substitutes ...`).
+            if (!nested_verbatim) generic_closer_rows = true;
+            xmp_mode = true;
             nested_verbatim = false;
           } else if (generic_region_opener(index)) {
             xmp_mode = true;

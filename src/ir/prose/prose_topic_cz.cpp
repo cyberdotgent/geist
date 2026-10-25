@@ -2066,23 +2066,30 @@ struct CzBuilder {
         }
         if (region_begin == npos)
           return fail(error, "cz OFF " + opener + " block has no display rows");
+        // The closing directive is the generic `CZ OFF E` closer: it prints
+        // nothing and leaves the region's `<pre width="80">` open until the
+        // next `CZ FLOW`, so the rows it carries are verbatim rows of the
+        // same block.  Hosted packet 2.4.1 (DT 20260614112503) serves the
+        // address row, `<p>` and `   Note that zeros are omitted ...` in
+        // one `<pre width="80">`; 70 closer rows sampled in 40 books are
+        // all served inside the region's `<pre width="80">`.
+        const auto closer =
+            closed ? ranges[closer_index] : std::make_pair(npos, npos);
+        const auto closer_draws =
+            closer.first != npos &&
+            std::any_of(
+                lines.begin() + static_cast<std::ptrdiff_t>(closer.first),
+                lines.begin() + static_cast<std::ptrdiff_t>(closer.second),
+                [](const Line& line) { return has_text(line); });
+        const auto joined = closer_draws && closer.first == region_end;
         verbatim_breaks = breaks;
-        const auto drawn = preformatted(region_begin, region_end);
+        const auto drawn =
+            preformatted(region_begin, joined ? closer.second : region_end);
         verbatim_breaks.clear();
         if (!drawn) return false;
-        if (!closed) {
-          index = closer_index;
-          return true;
-        }
-        // The closing directive carries the body text that follows the
-        // example block as ordinary paragraphs at its own left/indent
-        // (packet 2.4.1 record 57 `cz OFF EXMP 2 2   Note that zeros are
-        // omitted ...`, which hosted prints after the `</pre>`).
-        const auto closer = ranges[closer_index];
         index = closer_index;
-        if (closer.first == npos) return true;
-        return paragraphs(group_lines(lines, closer.first, closer.second,
-                                    in_message_list()), 0);
+        if (!closed || !closer_draws || joined) return true;
+        return preformatted(closer.first, closer.second);
       }
       // The generated title-page projection, ahead of the unmodelled path:
       // its rows are re-flowed, not reproduced (see `title_page`).

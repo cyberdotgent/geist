@@ -1475,10 +1475,14 @@ void an_address_region_is_a_typed_verbatim_block() {
             "the address region is still degraded: " + block.degradation_code);
     if (block.kind != geist::detail::ProseBlockKindIR::preformatted) continue;
     ++verbatim;
-    require(block.preformatted_lines.size() == 2 &&
+    // The closer `cz OFF EADDRESS 0 0` prints nothing and leaves the
+    // `<pre width="80">` open, so the row it carries is the block's third
+    // (binary rule 6; hosted keeps closer rows in the region's `<pre>`).
+    require(block.preformatted_lines.size() == 3 &&
                 contains(block.preformatted_lines[0], "alpha beta") &&
-                contains(block.preformatted_lines[1], "gamma delta"),
-            "the address block is not the region's two display rows");
+                contains(block.preformatted_lines[1], "gamma delta") &&
+                contains(block.preformatted_lines[2], "After the region."),
+            "the address block is not the region's rows and its closer's");
   }
   require(verbatim == 1, "the address region did not become one verbatim "
                          "block");

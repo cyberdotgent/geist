@@ -769,16 +769,19 @@ void cz_fixtures() {
     require(!verify(mutated), "altered list ordering passed verification");
   }
 
-  // A closing directive carries the text that follows its region as
-  // paragraphs: `cz OFF EXMP 2 2` (packet 2.4.1), hosted-verified.
+  // A closing directive is the generic `CZ OFF E` closer: the `<pre>` stays
+  // open and the rows it carries are verbatim rows of the same block.
+  // Hosted packet 2.4.1 (DT 20260614112503) serves the address at display
+  // column 5, `<p>`, and `   Note that zeros are omitted from this IPv6
+  // addressing scheme -- an address` in one `<pre width="80">`.
   {
     const auto markdown = admit("packet.boo", "2.4.1");
-    // Hosted (packet DT 20260614112503) serves the address at display
-    // column 5, `     2062:41FE:653A:9882:511:FFE9:8392:412D`.
     require(contains(markdown,
-                     "```\n     2062:41FE:653A:9882:511:FFE9:8392:412D\n"
-                     "```\n\nNote that zeros are omitted"),
-            "2.4.1 lost the text on cz OFF EXMP");
+                     "```\n     2062:41FE:653A:9882:511:FFE9:8392:412D\n\n"
+                     "   Note that zeros are omitted from this IPv6"),
+            "2.4.1 does not keep the cz OFF EXMP rows in the example block");
+    require(!contains(markdown, "\n\nNote that zeros are omitted"),
+            "2.4.1 reflows the cz OFF EXMP rows into a paragraph");
   }
 
   // A trailing `cz FLOW H5` announces the next topic's level, and the

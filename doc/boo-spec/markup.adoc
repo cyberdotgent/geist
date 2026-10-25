@@ -5366,8 +5366,11 @@ than interpreting incomplete entity-like text as markup or guessing a repair.
 Two consequences follow from the object span owning the region:
 
 * The opener carries no display rows of its own; the closer carries the body
-text that follows the object as ordinary paragraphs at its own
-`left`/`indent`, the same rule `cz OFF EXMP` and the list closers follow.
+text that follows the object at its own `left`/`indent`.  (A verbatim
+region's generic closer such as `cz OFF EXMP` prints nothing and leaves the
+region's `<pre width="80">` open, so the rows it carries are drawn as
+stored inside it: 70 closer rows sampled in 40 books, hosted, including
+`SC31-6552-00` `1.5.1` ` | After MVS substitutes ...`, DT `19950503072955`.)
 * The pairing is not always one-to-one.  A figure region may frame a table,
 in which case only the `ETABLE` closer is written: `SC41-485` `1.2`,
 record 8 segments 22-25 are `cz OFF LBLBOX`, a `CFONT` header row,
