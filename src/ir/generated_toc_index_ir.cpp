@@ -119,6 +119,15 @@ std::string cell_text(const std::vector<DisplayLineCellIR>& cells,
 
 std::string trim_text(std::string value) { return trim_ascii(std::move(value)); }
 
+// Blanks only.  An index term or group label is read off its own display
+// line between delimiter words, so a `?` at either end is the book's text:
+// `dasa3c01` record 3568 writes `citerm <D>? Command<D>1<D>1.2.6`, the
+// QMF `?` command, and `SC41-5612-02` record 2061 `? (question mark)`
+// (hosted DT 19980522111551 prints `? (question mark)`).
+std::string trim_blanks(std::string value) {
+  return trim_ascii_whitespace(std::move(value));
+}
+
 bool decimal_text(const std::string& value) {
   return !value.empty() &&
          std::all_of(value.begin(), value.end(), [](const unsigned char ch) {
@@ -452,7 +461,7 @@ private:
     if (fields.size() != 1)
       return fail(error, "CGPSEP does not carry exactly one delimited label");
     GeneratedIndexGroupIR group;
-    group.label = trim_text(cell_text(view.cells, fields[0].begin, fields[0].end));
+    group.label = trim_blanks(cell_text(view.cells, fields[0].begin, fields[0].end));
     if (group.label.empty())
       return fail(error, "CGPSEP carries no group label");
     group.source = whole_line_slice(*view.record, view.line);
@@ -468,7 +477,7 @@ private:
     if (fields.size() < 2)
       return fail(error, "CITERM carries fewer than a term and a level");
     GeneratedIndexTermIR term;
-    term.term = trim_text(cell_text(view.cells, fields[0].begin, fields[0].end));
+    term.term = trim_blanks(cell_text(view.cells, fields[0].begin, fields[0].end));
     // A term field the line wrote as nothing at all.  The field is present --
     // its two delimiter words stand adjacent on the display line, with no cell
     // between them -- so its emptiness is the book's, exactly like the trailing

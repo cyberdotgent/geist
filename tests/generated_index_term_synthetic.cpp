@@ -478,9 +478,31 @@ void an_empty_trailing_paragraph_after_the_index_draws_nothing() {
           "a paragraph opened inside the index body was admitted");
 }
 
+// A `?` at either end of a term or label is the book's own text: the QMF
+// `?` command (dasa3c01 record 3568 `citerm <D>? Command<D>1<D>1.2.6`) and
+// `? (question mark)` (SC41-5612-02, hosted prints the `?`).
+void a_question_mark_at_the_edge_of_a_term_is_kept() {
+  const auto record = index_body(
+      {group_line("?"), index_term("? Command", "1", "1.2.6"),
+       index_term("question mark (?)", "1", "5.29.4"), {words("cendindex")}});
+  std::string error;
+  const auto topic = geist::detail::extract_generated_toc_index_topic_ir(
+      {record}, nullptr, &error);
+  require(topic.has_value(), "the question-mark index was rejected: " + error);
+  if (!topic) return;
+  const auto *group = only_group(*topic);
+  require(group != nullptr && group->label == "?",
+          "a question-mark group label was trimmed away");
+  require(group != nullptr && group->terms.size() == 2 &&
+              group->terms[0].term == "? Command" &&
+              group->terms[1].term == "question mark (?)",
+          "a question mark at the edge of a term was trimmed away");
+}
+
 } // namespace
 
 int main() {
+  a_question_mark_at_the_edge_of_a_term_is_kept();
   the_bullet_in_the_sentinel_slot_is_a_length_byte();
   a_term_the_book_wrote_empty_keeps_its_children();
   an_unproven_empty_term_still_declines();
