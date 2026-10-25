@@ -92,6 +92,27 @@ BoxLineKind classify(const std::vector<std::uint16_t>& columns, std::size_t& lef
   return BoxLineKind::none;
 }
 
+// The columns a row's box geometry is read from.  A revision mark the row
+// stores in its left margin (`DisplayLineIR::margin_mark` at the row-margin
+// place) stands outside the box like the ASCII change bar `classify` already
+// skips, but it may be stored as the box word `U+2502` itself, which would
+// otherwise read as the box's left rail.  SH45-5547-00 2.6 record 321 draws
+// its `Note` box with the mark `U+2502` at column 1 of the top rule row
+// (line 11, ` |  ___ Note ___...`, the one-byte token 0x5D at 0x25ACC, the
+// top-left corner at column 3) and of both text rows (lines 13-14,
+// ` | | If your installation ...  |`), the rails at columns 3 and 76;
+// hosted BookServer (DT 19950203080455) prints the box verbatim with the
+// marks in the margin.  The row's cells themselves are unchanged: the mark
+// stays drawn in the region's rows.
+std::vector<std::uint16_t> geometry_columns(std::vector<std::uint16_t> columns,
+                                            const DisplayLineIR& line) {
+  if (line.margin_mark &&
+      line.margin_mark_place == MarginMarkPlaceIR::row_margin &&
+      columns.size() > 1)
+    columns[1] = ' ';
+  return columns;
+}
+
 // Once a strict top rule has established the region's rails, body rows are
 // classified at those coordinates rather than by trimming their own visible
 // extent.  Native drawings legitimately annotate outside the rails:
@@ -638,8 +659,8 @@ std::vector<BoxRegion> plan_boxes(
       candidate.line = line;
       candidate.columns = display_line_columns(record, line);
       candidate.text = display_line_text(record, line);
-      candidate.kind =
-          classify(candidate.columns, candidate.left, candidate.right);
+      candidate.kind = classify(geometry_columns(candidate.columns, line),
+                                candidate.left, candidate.right);
       candidate.index = index_line(record, line);
       candidate.control_only =
           control_only_line(record, line) || candidate.index;
@@ -923,7 +944,9 @@ std::set<std::pair<std::size_t, std::size_t>> box_enclosed_envelopes(
     if (!proven || region.lines.empty()) continue;
     std::size_t left = 0;
     std::size_t right = 0;
-    if (classify(region.lines.front().columns, left, right) != BoxLineKind::top)
+    if (classify(geometry_columns(region.lines.front().columns,
+                                  region.lines.front().line),
+                 left, right) != BoxLineKind::top)
       continue;
     const auto before = [](const std::pair<std::size_t, std::size_t>& a,
                            const std::pair<std::size_t, std::size_t>& b) {
