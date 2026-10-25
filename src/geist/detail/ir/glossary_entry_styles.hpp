@@ -28,9 +28,8 @@ struct GlossaryEntryStylesIR {
 // control styles the next display line that opens on a blank (in the same
 // record or, when the control ends its record, the next one's first), and
 // its triples are display columns of that line.  A triple is admitted only
-// where it opens on the first column of a drawn word and closes on the
-// word's last column, or before trailing punctuation the word ends with
-// (`<B>key</B>.`).  The first drawn words of the entry's lines must spell the
+// where the columns it leaves out of each word it covers are punctuation the
+// word opens or ends with (`<B>key</B>.`, `(<B>a</B>`).  The first drawn words of the entry's lines must spell the
 // term, its delimiter glued to the term's last word, and the rest exactly the
 // definition for the definition's styles to stand; a triple the columns do
 // not prove, or a term that does not verify, leaves the whole entry plain.

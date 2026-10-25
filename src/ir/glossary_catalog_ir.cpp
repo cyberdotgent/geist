@@ -138,11 +138,18 @@ compose_definition_prose(std::vector<GlossaryDefinitionRowIR> &rows) {
         row.role == GlossaryDefinitionRowRoleIR::term_echo_prefix;
     if (row.role != GlossaryDefinitionRowRoleIR::prose && !echo_prefix)
       continue;
+    // The first separator this row writes is the line break a `cz BREAK`
+    // before it draws; every other one is a blank.
+    auto line_break = row.line_break_before;
+    const auto separate = [&] {
+      if (!result.empty())
+        result.push_back(line_break ? '\n' : ' ');
+      line_break = false;
+    };
     // The echo of the term is consumed, exactly as it is when it occupies a
     // whole row; what follows it on the same row is definition prose.
     if (row.continuation_prefix && !echo_prefix) {
-      if (!result.empty())
-        result.push_back(' ');
+      separate();
       result += row.continuation_prefix->semantic_text;
     }
     auto text = row.semantic_text;
@@ -155,12 +162,10 @@ compose_definition_prose(std::vector<GlossaryDefinitionRowIR> &rows) {
         result += punctuation;
     } else if (row.marker_disposition ==
                GlossaryMarkerDispositionIR::lexical_carry) {
-      if (!result.empty())
-        result.push_back(' ');
+      separate();
       result += row.marker->decoded_text;
     }
-    if (!result.empty())
-      result.push_back(' ');
+    separate();
     result += std::move(text);
     first_prose_row = false;
   }
@@ -236,6 +241,19 @@ bool is_glossary_control(const ControlSegmentIR &segment) {
   return ascii_equals_case_insensitive(segment.opcode, "srgls");
 }
 
+// `cz BREAK <n>`: the reader prints `<br>` and draws the lines after it.
+bool is_break_directive(const DecodedLogicalRecordSource &record,
+                        const ControlSegmentIR &segment) {
+  if (segment.kind != BookControlKind::layout_directive ||
+      segment.source_tokens.empty() ||
+      !ascii_equals_case_insensitive(segment.opcode, "cz"))
+    return false;
+  const auto operands = lower(trim_ascii(range_text(record,
+                                                    segment.operand_range)));
+  return operands.rfind("break", 0) == 0 &&
+         (operands.size() == 5 || operands[5] == ' ');
+}
+
 bool is_nested_start(const std::string &opcode, const std::string &kind) {
   const auto value = lower(opcode);
   return value.rfind("sr" + kind, 0) == 0 && value != "sre" + kind;
@@ -285,6 +303,7 @@ bool same_row(const GlossaryDefinitionRowIR &left,
           right.continuation_prefix.has_value() ||
       left.terminal_delimiter.has_value() !=
           right.terminal_delimiter.has_value() ||
+      left.line_break_before != right.line_break_before ||
       left.source_row.display_run != right.source_row.display_run ||
       left.source_row.row_index != right.source_row.row_index ||
       !same_slice(left.source, right.source) ||
@@ -1002,6 +1021,35 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
       rows[{row.logical_record, row.segment_index}].push_back(std::move(item));
     }
   }
+  // A `cz BREAK` directive's segment carries the display lines after its own
+  // line (S20H-1642-01 GLOSSARY record 758 lines 31-32), and the row model
+  // makes no row for them: they are the definition's rows after the break,
+  // one per display line.
+  for (const auto &item : ordered) {
+    const auto &segment = *item.segment;
+    if (!is_break_directive(*item.record, segment) ||
+        !record_framing_is_decided(item.record->ir))
+      continue;
+    const auto *own =
+        display_line_of_token(*item.record, segment.source_tokens.front());
+    std::vector<GlossaryDefinitionRowIR> lines;
+    for (const auto &line : item.record->ir.display_lines) {
+      if (own == nullptr || &line <= own)
+        continue;
+      auto begin = line.prefix_token + 1;
+      const auto end = line.token_end;
+      if (begin >= end ||
+          std::find(segment.source_tokens.begin(), segment.source_tokens.end(),
+                    begin) == segment.source_tokens.end())
+        continue;
+      if (auto row = recovered_row(*item.record, segment.segment_index, begin,
+                                   end, ownership))
+        lines.push_back(std::move(*row));
+    }
+    if (!lines.empty())
+      rows[{item.record->logical_record, segment.segment_index}] =
+          std::move(lines);
+  }
   for (const auto &item : ordered) {
     const auto &segment = *item.segment;
     if (segment.kind != BookControlKind::font &&
@@ -1180,16 +1228,33 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
     std::vector<DocumentSourceSliceIR> structural_sources;
     std::vector<GlossaryEmbeddedControlIR> embedded_controls;
     std::vector<GlossaryDefinitionRowIR> embedded_rows;
+    // A `cz BREAK` seen since the last row: the next row follows a line
+    // break, whether the directive's own segment carries it (the lines after
+    // the directive in its record) or the next record's text does
+    // (S20H-1642-01 GLOSSARY records 756-757).
+    auto pending_break = false;
     for (auto index = cursor + 1; index < next_index; ++index) {
       const auto &content = ordered[index];
       const auto opcode = lower(content.segment->opcode);
+      const auto break_directive =
+          is_break_directive(*content.record, *content.segment);
       if (content.segment->kind == BookControlKind::font ||
-          content.segment->kind == BookControlKind::text) {
+          content.segment->kind == BookControlKind::text || break_directive) {
+        if (break_directive) {
+          structural_sources.push_back(
+              source_slice(*content.record, content.segment->segment_index,
+                           content.segment->complete));
+          pending_break = !content_rows.empty() && table_depth == 0;
+        }
         const auto found = rows.find(
             {content.record->logical_record, content.segment->segment_index});
-        if (found != rows.end()) {
+        if (found != rows.end() && !found->second.empty()) {
+          const auto first_new = content_rows.size();
           content_rows.insert(content_rows.end(), found->second.begin(),
                               found->second.end());
+          if (pending_break)
+            content_rows[first_new].line_break_before = true;
+          pending_break = false;
           if (table_depth > 0)
             embedded_rows.insert(embedded_rows.end(), found->second.begin(),
                                  found->second.end());

@@ -71,6 +71,9 @@ struct GlossaryDefinitionRowIR {
   // immediately after the same source-visible punctuation. Keep that final
   // cell as exact structural provenance instead of duplicating it in prose.
   std::optional<GlossaryCatalogCellIR> terminal_delimiter;
+  // A `cz BREAK` stands between this row and the previous one: the reader
+  // prints `<br>` there, and the composed prose carries a `\n`.
+  bool line_break_before = false;
   DocumentSourceRowIR source_row;
   DocumentSourceSliceIR source;
   std::vector<GlossaryCatalogCellIR> cells;

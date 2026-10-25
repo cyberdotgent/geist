@@ -204,7 +204,8 @@ bool verify_entry_emphasis(const std::string &text,
   for (const auto &span : emphasis) {
     if (span.begin >= span.end || span.end > text.size() ||
         span.begin < previous_end || text[span.begin] == ' ' ||
-        text[span.end - 1] == ' ')
+        text[span.end - 1] == ' ' ||
+        text.find('\n', span.begin) < span.end)
       return fail(error, "glossary entry style is not a drawn word range");
     if (span.source.logical_record == 0 ||
         span.source.token_begin >= span.source.token_end)
@@ -223,6 +224,24 @@ InlineSequenceIR styled_inlines(const std::string &text,
                                 const std::vector<GlossaryEmphasisIR> &emphasis,
                                 const DocumentNodeOriginIR &source) {
   InlineSequenceIR content;
+  // A `\n` in the composed prose is the line break of a `cz BREAK`
+  // (hosted `<br>`).
+  const auto push_text = [&](const std::string &value,
+                             const DocumentNodeOriginIR &origin) {
+    std::size_t begin = 0;
+    for (auto at = value.find('\n'); at != std::string::npos;
+         at = value.find('\n', begin)) {
+      if (at > begin)
+        content.push_back({TextInlineIR{value.substr(begin, at - begin)},
+                           origin});
+      auto break_origin = origin;
+      break_origin.detail = "glossary cz BREAK line break";
+      content.push_back({HardBreakInlineIR{}, std::move(break_origin)});
+      begin = at + 1;
+    }
+    if (begin < value.size())
+      content.push_back({TextInlineIR{value.substr(begin)}, origin});
+  };
   auto cursor = std::size_t{0};
   for (std::size_t index = 0; index < emphasis.size();) {
     auto span = emphasis[index];
@@ -236,8 +255,7 @@ InlineSequenceIR styled_inlines(const std::string &text,
       ++index;
     }
     if (span.begin > cursor)
-      content.push_back(
-          text_inline(text.substr(cursor, span.begin - cursor), source));
+      push_text(text.substr(cursor, span.begin - cursor), source);
     auto style_origin = source;
     style_origin.detail = "glossary font emphasis";
     add_slice(style_origin, span.source);
@@ -255,7 +273,7 @@ InlineSequenceIR styled_inlines(const std::string &text,
     cursor = span.end;
   }
   if (cursor < text.size())
-    content.push_back(text_inline(text.substr(cursor), source));
+    push_text(text.substr(cursor), source);
   return content;
 }
 
@@ -357,14 +375,19 @@ bool verify_catalog_shape(const GlossaryCatalogIR &catalog,
           row.role == GlossaryDefinitionRowRoleIR::term_echo_prefix;
       if (row.role != GlossaryDefinitionRowRoleIR::prose && !echo_prefix)
         continue;
+      auto line_break = row.line_break_before;
+      const auto separate = [&] {
+        if (!composed.empty())
+          composed.push_back(line_break ? '\n' : ' ');
+        line_break = false;
+      };
       if (row.continuation_prefix && !echo_prefix) {
         if (row.continuation_prefix->semantic_text.empty() ||
             row.continuation_prefix->cells.empty() ||
             row.continuation_prefix->source.logical_record == 0)
           return fail(error,
                       "glossary continuation prefix has no source semantics");
-        if (!composed.empty())
-          composed.push_back(' ');
+        separate();
         composed += row.continuation_prefix->semantic_text;
       }
       if (row.terminal_delimiter &&
@@ -382,12 +405,10 @@ bool verify_catalog_shape(const GlossaryCatalogIR &catalog,
           composed += punctuation;
       } else if (row.marker_disposition ==
                  GlossaryMarkerDispositionIR::lexical_carry) {
-        if (!composed.empty())
-          composed.push_back(' ');
+        separate();
         composed += row.marker->decoded_text;
       }
-      if (!composed.empty())
-        composed.push_back(' ');
+      separate();
       composed += std::move(row_text);
     }
     if (composed != entry.definition.prose)

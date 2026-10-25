@@ -216,6 +216,82 @@ int main() {
       require(!catalog || kept,
               "a glossary kept a definition without the lines its cz BREAK "
               "draws");
+      // Hosted prints the lines after a `<br>`, so the catalog reads them
+      // as the definition's own rows after a line break.
+      if (!catalog)
+        std::cerr << "break glossary catalog: " << error << '\n';
+      require(catalog.has_value(), "a glossary declined a cz BREAK definition");
+      if (catalog) {
+        geist::detail::TopicIdentityIR topic;
+        topic.id = "GLOSSARY";
+        const auto document =
+            geist::detail::lower_glossary_catalog_to_document_ir(
+                topic, *catalog, &error);
+        if (!document)
+          std::cerr << "break glossary lowering: " << error << '\n';
+        require(document.has_value(), "break glossary lowering was rejected");
+        if (document) {
+          const auto html =
+              geist::detail::render_document_html_fragment(*document);
+          if (html.find("(1) An area.<br>(2) In the stream. presentation "
+                        "space.") == std::string::npos)
+            std::cerr << html << '\n';
+          require(html.find("(1) An area.<br>(2) In the stream. presentation "
+                            "space.") != std::string::npos,
+                  "the cz BREAK lines do not follow a line break");
+        }
+      }
+    }
+  }
+  // The same break at the end of a logical record: S20H-1642-01 GLOSSARY
+  // record 756 ends `   units.` and `cz BREAK 3`, and record 757 opens
+  // `   (2) In PC400, the arrangement ...`; hosted (DT 19950803160504) serves
+  // `units.` `<br>` `(2) In PC400, ...`.
+  {
+    std::vector<Token> first;
+    line(first, {"chdlevel", ":GLOSSARY"});
+    line(first, {"ST", "  ", "Glossary"});
+    line(first, {"SRGLS", "configuration"});
+    line(first, {"cz", "FLOW", "GD", "3", "3"});
+    line(first, {"cfont", "3", "13", "2"});
+    line(first, {"   ", "configuration", "\x01.", " ", "(1)", "The", "units."},
+         "          ");
+    line(first, {"cz", "BREAK", "3"});
+    std::vector<Token> second;
+    line(second, {"   ", "(2)", "In", "PC400."});
+    line(second, {"SRGLS", "fixed"});
+    line(second, {"cfont", "3", "5", "2"});
+    line(second, {"   ", "fixed", "\x01.", " ", "Not", "moving."},
+         "          ");
+    const std::vector<geist::detail::DecodedLogicalRecordSource> sources{
+        make_source(756, first), make_source(757, second)};
+    const auto layout = geist::detail::extract_layout_ir(sources);
+    std::string error;
+    const auto ownership =
+        geist::detail::build_verified_ownership_ir(sources, layout, &error);
+    require(ownership.has_value(), "record break glossary ownership rejected");
+    std::optional<geist::detail::GlossaryCatalogIR> catalog;
+    if (ownership)
+      catalog = geist::detail::extract_glossary_catalog_ir(sources, layout,
+                                                           *ownership, &error);
+    if (!catalog)
+      std::cerr << "record break glossary catalog: " << error << '\n';
+    require(catalog.has_value(), "record break glossary was rejected");
+    if (catalog) {
+      geist::detail::TopicIdentityIR topic;
+      topic.id = "GLOSSARY";
+      const auto document = geist::detail::lower_glossary_catalog_to_document_ir(
+          topic, *catalog, &error);
+      require(document.has_value(), "record break glossary lowering rejected");
+      if (document) {
+        const auto html =
+            geist::detail::render_document_html_fragment(*document);
+        if (html.find("(1) The units.<br>(2) In PC400.") == std::string::npos)
+          std::cerr << html << '\n';
+        require(html.find("(1) The units.<br>(2) In PC400.") !=
+                    std::string::npos,
+                "a cz BREAK ending its record does not break the line");
+      }
     }
   }
   {

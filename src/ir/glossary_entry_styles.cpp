@@ -100,17 +100,21 @@ std::vector<LineWord> line_words(const DecodedLogicalRecordSource &record,
   return words;
 }
 
-// Byte ranges of the blank-separated words of `text`.
+// Byte ranges of the words of `text`, separated by blanks or the line break
+// a `cz BREAK` composes as `\n`.
 std::vector<std::pair<std::size_t, std::size_t>>
 text_words(const std::string &text) {
   std::vector<std::pair<std::size_t, std::size_t>> words;
+  const auto separator = [&](std::size_t at) {
+    return text[at] == ' ' || text[at] == '\n';
+  };
   for (std::size_t at = 0; at < text.size();) {
-    if (text[at] == ' ') {
+    if (separator(at)) {
       ++at;
       continue;
     }
     const auto begin = at;
-    while (at < text.size() && text[at] != ' ')
+    while (at < text.size() && !separator(at))
       ++at;
     words.emplace_back(begin, at);
   }
@@ -118,7 +122,10 @@ text_words(const std::string &text) {
 }
 
 struct StyledWord {
-  std::size_t bytes = 0; // styled prefix of the word, in bytes
+  // The styled bytes of the word: everything but punctuation it opens or
+  // ends with outside the span.
+  std::size_t begin = 0;
+  std::size_t end = 0;
   FontStyleIR style = FontStyleIR::unknown;
   DocumentSourceSliceIR source;
 };
@@ -139,8 +146,11 @@ glossary_entry_styles(const std::vector<DecodedLogicalRecordSource> &records,
       return {};
     const auto &record = *item.record;
     const auto &segment = *item.segment;
+    // A `cz` directive's segment can carry drawn lines after its own (the
+    // lines a `cz BREAK` prints); its own line opens on no blank.
     if (segment.kind != BookControlKind::font &&
-        segment.kind != BookControlKind::text)
+        segment.kind != BookControlKind::text &&
+        segment.kind != BookControlKind::layout_directive)
       continue;
     if (!record_framing_is_decided(record.ir))
       return {};
@@ -179,29 +189,37 @@ glossary_entry_styles(const std::vector<DecodedLogicalRecordSource> &records,
         const auto end = span.column + span.length;
         auto first = std::find_if(words.begin(), words.end(),
                                   [&](const auto &word) {
-                                    return word.begin == span.column;
+                                    return word.begin <= span.column &&
+                                           span.column < word.end;
                                   });
         if (first == words.end())
           return {};
+        // Columns of a word the span leaves out may only be the punctuation
+        // the word opens or ends with (`(<B>a</B>`, `<B>key</B>.`).
+        const auto punctuation_only = [](const LineWord &word,
+                                         std::size_t from, std::size_t to) {
+          for (auto column = from; column < to; ++column) {
+            const auto ch = static_cast<unsigned char>(
+                word.text[word.offsets[column - word.begin]]);
+            if (std::isalnum(ch) != 0 || ch >= 0x80)
+              return false;
+          }
+          return true;
+        };
         for (auto word = first; word != words.end() && word->begin < end;
              ++word) {
-          auto columns = word->end - word->begin;
-          if (end < word->end) {
-            // The span closes inside the word: only before the punctuation
-            // the word ends with.
-            for (auto column = end; column < word->end; ++column) {
-              const auto ch = word->text[word->offsets[column - word->begin]];
-              if (std::isalnum(static_cast<unsigned char>(ch)) != 0 ||
-                  static_cast<unsigned char>(ch) >= 0x80)
-                return {};
-            }
-            columns = end - word->begin;
-          }
+          const auto from = std::max(word->begin, span.column);
+          const auto to = std::min(word->end, end);
+          if (!punctuation_only(*word, word->begin, from) ||
+              !punctuation_only(*word, to, word->end) || from >= to)
+            return {};
           const auto index =
               drawn.size() + static_cast<std::size_t>(word - words.begin());
           if (styled.count(index) != 0)
             return {};
-          styled[index] = {word->offsets[columns], span.style, source};
+          styled[index] = {word->offsets[from - word->begin],
+                           word->offsets[to - word->begin], span.style,
+                           source};
         }
         const auto last = std::find_if(words.begin(), words.end(),
                                        [&](const auto &word) {
@@ -248,17 +266,17 @@ glossary_entry_styles(const std::vector<DecodedLogicalRecordSource> &records,
     if (index < term_words.size()) {
       const auto [begin, end] = term_words[index];
       // A style over the delimiter is not the term's alone.
-      if (word.bytes > end - begin)
+      if (word.end > end - begin)
         return {};
       result.term.push_back(
-          {begin, begin + word.bytes, word.style, word.source});
+          {begin + word.begin, begin + word.end, word.style, word.source});
       continue;
     }
     if (!definition_proven)
       continue;
     const auto begin = prose_words[index - term_words.size()].first;
     result.definition.push_back(
-        {begin, begin + word.bytes, word.style, word.source});
+        {begin + word.begin, begin + word.end, word.style, word.source});
   }
   return result;
 }
