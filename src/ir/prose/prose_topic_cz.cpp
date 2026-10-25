@@ -335,6 +335,9 @@ struct Frame {
   std::size_t body_owner = npos;
   // The opener's `left` operand: the list's own margin (npos: unknown).
   std::size_t left = npos;
+  // A PT term left alone by a row-less `cz BREAK` before the next term: the
+  // term a later row-less term's break hands its rows to (`parameter_term`).
+  std::size_t bare_term = npos;
 };
 
 struct CzBuilder {
@@ -967,7 +970,41 @@ struct CzBuilder {
     if (stack.empty() || stack.back().tag != "parml")
       return fail(error, "cz FLOW PT outside an open parameter list");
     auto& frame = stack.back();
+    const auto waiting = frame.pending_definition;
+    const auto bare = frame.bare_term;
+    frame.bare_term = npos;
     term_alone(frame);
+    if (groups.empty() && break_with_rows_follows(directive_index)) {
+      // A term with no row of its own whose `cz BREAK` carries rows: the
+      // reader prints nothing visible for the generic `CZ FLOW` and `<br>`
+      // plus the rows for the break, so the rows run on from what precedes.
+      // SC31-8513-00 `2.5.4.35` (DT 19980219192539) stores `cz FLOW PT 3 7`
+      // `   LU - LU_name`, a row-less `cz FLOW PT 3 7` and `cz BREAK 3` with
+      // the description, served `<kbd>LU</kbd> <kbd>-</kbd>
+      // <var>LU_name</var>`, `<p><br>` and the description.  The rows are
+      // the body of the term still waiting for one -- the term before, or a
+      // term a row-less break left alone (dfhp3a06 4.6.4.2
+      // `counter_options`, `cz BREAK 7`, then the row-less PT and
+      // `cz BREAK 3`).  With no such term they are the body of an entry
+      // whose term is empty, as for a row-less PT before a region.
+      const auto owner = waiting != npos ? waiting : bare;
+      if (owner != npos) {
+        frame.pending_definition = owner;
+        return true;
+      }
+      frame.body_owner = npos;
+      ++frame.items;
+      ProseBlockIR block;
+      block.kind = ProseBlockKindIR::definition_entry;
+      block.list_ordinal = frame.list_ordinal;
+      block.slices.push_back(directive.source);
+      const auto first_line = next_line_after(directive_index);
+      block.origin = lines[first_line].origin;
+      const auto block_index = topic.blocks.size();
+      append(std::move(block), first_line);
+      frame.body_owner = block_index;
+      return true;
+    }
     if (groups.empty() && next_is_verbatim_region) {
       // A term with no row of its own whose words are the syntax diagram
       // after it: BookServer prints nothing for the generic `CZ FLOW` and
@@ -1052,6 +1089,18 @@ struct CzBuilder {
     }
     frame.pending_definition = block_index;
     return true;
+  }
+
+  // The directive after `index` is a `cz BREAK` that owns a row with text.
+  bool break_with_rows_follows(std::size_t index) const {
+    const auto next = index + 1;
+    if (next >= build.directives.size() ||
+        build.directives[next].mode != "break" || ranges[next].first == npos)
+      return false;
+    return std::any_of(
+        lines.begin() + static_cast<std::ptrdiff_t>(ranges[next].first),
+        lines.begin() + static_cast<std::ptrdiff_t>(ranges[next].second),
+        [](const Line& line) { return has_text(line); });
   }
 
   bool parameter_body(
@@ -1961,6 +2010,7 @@ struct CzBuilder {
             if (next == nullptr ||
                 (next->mode == "flow" && next->tag == "pt") ||
                 (next->mode == "off" && next->tag == "eparml")) {
+              frame.bare_term = frame.pending_definition;
               term_alone(frame);
             } else {
               frame.body_owner = frame.pending_definition;

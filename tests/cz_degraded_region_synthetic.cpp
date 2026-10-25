@@ -683,6 +683,113 @@ void a_parameter_body_with_a_subword_style_lowers() {
           "the parameter body lost its text: " + markdown);
 }
 
+// A term with no row of its own, followed by a `cz BREAK` with rows.  The
+// reader prints nothing for the generic `CZ FLOW` and `<br>` plus the rows
+// for the break.  SC31-8513-00 2.5.4.35 stores `cz FLOW PT 3 7` `   LU -
+// LU_name`, a row-less `cz FLOW PT 3 7` and `cz BREAK 3` with the
+// description; hosted (DT 19980219192539) serves `<kbd>LU</kbd> <kbd>-</kbd>
+// <var>LU_name</var>` `<p><br>` and the description, under the term.
+const geist::detail::ProseBlockIR *entry_with(
+    const geist::detail::ProseTopicIR &topic, const std::string &needle) {
+  for (const auto &block : topic.blocks)
+    if (block.kind == geist::detail::ProseBlockKindIR::definition_entry &&
+        std::any_of(block.inlines.begin(), block.inlines.end(),
+                    [&](const auto &item) { return contains(item.text, needle); }))
+      return &block;
+  return nullptr;
+}
+
+void a_rowless_term_before_a_break_hands_the_body_on() {
+  {
+    RecordBuilder builder;
+    metadata(builder);
+    builder.line({words("cz"), words("FLOW"), words("PARML"), words("3"),
+                  words("3")});
+    builder.line({words("cz"), words("FLOW"), words("PT"), words("3"),
+                  words("7")});
+    builder.line({words("   "), words("LU_name")});
+    builder.line({words("cz"), words("FLOW"), words("PT"), words("3"),
+                  words("7")});
+    builder.line({words("cz"), words("BREAK"), words("3")});
+    builder.line({words("       "), words("The"), words("logical"),
+                  words("name.")});
+    builder.line({words("cz"), words("OFF"), words("EPARML"), words("0"),
+                  words("0")});
+    const auto extracted = extract_record(std::move(builder), 31);
+    require(extracted.prose.has_value(),
+            "a row-less term before a break was declined: " + extracted.error);
+    if (extracted.prose) {
+      const auto *entry = entry_with(*extracted.prose, "LU_name");
+      require(entry != nullptr && entry->term_inline_count != 0 &&
+                  contains(entry->inlines.back().text, "name."),
+              "the break's rows are not the waiting term's body");
+    }
+  }
+  {
+    // The term already stood alone before a row-less break (dfhp3a06
+    // 4.6.4.2 `counter_options`, `cz BREAK 7`, then the row-less PT and
+    // `cz BREAK 3` with the description).
+    RecordBuilder builder;
+    metadata(builder);
+    builder.line({words("cz"), words("FLOW"), words("PARML"), words("3"),
+                  words("3")});
+    builder.line({words("cz"), words("FLOW"), words("PT"), words("3"),
+                  words("7")});
+    builder.line({words("   "), words("counter_options")});
+    builder.line({words("cz"), words("BREAK"), words("7")});
+    builder.line({words("cz"), words("FLOW"), words("PT"), words("3"),
+                  words("7")});
+    builder.line({words("cz"), words("BREAK"), words("3")});
+    builder.line({words("       "), words("specifies"), words("the"),
+                  words("options.")});
+    builder.line({words("cz"), words("OFF"), words("EPARML"), words("0"),
+                  words("0")});
+    const auto extracted = extract_record(std::move(builder), 32);
+    require(extracted.prose.has_value(),
+            "a row-less term after a lone term was declined: " +
+                extracted.error);
+    if (extracted.prose) {
+      const auto *entry = entry_with(*extracted.prose, "counter_options");
+      require(entry != nullptr &&
+                  contains(entry->inlines.back().text, "options."),
+              "the break's rows are not the lone term's body");
+    }
+  }
+  {
+    // No term waits: the rows are the body of an entry with no term
+    // (dfhwsb02 6.2.3 `cz FLOW PT 3 7`, `cz BREAK 3` with
+    // `replyDestination=reply_queue`, `cz BREAK 7` with its description).
+    RecordBuilder builder;
+    metadata(builder);
+    builder.line({words("cz"), words("FLOW"), words("PARML"), words("3"),
+                  words("3")});
+    builder.line({words("cz"), words("FLOW"), words("PT"), words("3"),
+                  words("7")});
+    builder.line({words("   "), words("priority=n")});
+    builder.line({words("cz"), words("BREAK"), words("7")});
+    builder.line({words("       "), words("Specifies"), words("priority.")});
+    builder.line({words("cz"), words("FLOW"), words("PT"), words("3"),
+                  words("7")});
+    builder.line({words("cz"), words("BREAK"), words("3")});
+    builder.line({words("   "), words("reply=queue")});
+    builder.line({words("cz"), words("BREAK"), words("7")});
+    builder.line({words("       "), words("Specifies"), words("the"),
+                  words("queue.")});
+    builder.line({words("cz"), words("OFF"), words("EPARML"), words("0"),
+                  words("0")});
+    const auto extracted = extract_record(std::move(builder), 33);
+    require(extracted.prose.has_value(),
+            "a row-less term with no waiting term was declined: " +
+                extracted.error);
+    const auto document = lower_document(extracted);
+    if (!document) return;
+    const auto markdown = geist::detail::render_document_markdown(*document);
+    require(contains(markdown, "reply=queue") &&
+                contains(markdown, "the queue."),
+            "the row-less term's break rows were lost: " + markdown);
+  }
+}
+
 // A paragraph while an LI remains open belongs to that item, even when the
 // whole list is itself the block body of a parameter.  Both ownership edges
 // must survive without replacing the topic-wide source-order block indices.
@@ -1649,6 +1756,7 @@ int main() {
   a_nested_list_in_a_parameter_body_keeps_source_ownership();
   a_parameter_paragraph_continuation_keeps_source_ownership();
   a_parameter_body_with_a_subword_style_lowers();
+  a_rowless_term_before_a_break_hands_the_body_on();
   a_list_item_continuation_keeps_recursive_source_ownership();
   an_empty_dt_before_lines_keeps_a_compound_definition();
   an_empty_dd_before_lines_keeps_a_compound_definition();

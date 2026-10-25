@@ -6961,6 +6961,18 @@ list, entries and the paragraphs, lists and regions between them alike.  A
 `PT` with no such closer is not observed to be framed by anything and stays
 uninterpreted.
 
+A `PT` can own no row while the `BREAK` after it does.  The reader prints
+nothing visible for the term and `<br>` plus the rows for the break, so the
+rows run on from what precedes them.  `SC31-8513-00` `2.5.4.35`, logical
+record 985, follows the term row `   LU - LU_name` with
+`05 3F 65 6E 91 9A` at `0xC3994` (`cz FLOW PT 3 7`, no row) and
+`03 3F 5F 91` at `0xC399A` (`cz BREAK 3`) with the description; hosted (DT
+19980219192539) serves `<kbd>LU</kbd> <kbd>-</kbd> <var>LU_name</var>`,
+`<p><br>` and the description.  The rows are therefore the body of the
+term still waiting for one: the term before, or a term that a row-less
+`BREAK` left without a body.  When no term waits, nothing names the rows
+and they are a definition whose term is empty.
+
 The `DT` row stores the term in the columns from `left` up to `indent` and the
 definition in the remainder of the same row; a word that straddles the
 `indent` column belongs to the term, and the term ends with that word.
