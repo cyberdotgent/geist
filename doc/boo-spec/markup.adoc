@@ -4705,14 +4705,27 @@ The reading applies only to the proven shape:
 * Openers and closers alternate, starting with an opener and ending with a
   closer.
 * No other opener in the topic spells the same id.
-* Every row an envelope spans is a side row that draws nothing but the box's
-  own two rails and text between them.  Empty display lines are allowed.
+* Every row an envelope spans is a side row: the box's own two rails stand
+  at its ends.  Empty display lines are allowed.
+* When those rows draw structure of their own between the rails (an inner
+  rail, rule or junction), no figure envelope is open where the box begins.
 
-An envelope whose rows draw structure of their own is a genuine table inside
-a frame.  ITPPIBOK `4.3.5.4` record 158 line 23 opens `SRTBLTBLUNIQ34`
-(`E8 EC` at `0x3F8DE`) inside the `SRFIGSCHED` frame.  Its rows are the
-`| TASK | START | ...` grid, with `|_____|_____|` rules between them, and
-that grid is a table.
+An envelope whose rows draw structure of their own inside a figure's frame
+is a genuine table inside that frame.  ITPPIBOK `4.3.5.4` record 158 line 23
+opens `SRTBLTBLUNIQ34` (`E8 EC` at `0x3F8DE`) inside the `SRFIGSCHED` frame.
+Its rows are the `| TASK | START | ...` grid, with `|_____|_____|` rules
+between them, and that grid is a table.
+
+In a box that no figure envelope encloses, such an envelope is the box's
+markup all the same.  SG24-2599-00 `6.5.1.1` draws the `Where Did My PIDTs
+Go?` note box across records 686--688.  Record 687 line 4 is `SRTBLPIDTTBL`
+(`02` at `0x308483`, then `E4 71`), lines 7--23 and record 688 lines 0--18
+the `Table 3` grid drawn between the box's rails, record 688 line 19
+`SRETBL` (`02` at `0x30878B`, then `E1 EF`), and lines 20--23 three more side
+rows and the bottom rule.  Hosted (DT `19960424163436`) prints every row of
+the box in its `<pre>`, the grid included, with `<a name="TBLPIDTTBL">` on
+the row after the opener and no `<table>`.  SH19-6796-01 `2.3.2.2` (records
+502--504, `SRTBLTBLUNIQ27`, DT `19920507115248`) is served the same way.
 
 [[markup_box_straddling_envelopes]]
 ==== An envelope that straddles a closed box

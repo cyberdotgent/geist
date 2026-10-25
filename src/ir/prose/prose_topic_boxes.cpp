@@ -901,12 +901,13 @@ std::vector<BoxLine> drawn_box_rows(
 // Only the proven shape qualifies: the box is closed (top and bottom rules
 // at the same rails), every opener and closer inside it is a control line of
 // its own, they alternate opener, closer, starting with an opener and ending
-// with a closer, and every row an envelope spans draws nothing but the box's
-// own two rails and text between them.  An envelope that draws structure of
-// its own -- an inner rail, rule or junction -- is a genuine table inside a
-// frame: ITPPIBOK 4.3.5.4 record 158 opens `SRTBLTBLUNIQ34` inside the
-// `SRFIGSCHED` frame, and its rows are the `| TASK | START | ...` grid
-// (`|_____|_____|` rules between them), which the table pass types.  An open
+// with a closer, and every row an envelope spans is a side row at the box's
+// rails.  An envelope that draws structure of its own between them -- an
+// inner rail, rule or junction -- inside a figure's frame is a genuine table
+// inside that frame: ITPPIBOK 4.3.5.4 record 158 opens `SRTBLTBLUNIQ34`
+// inside the `SRFIGSCHED` frame, and its rows are the `| TASK | START | ...`
+// grid (`|_____|_____|` rules between them), which the table pass types (see
+// the grid case below for a box no figure encloses).  An open
 // drawing has no rails that bound it, so an envelope beside one stays a
 // table envelope.
 //
@@ -947,6 +948,27 @@ std::set<std::pair<std::size_t, std::size_t>> box_enclosed_envelopes(
     return want == "srefig" ? opcode == want
                             : opcode.rfind(want, 0) == 0 &&
                                   opcode.size() > want.size();
+  };
+  // The figure controls of the topic in source order (true: `SRFIG<id>`).
+  std::vector<std::pair<std::pair<std::size_t, std::size_t>, bool>> figures;
+  for (std::size_t index = 0; index < records.size(); ++index)
+    for (const auto& segment : records[index].control_segments)
+      if (!segment.source_tokens.empty() &&
+          (figure_opcode(segment, "srfig") || figure_opcode(segment, "srefig")))
+        figures.push_back({{index, segment.source_tokens.front()},
+                           figure_opcode(segment, "srfig")});
+  std::sort(figures.begin(), figures.end());
+  // True when a figure is open where the box begins: the last figure
+  // control before the box's top rule is an opener.
+  const auto inside_figure_envelope = [&](const BoxRegion& region) {
+    const std::pair<std::size_t, std::size_t> top{region.begin_record,
+                                                  region.begin_token};
+    bool open = false;
+    for (const auto& [at, opens] : figures) {
+      if (!(at < top)) break;
+      open = opens;
+    }
+    return open;
   };
   for (const auto& region : plan_boxes(records)) {
     if (!region.closed) continue;
@@ -1082,6 +1104,7 @@ std::set<std::pair<std::size_t, std::size_t>> box_enclosed_envelopes(
                            const std::pair<std::size_t, std::size_t>& b) {
       return a < b;
     };
+    bool structured = false;
     for (std::size_t pair = 0; pair + 1 < controls.size() && proven;
          pair += 2) {
       for (const auto& line : region.lines) {
@@ -1097,9 +1120,20 @@ std::set<std::pair<std::size_t, std::size_t>> box_enclosed_envelopes(
         for (auto column = left + 1; column < right; ++column)
           if (line.columns[column] >= box_drawing_first &&
               line.columns[column] <= box_drawing_last)
-            proven = false;
+            structured = true;
       }
     }
+    // An envelope whose rows draw a grid of their own is a table inside a
+    // frame when the box is a figure's frame (ITPPIBOK 4.3.5.4, above).  In
+    // a box that no figure envelope encloses it is the box's markup like any
+    // other: SG24-2599-00 6.5.1.1 records 686-688 draw the `Where Did My
+    // PIDTs Go?` box with `SRTBLPIDTTBL` (record 687 line 4) and `SRETBL`
+    // (record 688 line 19) around the `Table 3` grid and three more side
+    // rows before the bottom rule; hosted (DT 19960424163436) prints every
+    // row in its `<pre>`, `<a name="TBLPIDTTBL">` on the row after the
+    // opener, and no `<table>`.  SH19-6796-01 2.3.2.2 records 502-504 draw
+    // the same shape (`SRTBLTBLUNIQ27`, hosted DT 19920507115248).
+    if (proven && structured && inside_figure_envelope(region)) proven = false;
     if (!proven) continue;
     enclosed.insert(controls.begin(), controls.end());
     enclosed.insert(straddling.begin(), straddling.end());

@@ -666,9 +666,53 @@ void envelope_straddling_box(bool figure) {
         "prose after the box is not a paragraph: " + html);
 }
 
+// An `SRTBL` envelope drawn wholly inside a closed box is the box's markup
+// even when its rows draw a grid of their own, as long as the box is no
+// figure frame.  SG24-2599-00 6.5.1.1 records 686-688 draw the `Where Did My
+// PIDTs Go?` box: `SRTBLPIDTTBL` alone on record 687 line 4, the `Table 3`
+// grid on lines 7-23 and record 688 lines 0-18, `SRETBL` alone on record 688
+// line 19, then three more side rows and the bottom rule.  Hosted (DT
+// 19960424163436) prints every row in its `<pre>`, the grid included, with
+// `<a name="TBLPIDTTBL">` on the row after the opener and no `<table>`.
+void grid_inside_box() {
+  Builder builder(false);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({sp(3), box(run(0x250C, 0x2500, 12, 0x2510))});
+  builder.line({sp(3), box({0x2502}), w("Inside"), sp(4), box({0x2502})});
+  builder.line({w("SRTBLGRID")});
+  builder.line({sp(3), box({0x2502}), sp(11), box({0x2502})});
+  // The grid: an inner box drawn between the outer rails.
+  const auto grid_row = [](std::uint16_t left, std::uint16_t right) {
+    TokenWords words{0x2502, left};
+    words.insert(words.end(), 10, 0x2500);
+    words.insert(words.end(), {right, 0x2502});
+    return box(std::move(words));
+  };
+  builder.line({sp(3), grid_row(0x250C, 0x2510)});
+  builder.line({sp(3), grid_row(0x2514, 0x2518)});
+  builder.line({w("SRETBL")});
+  builder.line({sp(3), box({0x2502}), sp(11), box({0x2502})});
+  builder.line({sp(3), box(run(0x2514, 0x2500, 12, 0x2518))});
+  builder.blank();
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "grid inside a box declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(untagged(pre_body(html)),
+                 "   | Inside     |\n   |            |\n"),
+        "the box around the grid was not drawn: " + html);
+  check(contains(html, "id=\"TBLGRID\"") && !contains(html, "<table") &&
+            !contains(html, "ETBL"),
+        "the inner grid was read as a table: " + html);
+}
+
 } // namespace
 
 int main() {
+  grid_inside_box();
   envelope_straddling_box(false);
   envelope_straddling_box(true);
   anchor_before_body_control_line(false);

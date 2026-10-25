@@ -525,7 +525,8 @@ void lnk_selector_inside_closed_box() {
 // The rows of a closed note box, with an `SRTBL<id>` ... `SRETBL` envelope
 // standing on lines of its own between them (SC24-5527-02 7.4.5 records
 // 675-676, `TBLTBLUNIQ492`).  `inner` draws a box rail inside the envelope's
-// rows, the ITPPIBOK 4.3.5.4 shape of a genuine table inside a frame.
+// rows: a genuine table when the box is a figure's frame (ITPPIBOK
+// 4.3.5.4), the box's markup otherwise (SG24-2599-00 6.5.1.1).
 void boxed_envelope(Builder &b, bool inner, const std::string &opener) {
   const TokenWords top{0x250c, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500,
                        0x2510};
@@ -576,9 +577,11 @@ void envelope_inside_closed_box() {
 // Each shape the rule does not prove keeps the envelope with the table pass.
 void envelope_box_markup_is_narrow() {
   const auto markup = [](bool inner, const std::string &opener,
-                         bool second_opener) {
+                         bool second_opener, bool frame = false) {
     Builder b(false);
+    if (frame) b.line({w("SRFIGFRAME")});
     boxed_envelope(b, inner, opener);
+    if (frame) b.line({w("SREFIG")});
     if (second_opener) {
       b.line({});
       b.line({w(opener)});
@@ -589,8 +592,16 @@ void envelope_box_markup_is_narrow() {
   };
   check(markup(false, "SRTBLTBLUNIQ7", false).size() == 2,
         "a box's own envelope was not read as box markup");
-  check(markup(true, "SRTBLTBLUNIQ7", false).empty(),
-        "an envelope that draws an inner rail was read as box markup");
+  // An envelope whose rows draw an inner rail is box markup in a box that
+  // no figure envelope encloses (hosted SG24-2599-00 6.5.1.1, DT
+  // 19960424163436, prints the grid inside its box verbatim), and a genuine
+  // table inside a figure's frame (ITPPIBOK 4.3.5.4).
+  check(markup(true, "SRTBLTBLUNIQ7", false).size() == 2,
+        "an envelope that draws an inner rail in a plain box was not read as "
+        "box markup");
+  check(markup(true, "SRTBLTBLUNIQ7", false, true).empty(),
+        "an envelope that draws an inner rail in a figure frame was read as "
+        "box markup");
   check(markup(false, "SRTBLTBLUNIQ7", true).empty(),
         "an envelope id the topic repeats was read as box markup");
   // An envelope beside an open drawing has no rails that bound it.
