@@ -1118,6 +1118,21 @@ struct Extractor {
     }
     if (body_begin >= body_end)
       return decline(region, "drawn figure has no body lines");
+    // The caption is one more row of the drawing: hosted BookServer prints
+    // it, and the blank rows above it, inside the figure's `<pre>` as
+    // stored (ARIP1VM 6.1.6 ` | Figure 41. Predicate Hierarchy` right
+    // under the bottom rule, DT 19911002123224; 111 caption rows in a
+    // 40-book sample, every one inside the `<pre>`).  A full-width bottom
+    // rule stands between the two as the page's `<hr>`, so such a caption
+    // stays after it.
+    if (caption_at < lines.size() && !block.rule_below) {
+      for (auto index = caption_at; index < caption_end; ++index)
+        if (classes[index].kind == LineKind::caption)
+          classes[index].kind = LineKind::body;
+      body_end = caption_end;
+      caption_at = lines.size();
+      caption_end = lines.size();
+    }
     for (auto index = first_line + 1; index < last_line; ++index)
       if (classes[index].kind == LineKind::blank &&
           (index < body_begin || index >= body_end))

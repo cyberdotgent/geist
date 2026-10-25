@@ -1871,6 +1871,18 @@ draws no `<hr>`.  In a 650-book sample every `frame=rule` figure whose rule
 is shorter than 72 cells (8 figures in 5 books that hosted serves as a
 figure) has its rule lines printed this way.
 
+The caption of a drawn figure is one more display line of the drawing, as
+it is under a framed picture.  `ARIP1VM.BOO` topic `6.1.6`, logical record
+458, closes its box on line 13 and stores the caption on line 14 at
+`0x310e9` (length byte `0A`, `10` one blank, `88` `|`, `94` `Figure`, `ED DF`
+`41`, ...) before `SREFIG`; hosted BookServer (DT `19911002123224`) prints
+` | Figure 41. Predicate Hierarchy` as the next line of the figure's `<pre>`,
+revision mark included.  In a 40-book sample of drawn figures with a
+numbered caption, all 111 caption lines are printed inside the `<pre>`,
+blank lines between frame and caption included.  Only a full-width bottom
+rule, emptied and shown as `<hr>`, stands between the drawing and its
+caption.
+
 *A numbered figure caption is a run of display lines, and its continuations are
 indented to the title column.* The caption line is `Figure <n>. <title>`;
 every line that continues it starts at exactly the column where `<title>`

@@ -939,10 +939,12 @@ void figure_frame_rules(bool full) {
     // and the closing one).
     const std::string rule = "   " + std::string(cells, '_');
     const auto pre = pre_body(html);
+    // The caption under it is the drawing's next row (hosted ARIP1VM
+    // 6.1.6), not a paragraph.
     check(!contains(html, "<hr") && body != std::string::npos &&
               pre.rfind(rule + "\n", 0) == 0 &&
-              pre.size() >= rule.size() &&
-              pre.compare(pre.size() - rule.size(), rule.size(), rule) == 0,
+              contains(pre, "\n" + rule + "\n   Figure 1. Ruled") &&
+              !contains(html, "<em"),
           "a short frame rule is not a drawn row of the figure: " + html);
   }
 }
@@ -1016,13 +1018,19 @@ void marked_figure_caption(bool picture) {
   check(doc.has_value(), "figure with a marked caption declined: " + error);
   if (!doc) return;
   const auto html = render_document_html_fragment(*doc);
+  if (!picture) {
+    // A drawn figure's caption is a row of its drawing, printed as stored,
+    // mark included (hosted ARIP1VM 6.1.6).
+    check(contains(pre_body(html), "   |____________|\n\n | Figure 1. Marked"),
+          "drawn figure caption is not its marked row: " + html);
+    return;
+  }
   const auto caption = html.find("Figure 1. Marked");
   const auto revised = html.rfind("data-geist-revision-mark=\"|\"", caption);
   check(caption != std::string::npos && revised != std::string::npos &&
             html.find('>', revised) < caption &&
             html.find("</span>", revised) > caption,
-        std::string(picture ? "picture" : "drawn") +
-            " figure caption lost its revision mark: " + html);
+        "picture figure caption lost its revision mark: " + html);
 }
 
 int main() {
