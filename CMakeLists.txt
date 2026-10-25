@@ -184,6 +184,7 @@ set(GEIST_SOURCES
   # img/
   src/img/display_size.cpp
   src/img/gdf.cpp
+  src/img/gdf_font.cpp
   src/img/gdf_raster.cpp
   src/img/mmr.cpp
   src/img/mmr_tables.cpp

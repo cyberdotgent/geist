@@ -64,15 +64,24 @@ struct FilledArea {
   GdfLineStyle edge_style = GdfLineStyle::solid;
 };
 
+// The face picture text is set in.  The reference renderer sets text in a
+// fixed-pitch face once a character-set order has selected a font in a
+// picture without a font list, and in a proportional sans-serif face
+// otherwise: before any character-set order, and in every picture with a
+// font list, whatever symbol set the text selects.
+enum class GdfTextFace : std::uint8_t { fixed_pitch, proportional };
+
 struct TextRun {
+  // The start of the baseline, in virtual device coordinates.
   Point point;
+  // Printable ASCII.
   std::string text;
   Color color;
-  double height = 3.0;
-  std::uint8_t character_set = 0;
-  bool bold = false;
-  bool italic = false;
-  bool monospaced = false;
+  // The character box height in virtual device units: the face's em.
+  double height = 0.0;
+  // The baseline direction in quarter turns counter-clockwise from +x.
+  int quarter_turns = 0;
+  GdfTextFace face = GdfTextFace::fixed_pitch;
 };
 
 enum class GdfPrimitive : std::uint8_t { line, area, text };

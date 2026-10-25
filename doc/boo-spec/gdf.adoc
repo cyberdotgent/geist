@@ -236,7 +236,21 @@ picture attributes; the font list, when present, comes first. Inside a prolog:
 * a single `0x00` byte may follow any record and is padding.
 
 A font-list entry associates a local character-set id with an eight-byte
-EBCDIC GDDM symbol-set name: payload byte 2 is the id, bytes 3..10 the name.
+EBCDIC GDDM symbol-set name: payload byte 4 is the id, bytes 5..12 the name,
+blank padded; eight more blanks follow. Evidence, `GC24-5673-01.boo`
+resource 17, payload offsets `0x14..0x33`:
+
+----
+02 02 01 7e
+02 15 01 40 02 00 41 c1 c4 d4 e4 e4 e2 d9 d7 40 40 40 40 40 40 40 40 00
+02 02 01 7f
+----
+
+One entry: id `0x41`, name `ADMUUSRP`. In the sampled library, font lists
+name `ADMUU...` and `ADMUW...` sets under ids `0x41..0x44` and `0xc8..0xd8`,
+and `DZB` and `ADMDHI...` under id `0x00`. Whatever the names, the reference
+renderer sets all text of a picture with a font list in one proportional face
+(<<gdf_text_and_font_handling>>).
 
 Picture-attribute entries observed:
 
@@ -294,7 +308,7 @@ push-and-set orders: they save the attribute's current value
 
 |`0x00` |No-op |None.
 |`0x02` |Prolog record |None outside a prolog.
-|`0x03` / `0x33` |Character box |Character height = box y operand times `0.727`. Not transformed.
+|`0x03` / `0x33` |Character box |Width and height. The height is the em of later text; the width has no effect. Not transformed. See <<gdf_text_and_font_handling>>.
 |`0x04`, `0x23`, `0x3e`, `0x43` |Segment attributes, comments |None. Every observed segment begins `70 ... 04 ... 3e 00 23 04 00000001`.
 |`0x07` |Segment call |Replays a segment started by `0x70`. Not observed in kind `G` payloads.
 |`0x09` / `0x28` |Pattern |Interior of later areas; see <<gdf_patterns>>.
@@ -311,10 +325,10 @@ push-and-set orders: they save the attribute's current value
 |`0x26` / `0x66` |Color set extended |Two bytes; see <<gdf_colors>>.
 |`0x27` / `0x67` |Clipping |Sets a clip rectangle. Not observed.
 |`0x29` / `0x69` |Marker type |Marker glyph.
-|`0x34` / `0x74` |Character angle |Text baseline direction `(x, y)`; `(1, 0)` is upright.
+|`0x34` / `0x74` |Character angle |Text baseline direction `(x, y)`, untransformed; `(1, 0)` is upright. See <<gdf_text_and_font_handling>>.
 |`0x35`, `0x39`, `0x3a` and their push forms |Character shear, mode, direction |None.
-|`0x36` / `0x76` |Character spacing |Flag byte, padding byte, then a coordinate pair: extra spacing between characters when the flag is `0`.
-|`0x38` / `0x78` |Character set |Local character-set id of later text.
+|`0x36` / `0x76` |Character spacing |Flag byte, padding byte, then a coordinate pair: with flag `0`, the x operand is extra advance per character; any other flag resets it to `0`. Not observed.
+|`0x38` / `0x78` |Character set |Local character-set id of later text; selects the face (<<gdf_text_and_font_handling>>).
 |`0x3f` |Pop |Restores the last saved attribute; see <<gdf_attribute_stack>>.
 |`0x60` |Area end |Ends the current figure; see <<gdf_areas>>.
 |`0x68` |Area |Flag byte; see <<gdf_areas>>.
@@ -325,7 +339,7 @@ push-and-set orders: they save the attribute's current value
 |`0xa1` |Relative line at current position |Signed one-byte `dx dy` pairs, accumulated from the current position.
 |`0xe1` |Relative line |One coordinate pair, then signed one-byte `dx dy` pairs accumulated from it before transformation.
 |`0x82` / `0xc2` |Marker |Markers at the current position and/or the points.
-|`0x83` / `0xc3` |Character |Text at the current position, or at the leading point; bytes `>= 0x40` are EBCDIC text. The current position does not change.
+|`0x83` / `0xc3` |Character |Text at the current position, or at the leading point; the bytes after it are EBCDIC text up to the end of the record or a `0x00` byte. The current position does not change.
 |`0x85` / `0xc5` |Fillet |None: the hosted reference draws nothing for fillets.
 |`0x86` / `0xc6` |Arc |Three-point arc; see <<gdf_arcs>>.
 |`0x87` / `0xc7` |Full arc |Full ellipse at the current position or point, scaled by a one-byte-plus-fraction multiplier. Not observed.
@@ -591,16 +605,62 @@ change whether lines are visible. A pop with nothing saved does nothing.
 [[gdf_text_and_font_handling]]
 ==== Text and Font Handling
 
-IBM `QPRG1GDR` describes GDF character data as EBCDIC bytes. Character orders
-`0xc3` and `0x83` draw all string bytes `>= 0x40`; for the BookManager
-fixtures this matches CP037 for ordinary Latin text (`c1 c2 c3 c4` is
-`ABCD`). The current position is not changed.
+*Characters.* A character order's string ends at the end of the record or at
+the first `0x00` byte. Every byte below `0x40` shows as a space, and so do
+`0x41`, `0x8f` and `0xff`; `0x8a` shows as `G`; the other bytes follow code
+page 500, which agrees with code page 037 on letters, digits and common
+punctuation (`c1 c2 c3 c4` is `ABCD`). Evidence, `GC24-5673-01.boo` resource
+1, payload offset `0x548`: the axis label `f9 f1 f2 f1 60 f7 f4 f2 15 d4 89 95
+...` shows in the hosted GIF as `9121-742 Minidisk`, the `0x15` as a space.
+The code page 500 assignments that differ from code page 037 (`0x4a`, `0x4f`,
+`0x5a`, `0x5f`, `0xb0`, `0xba`, `0xbb`) and the `0x8a` exception are not
+observed in the sampled pictures.
 
-Text height is the character box y operand times `0.727`, in scaled
-coordinates. The font comes from the font-list prolog entry for the current
-character-set id; hosted renders use proportional outline fonts such as
-Helvetica for the `ADMUU...` sets and a fixed-pitch font for `ADMDVECP`. The
-exact glyph shapes and metrics are not part of the stream.
+*Face.* The reference renderer has two faces: a proportional sans serif of
+the Helvetica class, and a fixed-pitch face. A picture without a font-list
+prolog sets text in the fixed-pitch face once a character-set order (`0x38` /
+`0x78`, any id) has been applied, or a pop has restored one, and in the
+proportional face before that. A picture with a font-list prolog sets all its
+text in the proportional face, whatever ids its character-set orders select
+and whatever its entries name. Evidence:
+
+[cols="<34,<30,<36",options="header"]
+|===
+|Picture |Prolog and character set |Hosted face
+
+|`BLGR8MST.BOO` resource 13 |no font list; `79 03 78 00` at payload offset `0x88` |fixed pitch: `DEPARTMENT XXX PLAN` advances `17.9` px per character
+|`BLGR8MST.BOO` resource 10 |no font list; no character-set order |proportional: `ACTIVE PROBLEMS BY TYPE AND PHASE`
+|`GC24-5673-01.boo` resource 1 |font list `0x41` `ADMUUSRP`, `0x42` `ADMUUKSF`, `0x43` `ADMUUDRP`; the title follows `78 42` |proportional, regular weight, title included
+|`packet.boo` resource 1 |font list of 17 `ADMUW...` entries; text after `78 00` |proportional
+|===
+
+*Size.* The character box height, times the canvas y scale
+(<<gdf_canvas>>), is the em of the face in pixels; the box width has no
+effect. In `BLGR8MST.BOO` resource 13 the box `2.45 x 4.238` gives an em of
+`31` px: capitals stand `20` px tall and characters advance `17.9` px. In
+resource 14 the box `2.1 x 4.416` (em `32.3` px) advances `18.7` px per
+character in `1990 FOCUS`, and `1.575 x 3.312` (em `24.2` px) `13.8` px in
+`LOSSES`; the box widths would give `15.3` and `11.5` px. In the fixed-pitch
+face capitals stand about `0.63` em and characters advance about `0.57` em;
+in the proportional
+face capitals stand about `0.72` em (`GC24-5673-01.boo` resource 17, box
+height `3.068`, em `22.4` px, capitals `15` px).
+
+*Position.* The text point is the start of the baseline: glyphs stand on the
+pixel row just above the row the point maps to (`BLGR8MST.BOO` resource 13:
+the point `(25.5, 92.69)` maps to row `55`; capitals occupy rows `35..54`).
+
+*Angle.* The reference turns the character-angle vector into a baseline
+angle with `atan2(y, x)`, adds `6.28` when the result is negative, and
+converts it to whole tenths of a degree, truncating, with pi taken as
+`3.141`. The text then turns about its start point; `(0, 1)` runs the string
+up the page with the tops of the letters to the left. A vector a hair off an
+axis therefore still gives a quarter turn: `BLGR8MST.BOO` resource 12 carries
+`34 08 3d2ee13f 41100000` (`x = 0.0000447`, `y = 1`) at payload offset
+`0x14e`, and its label `PERCENTAGE` is vertical in the hosted GIF.
+`GC24-5673-01.boo` resource 1 carries `74 08 00000000 41100000` before the
+axis title `ITR in Commands Per Processor Second`, also vertical. Other
+angles are not observed.
 
 [[gdf_corpus]]
 === Corpus
@@ -609,5 +669,6 @@ In a random sample of 60 books carrying kind `G` pictures (928 pictures), the
 dominant producer writes only `04`, `09 10` / `09 0f`, `23`, `3e`, `51`, `58`,
 `60`, `66`, `68`, `70`, `71`, `81` and `c1` after the prolog. Orders seen at
 all: `00 02 03 04 09 0c 0d 11 18 23 26 28 33 34 35 39 3e 3f 43 51 58 60 62 64
-66 68 69 70 71 74 75 77 78 79 7a 81 83 86 c1 c2 c3 c6`. Twenty pictures in
-two books rotate text with `74`.
+66 68 69 70 71 74 75 77 78 79 7a 81 83 86 c1 c2 c3 c6`. Thirty-six pictures
+in three books carry text orders; 21 of them, in two books, turn text a
+quarter turn with `34` or `74`.

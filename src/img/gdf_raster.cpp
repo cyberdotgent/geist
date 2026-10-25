@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "img/gdf.hpp"
+#include "img/gdf_font.hpp"
 
 #include <algorithm>
 #include <array>
@@ -121,116 +122,194 @@ void draw_polyline(RgbaImage& image,
   }
 }
 
-std::array<std::uint8_t, 7> glyph_rows(char ch) {
-  if (ch >= 'a' && ch <= 'z') {
-    ch = static_cast<char>(ch - 'a' + 'A');
-  }
+// --- picture text ------------------------------------------------------------
+//
+// Text is set in the Hershey Roman simplex stroke face, sized and spaced to
+// stand in for the reference's two faces; the em is the character box height
+// in device pixels.  The proportions were fitted on hosted renders of
+// BLGR8MST, GC24-5673-01 and packet.boo:
+// - fixed pitch: capitals round(0.631 em) pixels tall, every character
+//   advancing round(0.566 em), strokes 0.05 em wide (at least one pixel);
+// - proportional: capitals 0.716 em tall, strokes 0.08 em wide, a space and
+//   a period or comma advancing 0.278 em, a digit 0.556 em, a hyphen
+//   0.333 em, a capital 1.1 times its own width, a small letter 0.95 and
+//   anything else 0.97 times; each glyph is scaled across to its advance.
 
-  switch (ch) {
-  case 'A': return {0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11};
-  case 'B': return {0x1e, 0x11, 0x11, 0x1e, 0x11, 0x11, 0x1e};
-  case 'C': return {0x0e, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0e};
-  case 'D': return {0x1e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1e};
-  case 'E': return {0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f};
-  case 'F': return {0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x10};
-  case 'G': return {0x0e, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0f};
-  case 'H': return {0x11, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11};
-  case 'I': return {0x0e, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0e};
-  case 'J': return {0x07, 0x02, 0x02, 0x02, 0x12, 0x12, 0x0c};
-  case 'K': return {0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11};
-  case 'L': return {0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1f};
-  case 'M': return {0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11};
-  case 'N': return {0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11};
-  case 'O': return {0x0e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e};
-  case 'P': return {0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10};
-  case 'Q': return {0x0e, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0d};
-  case 'R': return {0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11};
-  case 'S': return {0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e};
-  case 'T': return {0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04};
-  case 'U': return {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e};
-  case 'V': return {0x11, 0x11, 0x11, 0x11, 0x0a, 0x0a, 0x04};
-  case 'W': return {0x11, 0x11, 0x11, 0x15, 0x15, 0x1b, 0x11};
-  case 'X': return {0x11, 0x11, 0x0a, 0x04, 0x0a, 0x11, 0x11};
-  case 'Y': return {0x11, 0x11, 0x0a, 0x04, 0x04, 0x04, 0x04};
-  case 'Z': return {0x1f, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1f};
-  case '0': return {0x0e, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0e};
-  case '1': return {0x04, 0x0c, 0x04, 0x04, 0x04, 0x04, 0x0e};
-  case '2': return {0x0e, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1f};
-  case '3': return {0x1e, 0x01, 0x01, 0x0e, 0x01, 0x01, 0x1e};
-  case '4': return {0x02, 0x06, 0x0a, 0x12, 0x1f, 0x02, 0x02};
-  case '5': return {0x1f, 0x10, 0x10, 0x1e, 0x01, 0x01, 0x1e};
-  case '6': return {0x06, 0x08, 0x10, 0x1e, 0x11, 0x11, 0x0e};
-  case '7': return {0x1f, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08};
-  case '8': return {0x0e, 0x11, 0x11, 0x0e, 0x11, 0x11, 0x0e};
-  case '9': return {0x0e, 0x11, 0x11, 0x0f, 0x01, 0x02, 0x0c};
-  case '.': return {0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x0c};
-  case ',': return {0x00, 0x00, 0x00, 0x00, 0x0c, 0x04, 0x08};
-  case '-': return {0x00, 0x00, 0x00, 0x1f, 0x00, 0x00, 0x00};
-  case '+': return {0x00, 0x04, 0x04, 0x1f, 0x04, 0x04, 0x00};
-  case '/': return {0x01, 0x01, 0x02, 0x04, 0x08, 0x10, 0x10};
-  case ':': return {0x00, 0x0c, 0x0c, 0x00, 0x0c, 0x0c, 0x00};
-  case ';': return {0x00, 0x0c, 0x0c, 0x00, 0x0c, 0x04, 0x08};
-  case '%': return {0x18, 0x19, 0x02, 0x04, 0x08, 0x13, 0x03};
-  case '\'': return {0x0c, 0x04, 0x08, 0x00, 0x00, 0x00, 0x00};
-  case '"': return {0x0a, 0x0a, 0x14, 0x00, 0x00, 0x00, 0x00};
-  case '(': return {0x02, 0x04, 0x08, 0x08, 0x08, 0x04, 0x02};
-  case ')': return {0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08};
-  case '[': return {0x0e, 0x08, 0x08, 0x08, 0x08, 0x08, 0x0e};
-  case ']': return {0x0e, 0x02, 0x02, 0x02, 0x02, 0x02, 0x0e};
-  case ' ': return {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-  default: return {0x1f, 0x11, 0x02, 0x04, 0x04, 0x00, 0x04};
+struct TextMetrics {
+  double em = 0.0;
+  // Device pixels per Hershey unit.
+  double unit = 1.0;
+  // The advance of every character in the fixed-pitch face; 0 in the
+  // proportional face.
+  double pitch = 0.0;
+  // The width of the square pen, in pixels.
+  int pen = 1;
+};
+
+TextMetrics text_metrics(const TextRun& text, int em) {
+  TextMetrics metrics;
+  metrics.em = em;
+  if (text.face == GdfTextFace::fixed_pitch) {
+    metrics.pen = std::max(1, static_cast<int>(std::lround(em * 0.05)));
+    metrics.unit = std::max(0.0, std::round(em * 0.631) - metrics.pen) /
+                   stroke_cap_height;
+    metrics.pitch = std::round(em * 0.566);
+  } else {
+    metrics.pen = std::max(1, static_cast<int>(std::lround(em * 0.08)));
+    metrics.unit = std::max(0.0, em * 0.716 - metrics.pen) / stroke_cap_height;
   }
+  return metrics;
 }
 
-void set_block(RgbaImage& image, int x, int y, int size, Color color) {
-  for (int yy = 0; yy < size; ++yy) {
-    for (int xx = 0; xx < size; ++xx) {
-      set_pixel(image, x + xx, y + yy, color);
+double glyph_width(const StrokeGlyph& glyph, const TextMetrics& metrics) {
+  return (glyph.right - glyph.left) * metrics.unit;
+}
+
+double glyph_advance(char ch, const StrokeGlyph& glyph, const TextMetrics& metrics) {
+  if (metrics.pitch > 0.0) {
+    return metrics.pitch;
+  }
+  if (ch == ' ' || ch == '.' || ch == ',') {
+    return 0.278 * metrics.em;
+  }
+  if (ch >= '0' && ch <= '9') {
+    return 0.556 * metrics.em;
+  }
+  if (ch == '-') {
+    return 0.333 * metrics.em;
+  }
+  if (ch >= 'A' && ch <= 'Z') {
+    return 1.1 * glyph_width(glyph, metrics);
+  }
+  if (ch >= 'a' && ch <= 'z') {
+    return 0.95 * glyph_width(glyph, metrics);
+  }
+  return 0.97 * glyph_width(glyph, metrics);
+}
+
+void stamp(RgbaImage& image, int x, int y, int pen, Color color) {
+  const int from = -(pen - 1) / 2;
+  for (int dy = 0; dy < pen; ++dy) {
+    for (int dx = 0; dx < pen; ++dx) {
+      set_pixel(image, x + from + dx, y + from + dy, color);
     }
   }
 }
 
-int glyph_advance(char ch, const TextRun& text, int pixel_size) {
-  if (text.monospaced || ch == ' ') {
-    return 6 * pixel_size;
-  }
-  switch (ch >= 'a' && ch <= 'z' ? static_cast<char>(ch - 'a' + 'A') : ch) {
-  case 'I':
-  case '1':
-  case '.':
-  case ',':
-  case ':':
-  case ';':
-  case '\'':
-    return 4 * pixel_size;
-  case 'M':
-  case 'W':
-    return 7 * pixel_size;
-  default:
-    return 6 * pixel_size;
+void draw_stroke_segment(RgbaImage& image,
+                         std::pair<int, int> from,
+                         std::pair<int, int> to,
+                         int pen,
+                         Color color) {
+  auto [x0, y0] = from;
+  const auto [x1, y1] = to;
+  const int dx = std::abs(x1 - x0);
+  const int sx = x0 < x1 ? 1 : -1;
+  const int dy = -std::abs(y1 - y0);
+  const int sy = y0 < y1 ? 1 : -1;
+  int err = dx + dy;
+  for (;;) {
+    stamp(image, x0, y0, pen, color);
+    if (x0 == x1 && y0 == y1) {
+      break;
+    }
+    const int e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x0 += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y0 += sy;
+    }
   }
 }
 
-void draw_glyph(RgbaImage& image,
-                int origin_x,
-                int baseline_y,
-                int pixel_size,
-                char ch,
-                const TextRun& text) {
-  const auto rows = glyph_rows(ch);
-  for (int row = 0; row < 7; ++row) {
-    const int slant = text.italic ? (6 - row) * pixel_size / 3 : 0;
-    for (int col = 0; col < 5; ++col) {
-      if ((rows[static_cast<std::size_t>(row)] & (1u << (4 - col))) == 0) {
+// The total stroke length of a run in device pixels, for the raster work
+// charge.
+double text_stroke_length(const TextRun& text, const TextMetrics& metrics) {
+  double length = 0.0;
+  for (const char ch : text.text) {
+    const auto* glyph = stroke_glyph(ch);
+    for (std::size_t i = 1; glyph != nullptr && i < glyph->count; ++i) {
+      const auto& a = glyph->vertices[i - 1];
+      const auto& b = glyph->vertices[i];
+      if (a.x != stroke_pen_up && b.x != stroke_pen_up) {
+        length += (std::abs(a.x - b.x) + std::abs(a.y - b.y)) * metrics.unit + 1.0;
+      }
+    }
+  }
+  return length;
+}
+
+// Draws a run whose baseline starts at device pixel (x, y).  Glyphs stand on
+// the row above that pixel; a turned run turns about it.
+void draw_text(RgbaImage& image,
+               const TextRun& text,
+               int x,
+               int y,
+               const TextMetrics& metrics) {
+  // A wide pen is centred on the stroke, so the strokes move in by half its
+  // width to keep the ink on the glyph's side of the baseline.
+  const double half_pen = (metrics.pen - 1) / 2;
+  // Glyph-local coordinates: `along` the baseline, `up` above the row the
+  // glyphs stand on.
+  const auto place = [&](double along, double up) {
+    const double ux = along + half_pen;
+    const double uy = up + 1.0 + half_pen;
+    double dx = ux;
+    double dy = -uy;
+    switch (text.quarter_turns & 3) {
+    case 1:
+      dx = -uy;
+      dy = -ux;
+      break;
+    case 2:
+      dx = -ux;
+      dy = uy;
+      break;
+    case 3:
+      dx = uy;
+      dy = ux;
+      break;
+    default:
+      break;
+    }
+    return std::pair<int, int>{x + static_cast<int>(std::lround(dx)),
+                               y + static_cast<int>(std::lround(dy))};
+  };
+
+  double pen_x = 0.0;
+  for (const char ch : text.text) {
+    const auto* glyph = stroke_glyph(ch);
+    if (glyph == nullptr) {
+      throw std::runtime_error("GDF text has a character without a glyph");
+    }
+    const double width = glyph_width(*glyph, metrics);
+    const double advance = glyph_advance(ch, *glyph, metrics);
+    // Fixed pitch centres each glyph in its cell; proportional text scales
+    // each glyph across to its advance.
+    const double inset = metrics.pitch > 0.0 ? (metrics.pitch - width) / 2.0 : 0.0;
+    const double squeeze =
+        metrics.pitch == 0.0 && width > 0.0 ? advance / width : 1.0;
+    bool have_previous = false;
+    std::pair<int, int> previous;
+    for (std::size_t i = 0; i < glyph->count; ++i) {
+      const auto& v = glyph->vertices[i];
+      if (v.x == stroke_pen_up) {
+        have_previous = false;
         continue;
       }
-      const int x = origin_x + slant + col * pixel_size;
-      const int y = baseline_y - (7 - row) * pixel_size;
-      set_block(image, x, y, pixel_size, text.color);
-      if (text.bold) {
-        set_block(image, x + std::max(1, pixel_size / 3), y, pixel_size, text.color);
+      const auto point =
+          place(pen_x + inset + (v.x - glyph->left) * metrics.unit * squeeze,
+                (stroke_baseline - v.y) * metrics.unit);
+      if (have_previous) {
+        draw_stroke_segment(image, previous, point, metrics.pen, text.color);
       }
+      previous = point;
+      have_previous = true;
     }
+    pen_x += advance;
   }
 }
 
@@ -455,22 +534,16 @@ RgbaImage decode_gdf_to_rgba(const std::vector<std::uint8_t>& bytes) {
     }
     case GdfPrimitive::text: {
       const auto& text = picture.texts[step.index];
-      const auto [x0, y0] = map(text.point);
-      const auto scaled_size = text.height * scale_y / 8.0;
-      if (!std::isfinite(scaled_size)) {
+      const double em_size = text.height * scale_y;
+      if (!std::isfinite(em_size) || em_size > 4096.0) {
         throw std::runtime_error("GDF asset has an invalid text size");
       }
-      const int pixel_size = std::clamp(
-          static_cast<int>(std::lround(std::min(scaled_size, 64.0))), 1, 64);
-      charge(text.text.size(), static_cast<std::size_t>(pixel_size) *
-                                   pixel_size * 70);
-      int x = x0;
-      for (std::size_t i = 0; i < text.text.size(); ++i) {
-        const char ch = text.text[i];
-        draw_glyph(image, x, y0, pixel_size, ch, text);
-        x = std::clamp(x + glyph_advance(ch, text, pixel_size), -1,
-                       static_cast<int>(image.width));
-      }
+      const int em = std::max(1, static_cast<int>(std::lround(em_size)));
+      const auto metrics = text_metrics(text, em);
+      const auto strokes = static_cast<std::size_t>(text_stroke_length(text, metrics)) + 1;
+      charge(strokes, static_cast<std::size_t>(metrics.pen) * metrics.pen);
+      const auto [x0, y0] = map(text.point);
+      draw_text(image, text, x0, y0, metrics);
       break;
     }
     }

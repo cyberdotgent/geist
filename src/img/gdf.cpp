@@ -57,7 +57,14 @@ enum class FillStyle : std::uint8_t { solid, empty, pattern, hatch };
 
 // The attribute state a push-and-set order saves and a pop order restores.
 struct Attributes {
-  double char_height = 3.0;
+  // The character box height in virtual device units; unset until a
+  // character-box order sets it.
+  double char_height = 0.0;
+  bool char_box_set = false;
+  // The baseline direction in quarter turns counter-clockwise from +x.
+  int quarter_turns = 0;
+  // Whether a character-set order (or the pop of one) has selected a font.
+  bool font_selected = false;
   FillStyle fill_style = FillStyle::solid;
   int pattern_density = 0;
   GdfHatch hatch = GdfHatch::rising;
@@ -70,7 +77,6 @@ struct Attributes {
   Point current;
   ArcParameters arc;
   Matrix matrix = identity_matrix();
-  std::uint8_t character_set = 0;
 };
 
 struct SavedAttribute {
@@ -89,6 +95,8 @@ struct ParserState {
   bool lines_visible = true;
   bool edges_visible = true;
   bool in_figure = false;
+  // Entries in the font-list prolog.
+  std::size_t font_list_entries = 0;
   // An area order that asked for boundary lines begins its figure at the next
   // line order, not at once.
   bool figure_pending = false;
@@ -168,34 +176,6 @@ GdfLineStyle line_style_for(std::uint8_t value) {
       GdfLineStyle::solid,
   }};
   return styles[std::min<std::size_t>(value, 7)];
-}
-
-struct GdfFontStyle {
-  bool bold;
-  bool italic;
-  bool monospaced;
-};
-
-GdfFontStyle font_style_for_character_set(std::uint8_t character_set) {
-  // The GDDM symbol sets ADMDVECP, ADMUUARP, ... ADMUUTSS in local
-  // character-set order 0x41 onwards.
-  static constexpr std::array<GdfFontStyle, 23> fonts{{
-      {false, false, true},  {false, false, false}, {false, true, false},
-      {false, false, false}, {false, true, false},  {false, false, false},
-      {false, false, false}, {false, false, false}, {false, false, false},
-      {false, true, false},  {true, false, false},  {true, true, false},
-      {true, false, false},  {true, true, false},   {false, false, true},
-      {false, false, false}, {false, true, false},  {false, false, false},
-      {false, false, false}, {false, false, true},  {true, true, false},
-      {true, false, false},  {true, false, false},
-  }};
-  if (character_set >= 0x41) {
-    const auto index = static_cast<std::size_t>(character_set - 0x41);
-    if (index < fonts.size()) {
-      return fonts[index];
-    }
-  }
-  return fonts[0];
 }
 
 double read_ibm_hfp_float(const std::vector<std::uint8_t>& bytes,
@@ -587,6 +567,26 @@ void handle_arc(ParserState& state,
   state.attr.current = p2;
 }
 
+// A text byte as the reference shows it: bytes below 0x40, 0x41, 0x8f and
+// 0xff are spaces, 0x8a is G, and the rest follow code page 500.  A
+// character outside printable ASCII has no glyph in the stroke font.
+char text_character(std::uint8_t byte) {
+  if (byte < 0x42 || byte == 0x8f || byte == 0xff) {
+    return ' ';
+  }
+  if (byte == 0x8a) {
+    return 'G';
+  }
+  const auto decoded = EbcdicCodec::cp500().decode_word(byte);
+  if (decoded < 0x20 || decoded > 0x7e) {
+    char code[8];
+    std::snprintf(code, sizeof(code), "0x%02x", byte);
+    throw std::runtime_error(std::string("GDF text character ") + code +
+                             " has no glyph in the stroke font");
+  }
+  return static_cast<char>(decoded);
+}
+
 void handle_text(ParserState& state,
                  const std::vector<std::uint8_t>& bytes,
                  std::size_t offset,
@@ -601,27 +601,24 @@ void handle_text(ParserState& state,
   }
 
   std::string text;
-  for (std::size_t i = text_offset; i < offset + length; ++i) {
-    const auto ch = bytes[i];
-    if (ch >= 0x40) {
-      const auto decoded = EbcdicCodec::cp037().decode_ascii_byte(ch);
-      text.push_back(decoded >= 0x20 && decoded <= 0x7e ? decoded : '?');
-    }
+  for (std::size_t i = text_offset; i < offset + length && bytes[i] != 0; ++i) {
+    text.push_back(text_character(bytes[i]));
   }
   if (text.empty()) {
     return;
   }
-  const auto font = font_style_for_character_set(state.attr.character_set);
+  if (!state.attr.char_box_set || !(state.attr.char_height > 0.0)) {
+    throw std::runtime_error(
+        "GDF text has no positive character box height");
+  }
   state.picture.steps.push_back(
       GdfDrawStep{GdfPrimitive::text, state.picture.texts.size()});
-  state.picture.texts.push_back(TextRun{point,
-                                        text,
-                                        palette(state.line_color),
-                                        std::max(0.0, state.attr.char_height),
-                                        state.attr.character_set,
-                                        font.bold,
-                                        font.italic,
-                                        font.monospaced});
+  state.picture.texts.push_back(
+      TextRun{point, text, palette(state.line_color), state.attr.char_height,
+              state.attr.quarter_turns,
+              state.font_list_entries == 0 && state.attr.font_selected
+                  ? GdfTextFace::fixed_pitch
+                  : GdfTextFace::proportional});
 }
 
 // --- attribute orders --------------------------------------------------------
@@ -773,6 +770,7 @@ void pop_attribute(ParserState& state) {
   switch (saved.opcode) {
   case 0x03:
     state.attr.char_height = value.char_height;
+    state.attr.char_box_set = value.char_box_set;
     break;
   case 0x09:
     state.attr.fill_style = value.fill_style;
@@ -803,8 +801,12 @@ void pop_attribute(ParserState& state) {
     state.attr.extended_color = value.extended_color;
     apply_color(state, state.attr.extended_color);
     break;
+  case 0x74:
+    state.attr.quarter_turns = value.quarter_turns;
+    break;
   case 0x78:
-    state.attr.character_set = value.character_set;
+    // The pop selects the saved font again, whatever it was.
+    state.attr.font_selected = true;
     break;
   default:
     break;
@@ -865,6 +867,11 @@ std::size_t parse_prolog(ParserState& state,
     }
     if (length < 2) {
       throw std::runtime_error("GDF prolog record is truncated");
+    }
+    if (kind == 0x01) {
+      // A font-list entry: local id at payload offset 4, symbol-set name
+      // after it.  Their presence alone selects the proportional face.
+      ++state.font_list_entries;
     }
     if (kind == 0x02) {
       const auto attribute = bytes[payload + 1];
@@ -957,7 +964,9 @@ GdfPicture parse_gdf_picture(const std::vector<std::uint8_t>& bytes) {
     case 0x03:
     case 0x33:
       require_length(opcode, length, point_size);
-      state.attr.char_height = read_coord(bytes, offset + coordinate_size) * 0.727;
+      // The box width is not used: the face sets its own advances.
+      state.attr.char_height = read_coord(bytes, offset + coordinate_size);
+      state.attr.char_box_set = true;
       break;
     case 0x07:
       unsupported(opcode, "segment call");
@@ -1013,16 +1022,40 @@ GdfPicture parse_gdf_picture(const std::vector<std::uint8_t>& bytes) {
       unsupported(opcode, "clipping");
     case 0x34:
     case 0x74: {
+      // The character angle is a direction vector in picture coordinates,
+      // untransformed.  The reference turns it into a baseline angle in
+      // whole tenths of a degree, truncated, with pi taken as 3.141 and a
+      // negative angle raised by 6.28.  Only quarter turns are reproduced.
       require_length(opcode, length, point_size);
       const auto angle = read_raw_point(bytes, offset);
-      if (!(angle.x > 0.0 && angle.y == 0.0)) {
+      double radians = std::atan2(angle.y, angle.x);
+      if (radians < 0.0) {
+        radians += 6.28;
+      }
+      const auto tenths = static_cast<long>(radians * 1800.0 / 3.141);
+      if (tenths % 900 != 0) {
         unsupported(opcode, "rotated characters");
       }
+      state.attr.quarter_turns = static_cast<int>((tenths / 900) % 4);
       break;
     }
+    case 0x36:
+    case 0x76:
+      // Character spacing: a first byte of zero sets the extra advance per
+      // character to the x of the point that follows; anything else resets
+      // it.  Only a zero extra advance is reproduced.
+      if (byte0 == 0) {
+        require_length(opcode, length, 2 + point_size);
+        if (read_coord(bytes, offset + 2) != 0.0) {
+          unsupported(opcode, "character spacing");
+        }
+      }
+      break;
     case 0x38:
     case 0x78:
-      state.attr.character_set = byte0;
+      // Character set: without a font list every set selects the first font
+      // of the reference's built-in list, a fixed-pitch face.
+      state.attr.font_selected = true;
       break;
     case 0x3f:
       pop_attribute(state);
