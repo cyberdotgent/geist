@@ -448,13 +448,36 @@ bool lower_inlines(const ProseBlockIR& block, InlineSequenceIR& content,
                        content, error);
 }
 
+// The source of a node built from a run of a block's inlines: the tokens
+// those inlines own, each once.  Two inlines can share one stored token --
+// a span boundary inside a word gives each half its own inline, which names
+// the token with its character range (dfha2a06 1.2.4.1.4 record 105, the
+// word `CONSOLnn` under `cfont 30 2 V`).  The node owns whole tokens, as a
+// container does, so the halves collapse into one slice of the token.
 std::vector<DocumentSourceSliceIR> inline_slices(const ProseBlockIR& block,
                                                  std::size_t begin,
                                                  std::size_t end) {
   std::vector<DocumentSourceSliceIR> slices;
   for (auto index = begin; index < end && index < block.inlines.size(); ++index)
-    slices.insert(slices.end(), block.inlines[index].slices.begin(),
-                  block.inlines[index].slices.end());
+    for (auto slice : block.inlines[index].slices) {
+      slice.character_begin = 0;
+      slice.character_end = 0;
+      slices.push_back(slice);
+    }
+  const auto key = [](const DocumentSourceSliceIR& slice) {
+    return std::make_tuple(slice.logical_record, slice.segment_index,
+                           slice.token_begin, slice.token_end,
+                           slice.byte_begin, slice.byte_end);
+  };
+  std::sort(slices.begin(), slices.end(),
+            [&](const auto& left, const auto& right) {
+              return key(left) < key(right);
+            });
+  slices.erase(std::unique(slices.begin(), slices.end(),
+                           [&](const auto& left, const auto& right) {
+                             return key(left) == key(right);
+                           }),
+               slices.end());
   return slices;
 }
 

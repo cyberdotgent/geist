@@ -644,6 +644,45 @@ void a_parameter_paragraph_continuation_keeps_source_ownership() {
           "the parameter PC is not owned by its definition entry");
 }
 
+// A parameter body whose first paragraph styles part of one word, followed
+// by a further paragraph of the same entry.  dfha2a06 1.2.4.1.4 record 105
+// stores `cz BREAK 7`, `cfont 30 2 V` and the row `       parameter in the
+// CONSOLnn PARMLIB member ...`, the `nn` of the one stored word `CONSOLnn`
+// styled, then `cz FLOW P 7 7` inside the same entry.  The inline paragraph
+// of the definition owns the word once, whatever its inlines split it into.
+void a_parameter_body_with_a_subword_style_lowers() {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({words("cz"), words("FLOW"), words("PARML"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("FLOW"), words("PT"), words("3"),
+                words("7")});
+  builder.line({words("   "), words("CONSNAME(name)")});
+  builder.line({words("cz"), words("BREAK"), words("7")});
+  builder.line({words("cfont"), words("17"), words("2"), words("V")});
+  builder.line({words("       "), words("the"), words("CONSOLnn"),
+                words("member.")});
+  builder.line({words("cz"), words("FLOW"), words("P"), words("7"),
+                words("7")});
+  builder.line({words("       "), words("Define"), words("it"),
+                words("always.")});
+  builder.line({words("cz"), words("OFF"), words("EPARML"), words("0"),
+                words("0")});
+
+  const auto extracted = extract_record(std::move(builder), 28);
+  require(extracted.prose.has_value(),
+          "a parameter body with a sub-word style was declined: " +
+              extracted.error);
+  const auto document = lower_document(extracted);
+  if (!document) return;
+  std::string error;
+  require(geist::detail::verify_document_ir(*document, &error),
+          "the parameter body's DocumentIR does not verify: " + error);
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "CONSOL") && contains(markdown, "always"),
+          "the parameter body lost its text: " + markdown);
+}
+
 // A paragraph while an LI remains open belongs to that item, even when the
 // whole list is itself the block body of a parameter.  Both ownership edges
 // must survive without replacing the topic-wide source-order block indices.
@@ -1609,6 +1648,7 @@ int main() {
   a_term_without_a_list_closer_still_declines();
   a_nested_list_in_a_parameter_body_keeps_source_ownership();
   a_parameter_paragraph_continuation_keeps_source_ownership();
+  a_parameter_body_with_a_subword_style_lowers();
   a_list_item_continuation_keeps_recursive_source_ownership();
   an_empty_dt_before_lines_keeps_a_compound_definition();
   an_empty_dd_before_lines_keeps_a_compound_definition();
