@@ -2307,6 +2307,26 @@ struct CzBuilder {
                                       ? "table envelope"
                                       : "figure region"));
         if (tag == "table" || tag == "fig") {
+          // A table the topic closes with an inert line instead of
+          // `cz OFF ETABLE`: the redbooks write `cz OFF TABLE`, the
+          // envelope, `SRETBL` and `cz ON TABLE 0 0`, and then the topic's
+          // rows (SG24-5363-00 2.1.9 records 97-100).  The inert line
+          // changes no state, so hosted (DT 19990715181940) serves the
+          // table, `</table><pre width="80"><!-- * -->` and the rows after
+          // it as stored -- the reading a named closer's rows get.  Only
+          // rows that follow the envelope are read so; a row between the
+          // opener and the envelope still declines.
+          if (tag == "table" && !groups.empty() &&
+              std::any_of(build.span_marks.begin(), build.span_marks.end(),
+                          [&](const SpanMark& mark) {
+                            return mark.span < topic.spans.size() &&
+                                   topic.spans[mark.span].kind ==
+                                       ProseSpanKindIR::table &&
+                                   range.first != npos &&
+                                   mark.line >= range.first &&
+                                   mark.line <= groups.front().first;
+                          }))
+            return named_closer_rows({groups.front().first, range.second});
           if (!groups.empty())
             return fail(error, name + " carries display text");
           return true;

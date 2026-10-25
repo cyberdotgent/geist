@@ -179,6 +179,36 @@ void list_item_in_verbatim_envelope(const std::string &owner,
             markdown.find("third row") != std::string::npos,
         "Markdown lost the list anchor or a row: " + markdown);
 }
+// ISTH1MST 5.2 record 1185 lines 7-8: the item's `SRELISx100` closer is the
+// last line of the drawn `SRTBLTBLUNIQ371` envelope, directly before its
+// `SRETBL`.  Hosted BookServer (DT 19920131191555) serves the envelope as one
+// `<pre>`, `<a name="LISx100">` around the item's first row, and nothing for
+// the closer; 47 topics of the book end their syntax envelope this way.
+void list_closer_ends_the_envelope() {
+  Builder b;
+  b.line({});
+  b.line({w("   "), w("Text before.")});
+  b.line({w("SRTBLCLISTS")});
+  b.line({w("   | first row  |")});
+  b.line({w("SRLISone")});
+  b.line({w("   | second row |")});
+  b.line({w("SRELISone")});
+  b.line({w("SRETBL")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(),
+        "a list closer ending a verbatim envelope declined: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = html.find("<pre");
+  const auto anchor = html.find("id=\"LISone\"", pre);
+  const auto second = html.find("second row", pre);
+  check(pre != std::string::npos && anchor < second &&
+            second < html.find("</pre>", pre) &&
+            html.find("ELIS") == std::string::npos,
+        "the region, its anchor or the inert closer is wrong: " + html);
+}
 // SC31-8778-01 2.3.6.1 record 282 line 24: an `SRETBL` alone on its display
 // line, after the operand's `statements:`/`dependencies:` rows, in a topic
 // that writes no `SRTBL` at all -- the compiler kept the end of a table whose
@@ -251,6 +281,48 @@ void unopened_cz_table_closer(bool closer_rows, bool expect_typed) {
             html.find("<table") == std::string::npos,
         "an unopened closer printed or opened a table: " + html);
 }
+// The redbooks close a `cz OFF TABLE` envelope with the inert line
+// `cz ON TABLE 0 0` instead of `cz OFF ETABLE`, and go on with the topic's
+// rows.  SG24-5363-00 2.1.9 records 97-100: `cz OFF TABLE`,
+// `SRTBLTAB205`, the drawn table, `SRETBL`, `cz ON TABLE 0 0`, then
+// `   As you can see, IMS resources ...`.  Hosted (DT 19990715181940) serves
+// the table, `</table><pre width="80"><!-- * -->` and the rows after it as
+// stored.  `before` puts a row between `cz OFF TABLE` and the envelope,
+// which no such topic shows; its place is unproven and the topic declines.
+void table_closed_by_an_inert_line(bool before, bool expect_typed) {
+  Builder b;
+  b.line({});
+  b.line({w("cz"), w("BREAK"), w("3")});
+  b.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  b.line({w("   "), w("Text"), w("before.")});
+  b.line({});
+  b.line({w("cz"), w("OFF"), w("TABLE")});
+  if (before)
+    b.line({w("   "), w("Stray"), w("row.")});
+  b.line({w("SRTBLTAB205")});
+  b.line({w("   "), w("CICS"), w("          "), w("COBOL")});
+  b.line({w("SRETBL")});
+  b.line({});
+  b.line({w("cz"), w("ON"), w("TABLE"), w("0"), w("0")});
+  b.line({w("   "), w("As"), w("you"), w("can"), w("see.")});
+  std::string error;
+  const auto doc = lower(b, error);
+  if (!expect_typed) {
+    check(!doc, "a row between cz OFF TABLE and its envelope was typed");
+    return;
+  }
+  check(doc.has_value(),
+        "a table closed by cz ON TABLE declined the topic: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto table = html.find("COBOL");
+  const auto after = html.find("As you can see.");
+  check(table != std::string::npos && after != std::string::npos &&
+            table < after && html.find("TABLE") == std::string::npos,
+        "the rows after the envelope are lost, misplaced or leak the "
+        "directive: " + html);
+}
 } // namespace
 
 int main() {
@@ -259,10 +331,13 @@ int main() {
   unclosed_envelope(true, true, false);
   list_item_in_verbatim_envelope("one", true);
   list_item_in_verbatim_envelope("two", false);
+  list_closer_ends_the_envelope();
   unopened_table_closer(false, true);
   unopened_table_closer(true, false);
   unopened_cz_table_closer(false, true);
   unopened_cz_table_closer(true, false);
+  table_closed_by_an_inert_line(false, true);
+  table_closed_by_an_inert_line(true, false);
   geist_test::exit_with_failures();
   std::cout << "prose envelope close checks passed\n";
   return 0;

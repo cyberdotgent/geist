@@ -1202,10 +1202,16 @@ public:
       return false;
     }
     // A list anchor names the row after it; one with no row of the region
-    // after it names nothing hosted is proven to print.
+    // after it names nothing hosted is proven to print.  A closer prints
+    // nothing wherever it stands, so it may also end the region: ISTH1MST
+    // 5.2 record 1185 writes `SRELISx100` directly before `SRETBL`, and
+    // hosted (DT 19920131191555) serves the envelope with no trace of it.
     for (auto *anchors : {&list_anchors, &list_closers})
       for (auto &anchor : *anchors) {
-        if (anchor.line < dropped || anchor.line - dropped >= body.size()) {
+        const auto closer = anchors == &list_closers;
+        if (anchor.line < dropped ||
+            anchor.line - dropped > body.size() ||
+            (!closer && anchor.line - dropped == body.size())) {
           reason = "list control " + anchor.id +
                    " has no row of the region after it";
           return false;
@@ -3160,7 +3166,11 @@ bool verify_fixed_table_blocks_ir(
         if (block.geometry != FixedTableGeometryIR::preformatted &&
             block.preformatted_lines.empty())
           return fail("fixed table list control outside a verbatim region");
-        if (anchor.line >= block.preformatted_lines.size() ||
+        // A closer may stand after the region's last row (it prints
+        // nothing); an item anchor needs the row it names.
+        const auto end_ok = anchors == &block.list_closers &&
+                            anchor.line == block.preformatted_lines.size();
+        if ((anchor.line >= block.preformatted_lines.size() && !end_ok) ||
             anchor.line < previous_line)
           return fail("fixed table list controls are out of order");
         if (anchor.source.token_begin >= anchor.source.token_end)

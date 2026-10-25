@@ -5475,7 +5475,12 @@ So inside a drawn envelope `SRLIS<owner>` on a line of its own is the
 anchor of the row after it, and `SRELIS<owner>` on a line of its own is a
 closer that prints nothing.  A closer is read this way only when an
 `SRLIS<owner>` of the topic names the same owner, ignoring case, as in
-prose.  Either control must have a drawn row of the envelope after it.
+prose.  An opener must have a drawn row of the envelope after it; a closer
+may also be the envelope's last line.  `ISTH1MST.BOO` `5.2`, record 1185:
+line 7 is `02 DE 24` at `0x76B14` (`SRELISx100`) and line 8, `02 DE 46` at
+`0x76B17`, is `SRETBL`.  Hosted (DT `19920131191555`) serves the envelope
+with `<a name="LISx100">` around the item's first row and nothing for the
+closer; the book ends 47 syntax envelopes this way.
 
 [[markup_inline_syntax_diagrams]]
 ==== Inline syntax diagrams
@@ -6849,6 +6854,19 @@ matches no prefix, and hosted (DT 19990209152814) prints nothing for it --
 no text, no comment, no `</pre>`.  The rows after such a line continue the
 layout that was open before it.  (That book is reflow-off, so its whole body
 is served in `<pre width="80">` in any case.)
+
+The redbooks use that line as their table closer.  `SG24-5363-00.boo` topic
+`2.1.9` opens a table with `cz OFF TABLE` (record 97 line 20) and
+`SRTBLTAB205` (line 21) and ends it in record 100: line 13 `SRETBL`, line 14
+empty, line 15 `08 D2 9B DE 08 E7 F2 9C 9C` at `0x4867A`
+(`cz ON TABLE 0 0`), and line 16, length byte `18` at `0x48683`, the row
+`   As you can see, IMS resources can be secured through various means.`
+No `cz OFF ETABLE` follows.  Hosted (DT `19990715181940`) serves the table,
+then `</table><pre width="80"><!-- * -->` and the rows after it as stored;
+the inert line contributes nothing.  The same shape closes the tables of the
+other sampled redbooks (`SG24-2083-01`, `SG24-4812-01`, `SG24-5257-00`,
+`SG24-5268-00`, `SG24-5238-00`, `SG24-5338-00`, `SG24-5178-00`,
+`SG24-5142-00`, `SG24-5461-00`, `SG24-5329-00`, `SG24-5204-00`).
 
 *A tag with no prefix of its own is the generic `CZ FLOW`.*  Besides the
 generic `CZ FLOW`, the only `CZ FLOW` prefixes are `H`, `DT`, `DD`, `ED`,
