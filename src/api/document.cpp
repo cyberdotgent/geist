@@ -154,6 +154,20 @@ TopicLoaderBundle make_topic_loaders(
     outcome->source_decoded = source_rows.source_decoded;
     outcome->source_rows_have_body = source_rows.has_body;
     if (!typed || source_rows.has_body) {
+      if (typed) {
+        // The family claimed the topic and yet carried none of the body the
+        // source rows draw; say so, so the trace and the coverage report
+        // name the family and what it produced.
+        std::size_t headings = 0;
+        for (const auto& block : typed->blocks)
+          if (std::holds_alternative<HeadingBlockIR>(block.node)) ++headings;
+        outcome->rejection =
+            outcome->trace.family + ": the typed document has no body (" +
+            std::to_string(headings) +
+            (headings == 1 ? " heading" : " headings") +
+            "), but the source rows carry body text";
+        outcome->trace.declined.push_back(outcome->rejection);
+      }
       outcome->document = std::move(source_rows.document);
       outcome->representation = outcome->document
                                     ? TopicRepresentationKindIR::source_rows

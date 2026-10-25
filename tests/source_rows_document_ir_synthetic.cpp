@@ -158,6 +158,21 @@ int main() {
               selected_diagnostic.family.empty() &&
               selected_diagnostic.degradations.empty(),
           "the declined structured body leaked its family into source rows");
+  // When the family says why its document carried no body, the coverage
+  // detail says so too, instead of the bare "no route produced content"
+  // (SC33-6733-01 4.7.4.3: prose heads both run-in paragraphs and keeps no
+  // body; hosted DT 20000720144410 serves both paragraphs).
+  auto explained = selected_after_typed;
+  explained.rejection =
+      "prose: the typed document has no body (2 headings), but the source "
+      "rows carry body text";
+  const auto explained_diagnostic =
+      geist::detail::classify_topic_lowering(identity, &explained);
+  require(explained_diagnostic.reason == "no-structured-content" &&
+              explained_diagnostic.detail ==
+                  "no route produced content (" + explained.rejection + ")",
+          "the structured family's reason was dropped: " +
+              explained_diagnostic.detail);
 
   DecodedLogicalRecordSource unlinked_record;
   unlinked_record.logical_record = 18;
@@ -176,6 +191,22 @@ int main() {
             "unlinked recovery rows changed from raw source-row HTML: " +
                 rendered);
   }
+
+  // The `ST` row is the heading, not body, although the catalog spells the
+  // title in other letter case: SH19-6902-00 C.0 record 440 line 9 is `ST
+  // Appendix C.  Problem description worksheet for the host` under the
+  // catalog title `... Problem Description Worksheet for the Host`, and
+  // hosted (DT 19930503083907) serves the heading and an empty body.
+  DecodedLogicalRecordSource titled_record;
+  titled_record.logical_record = 19;
+  line(titled_record, {"ST", "Problem", "description"});
+  refresh(titled_record);
+  auto titled_identity = identity;
+  titled_identity.title = "Problem Description";
+  const auto titled = geist::detail::lower_source_rows_to_document_ir(
+      titled_identity, std::vector<DecodedLogicalRecordSource>{titled_record});
+  require(titled.document.has_value() && !titled.has_body,
+          "the ST row in other letter case was kept as body");
 
   DecodedLogicalRecordSource empty_record;
   empty_record.logical_record = 17;

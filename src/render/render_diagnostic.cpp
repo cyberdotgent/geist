@@ -240,6 +240,11 @@ RenderDiagnostic classify_topic_lowering(
                                outcome->source_decoded);
   } else if (outcome->representation ==
              TopicRepresentationKindIR::source_rows) {
+    // A family that claimed the topic but produced no body says why in the
+    // outcome's rejection; carry it into the detail rather than leaving the
+    // bare "no route produced content".
+    if (outcome->typed_claimed && diagnostic.detail.empty())
+      diagnostic.detail = outcome->rejection;
     escalate_render_diagnostic(diagnostic, false,
                                outcome->source_rows_have_body,
                                outcome->source_decoded);
@@ -461,8 +466,14 @@ std::vector<BestEffortLineIR> best_effort_display_lines(
       // A record whose envelope did not parse keeps its `ST` opcode and
       // marker slot in front of the title, so the test is on the tail.  It is
       // restricted to the first emitted line, which is where the title sits.
+      // Letter case does not count: the catalog can capitalise a title the
+      // `ST` row stores in lower case (SH19-6902-00 C.0 `Problem description
+      // worksheet` under `Problem Description Worksheet`), and it is still
+      // the heading's row.
       if (!title.empty() && lines.empty() && text.size() >= title.size() &&
-          text.compare(text.size() - title.size(), title.size(), title) == 0)
+          ascii_equals_case_insensitive(
+              std::string_view(text).substr(text.size() - title.size()),
+              std::string_view(title)))
         continue;
       lines.push_back(std::move(emitted));
     }
