@@ -127,7 +127,8 @@ void framed_selection_keeps_its_payload(bool wrapped, bool ordinal,
                                        bool bad_prefix = false,
                                        bool spacing_marker = false,
                                        std::size_t revision_column = 1,
-                                       const std::string& mark = "|") {
+                                       const std::string& mark = "|",
+                                       bool cz_envelope = false) {
   auto source = make_source(10, {});
   const auto line = [&](std::vector<TokenWords> tokens,
                         TokenWords prefix = TokenWords{0x2500}) {
@@ -141,6 +142,10 @@ void framed_selection_keeps_its_payload(bool wrapped, bool ordinal,
   };
   line({words("chdlevel :FIGLIST")});
   line({words("ST Figures")});
+  if (cz_envelope) {
+    line({words("cz BREAK 3")});
+    line({words("cz OFF FIGLIST")});
+  }
   if (wrapped) {
     line({words("cselect 3 9 FIGONE")});
     line({words("   "), words("13"), TokenWords{1, '.'}, words(" "),
@@ -161,6 +166,7 @@ void framed_selection_keeps_its_payload(bool wrapped, bool ordinal,
   } else
     line({words("   "), words("Libraries"), words("  "),
           words("6.9.3.3")});
+  if (cz_envelope) line({words("cz OFF EFIGLIST 0 0")});
   std::vector<DecodedLogicalRecordSource> records;
   if (deferred) {
     auto continuation = make_source(11, {});
@@ -195,6 +201,7 @@ void framed_selection_keeps_its_payload(bool wrapped, bool ordinal,
         record.logical_record, record.assembled, record.encoded_tokens,
         record.ir.display_lines);
     geist::detail::demote_display_line_owned_controls(record);
+    geist::detail::assign_display_line_margin_marks(record);
     require(record.ir.display_lines_parse,
             "generated-list source does not frame");
   }
@@ -250,6 +257,48 @@ void framed_selection_keeps_its_payload(bool wrapped, bool ordinal,
                 row.cells[1].word == static_cast<unsigned char>(mark.front()) &&
                 row.cells[4].word == 'L',
             "native revision margin shifted the selected caption columns");
+    // A list in a `cz OFF FIGLIST` envelope is served as `<dl><dd>` rows
+    // with no margin, and the stored mark is not printed: SC31-6552-00
+    // FIGURES (DT 19950503072955) serves `<dd>  <a ...> 2.  APPN-to-Subarea
+    // COS Mapping Table Example   3.8</a>` for the row ` |  2.  APPN-to-...`.
+    if (cz_envelope) {
+      require(!list->entries.back().revision_mark,
+              "a selection row in a CZ list envelope carries its mark");
+      return;
+    }
+    // The row's stored mark travels with the entry, and the lowering prints
+    // it in the margin in front of the link, as hosted BookServer does.
+    require(list->entries.back().revision_mark ==
+                static_cast<char32_t>(mark.front()),
+            "the selection row lost its revision mark");
+    geist::detail::TopicIdentityIR identity;
+    identity.id = "FIGURES";
+    identity.title = "Figures";
+    const auto document =
+        geist::detail::lower_generated_list_topic_to_document_ir(identity,
+                                                                 *list, &error);
+    require(document.has_value(), "generated list did not lower: " + error);
+    if (!document) return;
+    const auto& last = document->blocks.back();
+    const auto* paragraph =
+        std::get_if<geist::detail::ParagraphBlockIR>(&last.node);
+    const auto* revised =
+        paragraph != nullptr && paragraph->content.size() == 1
+            ? std::get_if<geist::detail::RevisedInlineIR>(
+                  &paragraph->content.front().node)
+            : nullptr;
+    require(revised != nullptr &&
+                revised->mark == static_cast<char32_t>(mark.front()) &&
+                revised->children.size() == 1 &&
+                std::holds_alternative<geist::detail::CrossReferenceInlineIR>(
+                    revised->children.front().node),
+            "the revised selection row is not one marked link");
+    require(geist::detail::verify_generated_list_topic_document_ir(
+                *list, *document, &error),
+            "the marked generated list fails its own verifier: " + error);
+  } else {
+    require(!list->entries.back().revision_mark,
+            "an unrevised selection row carries a revision mark");
   }
 }
 
@@ -626,6 +675,8 @@ int main() {
   // ` # <a href=...#FIGJUPEG1>39.  DFHJUP program, example 1   2.1.1.5.1</a>`.
   framed_selection_keeps_its_payload(false, false, false, true, false, false, 1,
                                      "#");
+  framed_selection_keeps_its_payload(false, false, false, true, false, false, 1,
+                                     "|", true);
   verify_synthetic_contract();
 #ifdef GEIST_FIXTURE_DIR
   verify_corpus_inventory();

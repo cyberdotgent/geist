@@ -94,6 +94,15 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR identity,
     content.push_back(
         {CrossReferenceInlineIR{target(entry.target), std::move(label)},
          link_origin});
+    // A revised selection row: hosted BookServer prints the stored mark in
+    // the row's margin, in front of the link (CNMYB0MS FIGURES ` |  <a
+    // href=...#FIGFIG1>1.  Primary Components ...</a>`).
+    if (entry.revision_mark) {
+      InlineIR revised{RevisedInlineIR{*entry.revision_mark, std::move(content)},
+                       link_origin};
+      content = InlineSequenceIR{};
+      content.push_back(std::move(revised));
+    }
     auto block_origin = fragment_origin(entry, "generated-list entry");
     document.blocks.push_back(
         {ParagraphBlockIR{std::move(content)}, std::move(block_origin)});

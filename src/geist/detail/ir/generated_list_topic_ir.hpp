@@ -51,6 +51,10 @@ struct GeneratedListEntryIR {
   std::vector<GeneratedListCellDispositionIR>
       suppressed_prefix_dispositions;
   std::vector<GeneratedListLabelFragmentIR> label_fragments;
+  // The revision mark the selection row stores in its margin (cell 1 between
+  // blanks, `DisplayLineIR::margin_mark`), outside the selected columns.
+  // Hosted BookServer prints it in the margin in front of the link.
+  std::optional<char32_t> revision_mark;
 };
 
 struct GeneratedListTopicIR {

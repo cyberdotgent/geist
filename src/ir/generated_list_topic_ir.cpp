@@ -137,6 +137,7 @@ std::optional<GeneratedListEntryIR> make_entry(
   const auto& span = row.spans.front();
   auto first = std::size_t{0};
   const auto* owner_record = find_record(records, row.owner.logical_record);
+  std::optional<char32_t> stored_mark;
   const auto native_geometry = owner_record != nullptr &&
       is_display_line_length_token(*owner_record, row.owner.token_begin);
   if (native_geometry) {
@@ -162,6 +163,17 @@ std::optional<GeneratedListEntryIR> make_entry(
         return std::nullopt;
       }
     first = span.cell_begin;
+    // The mark is the display line's own: the cell the line stores as its
+    // row margin (`DisplayLineIR::margin_mark`), standing in the margin
+    // before the selection.  Hosted prints it there, outside the link.
+    const auto* line = display_line_of_token(*owner_record,
+                                             row.owner.token_begin);
+    if (line != nullptr && line->margin_mark &&
+        line->margin_mark_place == MarginMarkPlaceIR::row_margin &&
+        span.cell_begin > 2 && row.cells[1].source &&
+        row.cells[1].source->logical_record == owner_record->logical_record &&
+        row.cells[1].source->token_index == line->margin_mark_token)
+      stored_mark = line->margin_mark;
   }
   while (first < row.cells.size() && !label_anchor(row.cells[first])) ++first;
   const auto first_visible = std::find_if(
@@ -251,6 +263,7 @@ std::optional<GeneratedListEntryIR> make_entry(
   entry.display = row;
   entry.selector = span.selector;
   entry.target = span.target;
+  entry.revision_mark = stored_mark;
   entry.cell_dispositions.resize(row.cells.size(),
                                  GeneratedListCellDispositionIR::structural);
   for (std::size_t index = 0; index < row.cells.size(); ++index) {
@@ -402,6 +415,7 @@ bool same_topic(const GeneratedListTopicIR& left,
         entry_a.cell_dispositions != entry_b.cell_dispositions ||
         entry_a.suppressed_prefix_dispositions !=
             entry_b.suppressed_prefix_dispositions ||
+        entry_a.revision_mark != entry_b.revision_mark ||
         entry_a.label_fragments.size() != entry_b.label_fragments.size())
       return false;
     for (std::size_t span = 0; span < a.spans.size(); ++span) {
@@ -687,6 +701,13 @@ std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
     if (!entry)
       return reject("generated-list entry semantics rejected: " +
                     inner_error);
+    // A list inside a `cz OFF FIGLIST`/`TLIST` envelope is served as a
+    // definition list without the rows' margin, and hosted prints no mark
+    // there (SC31-6552-00 FIGURES, DT 19950503072955: `<dd>  <a ...> 2.
+    // APPN-to-Subarea ...` for ` |  2.  APPN-to-Subarea ...`; 12 of 12
+    // such books checked, against 63 of 63 books without the envelope that
+    // print it).
+    if (saw_list_open) entry->revision_mark.reset();
     result.entries.push_back(std::move(*entry));
   }
   if (error != nullptr) error->clear();
