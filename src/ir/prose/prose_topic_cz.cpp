@@ -1123,22 +1123,30 @@ struct CzBuilder {
     return paragraphs(groups, 0);
   }
 
+  // A `cz FLOW PT` with no open parameter list opens one when the topic
+  // closes it: the compiler omits the `FLOW PARML` opener but keeps the
+  // PT/BREAK entries and the `cz OFF EPARML` closer.  BookServer has no
+  // parameter-list rule at all (no `PARML` string exists in the reader):
+  // `CZ FLOW PT` is the generic `CZ FLOW` and `CZ BREAK` prints `<br>`, so
+  // an entry is served identically with or without the opener.  The opener
+  // is missing after a syntax diagram (DFHP7A00 2.5.3--2.5.7; SC31-8778-01
+  // 4.1.4.51, DT 20010606144047), after a table (SC41-5605-00 3.3.7.24, DT
+  // 19980512102401, `cz OFF ETABLE 4 4` then `cz FLOW PT 3 7` `DATA`,
+  // served `<kbd>DATA</kbd>` `<br>` and the indented body), after a
+  // paragraph (SC41-5864-02 1.12.1, `Length of receiver variable` `<br>`
+  // `INPUT; BINARY(4)`), after a note (dknc3a02 1.5.1) and inside a list
+  // item (SC31-8513-00 2.12.1.5, `<var>data_set_name</var>` `<br>`).  Entries
+  // may hold paragraphs, lists, notes and regions between them, as in an
+  // opened list.  The closer is the proof: the first `EPARML` that closes no
+  // list opened after the term.  A term with none still fails.
   bool implicit_parameter_list(std::size_t index) const {
-    if (index == 0) return false;
-    const auto& previous = build.directives[index - 1];
-    if (previous.mode != "off" || previous.tag != "esyntax") return false;
-    // This dialect omits PARML after a syntax diagram, but retains a complete
-    // PT/BREAK sequence and an explicit EPARML boundary.  Prove that framing
-    // from the controls themselves before treating the first PT as an opener.
-    for (auto cursor = index; cursor < build.directives.size(); ++cursor) {
+    std::size_t depth = 0;
+    for (auto cursor = index + 1; cursor < build.directives.size(); ++cursor) {
       const auto& candidate = build.directives[cursor];
-      if (candidate.mode == "off" && candidate.tag == "eparml") return true;
-      if (candidate.mode == "break") continue;
-      if (candidate.mode == "flow" &&
-          (candidate.tag == "pt" || candidate.tag == "p" ||
-           candidate.tag == "pc" || candidate.tag == "gd"))
-        continue;
-      return false;
+      if (candidate.mode == "flow" && candidate.tag == "parml") ++depth;
+      if (candidate.mode != "off" || candidate.tag != "eparml") continue;
+      if (depth == 0) return true;
+      --depth;
     }
     return false;
   }

@@ -436,6 +436,81 @@ void syntax_followed_by_pt_builds_an_implicit_parameter_list() {
               markdown);
 }
 
+// The opener is omitted after other blocks too, and the entries hold
+// paragraphs between them as an opened list does: SC41-5864-02 1.12.1
+// follows a table with `cz FLOW PT 3 7` `Length of receiver variable`,
+// `cz BREAK 7` `INPUT; BINARY(4)` and a `cz FLOW P 7 7` description, and
+// closes the run with `cz OFF EPARML 0 0`.  Hosted serves the term, `<br>`
+// and the indented body, exactly like an entry of an opened list.
+void a_term_after_a_paragraph_opens_the_list_its_closer_ends() {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({words("cz"), words("FLOW"), words("P"), words("3"),
+                words("3")});
+  builder.line({words("   "), words("The"), words("parameters"),
+                words("are:")});
+  builder.line({words("cz"), words("FLOW"), words("PT"), words("3"),
+                words("7")});
+  builder.line({words("   "), words("Length")});
+  builder.line({words("cz"), words("BREAK"), words("7")});
+  builder.line({words("       "), words("INPUT;"), words("BINARY(4)")});
+  builder.line({words("cz"), words("FLOW"), words("P"), words("7"),
+                words("7")});
+  builder.line({words("       "), words("The"), words("size"),
+                words("of"), words("the"), words("variable.")});
+  builder.line({words("cz"), words("FLOW"), words("PT"), words("3"),
+                words("7")});
+  builder.line({words("   "), words("Request")});
+  builder.line({words("cz"), words("BREAK"), words("7")});
+  builder.line({words("       "), words("INPUT;"), words("CHAR(53)")});
+  builder.line({words("cz"), words("OFF"), words("EPARML"), words("0"),
+                words("0")});
+  builder.line({words("cz"), words("FLOW"), words("P"), words("3"),
+                words("3")});
+  builder.line({words("   "), words("Afterwards.")});
+
+  const auto extracted = extract_record(std::move(builder), 26);
+  require(extracted.prose.has_value(),
+          "a parameter term after a paragraph was declined: " +
+              extracted.error);
+  if (!extracted.prose) return;
+  std::vector<const geist::detail::ProseBlockIR *> entries;
+  for (const auto &block : extracted.prose->blocks)
+    if (block.kind == geist::detail::ProseBlockKindIR::definition_entry)
+      entries.push_back(&block);
+  require(entries.size() == 2 &&
+              entries[0]->list_ordinal == entries[1]->list_ordinal,
+          "the two terms are not entries of one parameter list");
+  const auto document = lower_document(extracted);
+  if (!document) return;
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  require(contains(markdown, "The size of the variable.") &&
+              contains(markdown, "Afterwards\\.") &&
+              markdown.find("Afterwards") > markdown.find("CHAR(53)"),
+          "the implicit list lost its body or its trailing paragraph: " +
+              markdown);
+}
+
+// Without a closer nothing frames the list, and the term still fails.
+void a_term_without_a_list_closer_still_declines() {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({words("cz"), words("FLOW"), words("P"), words("3"),
+                words("3")});
+  builder.line({words("   "), words("The"), words("parameters"),
+                words("are:")});
+  builder.line({words("cz"), words("FLOW"), words("PT"), words("3"),
+                words("7")});
+  builder.line({words("   "), words("Length")});
+  builder.line({words("cz"), words("BREAK"), words("7")});
+  builder.line({words("       "), words("INPUT;"), words("BINARY(4)")});
+
+  const auto extracted = extract_record(std::move(builder), 27);
+  require(!extracted.prose.has_value() &&
+              contains(extracted.error, "outside an open parameter list"),
+          "a parameter term with no list closer was admitted");
+}
+
 // Parameter descriptions in DFHP7A00 2.5.3--2.5.5 and 2.5.7 contain
 // source-declared lists after the PT/BREAK paragraph.  The child list keeps
 // global block identities for the token ledger while the parameter entry
@@ -1530,6 +1605,8 @@ int main() {
   an_h6_directive_builds_a_level_six_heading();
   a_separate_dd_completes_its_definition_term();
   syntax_followed_by_pt_builds_an_implicit_parameter_list();
+  a_term_after_a_paragraph_opens_the_list_its_closer_ends();
+  a_term_without_a_list_closer_still_declines();
   a_nested_list_in_a_parameter_body_keeps_source_ownership();
   a_parameter_paragraph_continuation_keeps_source_ownership();
   a_list_item_continuation_keeps_recursive_source_ownership();
