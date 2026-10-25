@@ -2868,6 +2868,21 @@ rows of a box table alike -- and in front of the topic number for a title
 whose number the reader suppresses).  `U+2502` is printed `|`.  No hosted page
 of the sample prints a stored mark anywhere else or drops it.
 
+The topic's kind does not change this.  A section-label message catalog
+(`SRMSG` entries with `Explanation:`-style labels) stores and prints its
+marks the same way: `PRG1SQLG.BOO` `B.1.2`, logical record 787 line 42, is
+`0A 0B 79 E3 92 11 8C 25 00 EB 4B` at `0x227838` -- length byte, one blank,
+`79` (`|`), `E3 92` (`SQL0133`), `11` (a seven-cell blank run), `8C`
+(`SQLCODE`), `25` (`-`), an attach prefix and `EB 4B` (`133`) -- and hosted
+(DT `19900730230900`) serves
+pass:[<literal> | &lt;B&gt;SQL0133&lt;/B&gt;        &lt;B&gt;SQLCODE&lt;/B&gt; &lt;B&gt;-133&lt;/B&gt;</literal>].
+A menu topic's introduction rows (`CNMYB0MS.BOO` `APPENDIX1.1`, record 435
+lines 10-15, ` | This appendix documents ...`, DT `19911015181502`) and the rows of a figure or
+table envelope drawn inside a catalog entry (`N2AH1MST.BOO` `10.0`, DT `19910329000100`,
+` |          <B>ACTIVE</B> ...`) are printed with their marks too.  The one
+exception is a generated list in a CZ envelope; see
+<<markup_fixed_selection_rows_in_generated_lists>>.
+
 The mark's token has no fixed width.  The book compiler stores it as a
 one-byte token or as a two-byte dictionary word, and the margin shape -- not
 the width -- makes it the mark.  `GC24-5841-01.boo` `PREFACE.5`, logical
@@ -4018,6 +4033,21 @@ Hosted (DT `19930625001740`) prints the `#` in front of the anchor and
 selects only `39.  DFHJUP program, example 1   2.1.1.5.1`; `TABLES` row 14
 of the same book and `dfhla313` (`+` marks) have the same shape. A letter or
 digit in that column is not a mark.
+
+A list the book wraps in a CZ envelope -- `cz BREAK 3` and
+`cz OFF FIGLIST` (`cz OFF TLIST`) before the first selection,
+`cz OFF EFIGLIST 0 0` (`cz OFF ETLIST 0 0`) after the last -- is served differently:
+each selection becomes a `<dd>` of a definition list, the row's margin is
+not printed, and neither is a stored mark.  `SC31-6552-00` `FIGURES`,
+logical record 42: line 10 (length byte `04` at `0x19960`) is
+`cz OFF FIGLIST`, and line 14 is `1D 12 64 12 8E 01 ...` at `0x19984`
+(length byte, one blank, `|`, one blank, `2`, an attached `.`), the row
+` |  2.  APPN-to-Subarea COS Mapping Table Example   3.8` under
+`cselect 4 51 FIGAPPNMAP`.  Hosted (DT `19950503072955`) serves
+pass:[<literal>&lt;dd&gt;  &lt;a href=...&gt; 2.  APPN-to-Subarea COS Mapping Table Example   3.8&lt;/a&gt;</literal>].
+Checking one marked selection row in each of 75 library books: the 63
+lists without the envelope print the mark in front of the anchor inside
+`<pre>`, the 12 with it print `<dd>` rows and no mark.
 
 [[markup_srtbl_records_with_an_inline_first_row]]
 === SRTBL records with an inline first row
