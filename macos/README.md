@@ -16,7 +16,9 @@ The app is `build/macos/Geist BOO Reader.app`, with bundle identifier
 default), `ON`, and `OFF`. The native target is included by default on macOS
 and never added on other platforms. The build copies libpng and giflib and
 their licence texts into the app, rewrites their Mach-O imports, and signs the
-local bundle ad hoc. The system supplies AppKit, WebKit, and zlib.
+local bundle ad hoc. `LICENSE` and `THIRD-PARTY-NOTICES`, which carries the
+acknowledgement for the Hershey font data inside libgeist, are bundle
+resources. The system supplies AppKit, WebKit, and zlib.
 
 Each open book has its own window, contents tree, URL handler, and WebKit
 history. The app menu's Settings window controls the font family and contents

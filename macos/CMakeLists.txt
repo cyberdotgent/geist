@@ -40,10 +40,13 @@ target_compile_definitions(geist-boo-reader PRIVATE
 target_link_libraries(geist-boo-reader PRIVATE geist::geist_static
   "-framework AppKit" "-framework WebKit" "-framework PDFKit")
 
-set_source_files_properties("${PROJECT_SOURCE_DIR}/doc/html-styling.css"
-  "${PROJECT_SOURCE_DIR}/LICENSE" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
-target_sources(geist-boo-reader PRIVATE
-  "${PROJECT_SOURCE_DIR}/doc/html-styling.css" "${PROJECT_SOURCE_DIR}/LICENSE")
+# LICENSE and THIRD-PARTY-NOTICES ride in Resources: the latter carries the
+# Hershey fonts acknowledgement that must accompany libgeist's glyph data.
+set(_geist_mac_resources "${PROJECT_SOURCE_DIR}/doc/html-styling.css"
+  "${PROJECT_SOURCE_DIR}/LICENSE" "${PROJECT_SOURCE_DIR}/THIRD-PARTY-NOTICES")
+set_source_files_properties(${_geist_mac_resources}
+  PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+target_sources(geist-boo-reader PRIVATE ${_geist_mac_resources})
 
 set(GEIST_MAC_SIGN_IDENTITY "-" CACHE STRING
   "Code signing identity for the native app; '-' signs locally")

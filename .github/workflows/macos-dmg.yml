@@ -51,6 +51,11 @@ jobs:
           app='build/macos/Geist BOO Reader.app'
           mkdir -p "$app/Contents/Resources/ThirdPartyLicenses"
           cp "$RUNNER_TEMP/geist-deps/licenses/"*.txt "$app/Contents/Resources/ThirdPartyLicenses/"
+          # LICENSE and THIRD-PARTY-NOTICES (Hershey, libpng, zlib, giflib) are
+          # bundle resources from the CMake build; a release without them is
+          # not distributable.
+          test -f "$app/Contents/Resources/LICENSE"
+          grep -q 'Dr. A. V. Hershey' "$app/Contents/Resources/THIRD-PARTY-NOTICES"
           cp macos/RELEASE-NOTES.txt "$app/Contents/Resources/Experimental-build.txt"
           # Resource additions invalidate the earlier ad-hoc seal.
           codesign --force --sign - "$app"
