@@ -15,6 +15,7 @@
 #include <windowsx.h>
 
 #include <algorithm>
+#include <cwctype>
 #include <thread>
 
 namespace geist_reader {
