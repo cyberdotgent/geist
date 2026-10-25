@@ -2280,10 +2280,28 @@ struct CzBuilder {
           if ((tag == "fig" && !groups.empty()) || !spanned)
             return named_closer_rows(range);
         }
-        if (std::none_of(topic.spans.begin(), topic.spans.end(),
+        // A table closer in a topic that opens no table and has no table
+        // envelope closes nothing.  SC31-8778-01 ends the operand diagram of
+        // 315 topics with an unopened `SRETBL`, `cz OFF ETABLE 0 0` and
+        // `cz FLOW P 3 3` (2.2.3.4 record 226 lines 20-23); hosted
+        // BookServer (DT 20010606144047) prints nothing for either closer.
+        // A closer that owns display rows of its own is not shown by any
+        // such topic and still declines.
+        const auto no_span =
+            std::none_of(topic.spans.begin(), topic.spans.end(),
                          [kind](const ProseSpanIR& span) {
                            return span.kind == kind;
+                         });
+        if (no_span && tag == "etable" && groups.empty() &&
+            std::none_of(build.directives.begin(),
+                         build.directives.begin() +
+                             static_cast<std::ptrdiff_t>(index),
+                         [](const LayoutDirective& earlier) {
+                           return earlier.mode == "off" &&
+                                  earlier.tag == "table";
                          }))
+          return true;
+        if (no_span)
           return fail(error, name + " delimits no admitted " +
                                  (kind == ProseSpanKindIR::table
                                       ? "table envelope"

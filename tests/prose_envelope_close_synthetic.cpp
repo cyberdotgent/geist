@@ -179,6 +179,78 @@ void list_item_in_verbatim_envelope(const std::string &owner,
             markdown.find("third row") != std::string::npos,
         "Markdown lost the list anchor or a row: " + markdown);
 }
+// SC31-8778-01 2.3.6.1 record 282 line 24: an `SRETBL` alone on its display
+// line, after the operand's `statements:`/`dependencies:` rows, in a topic
+// that writes no `SRTBL` at all -- the compiler kept the end of a table whose
+// start it never wrote, in 714 operand topics of the book.  Hosted BookServer
+// (DT 20010606144047) serves the rows on either side as stored and nothing
+// for the closer.  `payload` puts display text on the closer's own line,
+// which no such topic shows; it stays unproven and declines.
+void unopened_table_closer(bool payload, bool expect_typed) {
+  Builder b;
+  b.line({});
+  b.line({w("   "), w("statements:"), w("     "), w("APPL")});
+  if (payload)
+    b.line({w("SRETBL"), w("   "), w("Loose words.")});
+  else
+    b.line({w("SRETBL")});
+  b.line({});
+  b.line({w("   "), w("Specifies"), w("the"), w("minor"), w("node.")});
+  std::string error;
+  const auto doc = lower(b, error);
+  if (!expect_typed) {
+    check(!doc, "an unopened SRETBL carrying display text was typed");
+    return;
+  }
+  check(doc.has_value(), "an unopened SRETBL declined the topic: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  check(html.find("statements:") != std::string::npos &&
+            html.find("Specifies the minor node.") != std::string::npos &&
+            html.find("statements:") < html.find("Specifies"),
+        "the rows around the unopened SRETBL were lost: " + html);
+  check(html.find("ETBL") == std::string::npos &&
+            html.find("<table") == std::string::npos,
+        "the unopened SRETBL printed or opened a table: " + html);
+}
+// SC31-8778-01 2.2.3.4 record 226 lines 20-23: the unopened `SRETBL` is
+// followed by `cz OFF ETABLE 0 0` and `cz FLOW P 3 3`, with no `cz OFF TABLE`
+// in the topic (315 operand topics of the book).  Hosted (DT 20010606144047)
+// prints the diagram and dependency rows, `</pre>` and the paragraph -- the
+// closer draws nothing.  `closer_rows` gives the closer a display row of its
+// own, which no such topic shows; it stays unproven and declines.
+void unopened_cz_table_closer(bool closer_rows, bool expect_typed) {
+  Builder b;
+  b.line({});
+  b.line({w("cz"), w("BREAK"), w("3")});
+  b.line({w("   "), w("statement:"), w("      "), w("ADJCP")});
+  b.line({w("SRETBL")});
+  b.line({});
+  b.line({w("cz"), w("OFF"), w("ETABLE"), w("0"), w("0")});
+  if (closer_rows)
+    b.line({w("   "), w("Loose"), w("row.")});
+  b.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  b.line({w("   "), w("The"), w("network"), w("identifier.")});
+  std::string error;
+  const auto doc = lower(b, error);
+  if (!expect_typed) {
+    check(!doc, "an unopened cz OFF ETABLE carrying a row was typed");
+    return;
+  }
+  check(doc.has_value(),
+        "an unopened cz OFF ETABLE declined the topic: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  check(html.find("statement:") != std::string::npos &&
+            html.find("The network identifier.") != std::string::npos,
+        "the rows around the unopened closers were lost: " + html);
+  check(html.find("ETABLE") == std::string::npos &&
+            html.find("ETBL") == std::string::npos &&
+            html.find("<table") == std::string::npos,
+        "an unopened closer printed or opened a table: " + html);
+}
 } // namespace
 
 int main() {
@@ -187,6 +259,10 @@ int main() {
   unclosed_envelope(true, true, false);
   list_item_in_verbatim_envelope("one", true);
   list_item_in_verbatim_envelope("two", false);
+  unopened_table_closer(false, true);
+  unopened_table_closer(true, false);
+  unopened_cz_table_closer(false, true);
+  unopened_cz_table_closer(true, false);
   geist_test::exit_with_failures();
   std::cout << "prose envelope close checks passed\n";
   return 0;

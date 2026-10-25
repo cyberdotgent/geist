@@ -1209,8 +1209,19 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   std::set<std::string> closed_list_owners;
   // Lower-cased targets of the topic's in-book selectors.
   std::set<std::string> selector_targets;
+  // `SRETBL` table ends that no `SRTBL<id>` earlier in the topic opens, as
+  // (record index, segment index) (see the unopened `SRETBL` below).
+  std::set<std::pair<std::size_t, std::size_t>> unopened_table_ends;
+  bool table_started = false;
   for (const auto& source : records)
     for (const auto& segment : source.control_segments) {
+      if (segment.kind == BookControlKind::table_start) table_started = true;
+      if (segment.kind == BookControlKind::table_end && !table_started &&
+          !segment.malformed)
+        unopened_table_ends.insert(
+            {static_cast<std::size_t>(&source - records.data()),
+             static_cast<std::size_t>(&segment -
+                                      source.control_segments.data())});
       if (segment.kind == BookControlKind::select && !segment.malformed) {
         std::size_t column = 0;
         std::size_t length = 0;
@@ -2292,9 +2303,21 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         const auto in_box =
             !segment.source_tokens.empty() &&
             box_markup.count({record_index, segment.source_tokens.front()}) != 0;
+        // A table end that no table start of the topic precedes closes
+        // nothing and names nothing.  SC31-8778-01 writes one `SRETBL` alone
+        // on its line after the `statements:`/`dependencies:` rows of 714
+        // operand topics, with no `SRTBL` in front of it (2.3.6.1 record 282
+        // line 24; 2.3.6.19 record 321 line 26 opens a real table only
+        // later, `SRTBLTBLUNIQ127` on record 322 line 9); hosted BookServer
+        // (DT 20010606144047) prints the rows around it as stored and
+        // nothing for it.  Display text on the closer's own line is not
+        // shown by any such topic and still declines (below).
+        const auto unopened_table_end =
+            segment.kind == BookControlKind::table_end &&
+            unopened_table_ends.count({record_index, segment_index}) != 0;
         if ((segment.kind == BookControlKind::table_start ||
              segment.kind == BookControlKind::table_end) &&
-            !in_box &&
+            !in_box && !unopened_table_end &&
             !(!segment.source_tokens.empty() &&
               inside_cz_verbatim(verbatim_regions, record_index,
                                  segment.source_tokens.front())))
@@ -2496,6 +2519,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         if (segment.malformed || lower_opcode.rfind("sr", 0) != 0 ||
             (reserved_structural(lower_opcode) && !in_verbatim && !in_box &&
              !figure_anchor &&
+             !unopened_table_end &&
              !(!segment.source_tokens.empty() &&
                box_figure_openers.count(
                    {record_index, segment.source_tokens.front()}) != 0) &&
@@ -2526,7 +2550,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         // is the box rows after it (hosted SH09-8098-02 3.3.3.4.1 serves no
         // anchor for either).
         const auto list_closer =
-            list_item_closer ||
+            list_item_closer || unopened_table_end ||
             (in_box && (segment.kind == BookControlKind::table_end ||
                         lower_opcode == "srefig"));
         // A body anchor can carry the first display line of the text it
@@ -2613,6 +2637,25 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                                                      token) &&
                                  in_closed_box(record_index, token);
                         });
+        // The unopened closer must stand alone on its display line; what the
+        // segment carries beyond that line is the next block's text.
+        if (unopened_table_end && !in_box) {
+          const auto* native =
+              segment.source_tokens.empty()
+                  ? nullptr
+                  : display_line_of_token(record, segment.source_tokens.front());
+          if (native == nullptr ||
+              native->prefix_token + 1 != segment.source_tokens.front())
+            return fail(error, "unopened table end " + segment.opcode +
+                                   " does not open its display line");
+          for (auto token = native->prefix_token + 2;
+               token < native->token_end; ++token) {
+            const auto view = view_token(records, record_index, token);
+            if (is_visible(view) && !is_padding(view))
+              return fail(error, "unopened table end " + segment.opcode +
+                                     " carries display text");
+          }
+        }
         if ((visible_payload || in_box || drawn_verbatim_payload ||
              box_leader || drawn_box_payload) &&
             title_seen) {

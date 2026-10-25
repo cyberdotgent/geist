@@ -4314,6 +4314,38 @@ control segments directly before the opener are both `SRETBL`, the second
 carrying nothing but spacing and empty display lines.  Any other unclosed
 envelope is not proven to end anywhere.
 
+[[markup_sretbl_without_srtbl]]
+=== An SRETBL that no SRTBL opens
+
+The reverse also occurs: a table end whose start the compiler never wrote.
+`SC31-8778-01.boo` ends the `statements:`/`dependencies:` rows of its VTAM
+operand topics with an `SRETBL` alone on its display line and no `SRTBL`
+before it in the topic.  In about half of them the CZ table closer
+`cz OFF ETABLE 0 0` follows, with no `cz OFF TABLE` before it either.
+
+[cols="<26,<38,<36",options="header"]
+|===
+|Topic, record, line |Bytes |Reading
+
+|`2.3.6.1` 282, 24 |`01` at `0x2F5EE`, then `79` |`SRETBL`, a line of its own
+|`2.3.6.1` 282, 25-26 |`00` at `0x2F5F0`, `0x2F5F1` |two empty display lines; the next line is an `SI` and the operand description
+|`2.2.3.4` 226, 20 |`01` at `0x29F44`, then `79` |`SRETBL`, a line of its own
+|`2.2.3.4` 226, 21 |`00` at `0x29F46` |an empty display line
+|`2.2.3.4` 226, 22 |`06` at `0x29F47`, then `48 73 A8 F1 80 80` |`cz OFF ETABLE 0 0`
+|`2.2.3.4` 226, 23 |`05` at `0x29F4E` |`cz FLOW P 3 3`, then the description rows
+|===
+
+Hosted BookServer (DT `20010606144047`) prints nothing for either closer:
+`2.3.6.1` shows the `statements:` and `dependencies:` rows, two `<p>` for
+the empty lines and then the description; `2.2.3.4` shows the rows, `<p>`
+for the empty line and `</pre>` for the `cz FLOW P` before the first
+paragraph.  Topic `2.3.6.19` writes such an `SRETBL` (record 321 line 26)
+before a real envelope (`SRTBLTBLUNIQ127`, record 322 line 9, closed by its
+own `SRETBL` on line 30); the early closer still prints nothing.  A table end
+is therefore inert when no table start precedes it in the topic.  No topic
+shows display text on the closer's own line, or rows owned by the unopened
+`cz OFF ETABLE`; those readings are not established.
+
 [[markup_ieac6mst_fixed_width_notice_emphasis]]
 === IEAC6MST fixed-width notice emphasis
 
