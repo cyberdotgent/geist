@@ -215,9 +215,63 @@ void an_operand_row_is_the_message_anchor() {
           "the bare `MSG` does not precede the line after it");
 }
 
+// Anchors that follow one another with no drawn line between them all name
+// the next drawn line.  SH24-5221-01 4.2 closes each abend code with a bare
+// `SRMSG` directly followed by the next code's `SRMSG 002`, and 2.0 opens
+// with `SRSPTMSGS` directly followed by `SRMSG 000I`; hosted (DT
+// 19930802093837) serves `<a name="SPTMSGS"><a name="MSG 000I"><hr>`, and
+// SC41-3552-00 B.6 (DT 19940606215218) `<a name="SPTCOMMMSG"><a
+// name="SPTCOMMSG"><a name="MSG COMM 16"><hr>`: every anchor of the run precedes the same row, in source
+// order, and none falls to the end of the topic.
+void chained_anchors_precede_the_same_line() {
+  RecordBuilder builder;
+  builder.heading();
+  builder.line({words("SRSPTMSGS")});
+  builder.line({words("SRMSG"), words("001")});
+  builder.line({words("   "), words("001"), words("First"), words("code.")});
+  builder.line({});
+  builder.line({words("SRMSG")});
+  builder.line({words("SRMSG"), words("002")});
+  builder.line({words("   "), words("002"), words("Second"), words("code.")});
+  builder.line({});
+  builder.line({words("   "), words("Closing"), words("text.")});
+  auto extracted = run(builder.build(46));
+  require(extracted.topic.has_value(),
+          "chained body anchors were rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto &topic = *extracted.topic;
+  const auto first = block_starting(topic, "001");
+  const auto second = block_starting(topic, "002");
+  require(first != static_cast<std::size_t>(-1) &&
+              second != static_cast<std::size_t>(-1),
+          "a message line is missing from the topic");
+  const auto spt = anchors_named(topic, "SPTMSGS");
+  const auto msg1 = anchors_named(topic, "MSG 001");
+  const auto bare = anchors_named(topic, "MSG");
+  const auto msg2 = anchors_named(topic, "MSG 002");
+  require(spt.size() == 1 && spt.front()->position == first,
+          "`SPTMSGS` does not precede the first message line");
+  require(msg1.size() == 1 && msg1.front()->position == first,
+          "`MSG 001` does not precede the first message line");
+  require(bare.size() == 1 && bare.front()->position == second,
+          "the bare `MSG` does not precede the second message line");
+  require(msg2.size() == 1 && msg2.front()->position == second,
+          "`MSG 002` does not precede the second message line");
+  // Source order is kept within the run.
+  const auto index_of = [&](const geist::detail::ProseAnchorIR *anchor) {
+    return static_cast<std::size_t>(anchor - topic.anchors.data());
+  };
+  if (spt.size() == 1 && msg1.size() == 1 && bare.size() == 1 &&
+      msg2.size() == 1)
+    require(index_of(spt.front()) < index_of(msg1.front()) &&
+                index_of(bare.front()) < index_of(msg2.front()),
+            "chained anchors are out of source order");
+}
+
 }  // namespace
 
 int main() {
   an_operand_row_is_the_message_anchor();
+  chained_anchors_precede_the_same_line();
   return 0;
 }

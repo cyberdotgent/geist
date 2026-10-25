@@ -1584,6 +1584,18 @@ digits alone (`25`), letters and digits (`ICH001E`), hyphens (`EC-0001`), a
 slash (`627I/E`) or two words (`COMM 16`).  The control row draws nothing; the
 next drawn line is ordinary body text.
 
+Several anchor rows in a row, with no drawn line between them, all name the
+same next drawn line, in source order.  `SH24-5221-01.boo` topic `4.2` ends
+each abend code with a bare `SRMSG` row directly followed by the next code's
+`SRMSG 002` row; the hosted reader serves `<a name="MSG"><a name="MSG 002">`
+around the rule row after them.  Topic `2.0` stores `SRSPTMSGS` directly
+before `SRMSG 000I` (served `<a name="SPTMSGS"><a name="MSG 000I">`), and
+`SC41-3552-00.boo` topic `B.6` stores `SRSPTCOMMMSG`, `SRSPTCOMMSG` and
+`SRMSG COMM 16` on consecutive rows (served as three nested anchors around
+one rule row).  `cfont` and `cselect` rows between the anchors and the line
+do not end the run.  An anchor run with no drawn line after it in the topic
+stands at the end (`SC41-3552-00` `B.6`, `SRSPTPROGAA`).
+
 Span-only `CFONT` records apply to the next physical text segment. PACKET
 topic `1.3` stores `CFONT 27 5 3 33 10 3` at the end of one logical record and
 the next record starts with pass:[<literal>FM&#160;&#160;radio&#160;&#160;through&#160;&#160;its audio interface; ...</literal>].

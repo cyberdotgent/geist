@@ -910,22 +910,27 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
   // Anchors: leading ones precede block 0; body anchors precede the block
   // that starts at their line, or the end.
   const auto leading_anchors = topic.anchors.size();
+  struct Placement {
+    std::size_t position = 0;
+    std::size_t row = static_cast<std::size_t>(-1);
+    bool found = false;
+  };
+  std::vector<Placement> placements;
   for (std::size_t anchor = 0; anchor < lines_build.body_anchors.size();
        ++anchor) {
-    auto placed = lines_build.body_anchors[anchor];
+    Placement placed;
     placed.position = ranges.size();
-    bool found = false;
     for (std::size_t block_index = 0; block_index < ranges.size(); ++block_index) {
       const auto& first = lines[ranges[block_index].first];
       if (first.anchor_before && first.anchor_index == anchor) {
         placed.position = block_index;
-        found = true;
+        placed.found = true;
         break;
       }
     }
     // A drawn box carries its envelope anchors on the rows they open
     // (`emit_box`); every other block opens at its anchored line.
-    for (std::size_t block_index = 0; !found && block_index < ranges.size();
+    for (std::size_t block_index = 0; !placed.found && block_index < ranges.size();
          ++block_index) {
       for (auto line = ranges[block_index].first + 1;
            line < ranges[block_index].second; ++line) {
@@ -935,11 +940,33 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
           return fail(error, "anchor stands inside a block that is no box");
         placed.position = block_index;
         placed.row = line - ranges[block_index].first;
-        found = true;
+        placed.found = true;
         break;
       }
     }
-    topic.anchors.push_back(std::move(placed));
+    placements.push_back(placed);
+  }
+  // An anchor followed by another before any row opened marks no row of its
+  // own (only the last of the run does, `Line::anchor_index`); it precedes
+  // the row its run's last anchor names.  Hosted SH24-5221-01 4.2 (DT
+  // 19930802093837) serves a bare `SRMSG` and the next `SRMSG 002` as
+  // `<a name="MSG"><a name="MSG 002"><hr>`, and 2.0 `SRSPTMSGS` + `SRMSG
+  // 000I` as `<a name="SPTMSGS"><a name="MSG 000I"><hr>`.  The CZ dialect
+  // places its runs the same way (`place_anchors`, prose_topic_cz.cpp).
+  for (std::size_t anchor = 0; anchor < placements.size(); ++anchor) {
+    auto& placed = placements[anchor];
+    for (auto next = anchor;
+         !placed.found && next < lines_build.anchor_successors.size() &&
+         lines_build.anchor_successors[next] != npos;) {
+      next = lines_build.anchor_successors[next];
+      if (next >= placements.size())
+        return fail(error, "anchor successor is out of range");
+      if (placements[next].found) placed = placements[next];
+    }
+    auto ir = lines_build.body_anchors[anchor];
+    ir.position = placed.position;
+    ir.row = placed.row;
+    topic.anchors.push_back(std::move(ir));
   }
   // Spans precede the first block starting at or after their line (or the
   // end) and, within that position, follow the leading anchors and the body
