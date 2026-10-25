@@ -1136,7 +1136,7 @@ public:
                 return std::make_pair(left.line, left.column) <
                        std::make_pair(right.line, right.column);
               });
-    for (const auto &picture : pictures) {
+    for (auto &picture : pictures) {
       if (picture.line >= body.size()) {
         reason = "picture selector has no display line";
         return false;
@@ -1151,6 +1151,7 @@ public:
                  "' at column " + std::to_string(picture.column);
         return false;
       }
+      picture.cells = text.substr(picture.column, end - picture.column);
       text.replace(picture.column, end - picture.column,
                    std::string(end - picture.column, ' '));
       text = trim_trailing_spaces(std::move(text));
@@ -3116,6 +3117,9 @@ bool verify_fixed_table_blocks_ir(
       if (picture.resource.empty() ||
           picture.placeholder != figure_picture_placeholder(picture.resource))
         return fail("fixed table picture has no resource");
+      if (picture.cells.size() > picture.length ||
+          trim_ascii(picture.cells) != picture.placeholder)
+        return fail("fixed table picture cells do not spell its placeholder");
       if (picture.line >= block.preformatted_lines.size())
         return fail("fixed table picture addresses no display line");
       if (index != 0 &&
@@ -3232,7 +3236,8 @@ std::string format_fixed_table_blocks_ir(const FixedTableBlocksIR &blocks) {
           << picture.line << " columns=[" << picture.column << ','
           << picture.column + picture.length << ") source="
           << picture.logical_record << ':' << picture.segment_index
-          << " alt='" << picture.placeholder << "'\n";
+          << " alt='" << picture.placeholder << "' cells='" << picture.cells
+          << "'\n";
     for (const auto &anchor : block.spot_anchors)
       out << " spot_anchor id='" << anchor.id << "' line=" << anchor.line
           << " source=" << anchor.source.logical_record << ':'

@@ -271,11 +271,54 @@ void image_cells_keep_row_geometry() {
   check(!verify_document_ir(bare, &error),
         "image without cells accepted inside a preformatted row");
 }
+// The same frame inside a table envelope that is character art, not a
+// declared `:table` (GC23-0422-02 2.5.1 record 132, `SRTBLTBLUNIQ5`: a boxed
+// paragraph, then `cselect 5 10 PIC10` over `PICTURE 10` between the rails,
+// then `SRETBL`).  Hosted (DT 19970611100229) serves the rows in the topic's
+// `<pre>` with the `<img>` at column 5 of the picture row; the image used to
+// be emitted ahead of the art instead.
+void table_envelope_picture_stands_in_its_row() {
+  Builder b;
+  b.heading();
+  b.line({w("   "), w("Here is an example.")});
+  b.line({w("SRTBLTBLUNIQ5")});
+  b.line({w("    "), w("_______________")});
+  b.line({w("   "), w("|"), w("Text"), w("row"), w("        "), w("|")});
+  b.line({w("cselect"), w("5"), w("9"), w("PIC1")});
+  b.line({w("   "), w("|"), w("PICTURE"), w("1"), w("    "), w("|")});
+  b.line({w("   "), w("|_______________|")});
+  b.line({w("SRETBL")});
+  b.line({w("   "), w("Following prose.")});
+  auto d = lower({b.finish(132)});
+  if (!d)
+    return;
+  const auto html = render_document_html_fragment(*d);
+  check(html.find("<figure") == std::string::npos,
+        "table envelope picture still emitted ahead of the art: " + html);
+  check(count(html, "<pre") == 1, "envelope rows split across blocks: " + html);
+  const auto img = html.find("<img");
+  const auto rule = html.find("    _______________");
+  check(img != std::string::npos && rule != std::string::npos && rule < img &&
+            html.rfind("   | ", img) + 5 == img,
+        "image does not stand at its selector column: " + html);
+  const auto img_end = html.find('>', img);
+  check(img_end != std::string::npos &&
+            html.compare(img_end + 1, 14, "              ") == 0 &&
+            html.compare(img_end + 15, 1, "|") == 0,
+        "placeholder columns are not blank before the right rail: " + html);
+  const auto md = render_document_markdown(*d);
+  const auto image = md.find("![PICTURE 1](<resource:1>)");
+  const auto text = md.find("   | Text row");
+  check(image != std::string::npos && text != std::string::npos &&
+            text < image,
+        "markdown image does not stand at its row: " + md);
+}
 } // namespace
 
 int main() {
   image_cells_keep_row_geometry();
   frame_rows_stay_with_the_image_inline();
   styled_label_inside_the_frame();
+  table_envelope_picture_stands_in_its_row();
   return 0;
 }

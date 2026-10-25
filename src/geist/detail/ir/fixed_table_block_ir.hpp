@@ -161,7 +161,8 @@ struct FixedTablePreformattedLineIR {
 // So the region keeps its art and its picture both: the columns
 // `[column, column + length)` of `line` are blanked in the reproduced text
 // (which is then exactly hosted's `<pre>` line) and the picture is recorded
-// here, to be rendered as an image beside the verbatim block.  Reproducing
+// here, to be rendered as an image standing in that row over those columns
+// (`ImageInlineIR::cells`), which they print blank.  Reproducing
 // the placeholder words instead would spell `PICTURE 69` where hosted shows
 // the image, which is how an earlier attempt lost the picture.
 struct FixedTablePictureIR {
@@ -175,6 +176,9 @@ struct FixedTablePictureIR {
   // Line-relative columns the selector covers, i.e. the blanked span.
   std::size_t column = 0;
   std::size_t length = 0;
+  // Those columns as the line spelled them before blanking (` PICTURE 69`),
+  // clamped to the line's end: the cells the image stands over.
+  std::string cells;
   // The CSELECT opcode/operand extent.
   std::uint32_t logical_record = 0;
   std::size_t segment_index = 0;

@@ -6,6 +6,7 @@
 #include "geist/detail/lowering/cross_reference_target.hpp"
 
 #include <algorithm>
+#include <optional>
 #include <utility>
 
 namespace geist::detail {
@@ -166,6 +167,77 @@ InlineSequenceIR styled_row(const FixedTablePreformattedLineIR &line,
   return row;
 }
 
+// The row of a picture line: its text with each picture's cells spelled
+// back in (`FixedTablePictureIR::cells`), and those cells an image standing
+// in the row, which hosted BookServer draws at the selector's first column
+// with the cells blank (GC23-0422-02 2.5.1 `TBLUNIQ5`, GG24-395 3.3.8
+// `TBLUNIQ14`).  Empty when a picture's cells do not fall inside one plain
+// text run of the row.
+std::optional<std::pair<std::string, InlineSequenceIR>>
+picture_row(const FixedTablePreformattedLineIR &line,
+            const std::vector<const FixedTablePictureIR *> &pictures,
+            const DocumentNodeOriginIR &line_origin) {
+  auto restored = line;
+  for (const auto *picture : pictures) {
+    const auto need = picture->column + picture->cells.size();
+    if (restored.text.size() < need)
+      restored.text.resize(need, ' ');
+    if (restored.text.find_first_not_of(' ', picture->column) < need)
+      return std::nullopt;
+    restored.text.replace(picture->column, picture->cells.size(),
+                          picture->cells);
+  }
+  auto row = styled_row(restored, line_origin);
+  for (const auto *picture : pictures) {
+    std::size_t at = 0;
+    bool placed = false;
+    for (std::size_t index = 0; index < row.size() && !placed; ++index) {
+      const auto *text = std::get_if<TextInlineIR>(&row[index].node);
+      std::size_t width = 0;
+      if (text != nullptr)
+        width = text->text.size();
+      else if (const auto *code = std::get_if<CodeInlineIR>(&row[index].node))
+        width = code->code.size();
+      else if (const auto *em = std::get_if<EmphasisInlineIR>(&row[index].node))
+        width = em->text.size();
+      else if (const auto *ref =
+                   std::get_if<CrossReferenceInlineIR>(&row[index].node))
+        width = ref->label.size();
+      else if (const auto *image = std::get_if<ImageInlineIR>(&row[index].node))
+        width = image->cells.size();
+      const auto begin = picture->column;
+      const auto end = begin + picture->cells.size();
+      if (end <= at || begin >= at + width) {
+        at += width;
+        continue;
+      }
+      if (text == nullptr || begin < at || end > at + width)
+        return std::nullopt;
+      const auto value = text->text;
+      const auto origin = row[index].origin;
+      InlineSequenceIR pieces;
+      if (begin > at)
+        pieces.push_back({TextInlineIR{value.substr(0, begin - at)}, origin});
+      ImageInlineIR image;
+      image.resource = "resource:" + picture->resource;
+      image.alt_text = picture->placeholder;
+      image.cells = picture->cells;
+      auto image_origin = origin;
+      image_origin.detail = "fixed table region: picture";
+      pieces.push_back({std::move(image), image_origin});
+      if (end < at + width)
+        pieces.push_back({TextInlineIR{value.substr(end - at)}, origin});
+      row.erase(row.begin() + static_cast<std::ptrdiff_t>(index));
+      row.insert(row.begin() + static_cast<std::ptrdiff_t>(index),
+                 pieces.begin(), pieces.end());
+      placed = true;
+    }
+    if (!placed)
+      return std::nullopt;
+  }
+  return std::make_pair(std::move(restored.text), std::move(row));
+}
+
 TableRowIR lower_row(const FixedTableRowIR &row) {
   TableRowIR lowered;
   lowered.origin = origin_for("fixed table row");
@@ -211,11 +283,38 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
   if (verbatim || block.geometry == FixedTableGeometryIR::preformatted) {
     // A picture the region places on one of those lines is served by hosted
     // BookServer as an `<img>` over the selector's columns, inside the same
-    // `<pre>`.  A fenced block carries no inline, so the image is emitted as
-    // its own block, in line order, ahead of the art whose blanked columns
-    // are the slot it belongs in; the resource keeps hosted's own name for
-    // it ("PICTURE 69"), which the renderer derives from the destination.
+    // `<pre>`: the row keeps it as an image standing over those columns
+    // (`picture_row`).  Should a picture's columns not fall inside one plain
+    // run of its row, every picture of the region is emitted as its own
+    // block, in line order, ahead of the art whose blanked columns are the
+    // slot it belongs in.
+    std::vector<std::vector<const FixedTablePictureIR *>> line_pictures(
+        block.preformatted_lines.size());
+    for (const auto &picture : block.pictures)
+      if (picture.line < line_pictures.size())
+        line_pictures[picture.line].push_back(&picture);
+    std::vector<std::optional<std::pair<std::string, InlineSequenceIR>>>
+        placed_rows(block.preformatted_lines.size());
+    bool inline_pictures = true;
+    for (std::size_t index = 0; index < line_pictures.size(); ++index) {
+      if (line_pictures[index].empty())
+        continue;
+      auto line_origin = origin_for("fixed table preformatted line");
+      const auto &line = block.preformatted_lines[index];
+      if (line.slice.byte_begin < line.slice.byte_end)
+        line_origin.slices.push_back(line.slice);
+      for (const auto &row : line.rows)
+        add_row(line_origin, row);
+      placed_rows[index] =
+          picture_row(line, line_pictures[index], line_origin);
+      inline_pictures = inline_pictures && placed_rows[index].has_value();
+    }
+    if (!inline_pictures)
+      for (auto &placed : placed_rows)
+        placed.reset();
     for (const auto &picture : block.pictures) {
+      if (inline_pictures)
+        break;
       BlockIR image;
       image.origin = origin_for("fixed table region: picture");
       image.origin.slices.push_back(picture.source);
@@ -231,18 +330,18 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
       PreformattedBlockIR body;
       BlockIR body_block;
       body_block.origin = origin_for("fixed table region: verbatim body");
-      // A block whose rows carry any style keeps every row as inlines (an
-      // unstyled row is one text run, an empty row none).
-      const auto styled = std::any_of(
-          block.preformatted_lines.begin() +
-              static_cast<std::ptrdiff_t>(begin),
-          block.preformatted_lines.begin() + static_cast<std::ptrdiff_t>(end),
-          [](const auto &line) {
-            return !line.highlights.empty() || !line.links.empty();
-          });
+      // A block whose rows carry any style or picture keeps every row as
+      // inlines (an unstyled row is one text run, an empty row none).
+      bool styled = false;
       for (auto index = begin; index < end; ++index) {
         const auto &line = block.preformatted_lines[index];
-        body.lines.push_back(line.text);
+        styled = styled || !line.highlights.empty() || !line.links.empty() ||
+                 placed_rows[index].has_value();
+      }
+      for (auto index = begin; index < end; ++index) {
+        const auto &line = block.preformatted_lines[index];
+        const auto &placed = placed_rows[index];
+        body.lines.push_back(placed ? placed->first : line.text);
         auto line_origin = origin_for("fixed table preformatted line");
         if (line.slice.byte_begin < line.slice.byte_end)
           line_origin.slices.push_back(line.slice);
@@ -250,7 +349,12 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
           add_row(body_block.origin, row);
           add_row(line_origin, row);
         }
-        if (styled)
+        if (placed)
+          for (const auto *picture : line_pictures[index])
+            body_block.origin.slices.push_back(picture->source);
+        if (placed)
+          body.styled_lines.push_back(placed->second);
+        else if (styled)
           body.styled_lines.push_back(styled_row(line, line_origin));
         body.line_origins.push_back(std::move(line_origin));
         // An `SRLIS<owner>` inside the region names this row, inside the
