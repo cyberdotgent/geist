@@ -161,6 +161,28 @@ end-to-end: decoding `QS3X36CM.BOO` with these rules reproduces the exact casing
 the hosted BookServer serves for the same topics, including `System/36`,
 `AS/400`, and `(CL)`.
 
+The uppercase and normal (lowercase) tables are not ASCII-only: they change
+the case of the Latin-1 letters as well. For the token words of the
+code-page-500 dictionary table (which are Unicode code points) the uppercase
+table maps U+00E0..U+00FE, except U+00F7, to U+00C0..U+00DE, maps U+00DF `ß`
+to `S` and U+00FF `ÿ` to U+0178; the normal table maps U+00C0..U+00DE, except
+U+00D7, to U+00E0..U+00FE. Every other word below U+0100 is unchanged.
+U+0178 has no ISO-8859-1 display byte, so where the uppercase table yields it
+the hosted output is not established.
+
+Evidence: `AFM41MST.BOO` (directory text parameter 500) stores a dictionary
+record at file offset `0x561c`: length `3e`, key `ce 14`, base literal count
+`02` and literals `8d f0` (`ý0`). Its delta operations include `41 c1 f0` at
+`0x5654` (mode 1: keep the first word of the previous key's `Þvorder`,
+apply the normal table, append the literal `f0` = `0`), giving key `0xCE22`
+= `þ0`, and `00` at
+`0x5657` (mode 0, no positions: uppercase the whole buffer), giving key
+`0xCE23`. Topic `7.8` logical record 761 draws that key as token 301 at
+`0x44a31` (`ce 23`) in `View index (Þ0).`, and the hosted BookServer
+(DT `19910927164256`) serves `View index (Þ0).`; with an ASCII-only
+uppercase table the key would spell `þ0`. Topic `17.1` draws `[path]` the
+same way and hosted serves `Ýpath¨`.
+
 [[encoding_character_classes_and_special_characters]]
 === Character Classes And Special Characters
 

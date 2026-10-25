@@ -209,6 +209,10 @@ bool byte_range_is_valid(const std::vector<std::uint8_t>& bytes,
 
 std::uint16_t map_token_word_to_lower_ascii(std::uint16_t word);
 std::uint16_t map_token_word_to_upper_ascii(std::uint16_t word);
+// The reader's case tables for dictionary words (doc/boo-spec/encoding.adoc,
+// "Case Of Dictionary Words"): ASCII and the Latin-1 letters.
+std::uint16_t map_token_word_to_lower(std::uint16_t word);
+std::uint16_t map_token_word_to_upper(std::uint16_t word);
 std::string token_words_to_ascii(const TokenWords& words);
 // Byte width one token word contributes to token_words_to_ascii, without
 // materialising the projection. Callers that only need offsets or widths must

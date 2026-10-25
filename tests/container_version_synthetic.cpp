@@ -261,8 +261,62 @@ void verify_parent_display_line() {
 
 } // namespace
 
+// Dictionary delta records change a word's case through the reader's case
+// tables, which cover the Latin-1 letters as well as ASCII.  AFM41MST stores
+// `[path]` as the code-page-500 bytes for `ýpath¨` with the first position
+// uppercased, and hosted BookServer (DT 19910927164256, topic 17.1) prints
+// `Ýpath¨`.
+void verify_dictionary_case_tables() {
+  auto bytes = book(0xf2, 500, 0x8d);  // CP500 0x8D is `ý`
+  const std::size_t page = 2 * geist::boo_page_size;
+  const std::vector<std::uint8_t> dictionary = {
+      0x01, 0x00, 0x00, 0x12,  // page class 0x0100, used to offset 18
+      0x0d, 0x00, 0x00, 0x00,  // one block: 13 bytes, no key prefix
+      0x09, 0xdc, 0x00,        // one token record: key 0xdc00
+      0x01, 0x8d,              // base record: `ý`
+      0x81, 0x00,              // key 0xdc01: lowercase, uppercase position 0
+      0xc2, 0x97, 0x4a};       // key 0xdc02: lowercase, append `p[`
+  std::fill(bytes.begin() + page, bytes.begin() + page + 32, 0);
+  std::copy(dictionary.begin(), dictionary.end(), bytes.begin() + page);
+  const auto prologue =
+      geist::detail::read_container_prologue(bytes, "synthetic.boo");
+  const auto tokens =
+      geist::detail::decode_experimental_dictionary(bytes, prologue.directory);
+  const auto word = [&](std::uint16_t key) {
+    const auto found = tokens.find(key);
+    return found == tokens.end() ? TokenWords{} : found->second;
+  };
+  require(word(0xdc00) == TokenWords{0xfd}, "CP500 0x8D is not read as y-acute");
+  require(word(0xdc01) == TokenWords{0xdd},
+          "an uppercased y-acute did not become Y-acute");
+  require(word(0xdc02) == (TokenWords{0xfd, 'p', '['}),
+          "a lowercased Y-acute did not become y-acute");
+  // The case tables map every Latin-1 small letter to its capital except
+  // the two that have none in Latin-1.
+  for (std::uint16_t small = 0xe0; small <= 0xfe; ++small) {
+    if (small == 0xf7) continue;
+    require(geist::detail::map_token_word_to_upper(small) == small - 0x20,
+            "a Latin-1 small letter has no capital");
+    require(geist::detail::map_token_word_to_lower(
+                static_cast<std::uint16_t>(small - 0x20)) == small,
+            "a Latin-1 capital has no small letter");
+  }
+  require(geist::detail::map_token_word_to_upper(0xf7) == 0xf7 &&
+              geist::detail::map_token_word_to_lower(0xd7) == 0xd7,
+          "the division and multiplication signs changed case");
+  require(geist::detail::map_token_word_to_upper(0xdf) == 'S',
+          "sharp s does not uppercase to S as the case table says");
+  require(geist::detail::map_token_word_to_upper(0xb5) == 0xb5,
+          "the micro sign changed case");
+  // The table's capital of `ÿ` is U+0178, which no Latin-1 display byte
+  // spells; the letter is kept rather than printed as a substitute.
+  require(geist::detail::map_token_word_to_upper(0xff) == 0xff,
+          "y-diaeresis was replaced by a capital outside Latin-1");
+}
+
 int main() {
   verify_dictionary_text_selector();
+  verify_dictionary_case_tables();
   verify_topic_number_spelling();
   verify_toc_entry_grammar();
   verify_nesting_from_parent_chain();

@@ -93,7 +93,7 @@ void lowercase_positions(TokenWords& value,
                          const std::vector<std::uint8_t>& positions) {
   for (const auto position : positions) {
     if (position < value.size()) {
-      value[position] = map_token_word_to_lower_ascii(value[position]);
+      value[position] = map_token_word_to_lower(value[position]);
     }
   }
 }
@@ -102,20 +102,20 @@ void uppercase_positions(TokenWords& value,
                          const std::vector<std::uint8_t>& positions) {
   for (const auto position : positions) {
     if (position < value.size()) {
-      value[position] = map_token_word_to_upper_ascii(value[position]);
+      value[position] = map_token_word_to_upper(value[position]);
     }
   }
 }
 
 void lowercase_words(TokenWords& value) {
   for (auto& word : value) {
-    word = map_token_word_to_lower_ascii(word);
+    word = map_token_word_to_lower(word);
   }
 }
 
 void uppercase_words(TokenWords& value) {
   for (auto& word : value) {
-    word = map_token_word_to_upper_ascii(word);
+    word = map_token_word_to_upper(word);
   }
 }
 

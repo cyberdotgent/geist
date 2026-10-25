@@ -99,6 +99,27 @@ std::uint16_t map_token_word_to_lower_ascii(std::uint16_t word) {
   return word;
 }
 
+// The reader's uppercase and lowercase tables for dictionary words map the
+// Latin-1 letters as well as ASCII: `ý` (U+00FD) and `Ý` (U+00DD), `þ` and
+// `Þ`, and so on, with `ß` uppercasing to `S`.  The uppercase table's `ÿ`
+// becomes U+0178, which no Latin-1 display byte spells; it is kept as `ÿ`.
+std::uint16_t map_token_word_to_upper(std::uint16_t word) {
+  if (word >= 0xe0 && word <= 0xfe && word != 0xf7) {
+    return static_cast<std::uint16_t>(word - 0x20);
+  }
+  if (word == 0xdf) {
+    return 'S';
+  }
+  return map_token_word_to_upper_ascii(word);
+}
+
+std::uint16_t map_token_word_to_lower(std::uint16_t word) {
+  if (word >= 0xc0 && word <= 0xde && word != 0xd7) {
+    return static_cast<std::uint16_t>(word + 0x20);
+  }
+  return map_token_word_to_lower_ascii(word);
+}
+
 std::size_t token_word_ascii_width(std::uint16_t word) {
   // Mirrors token_words_to_ascii exactly: every word projects to one byte
   // except the Latin-1 range, which projects to a two-byte UTF-8 sequence.
