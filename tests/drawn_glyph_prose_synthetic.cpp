@@ -475,6 +475,42 @@ void marked_generic_region_row() {
         "the generic region row lost its stored mark: " + html);
 }
 
+// A drawn box keeps the `CFONT` highlighting and the `CSELECT` links of its
+// rows, with or without an `SRTBL` envelope around it: ICHA6MST 5.0 record
+// 818 opens `SRTBLTBLUNIQ66` (line 8) above a closed box whose first row
+// carries `cfont 43 8 2 52 8 2 61 2 2 64 5 2` and whose second row
+// `cselect 62 3 SPTVMSP1I` (line 12); hosted (DT 19910801172557) serves
+// `<B>Password</B> ...` and `<a href="...#SPTVMSP1I">5.0</a>` in its `<pre>`.
+void styled_box_rows(bool envelope) {
+  Builder builder(false);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  if (envelope) builder.line({w("SRTBLTBLUNIQ66")});
+  builder.line({sp(3), box(run(0x250C, 0x2500, 16, 0x2510))});
+  builder.line({w("cfont"), w("5"), w("4"), w("2")});
+  builder.line({sp(3), box({0x2502}), w("Bold"), w("text"), sp(6),
+                box({0x2502})});
+  builder.line({w("cselect"), w("5"), w("4"), w("SPTTARGET")});
+  builder.line({sp(3), box({0x2502}), w("Link"), w("text"), sp(6),
+                box({0x2502})});
+  builder.line({sp(3), box(run(0x2514, 0x2500, 16, 0x2518))});
+  if (envelope) builder.line({w("SRETBL")});
+  builder.blank();
+  builder.line({w("SRSPTTARGET")});
+  builder.line({sp(3), w("Target.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "a styled box declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(html, ">Bold</strong>") || contains(html, ">Bold</b>"),
+        std::string("the box row lost its highlighting") +
+            (envelope ? " (envelope)" : "") + ": " + html);
+  check(contains(html, "href=\"#SPTTARGET\">Link</a>"),
+        std::string("the box row lost its link") +
+            (envelope ? " (envelope)" : "") + ": " + html);
+}
+
 // A generic region with no closer of its own ends at the next `CZ FLOW`:
 // the reader's generic `CZ OFF` opens `<pre width="80">` and only a
 // `CZ FLOW` closes it.  SC33-0824-02 2.1.1.1 record 117 opens
@@ -606,6 +642,8 @@ int main() {
   styled_generic_region(false);
   styled_generic_region(true);
   marked_generic_region_row();
+  styled_box_rows(false);
+  styled_box_rows(true);
   generic_region_ended_by_flow();
   unended_generic_region_declines();
   return 0;

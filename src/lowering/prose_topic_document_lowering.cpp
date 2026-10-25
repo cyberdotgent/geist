@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "geist/detail/lowering/prose_topic_document_lowering.hpp"
+#include "geist/detail/lowering/cross_reference_target.hpp"
 
 #include "geist/detail/ir/figure_block_ir.hpp"
 #include "geist/detail/ir/selector_link_ir.hpp"
@@ -44,26 +45,7 @@ PhraseKindIR phrase_kind(FontStyleIR style) {
 CrossReferenceTargetIR prose_target(
     CrossReferenceTargetKindIR kind, const std::string& value,
     const std::vector<std::string>& alternatives) {
-  CrossReferenceTargetIR target{kind, value};
-  target.alternatives = alternatives;
-  if (alternatives.size() >= 6) {
-    target.value = alternatives[5];
-    if (kind == CrossReferenceTargetKindIR::book_contents) {
-      target.document_number = alternatives[3];
-      target.document_level = alternatives[4];
-    } else if (kind == CrossReferenceTargetKindIR::book_heading) {
-      target.document_number = alternatives[3];
-      target.document_level = alternatives[4];
-      target.heading_anchor = alternatives[1];
-    } else if (kind == CrossReferenceTargetKindIR::book_spot) {
-      target.document_number = alternatives[3];
-      target.document_level = alternatives[4];
-      target.spot_anchor = alternatives[1];
-    } else if (kind == CrossReferenceTargetKindIR::external) {
-      target.url = alternatives[3];
-    }
-  }
-  return target;
+  return selector_cross_reference_target(kind, value, alternatives);
 }
 
 bool code_style(FontStyleIR style) { return font_style_is_code(style); }

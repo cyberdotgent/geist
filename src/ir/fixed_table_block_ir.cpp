@@ -690,6 +690,96 @@ public:
     return true;
   }
 
+  // A cross-reference selector waiting for the display line below its
+  // markup line: its columns and destination.
+  struct PendingLink {
+    std::size_t column = 0;
+    std::size_t length = 0;
+    FixedTableLineLinkIR link;
+  };
+
+  // A `cselect <column> <length> <target>` that is no picture: an in-book
+  // target, or a `LNK` selector whose alternative list parses as one of the
+  // modelled forms.  Anything else fails the region closed (`reason`).
+  static bool link_selector(const DecodedLogicalRecordSource &record,
+                            const ControlSegmentIR &segment,
+                            PendingLink &pending, std::string &reason) {
+    const auto text = token_words_to_ascii(record.assembled.words);
+    if (segment.malformed ||
+        segment.operand_range.end <= segment.operand_range.begin ||
+        segment.operand_range.begin >= text.size()) {
+      reason = "selector in a preformatted region is not canonical";
+      return false;
+    }
+    std::istringstream input(
+        text.substr(segment.operand_range.begin,
+                    std::min(segment.operand_range.end, text.size()) -
+                        segment.operand_range.begin));
+    std::string column;
+    std::string length;
+    std::string target;
+    if (!(input >> column >> length >> target) || column.size() > 6 ||
+        length.size() > 6 ||
+        !std::all_of(column.begin(), column.end(),
+                     [](const auto ch) { return std::isdigit(ch) != 0; }) ||
+        !std::all_of(length.begin(), length.end(),
+                     [](const auto ch) { return std::isdigit(ch) != 0; })) {
+      reason = "selector in a preformatted region is not canonical";
+      return false;
+    }
+    pending.column = static_cast<std::size_t>(std::stoul(column));
+    pending.length = static_cast<std::size_t>(std::stoul(length));
+    pending.link.target = target;
+    pending.link.source = control_slice(record, segment);
+    if (ascii_lower(target) != "lnk") {
+      std::string trailing;
+      if (input >> trailing) {
+        reason = "selector in a preformatted region is not canonical";
+        return false;
+      }
+      return true;
+    }
+    std::vector<std::string> alternatives;
+    const auto tokens =
+        selector_link_alternative_tokens(record, segment, &alternatives);
+    std::string link_error;
+    const auto parsed = parse_selector_link(alternatives, &link_error);
+    if (!parsed) {
+      reason = "selector in a preformatted region rejected: " + link_error;
+      return false;
+    }
+    switch (parsed->kind) {
+    case SelectorLinkKindIR::book_contents:
+      pending.link.target_kind = CrossReferenceTargetKindIR::book_contents;
+      break;
+    case SelectorLinkKindIR::book_heading:
+      pending.link.target_kind = CrossReferenceTargetKindIR::book_heading;
+      break;
+    case SelectorLinkKindIR::book_spot:
+      pending.link.target_kind = CrossReferenceTargetKindIR::book_spot;
+      break;
+    case SelectorLinkKindIR::external_link:
+      pending.link.target_kind = CrossReferenceTargetKindIR::external;
+      break;
+    case SelectorLinkKindIR::external_image:
+      reason = "selector in a preformatted region draws an external image";
+      return false;
+    }
+    if (parsed->alternatives.size() < 6) {
+      reason = "selector in a preformatted region names no destination";
+      return false;
+    }
+    pending.link.target = parsed->alternatives[5];
+    pending.link.target_alternatives = parsed->alternatives;
+    if (!tokens.empty() && pending.link.source.token_end <= tokens.back()) {
+      pending.link.source.token_end = tokens.back() + 1;
+      if (pending.link.source.token_end <= record.ir.tokens.size())
+        pending.link.source.byte_end =
+            record.ir.tokens[tokens.back()].byte_range.end;
+    }
+    return true;
+  }
+
   // Leading payload tokens of a `LNK` selector: the `<...>` alternatives
   // that carry the destination (selector_link_ir.hpp).  They are control
   // metadata -- the hosted page never displays one -- so a selector line
@@ -852,6 +942,10 @@ public:
     // The font control of the markup line just walked, waiting for the
     // display line directly below it; any other line in between drops it.
     std::optional<FontControlSpansIR> pending_font;
+    // The cross-reference selectors of the markup lines just walked, waiting
+    // for the display line directly below them.
+    std::vector<PendingLink> pending_links;
+    std::vector<std::vector<FixedTableLineLinkIR>> body_links;
     std::vector<FixedTableSpotAnchorIR> list_anchors;
     std::vector<FixedTableSpotAnchorIR> list_closers;
     for (auto index = first + 1; index < last; ++index) {
@@ -860,6 +954,7 @@ public:
       const auto content_begin = view.line.prefix_token + 1;
       const auto &offsets = byte_offsets(record);
       bool control_line = false;
+      bool select_only = true;
       std::optional<FontControlSpansIR> line_font;
       // A control segment reaches from its opcode to the next control, so a
       // segment that started on an earlier line only styles this one; the
@@ -919,7 +1014,16 @@ public:
           } else if (picture_selector(record, segment)) {
             reason = "picture selector operand is not canonical";
             return false;
+          } else {
+            // A cross reference: hosted serves it as a link over the
+            // selector's columns of the display line below.
+            PendingLink pending;
+            if (!link_selector(record, segment, pending, reason))
+              return false;
+            pending_links.push_back(std::move(pending));
           }
+        } else {
+          select_only = false;
         }
         if (spot) {
           FixedTableSpotAnchorIR anchor;
@@ -943,7 +1047,10 @@ public:
         control_line = true;
       }
       if (control_line) {
-        pending_font = std::move(line_font);
+        // A selector line between the `CFONT` line and its row leaves the
+        // font waiting: both controls address the row below them.
+        if (!select_only || line_font)
+          pending_font = std::move(line_font);
         continue;
       }
       // A subject-index line displays nothing; it was recorded as an index
@@ -955,6 +1062,8 @@ public:
                    entry.token_end == view.line.token_end;
           });
       if (index_line) {
+        // A selector reaches past the index line, which draws nothing, to
+        // the display row below it.
         pending_font.reset();
         continue;
       }
@@ -977,9 +1086,46 @@ public:
         highlights.clear();
       body_highlights.push_back(std::move(highlights));
       pending_font.reset();
+      // Each selector names a column range of this line: clamped to the
+      // cells the line draws, as hosted clamps it, trimmed to the drawn
+      // glyphs, and never overlapping another.
+      {
+        const auto cells = display_line_cells(record, view.line);
+        const auto offsets = display_line_column_offsets(record, view.line);
+        std::vector<FixedTableLineLinkIR> links;
+        for (auto &pending : pending_links) {
+          auto begin = pending.column;
+          auto end = std::min(pending.column + pending.length, cells.size());
+          while (begin < end && cells[begin].word == ' ') ++begin;
+          while (end > begin && cells[end - 1].word == ' ') --end;
+          if (begin >= end || offsets.size() != cells.size() + 1) {
+            reason = "selector in a preformatted region covers no drawn "
+                     "column of its line";
+            return false;
+          }
+          pending.link.begin = offsets[begin];
+          pending.link.end = offsets[end];
+          links.push_back(std::move(pending.link));
+        }
+        pending_links.clear();
+        std::sort(links.begin(), links.end(),
+                  [](const auto &left, const auto &right) {
+                    return left.begin < right.begin;
+                  });
+        for (std::size_t at = 1; at < links.size(); ++at)
+          if (links[at].begin < links[at - 1].end) {
+            reason = "selectors in a preformatted region overlap";
+            return false;
+          }
+        body_links.push_back(std::move(links));
+      }
       body.emplace_back(&view,
                         trim_trailing_spaces(
                             display_line_text(record, view.line)));
+    }
+    if (!pending_links.empty()) {
+      reason = "selector in a preformatted region addresses no display line";
+      return false;
     }
     // Replace each picture's columns with blanks.  The span must spell the
     // compiler's own placeholder words, which proves the selector's columns
@@ -1011,6 +1157,15 @@ public:
       // A picture's columns become blanks, so no style claim on the line
       // survives unproven: the line stays plain.
       body_highlights[picture.line].clear();
+      // A link beside the picture keeps its columns (the blanks replace
+      // the placeholder byte for byte); one over the picture is no link
+      // hosted could draw.
+      for (const auto &link : body_links[picture.line])
+        if (link.begin < picture.column + picture.length &&
+            picture.column < link.end) {
+          reason = "selector of a preformatted region overlaps a picture";
+          return false;
+        }
     }
     // Blank lines around the region are spacing, but a line that carries a
     // picture is never dropped even when blanking emptied it.
@@ -1025,12 +1180,14 @@ public:
            !pictured(dropped)) {
       body.erase(body.begin());
       body_highlights.erase(body_highlights.begin());
+      body_links.erase(body_links.begin());
       ++dropped;
     }
     while (!body.empty() && blank_text(body.back().second) &&
            !pictured(dropped + body.size() - 1)) {
       body.pop_back();
       body_highlights.pop_back();
+      body_links.pop_back();
     }
     for (auto &picture : pictures)
       picture.line -= dropped;
@@ -1065,6 +1222,7 @@ public:
       line.token_end = view->line.token_end;
       line.text = text;
       line.highlights = std::move(body_highlights[index]);
+      line.links = std::move(body_links[index]);
       line.rows = rows_in(block, *view);
       line.slice = display_line_slice(*view->record, line.prefix_token,
                                       line.token_end);

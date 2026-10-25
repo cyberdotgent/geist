@@ -2484,6 +2484,18 @@ P` over `[INHIBITSOURCE|NOINHIBITSOURCE]` as
 span whose first or last column is a blank, or that cuts a word without
 meeting an abutting span, is not proven by the row and leaves it plain.
 
+A `CSELECT` standing alone on its display line inside the region links the
+columns it names on the display row below it, in the same cells; a `CFONT`
+line and a `CSELECT` line may both stand above one row.  `ICHA6MST.BOO`
+`5.0` opens `SRTBLTBLUNIQ66` above a closed box at logical record 818;
+line 12 is `07 CF F9 EE DC A8 E9 9F` at `0x55CBA` (length byte `07`,
+`cselect`, `62`, `3`, `SPTVMSP1I`) and line 13 the box row
+`| Password Messages for VM/XA and VM/ESA start on in topic 5.0. |`, whose
+`5.0` (tokens 155-159 at `0x55CDC`) fills columns 62-64.  Hosted (DT
+`19910801172557`) serves `<a href="5.0?...#SPTVMSP1I">5.0</a>` there,
+inside the region's `<pre>`.  A selector range that runs past the row's
+drawn cells covers only those cells.
+
 The glyph's columns are those of the display word it begins.  A glyph glued
 to more text -- an attach prefix or attach byte in front of the next token,
 so no column separates them -- is styled display text when a span covers that

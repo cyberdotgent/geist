@@ -7,6 +7,7 @@
 #include "geist/detail/layout/ownership_ir.hpp"
 #include "geist/detail/layout/row_font_highlights.hpp"
 #include "geist/detail/container/provenance_ir.hpp"
+#include "geist/detail/lowering/document_ir.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -93,6 +94,25 @@ enum class FixedTableGeometryIR {
   preformatted,
 };
 
+// A `CSELECT` on the markup line directly above a reproduced line: the link
+// hosted BookServer serves over the selector's columns of that line, inside
+// the region's `<pre>`.  ICHA6MST 5.0 record 818 line 12 is
+// `cselect 62 3 SPTVMSP1I` over `| Password Messages for VM/XA and VM/ESA
+// start on in topic 5.0. |`, and hosted (DT 19910801172557) serves
+// `<a href="5.0?...#SPTVMSP1I">5.0</a>` there.  `[begin, end)` are UTF-8 byte
+// offsets into the line's `text`.
+struct FixedTableLineLinkIR {
+  std::size_t begin = 0;
+  std::size_t end = 0;
+  CrossReferenceTargetKindIR target_kind = CrossReferenceTargetKindIR::anchor;
+  // The selector's target; for `LNK` alternative 6, the complete tuple in
+  // `target_alternatives`.
+  std::string target;
+  std::vector<std::string> target_alternatives;
+  // The CSELECT opcode/operand (and `LNK` alternative) extent.
+  DocumentSourceSliceIR source;
+};
+
 // One display line of a preformatted SRTBL region.
 struct FixedTablePreformattedLineIR {
   std::uint32_t logical_record = 0;
@@ -112,6 +132,9 @@ struct FixedTablePreformattedLineIR {
   // line 27 `cfont 7 4 2 58 5 2 64 4 2` styles `TASK`, `START` and `DATE`
   // on line 28, which hosted DT 19910628074854 serves in `<B>`.
   std::vector<RowFontHighlightIR> highlights;
+  // The links the `CSELECT` controls on the markup lines directly above
+  // place on this line, ascending and disjoint.
+  std::vector<FixedTableLineLinkIR> links;
 };
 
 // A picture placed inside a fixed-layout region by a `cselect <c> <l>

@@ -231,6 +231,7 @@ set(GEIST_SOURCES
 
   # lowering/
   src/lowering/comment_delivery_document_lowering.cpp
+  src/lowering/cross_reference_target.cpp
   src/lowering/document_ir.cpp
   src/lowering/drawn_word_conservation.cpp
   src/lowering/figure_document_lowering.cpp

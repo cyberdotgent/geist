@@ -3,6 +3,7 @@
 
 #include "geist/detail/lowering/fixed_table_document_lowering.hpp"
 #include "geist/detail/lowering/font_style_inlines.hpp"
+#include "geist/detail/lowering/cross_reference_target.hpp"
 
 #include <algorithm>
 #include <utility>
@@ -62,35 +63,74 @@ InlineSequenceIR cell_inlines(const FixedTableCellIR &cell,
   return content;
 }
 
-// One verbatim row with the runs its `CFONT` styles: plain text between
-// them, a code span for a monospace style and emphasis for every other, so
-// the row flattens byte for byte back to its text.  ITPPIBOK 4.3.5.4 serves
-// `| <B>TASK</B> ... |      <B>START</B> <B>DATE</B>      |`.
+// One verbatim row with the runs its `CFONT` styles and the links its
+// `CSELECT` controls place: plain text between them, a code span for a
+// monospace style and emphasis for every other, a cross reference over a
+// selector's run (carrying the run's style), so the row flattens byte for
+// byte back to its text.  ITPPIBOK 4.3.5.4 serves
+// `| <B>TASK</B> ... |      <B>START</B> <B>DATE</B>      |`; ICHA6MST 5.0
+// serves `... start on in topic <a href="...#SPTVMSP1I">5.0</a>.`.
 InlineSequenceIR styled_row(const FixedTablePreformattedLineIR &line,
                             const DocumentNodeOriginIR &line_origin) {
   InlineSequenceIR row;
-  std::size_t at = 0;
-  const auto plain = [&](const std::size_t end) {
-    if (end <= at)
-      return;
-    row.push_back({TextInlineIR{line.text.substr(at, end - at)}, line_origin});
-    at = end;
-  };
+  // Every boundary of a highlight or a link cuts the row into runs.
+  std::vector<std::size_t> cuts{0, line.text.size()};
   for (const auto &run : line.highlights) {
-    plain(run.begin);
-    auto text = line.text.substr(run.begin, run.end - run.begin);
-    if (font_style_is_code(run.style))
-      row.push_back({CodeInlineIR{std::move(text),
-                                  font_style_phrase_kind(run.style)},
-                     line_origin});
-    else
-      row.push_back({EmphasisInlineIR{std::move(text),
-                                      font_style_emphasis_kind(run.style),
-                                      font_style_phrase_kind(run.style)},
-                     line_origin});
-    at = run.end;
+    cuts.push_back(run.begin);
+    cuts.push_back(run.end);
   }
-  plain(line.text.size());
+  for (const auto &link : line.links) {
+    cuts.push_back(link.begin);
+    cuts.push_back(link.end);
+  }
+  std::sort(cuts.begin(), cuts.end());
+  cuts.erase(std::unique(cuts.begin(), cuts.end()), cuts.end());
+  for (std::size_t at = 0; at + 1 < cuts.size(); ++at) {
+    const auto begin = cuts[at];
+    const auto end = std::min(cuts[at + 1], line.text.size());
+    if (begin >= end)
+      continue;
+    auto text = line.text.substr(begin, end - begin);
+    const FontStyleIR *style = nullptr;
+    for (const auto &run : line.highlights)
+      if (run.begin <= begin && end <= run.end)
+        style = &run.style;
+    const FixedTableLineLinkIR *link = nullptr;
+    for (const auto &candidate : line.links)
+      if (candidate.begin <= begin && end <= candidate.end)
+        link = &candidate;
+    if (link != nullptr) {
+      CrossReferenceInlineIR reference;
+      auto control = line_origin;
+      control.detail = "fixed table preformatted line: CSELECT target";
+      control.slices = {link->source};
+      control.rows.clear();
+      reference.targets.push_back(
+          {selector_cross_reference_target(link->target_kind, link->target,
+                                           link->target_alternatives),
+           control});
+      reference.label = std::move(text);
+      if (style != nullptr) {
+        if (font_style_is_code(*style))
+          reference.label_code = true;
+        else
+          reference.label_emphasis = font_style_emphasis_kind(*style);
+        reference.label_phrase = font_style_phrase_kind(*style);
+      }
+      row.push_back({std::move(reference), line_origin});
+    } else if (style == nullptr) {
+      row.push_back({TextInlineIR{std::move(text)}, line_origin});
+    } else if (font_style_is_code(*style)) {
+      row.push_back(
+          {CodeInlineIR{std::move(text), font_style_phrase_kind(*style)},
+           line_origin});
+    } else {
+      row.push_back({EmphasisInlineIR{std::move(text),
+                                      font_style_emphasis_kind(*style),
+                                      font_style_phrase_kind(*style)},
+                     line_origin});
+    }
+  }
   return row;
 }
 
@@ -165,7 +205,9 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
           block.preformatted_lines.begin() +
               static_cast<std::ptrdiff_t>(begin),
           block.preformatted_lines.begin() + static_cast<std::ptrdiff_t>(end),
-          [](const auto &line) { return !line.highlights.empty(); });
+          [](const auto &line) {
+            return !line.highlights.empty() || !line.links.empty();
+          });
       for (auto index = begin; index < end; ++index) {
         const auto &line = block.preformatted_lines[index];
         body.lines.push_back(line.text);
