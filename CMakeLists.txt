@@ -604,6 +604,7 @@ foreach(synthetic_test
     cz_directive_grammar_synthetic
     cz_body_blocks_synthetic
     cz_message_list_synthetic
+    srmsg_operand_row_synthetic
     list_closer_anchor_synthetic
     revision_bar_operand_synthetic
     prose_glossary_anchor_synthetic

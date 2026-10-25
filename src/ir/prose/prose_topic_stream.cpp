@@ -1876,8 +1876,16 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           // `<a name="MSG LTC0008"><hr></a>` and prints neither word.  Every
           // token after the row -- the separator rule and the message
           // headline -- re-enters the body stream.
-          if (!cz_dialect)
-            return fail(error, "body SRMSG native row carries operands");
+          //
+          // The flattened dialect is read the same way: BookServer has no
+          // SRMSG-specific rule, and every control row opening on `SR`
+          // (except a bare `SRGLS`) names an anchor after the rest of its
+          // row, wrapping the next drawn line.  AFM41MST 1.3 record 57 line
+          // 8 is the row `SRMSG   25` (tokens [53,56)), served (DT
+          // 19910927164256) as `<a name="MSG   25">` around the next line
+          // `     25      SPECIFIED WORKSTATION DOES NOT EXIST`; ICHA6MST
+          // 1.2 `SRMSG ICH001E`, SC41-3552-00 B.6 `SRMSG COMM 16` and
+          // SH24-5221-01 2.0 `SRMSG 000I` are the same.
           if (opcode_tokens.front() != native->prefix_token + 1)
             return fail(error, "body SRMSG does not open its native row");
           auto identity =
