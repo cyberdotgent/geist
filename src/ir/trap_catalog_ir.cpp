@@ -7,6 +7,7 @@
 #include "geist/detail/layout/row_font_highlights.hpp"
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/ir/trap_selector_links.hpp"
+#include "geist/detail/ir/sr_anchor_name.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -3618,6 +3619,11 @@ extract_trap_catalog_ir(const std::vector<DecodedLogicalRecordSource> &records,
       const auto tail = collapse(separator.text);
       if (!tail.empty())
         entry.operand += " " + tail;
+      entry.anchor = "MSG " + (entry.operand.empty() ? entry.id : entry.operand);
+      if (const auto stored =
+              message_row_anchor_name(*start.record, *start.segment);
+          stored)
+        entry.anchor = *stored;
       entry.suppressed_rows = separator.source_rows;
     }
     bool have_headline = false;
@@ -5297,7 +5303,7 @@ bool same_trap_catalog_ir(const TrapCatalogIR &left,
   for (std::size_t index = 0; index < left.entries.size(); ++index) {
     const auto &a = left.entries[index];
     const auto &b = right.entries[index];
-    if (a.id != b.id || a.operand != b.operand ||
+    if (a.id != b.id || a.operand != b.operand || a.anchor != b.anchor ||
         !(a.start_source == b.start_source) ||
         !same_line(a.leading, b.leading) ||
         !same_line(a.headline, b.headline) || a.fields.size() != b.fields.size() ||

@@ -1563,6 +1563,26 @@ row's blanks exactly as stored.  Line 11 (`SRMSG  147`) and line 15 (a bare
 `SRMSG`, served as `<a name="MSG">` around `Related Subroutines: ...`) follow
 the same rule.
 
+The rule holds for every `SRMSG` row, in message catalogs, `CZ` message
+lists and prose alike: the name is `MSG` followed by the rest of the row as
+stored, blank runs and any further words included, without the row's
+trailing blanks. `GA27-3832-08.boo` topic `1.4` logical record 56 line 11 is
+the row `SRMSG 96  to  98`: length byte `08` at `0x103e7`, `SRMSG` (`87` at
+`0x103e8`), `96` (two-byte token at `0x103e9`), a one-blank word (`09` at
+`0x103eb`), `to`, the one-blank word again, `98`; with the blanks the
+encoder inserts between words this draws two blanks on each side of `to`,
+and the hosted reader (DT `19940419144012`) serves `<a name="MSG 96  to  98">`.
+Record 43 line 31 `SRMSG 1  01HG B1B2 B3B4 B5B6 B7B8` is served as
+`<a name="MSG 1  01HG B1B2 B3B4 B5B6 B7B8">`, the whole row, not only the
+message number. Of 18 sampled books whose `SRMSG` rows hold a blank run
+(`AFM41MST`, `AFM51MST`, `BLGA6MST`, `GA27-3832-07`, `GA27-3832-08`,
+`GC23-0076-02`, `GC33-1571-01`, `GC34-5561-08`, `ICEM1111`, `SC31-6081-00`,
+`SC31-6142-02`, `SC31-7132-04`, `SC31-8069-00`, `SC33-0672-00`,
+`SC33-0804-00`, `SC33-1591-00`, `SC33-6537-01`, `SC33-6640-00`) every hosted
+name keeps the stored row. `SRGLS` and `SRLEN` rows are named the same way
+(`SH12-5915-01` `GLOSSARY` `<a name="GLS Interactive Control Service  (ICS)">`,
+`SC26-4399-06` `J.9` `<a name="LEN Identify_Resource_Manager  (XCIDRM)">`).
+
 .Observed body `SRMSG <id>` rows outside message catalogs and `CZ` lists
 [cols="2,3,3",options="header"]
 |===

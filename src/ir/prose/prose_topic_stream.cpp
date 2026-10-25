@@ -5,6 +5,7 @@
 
 #include "geist/detail/ir/book_topic_catalog_ir.hpp"
 #include "geist/detail/ir/selector_link_ir.hpp"
+#include "geist/detail/ir/sr_anchor_name.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -603,6 +604,11 @@ bool claim_envelope_message_anchor(
       return false;
   }
   anchor.id = "MSG " + identity;
+  // The name is the row as stored, blank runs included (`MSG   25`), where
+  // the control opens a row of its own.
+  if (const auto stored = message_row_anchor_name(record, segment);
+      stored)
+    anchor.id = *stored;
   anchor.source = token_slice(record, segment.source_tokens.front(),
                               segment.source_tokens[source_end - 1] + 1);
   return true;
@@ -1905,6 +1911,9 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           Item anchor;
           anchor.kind = ItemKind::anchor;
           anchor.anchor_id = "MSG " + identity;
+          // Blank runs stay as stored: `SRMSG   25` names `MSG   25`.
+          if (const auto stored = message_row_anchor_name(record, segment))
+            anchor.anchor_id = *stored;
           anchor.source = token_slice(record, native->prefix_token + 1,
                                       native->token_end);
           build.items.push_back(std::move(anchor));

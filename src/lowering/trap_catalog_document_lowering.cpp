@@ -970,8 +970,7 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR topic,
     // 4.1.2's `MSG bridgeHistoryDataComplete` -- the two spellings coincide,
     // which is why the defect only shows on the catalogs with a symbolic tail.
     document.blocks.push_back(
-        {AnchorBlockIR{"MSG " + (entry.operand.empty() ? entry.id
-                                                       : entry.operand)},
+        {AnchorBlockIR{entry.anchor},
          anchor_origin});
     // Footnotes the entry draws before its headline stand between the
     // entry's anchor and its first row, where hosted N2AH1MST 21.0

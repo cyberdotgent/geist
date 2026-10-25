@@ -264,7 +264,12 @@ bool verify_message_shape(const MessageTopicIR &message, std::string *error) {
   for (std::size_t index = 0; index < message.catalog.entries.size(); ++index) {
     const auto &entry = message.catalog.entries[index];
     const auto &anchor = message.anchors[index + 2];
-    if (entry.id.empty() || anchor.id != "MSG " + entry.id ||
+    // The anchor is the stored `SRMSG` row: the id, then anything else the
+    // row spells after a blank.
+    const auto named = collapse_ascii_whitespace(anchor.id);
+    const auto expected = "MSG " + entry.id;
+    if (entry.id.empty() || named.compare(0, expected.size(), expected) != 0 ||
+        (named.size() > expected.size() && named[expected.size()] != ' ') ||
         !valid_slice(anchor.source) || !source_proven(entry.headline) ||
         !paragraph_coordinates_exist(message, entry.headline) ||
         entry.sections.size() != 2 ||

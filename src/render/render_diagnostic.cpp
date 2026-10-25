@@ -8,6 +8,7 @@
 #include "geist/detail/ir/figure_block_ir.hpp"
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/ir/selector_link_ir.hpp"
+#include "geist/detail/ir/sr_anchor_name.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -483,6 +484,10 @@ std::vector<std::string> best_effort_anchors(
         auto id = trim_ascii(ascii.substr(begin, end - begin));
         if (id.empty()) continue;
         id = "MSG " + id;
+        // Blank runs stay as stored where the control opens its row.
+        if (const auto stored = message_row_anchor_name(record, segment);
+            stored)
+          id = *stored;
         if (std::find(anchors.begin(), anchors.end(), id) == anchors.end())
           anchors.push_back(std::move(id));
         continue;

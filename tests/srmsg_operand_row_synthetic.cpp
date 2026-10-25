@@ -268,9 +268,41 @@ void chained_anchors_precede_the_same_line() {
             "chained anchors are out of source order");
 }
 
+// The anchor is named after the row exactly as stored: AFM41MST 1.3 record
+// 57 line 8 is `SRMSG` + a two-blank word + `25`, the row `SRMSG   25`, and
+// hosted (DT 19910927164256) serves `<a name="MSG   25">`; GA27-3832-08 1.4
+// `SRMSG 96  to  98` is served as `<a name="MSG 96  to  98">`.
+void a_stored_blank_run_stays_in_the_name() {
+  RecordBuilder builder;
+  builder.heading();
+  builder.line({words("SRMSG"), words("  "), words("25")});
+  builder.line({words("     "), words("25"), words("SPECIFIED")});
+  builder.line({words("SRMSG"), words("96"), words(" "), words("to"),
+                words(" "), words("98")});
+  builder.line({words("     "), words("96"), words("RANGE")});
+  auto record = builder.build(58);
+  const auto &lines = record.ir.display_lines;
+  require(lines.size() > 9 &&
+              geist::detail::display_line_text(record, lines[9]) ==
+                  "SRMSG   25" &&
+              geist::detail::display_line_text(record, lines[11]) ==
+                  "SRMSG 96  to  98",
+          "the synthetic rows do not spell `SRMSG   25` / `SRMSG 96  to  98`");
+  auto extracted = run(std::move(record));
+  require(extracted.topic.has_value(),
+          "stored blank runs were rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto &topic = *extracted.topic;
+  require(anchors_named(topic, "MSG   25").size() == 1,
+          "`SRMSG   25` is not the anchor `MSG   25`");
+  require(anchors_named(topic, "MSG 96  to  98").size() == 1,
+          "`SRMSG 96  to  98` is not the anchor `MSG 96  to  98`");
+}
+
 }  // namespace
 
 int main() {
+  a_stored_blank_run_stays_in_the_name();
   an_operand_row_is_the_message_anchor();
   chained_anchors_precede_the_same_line();
   return 0;

@@ -7,6 +7,7 @@
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/ir/selector_display_ir.hpp"
 #include "geist/detail/ir/selector_ir.hpp"
+#include "geist/detail/ir/sr_anchor_name.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -542,8 +543,15 @@ std::optional<MessageTopicIR> extract_message_topic_ir_impl(
     if (segment.kind == BookControlKind::message_start) {
       const auto id =
           first_word(range_text(*it->record, segment.operand_range));
+      // Named after the row as stored where the control opens one
+      // (`SRMSG   25` -> `MSG   25`), as for every `SR` anchor.
+      const auto stored = message_row_anchor_name(*it->record, segment);
       if (numeric_message_id(id))
-        result.anchors.push_back({"MSG " + id, result.segments.back().source});
+        result.anchors.push_back(
+            {stored
+                 ? *stored
+                 : "MSG " + id,
+             result.segments.back().source});
       else if (it < first_numeric && id.empty())
         result.anchors.push_back({"MSG", result.segments.back().source});
     } else if (it < first_numeric &&

@@ -362,6 +362,10 @@ struct TrapGroupHeadingIR {
 struct TrapEntryIR {
   std::string id;
   std::string operand;
+  // The entry's anchor name: `MSG` and the `SRMSG` row as stored, blank runs
+  // included (`MSG 96  to  98`, hosted GA27-3832-08 1.4), or `MSG <operand>`
+  // where the row is not its own.
+  std::string anchor;
   DocumentSourceSliceIR start_source;
   // Footnote envelopes the entry draws between its `SRMSG` and its headline,
   // in source order; `leading.body.flow` holds nothing else. N2AH1MST record
