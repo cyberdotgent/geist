@@ -87,8 +87,20 @@ bool collect_layout_directive(
   std::size_t header_begin = npos;
   std::size_t header_end = 0;
   std::vector<Item> payload;
+  // The header stands on the opcode's own display line.  A token past it is
+  // the next row's length byte or text, even when the dictionary spells it
+  // like an operand: SC31-8046-00 1.8.280 record 4483 line 7 is
+  // `cz OFF XMP` (tokens 55-57), and token 58, the next row's length byte,
+  // spells `21`.
+  const auto* opcode_line =
+      segment.source_tokens.empty()
+          ? nullptr
+          : display_line_of_token(record, segment.source_tokens.front());
   for (const auto token : segment.source_tokens) {
     const auto view = view_token(records, record_index, token);
+    if (stage == 3 && opcode_line != nullptr &&
+        token >= opcode_line->token_end)
+      stage = 4;
     if (stage < 4) {
       const auto text = body_text(view);
       const auto lower = ascii_lower(text);
@@ -198,14 +210,19 @@ bool has_text(const Line& line) { return line.cells.size() > line.text_begin; }
 // Groups [begin, end) of a directive's lines: a bare spacing token or an
 // anchor before a row starts a new group; rows without text separate groups.
 // With `rules`, a `U+2500` rule row is a group of its own (see
-// `message_rule`).
+// `message_rule`); with `full_rules`, so is every rule row it flags.
 std::vector<std::pair<std::size_t, std::size_t>> group_lines(
     const std::vector<Line>& lines, std::size_t begin, std::size_t end,
-    bool rules = false) {
+    bool rules = false, const std::vector<bool>* full_rules = nullptr) {
   std::vector<std::pair<std::size_t, std::size_t>> groups;
+  const auto rule_at = [&](std::size_t index) {
+    return lines[index].thematic_break &&
+           (rules || (full_rules != nullptr && index < full_rules->size() &&
+                      (*full_rules)[index]));
+  };
   std::size_t index = begin;
   while (index < end) {
-    if (rules && lines[index].thematic_break) {
+    if (rule_at(index)) {
       groups.emplace_back(index, index + 1);
       ++index;
       continue;
@@ -216,8 +233,7 @@ std::vector<std::pair<std::size_t, std::size_t>> group_lines(
     }
     auto stop = index + 1;
     while (stop < end && lines[stop].breaks_before == 0 &&
-           !lines[stop].anchor_before &&
-           !(rules && lines[stop].thematic_break)) {
+           !lines[stop].anchor_before && !rule_at(stop)) {
       // A row that carries no text is a layout artefact of a control that
       // opened a row without display words (packet 3.2 record 80 `SI Linux
       // AX.25, ...` between `... use tabs for` and `everything, not
@@ -342,6 +358,13 @@ struct CzBuilder {
   // Region closers whose region a `cz FLOW` already ended; they draw
   // nothing of their own (see the verbatim-region branch of `handle`).
   std::vector<std::size_t> inert_closers;
+  // First display line of a body group merged into an earlier block (the
+  // inline definition a `cz BREAK` or `cz FLOW DD` gives its term) -> that
+  // block: an anchor standing before the line belongs to it.
+  std::map<std::size_t, std::size_t> merged_lines;
+  // Lines that are a full-width rule (`full_width_rule_row`): the page's
+  // `<hr>` wherever the rows flow, not only inside a message list.
+  std::vector<bool> full_rules;
 
   CzBuilder(const std::vector<DecodedLogicalRecordSource>& sources,
             const LineBuild& lines_build, Ledger& owner, ProseTopicIR& out,
@@ -624,9 +647,14 @@ struct CzBuilder {
       // it (a `DL`, `PARML`, `XMP` ...) is the item's content.  An ordered
       // item has no ordinal to keep, and a NOTEL note no number, so those
       // still fail.
+      //
+      // Nor does the item need a row after it: SC31-8569-00 D.2.1.1 (DT
+      // 19980126130303) ends its `SL` with two row-less `cz FLOW LI 7 7`
+      // and `cz OFF ESL 0 0`, the last rows of the topic, and hosted serves
+      // `<li>` `<li>` `</ul>` -- two empty items.  Such an item stands at
+      // its directive's `left` column, after every row.
       const auto first_line = next_line_after(index);
-      if (stack.back().tag == "ol" || stack.back().tag == "notel" ||
-          first_line == npos)
+      if (stack.back().tag == "ol" || stack.back().tag == "notel")
         return fail(error, "cz FLOW LI has no text");
       auto& frame = stack.back();
       frame.body_owner = npos;
@@ -634,10 +662,11 @@ struct CzBuilder {
       block.kind = ProseBlockKindIR::list_item;
       block.list_ordinal = frame.list_ordinal;
       block.slices.push_back(directive.source);
-      block.origin = lines[first_line].origin;
+      block.origin =
+          first_line == npos ? directive.left : lines[first_line].origin;
       ++frame.items;
       const auto block_index = topic.blocks.size();
-      append(std::move(block), first_line);
+      append(std::move(block), first_line == npos ? lines.size() : first_line);
       frame.body_owner = block_index;
       return true;
     }
@@ -876,6 +905,7 @@ struct CzBuilder {
                      groups.front().second, block, ledger, block_index,
                      error))
       return false;
+    merged_lines[groups.front().first] = block_index;
     frame.pending_definition = npos;
     frame.body_owner = block_index;
     return paragraphs(groups, 1);
@@ -993,6 +1023,7 @@ struct CzBuilder {
                      groups.front().second, block, ledger, block_index,
                      error))
       return false;
+    merged_lines[groups.front().first] = block_index;
     frame.pending_definition = npos;
     frame.body_owner = block_index;
     return paragraphs(groups, 1);
@@ -1132,7 +1163,7 @@ struct CzBuilder {
                     lines.begin() + static_cast<std::ptrdiff_t>(range.second),
                     [](const Line& line) { return !line.links.empty(); }))
       return paragraphs(group_lines(lines, range.first, range.second,
-                                    in_message_list()),
+                                    in_message_list(), &full_rules),
                         0);
     return preformatted(range.first, range.second);
   }
@@ -1444,7 +1475,7 @@ struct CzBuilder {
     index = closer_index;
     if (closer.first == npos) return true;
     return paragraphs(group_lines(lines, closer.first, closer.second,
-                                  in_message_list()),
+                                  in_message_list(), &full_rules),
                       0);
   }
 
@@ -1669,7 +1700,15 @@ struct CzBuilder {
     auto list = npos;
     std::size_t item_origin = 0;
     for (const auto& [group_begin, group_end] :
-         group_lines(lines, begin, end)) {
+         group_lines(lines, begin, end, false, &full_rules)) {
+      // A full-width rule among the leading rows is the page's `<hr>`:
+      // GC33-1694-01 `1.4.1` (DT 19990719095008) serves the rule under its
+      // message heading as `<hr>` ahead of the `DFH0100` headline.
+      if (group_end == group_begin + 1 && full_rules[group_begin]) {
+        list = npos;
+        if (!message_rule(group_begin)) return false;
+        continue;
+      }
       auto index = group_begin;
       while (index < group_end) {
         auto stop = index + 1;
@@ -1738,6 +1777,16 @@ struct CzBuilder {
         return fail(error, "internal: directive lines are not contiguous");
       range.second = index + 1;
     }
+    // A full-width rule is the page's `<hr>` outside a `cz OFF TABLE`
+    // region wherever it stands (doc/boo-spec/markup.adoc, "Drawn box regions
+    // in prose"), so in flowed rows too: SC31-6222-04 `2.1` (DT
+    // 19961011013500) opens its code list's first message with `SRMSG 0801
+    // 0000` and a 67-cell rule, served `<a name="MSG 0801 0000"><hr>`,
+    // outside any message list.
+    full_rules.assign(lines.size(), false);
+    for (std::size_t line = 0; line < lines.size(); ++line)
+      full_rules[line] =
+          lines[line].thematic_break && full_width_rule_row(lines[line]);
     if (!leading_rows(leading_end)) return false;
     for (std::size_t index = 0; index < directives.size(); ++index) {
       const auto& directive = directives[index];
@@ -1766,7 +1815,7 @@ struct CzBuilder {
             range.first == npos
                 ? std::vector<std::pair<std::size_t, std::size_t>>{}
                 : group_lines(lines, range.first, range.second,
-                              in_message_list());
+                              in_message_list(), &full_rules);
         const auto name = "cz " + directive.mode + " " + directive.tag;
         if (!handle(index, directive, range, head, name, directive.tag)) {
           if (error != nullptr && error->rfind("cz ", 0) != 0)
@@ -1777,7 +1826,7 @@ struct CzBuilder {
                                [&](std::size_t begin, std::size_t stop) {
                                  return paragraphs(
                                      group_lines(lines, begin, stop,
-                                                 in_message_list()),
+                                                 in_message_list(), &full_rules),
                                      0);
                                }))
           return false;
@@ -1787,7 +1836,7 @@ struct CzBuilder {
           range.first == npos
               ? std::vector<std::pair<std::size_t, std::size_t>>{}
               : group_lines(lines, range.first, range.second,
-                            in_message_list());
+                            in_message_list(), &full_rules);
       const auto name = "cz " + directive.mode + " " + directive.tag;
       const auto& tag = directive.tag;
       if (directive.mode == "break") {
@@ -2046,6 +2095,22 @@ struct CzBuilder {
         auto region_end = range.second;
         std::vector<std::size_t> breaks;
         auto ended_by_flow = false;
+        auto foreign_closed = false;
+        const auto foreign_closer = [&](const std::string& other,
+                                        const std::string& own) {
+          if (other.size() < 2 || other.front() != 'e' || other == own)
+            return false;
+          for (const auto* named : {"etable", "efig", "elblbox", "edl"})
+            if (other.rfind(named, 0) == 0) return false;
+          const auto opened = other.substr(1);
+          if (list_tag(opened) || opened == "fn" || opened == "msgl" ||
+              cz_verbatim_region_tag(opened))
+            return false;
+          return std::none_of(build.directives.begin(), build.directives.end(),
+                              [&opened](const LayoutDirective& any) {
+                                return any.mode == "off" && any.tag == opened;
+                              });
+        };
         while (closer_index < build.directives.size()) {
           const auto& inner = build.directives[closer_index];
           if (inner.mode == "break") {
@@ -2095,10 +2160,48 @@ struct CzBuilder {
               region_end = nested_closer_rows.second;
             }
             closer_index = nested_closer;
+          } else if (foreign_closer(inner.tag, closer_tag) &&
+                     inner_rows.first == npos) {
+            // Another region's closer, its own region never opened.  The
+            // reader's generic `CZ OFF E` resets the region depth and prints
+            // nothing, so the `<pre>` stays open until the next `CZ FLOW`
+            // and the closer's rows are rows of it.  SC33-1369-09 `2.1.1`
+            // (DT 19971205131216) opens `cz OFF SYNTAX`, draws its boxed
+            // syntax diagram and closes it with `cz OFF EREV 0 0` -- no
+            // `ESYNTAX` anywhere -- before `cz FLOW H3 3 3`; hosted serves
+            // the whole diagram in one `<pre width="80">` up to the
+            // heading's `</pre>`.  A foreign closer that carries rows of its
+            // own leaves the region's extent to the reader's state alone and
+            // still fails closed.
+            foreign_closed = true;
+            ++closer_index;
+            break;
           } else {
             break;
           }
           ++closer_index;
+        }
+        if (foreign_closed) {
+          // Admitted only where nothing else can still claim the region: the
+          // next directive is a `cz FLOW` (or the topic ends), and the
+          // region's own closer never comes.
+          if ((closer_index < build.directives.size() &&
+               build.directives[closer_index].mode != "flow") ||
+              std::any_of(build.directives.begin() +
+                              static_cast<std::ptrdiff_t>(closer_index),
+                          build.directives.end(),
+                          [&closer_tag](const LayoutDirective& later) {
+                            return later.mode == "off" &&
+                                   later.tag == closer_tag;
+                          }))
+            return fail(error, "cz OFF " + opener +
+                                   " is not closed by cz OFF E" + opener);
+          index = closer_index - 1;
+          if (region_begin == npos) return true;
+          verbatim_breaks = breaks;
+          const auto drawn = preformatted(region_begin, region_end);
+          verbatim_breaks.clear();
+          return drawn;
         }
         if (ended_by_flow) {
           // The region's own closer must still follow, with no second
@@ -2277,6 +2380,11 @@ struct CzBuilder {
           // drawn as stored (`named_closer_rows`).
           if (tag == "edl") return named_closer_rows(range);
           return paragraphs(groups, 0);
+        }
+        {
+          bool handled = false;
+          if (!generic_closer(index, tag, groups, handled)) return false;
+          if (handled) return true;
         }
         // Every other `cz OFF <tag>` is the reader's generic region (see
         // `generic_region`).
@@ -2473,8 +2581,75 @@ struct CzBuilder {
         if (!paragraphs(groups, 1)) return false;
         return true;
       }
+      // Any other tag is the generic `CZ FLOW` (see `generic_flow_tag`):
+      // the reader closes its open `<pre>` and the rows flow.
+      // A row-less `P..` tag draws nothing under either rule (SY27-0327-05
+      // `8.4` announces its parts catalog with a trailing
+      // `cz FLOW PARTSASM 3 3`).
+      if (generic_flow_tag(tag) ||
+          (groups.empty() && !tag.empty() && tag.front() == 'p'))
+        return paragraphs(groups, 0);
       return fail(error, "CZ layout " + name + " is not modelled");
     }
+  }
+
+  // A `cz FLOW <tag>` the reader has no rule of its own for.  BookServer
+  // matches a control line against literal upper-case prefixes
+  // (doc/boo-spec/markup.adoc, "Reading a CZ body"); besides the generic
+  // `CZ FLOW` the only `CZ FLOW` prefixes are `H`, `DT`, `DD`, `ED`, `LP`,
+  // `UL`, `OL`, `SL`, `DL`, `LI` and -- in one book dialect -- `P`.  A tag
+  // none of them starts matches the generic prefix alone: the open `<pre>`
+  // closes and the rows flow, exactly like a message body block.
+  // SC31-8046-00 `1.1.4` (DT 19950610061004) serves `cz FLOW NUMBYTES 3 3`
+  // `   Related Commands:  LINEMAP` as `</pre>` and the flowing row, and
+  // GC33-1177-01 and dfhcag49 open their code lists with `cz FLOW CODEL`.
+  // Tags starting with `P` stay unmodelled: the `CZ FLOW P` prefix has a
+  // rule of its own in the other dialect.
+  static bool generic_flow_tag(const std::string& tag) {
+    if (tag.empty() || tag.front() == 'h' || tag.front() == 'p') return false;
+    static const char* const specific[] = {"dt", "dd", "ed", "lp", "ul",
+                                           "ol", "sl", "dl", "li"};
+    for (const auto* prefix : specific)
+      if (tag.rfind(prefix, 0) == 0) return false;
+    return true;
+  }
+
+  // A `cz OFF E<tag>` closer of a region the reader never opened in this
+  // topic and the dialect gives no structure: the generic `CZ OFF E`
+  // closer, which prints nothing and only resets the region depth.  Its
+  // rows are whatever the reader has open; when the directive before it is
+  // a `cz FLOW` (no `<pre>` open) they flow.  GC33-1177-01 `2.3.34` (DT
+  // 19990318184419) ends `cz FLOW MODULE 3 4` `    Module:  DFHCPCOJ`,
+  // `cz OFF ECODEL 0 0` -- the closer of a code list an earlier topic opened
+  // -- and hosted serves nothing after the module name.  The named closers
+  // `ETABLE`, `EFIG`, `ELBLBOX` and `EDL` (and every tag they prefix) have
+  // rules of their own and never come here.
+  bool generic_closer(std::size_t index, const std::string& tag,
+                      const std::vector<std::pair<std::size_t, std::size_t>>&
+                          groups,
+                      bool& handled) {
+    handled = false;
+    if (tag.size() < 2 || tag.front() != 'e') return true;
+    for (const auto* named : {"etable", "efig", "elblbox", "edl"})
+      if (tag.rfind(named, 0) == 0) return true;
+    const auto opened = tag.substr(1);
+    if (std::any_of(build.directives.begin(),
+                    build.directives.begin() + static_cast<std::ptrdiff_t>(index),
+                    [&opened](const LayoutDirective& earlier) {
+                      return earlier.mode == "off" && earlier.tag == opened;
+                    }))
+      return true;
+    if (!groups.empty()) {
+      // The rows need the reader's state before the closer: only after a
+      // `cz FLOW` is no `<pre>` open.
+      auto before = index;
+      while (before > 0 && build.directives[before - 1].mode == "break")
+        --before;
+      if (before == 0 || build.directives[before - 1].mode != "flow")
+        return true;
+    }
+    handled = true;
+    return paragraphs(groups, 0);
   }
   // A table/figure span precedes the first block whose first display row is
   // at or after the span's own line, and follows the anchors already seen
@@ -2520,6 +2695,16 @@ struct CzBuilder {
         const auto& first = lines[block_first_line[block]];
         if (first.anchor_before && first.anchor_index == anchor) return block;
       }
+      // An anchor before the first row of a definition body the term's
+      // block already holds stands at that entry: SC31-6552-00 4.4.3 record
+      // 2021 stores `SRSPTSOAROL` between `cz BREAK 7` and the row
+      // `       specifies that messages are issued in all SSCPs.`, and hosted
+      // (DT 19950503072955) serves `<a name="SPTSOAROL">` on that row of
+      // the `ASIRFMSG=ALLSSCP` entry.  The entry is the nearest block the
+      // model has; without it the anchor fell to the end of the topic.
+      for (const auto& [line, block] : merged_lines)
+        if (lines[line].anchor_before && lines[line].anchor_index == anchor)
+          return block;
       return npos;
     };
     for (std::size_t anchor = 0; anchor < build.body_anchors.size(); ++anchor) {

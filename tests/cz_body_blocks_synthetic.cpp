@@ -22,6 +22,7 @@
 #include "geist/detail/ir/prose/prose_topic_ir.hpp"
 #include "test_failures.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <optional>
@@ -318,6 +319,97 @@ void a_flow_inside_an_unclosed_region_declines() {
           "a cz FLOW P inside an unclosed cz OFF XMP was admitted");
 }
 
+// A verbatim region closed by another region's closer.  Any `CZ OFF E..`
+// is BookServer's generic closer: it resets the region depth and prints
+// nothing, and the `<pre>` stays open up to the next `CZ FLOW`.
+// SC33-1369-09 `2.1.1` (DT 19971205131216) opens `cz OFF SYNTAX`, draws its
+// boxed diagram and ends with `cz OFF EREV 0 0` and `cz FLOW H3 3 3`, with
+// no `ESYNTAX` anywhere; hosted serves the diagram as one
+// `<pre width="80">`.  With the region's own closer still to come, or
+// another directive before the next `cz FLOW`, the end stays unproven.
+void a_region_closed_by_another_regions_closer() {
+  const auto topic = [](const std::string &tail) {
+    RecordBuilder builder;
+    builder.heading("2.1.1", "Sender");
+    builder.cz({"cz", "BREAK", "3"});
+    builder.cz({"cz", "OFF", "SYNTAX"});
+    builder.row("   ", {">>__ALTER", "CHANNEL__><"});
+    builder.row("   ", {"(1)", "Valid", "only", "on", "AIX."});
+    builder.cz({"cz", "OFF", "EREV", "0", "0"});
+    if (tail == "flow") builder.cz({"cz", "FLOW", "H3", "3", "3"});
+    if (tail == "own") {
+      builder.cz({"cz", "FLOW", "P", "3", "3"});
+      builder.row("   ", {"Text."});
+      builder.cz({"cz", "OFF", "ESYNTAX", "0", "0"});
+    }
+    if (tail == "off") builder.cz({"cz", "OFF", "XMP"});
+    return builder.build(97);
+  };
+  for (const auto *tail : {"flow", "end"}) {
+    auto extracted = run(topic(tail), "Sender");
+    require(extracted.topic.has_value(),
+            std::string("a cz OFF SYNTAX closed by cz OFF EREV (") + tail +
+                ") was rejected: " + extracted.error);
+    if (!extracted.topic) continue;
+    const auto &blocks = extracted.topic->blocks;
+    require(blocks.size() == 1 &&
+                blocks[0].kind == ProseBlockKindIR::preformatted &&
+                blocks[0].preformatted_lines.size() == 2,
+            "the region is not one two-row verbatim block:\n" +
+                topic_text(*extracted.topic));
+  }
+  for (const auto *tail : {"own", "off"}) {
+    auto extracted = run(topic(tail), "Sender");
+    require(!extracted.topic.has_value(),
+            std::string("a region closed by a foreign closer with an "
+                        "unproven end (") +
+                tail + ") was admitted");
+  }
+}
+
+// An anchor before the first row of a parameter's body stands at that
+// parameter's entry, not at the end of the topic.  SC31-6552-00 `4.4.3`
+// record 2021 stores `cz FLOW PT 3 7` `   ASIRFMSG=ALLSSCP`, `cz BREAK 7`,
+// `SRSPTSOAROL` and `       specifies that messages are issued in all
+// SSCPs.`; hosted (DT 19950503072955) serves `<a name="SPTSOAROL">` on that
+// body row, inside the first entry and before the second.
+void an_anchor_before_a_parameter_body_stays_at_its_entry() {
+  RecordBuilder builder;
+  builder.heading("4.4.3", "ASIRFMSG");
+  builder.cz({"cz", "FLOW", "PARML", "3", "3"});
+  builder.cz({"cz", "FLOW", "PT", "3", "7"});
+  builder.row("   ", {"ASIRFMSG=ALLSSCP"});
+  builder.cz({"cz", "BREAK", "7"});
+  builder.line({words("SRSPTSOAROL")});
+  builder.row("       ", {"specifies", "all", "SSCPs."});
+  builder.cz({"cz", "FLOW", "PT", "3", "7"});
+  builder.row("   ", {"ASIRFMSG=NONE"});
+  builder.cz({"cz", "BREAK", "7"});
+  builder.row("       ", {"specifies", "none."});
+  builder.cz({"cz", "OFF", "EPARML", "0", "0"});
+  auto extracted = run(builder.build(2021), "ASIRFMSG");
+  require(extracted.topic.has_value(),
+          "a parameter list with an anchored body was rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  const auto &topic = *extracted.topic;
+  const auto anchor =
+      std::find_if(topic.anchors.begin(), topic.anchors.end(),
+                   [](const auto &candidate) {
+                     return candidate.id == "SPTSOAROL";
+                   });
+  require(anchor != topic.anchors.end(), "the SPTSOAROL anchor is missing");
+  if (anchor == topic.anchors.end()) return;
+  require(anchor->position < topic.blocks.size() &&
+              topic.blocks[anchor->position].kind ==
+                  ProseBlockKindIR::definition_entry &&
+              contains(block_text(topic.blocks[anchor->position]), "ALLSSCP"),
+          "the anchor before the first body row is not at its entry; it "
+          "stands at block " +
+              std::to_string(anchor->position) + " of " +
+              std::to_string(topic.blocks.size()));
+}
+
 std::size_t count_kind(const geist::detail::ProseTopicIR &topic,
                        ProseBlockKindIR kind) {
   std::size_t count = 0;
@@ -529,6 +621,31 @@ void items_and_definitions_without_rows() {
   require(contains(markdown, "FAX:") && contains(markdown, "signals.") &&
               contains(markdown, "Hunt"),
           "the row-less shapes did not render: " + markdown);
+
+  // Row-less items as the last rows of the topic: SC31-8569-00 D.2.1.1 (DT
+  // 19980126130303) ends `cz FLOW LI 7 7` + a row, two row-less
+  // `cz FLOW LI 7 7` and `cz OFF ESL 0 0`, served `<li> <li> </ul>`.
+  RecordBuilder trailing;
+  trailing.heading("D.2.1.1", "Message");
+  trailing.cz({"cz", "FLOW", "SL", "3", "3"});
+  trailing.cz({"cz", "FLOW", "LI", "7", "7"});
+  trailing.row("       ", {"IST1416I", "FAILED"});
+  trailing.cz({"cz", "FLOW", "LI", "7", "7"});
+  trailing.cz({"cz", "FLOW", "LI", "7", "7"});
+  trailing.cz({"cz", "OFF", "ESL", "0", "0"});
+  trailing.cz({"cz", "FLOW", "H4", "3", "3"});
+  auto last = run(trailing.build(2825), "Message");
+  require(last.topic.has_value(),
+          "trailing row-less items were rejected: " + last.error);
+  if (last.topic) {
+    require(count_kind(*last.topic, ProseBlockKindIR::list_item) == 3,
+            "expected three list items:\n" + topic_text(*last.topic));
+    const auto lowered = lower(*last.topic, "D.2.1.1");
+    if (lowered)
+      require(contains(geist::detail::render_document_markdown(*lowered),
+                       "IST1416I"),
+              "the trailing items did not render");
+  }
 }
 
 // A note BookServer cannot tell from a paragraph.  `CZ FLOW NT` and
@@ -634,6 +751,8 @@ int main() {
   a_break_inside_a_region_is_a_blank_row();
   a_flow_inside_a_region_ends_it();
   a_flow_inside_an_unclosed_region_declines();
+  a_region_closed_by_another_regions_closer();
+  an_anchor_before_a_parameter_body_stays_at_its_entry();
   an_empty_region_draws_nothing();
   rows_after_an_empty_region_are_verbatim();
   return 0;

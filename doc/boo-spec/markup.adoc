@@ -6580,6 +6580,87 @@ no text, no comment, no `</pre>`.  The rows after such a line continue the
 layout that was open before it.  (That book is reflow-off, so its whole body
 is served in `<pre width="80">` in any case.)
 
+*A tag with no prefix of its own is the generic `CZ FLOW`.*  Besides the
+generic `CZ FLOW`, the only `CZ FLOW` prefixes are `H`, `DT`, `DD`, `ED`,
+`LP`, `UL`, `OL`, `SL`, `DL` and `LI` (and `P`, in a dialect not described
+here).  A tag that starts with none of them -- the message-body tags `XPL`,
+`SYSACT`, `URESP` and the rest (see <<markup_cz_message_lists>>), and also
+`NUMBYTES`, `CODEL` and `MAP` -- closes the open `<pre>` and its rows flow,
+exactly like a paragraph.  `SC31-8046-00.boo` `1.1.4`, logical record 77,
+stores `06 18 30 96 FD 47 47` at `0x2E59E` (`cz FLOW NUMBYTES 3 3`, the
+two-byte token `96 FD` spelling `NUMBYTES`) and then the row
+`   Related Commands:  LINEMAP`; hosted (DT `19950610061004`) serves
+`</pre>` and that row as flowing text, its `cfont` words in `<B>`.
+
+*A code list is a generic flow and a generic closer.*  `CODEL` .. `ECODEL`
+has no string of its own either: `cz FLOW CODEL` is the generic `CZ FLOW`,
+`cz OFF ECODEL` the generic `CZ OFF E`, which prints nothing.  As with the
+message lists, the closer often stands in a later topic than the opener.
+`GC33-1177-01.boo` `2.3.34`, logical record 6139, ends the message with
+`07 23 AC 5C A0 1C 51 51` at `0x1C67EF` (`cz OFF ECODEL 0 0`, closing the
+list topic `2.3` announced) and `06 23 42 73 96 5E 5E` at `0x1C67F7`
+(`cz FLOW CODEL 3 3`, the next topic's list), neither of which owns a row;
+hosted (DT `19990318184419`) serves nothing after `<B>Module:</B>  DFHCPCOJ`.
+An opener that owns rows flows them: `dfhcag49.boo` `3.4` opens its list with
+`cz FLOW CODEL 3 3` and the lead-in `Whenever a CICS system dump is
+requested, ...`.  Hosted pages of `SC31-6222-04` `2.1`, `SV40-1019-00`
+`A.1` and `GC31-8369-00` `5.2` serve no list element for their `CODEL`
+lines either.
+
+*A full-width rule in flowed rows.*  The full-width rule (more than 71
+consecutive `U+2500` cells from display column 3) is the page's `<hr>` in
+flowed rows as well, inside a message list or not.  In `SC31-6222-04.boo`
+`2.1`, logical record 1430, the code list's first message opens with
+`05 83 EC 00 EB 07` at `0x88EA3` (`SRMSG 0801 0000`) and the rule line
+`04 08 05 00 04` at `0x88EA9` (three blanks, a 63-cell and, after an attach
+prefix, an 11-cell `U+2500` run: 74 cells); hosted (DT `19961011013500`)
+serves `<a name="MSG 0801 0000"><hr>` and then the `0801 0000` headline.
+The same rule among the rows before a topic's first directive is an `<hr>`
+too: `GC33-1694-01` `1.4.1` (DT `19990719095008`) serves one between its
+`DFH0100` heading and headline.
+
+*Operands stand on the directive's own display line.*  A directive's
+operands are the words of its own line; the length byte of the next line is
+framing even where the dictionary spells it like a number.
+`SC31-8046-00.boo` `1.8.280`, logical record 4483, stores
+`04 18 34 C0 2D` at `0x15204D` -- length byte `04`, `cz`, `OFF` and the
+two-byte `XMP` -- and then `46` at `0x152052`, the length byte (70) of the
+`cfont` line that follows; the book's dictionary spells token value `46` as
+`21`.  The `XMP` directive therefore has no operands, and hosted (DT
+`19950610061004`) serves the region's row `" % & ' ( ) + - / : ; < > = .`
+in its `<pre width="80">`.
+
+*A region closed by another region's closer.*  Every `CZ OFF E...` line is
+the generic closer, whatever its tag: it ends the depth count and prints
+nothing.  So a verbatim region can end at a closer that names another,
+never-opened region, and its `<pre>` then runs on to the next `CZ FLOW`.
+`SC33-1369-09.boo` `2.1.1` opens `cz OFF SYNTAX` at logical record 97
+(`04 5C A8 EB 37` at `0x100A0`), draws the boxed `ALTER CHANNEL` syntax
+diagram on the rows after it, and stores at record 101
+`06 5C A8 DF 38 BB BB` at `0x10A07` (`cz OFF EREV 0 0`) directly followed by
+`06 5C 9E E0 FE CE CE` (`cz FLOW H3 3 3`); the topic contains no
+`cz OFF ESYNTAX` and no `cz OFF REV`.  Hosted (DT `19971205131216`) serves
+the whole diagram, with its `<kbd>` and `<var>` words, in one
+`<pre width="80">` ended by the heading directive's `</pre>`.  The same shape
+closes all eighteen syntax topics of chapter 2 of that book.
+
+*An item with no row.*  `CZ FLOW LI` prints `<li>` whether or not rows
+follow, so a row-less item is an empty item even at the end of a list.
+`SC31-8569-00.boo` `D.2.1.1`, logical record 2825, stores
+`05 2C 60 64 AF AF` twice, at `0x10C174` and `0x10C17A` (`cz FLOW LI 7 7`),
+then `05 2C 6A 5E 80 80` at `0x10C180` (`cz OFF ESL 0 0`) as the topic's last
+list lines; hosted (DT `19980126130303`) serves `<li> <li> </ul>`.
+
+*An anchor before a definition body.*  An `SR<id>` line between a term's
+`cz BREAK` (or `cz FLOW DD`) and the first body row opens that body row.
+`SC31-6552-00.boo` `4.4.3`, logical record 2021, stores `03 40 67 98` at
+`0xA63CC` (`cz BREAK 7`), `02 D0 1C` at `0xA63D0` (`SRSPTSOAROL`) and then
+the row framed by length byte `0E` at `0xA63D3`,
+`       specifies that messages are issued in all SSCPs.`; hosted (DT
+`19950503072955`) serves
+pass:[<literal>&lt;a name="SPTSOAROL"&gt;       specifies that messages are issued in all SSCPs.&lt;/a&gt;</literal>]
+directly after the `ASIRFMSG=ALLSSCP` term and its `<br>`.
+
 *An empty region.*  A generic region whose opener is followed directly by
 its closer owns no row; it opens `<pre width="80">` and the closer prints
 nothing, so the region draws nothing.  The `<pre>` stays open until the next

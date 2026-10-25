@@ -270,6 +270,40 @@ void a_length_byte_spelled_cz_is_the_row_slot() {
           "the `cz` length byte leaked into the text:\n" + text);
 }
 
+// 2c. A length byte the dictionary spells as a number, right after a
+// directive that has no operands.  SC31-8046-00 `1.8.280` record 4483: line
+// 7 is `cz OFF XMP` (tokens 55-57) and token 58, the length byte of the next
+// row, spells `21`.  The operands of a directive stand on its own display
+// line; the byte opens the next row and is no operand.  Hosted (DT
+// 19950610061004) serves the region's `" % & ' ( ) + - / ...` row in its
+// `<pre width="80">`.
+void a_length_byte_spelled_as_a_number_is_no_operand() {
+  RecordBuilder builder;
+  builder.heading("1.8.280", "DUI1636A");
+  builder.line({words("cz"), words("FLOW"), words("XPL"), words("3"),
+                words("3")});
+  builder.line({words("   "), words("Explanation:"), words("Special"),
+                words("characters:")});
+  builder.line({words("cz"), words("OFF"), words("XMP")});
+  builder.line({words("     "), words("\""), words("%"), words("&")},
+               words("21"));
+  builder.line({words("cz"), words("OFF"), words("EXMP"), words("0"),
+                words("0")});
+  auto extracted = run(builder.build(4483), "DUI1636A");
+  require(extracted.topic.has_value(),
+          "a length byte spelled `21` after cz OFF XMP was read as its "
+          "operand: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto &blocks = extracted.topic->blocks;
+  require(blocks.size() == 2 &&
+              blocks[1].kind == geist::detail::ProseBlockKindIR::preformatted,
+          "the XMP region is not a verbatim block:\n" +
+              topic_text(*extracted.topic));
+  const auto text = topic_text(*extracted.topic);
+  require(contains(text, "%") && !contains(text, "21"),
+          "the region lost its row or printed the length byte:\n" + text);
+}
+
 // 2b. The same byte in front of the topic's first directive: the row it
 // frames precedes every genuine directive and is a body row as well.
 void a_length_byte_spelled_cz_before_any_directive() {
@@ -389,6 +423,7 @@ int main() {
   a_split_title_line_is_no_leading_row();
   a_length_byte_spelled_cz_is_the_row_slot();
   a_length_byte_spelled_cz_before_any_directive();
+  a_length_byte_spelled_as_a_number_is_no_operand();
   an_unknown_mode_is_inert();
   return 0;
 }

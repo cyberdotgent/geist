@@ -304,6 +304,144 @@ void a_closer_of_an_earlier_topics_list_is_inert() {
           "the closer of an earlier topic's list drew something");
 }
 
+// A `cz FLOW` tag that matches none of BookServer's specific `CZ FLOW ..`
+// prefixes is the generic `CZ FLOW`: the open `<pre>` closes and the rows
+// flow.  SC31-8046-00 `1.1.4` (DT 19950610061004) ends its message with
+// `cz FLOW SYSACT 3 3` and `cz FLOW NUMBYTES 3 3` + `   Related Commands:
+// LINEMAP`, and hosted serves both blocks as flowing text after `</pre>`.
+void a_generic_flow_tag_is_a_paragraph() {
+  RecordBuilder builder;
+  builder.heading();
+  builder.line({words("cz"), words("FLOW"), words("SYSACT"), words("3"),
+                words("3")});
+  builder.line({words("   "), words("System"), words("Action:"), words(" "),
+                words("Processing"), words("continues.")});
+  builder.line({words("cz"), words("FLOW"), words("NUMBYTES"), words("3"),
+                words("3")});
+  builder.line({words("   "), words("Related"), words("Commands:"),
+                words(" "), words("LINEMAP")});
+  auto extracted = run(builder.build(77));
+  require(extracted.topic.has_value(),
+          "a `cz FLOW NUMBYTES` block was rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto &blocks = extracted.topic->blocks;
+  require(blocks.size() == 2 &&
+              blocks[1].kind == ProseBlockKindIR::paragraph &&
+              block_text(blocks[1]) == "Related Commands: LINEMAP",
+          "the NUMBYTES block is not the paragraph hosted serves");
+}
+
+// The code list `cz FLOW CODEL` .. `cz OFF ECODEL` has no string of its own
+// in BookServer either: the opener is the generic `CZ FLOW` and the closer
+// the generic `CZ OFF E`, which prints nothing.  GC33-1177-01 `2.3.34` (DT
+// 19990318184419) ends `cz FLOW MODULE 3 4` `    Module:  DFHCPCOJ`, then
+// `cz OFF ECODEL 0 0` (the list an earlier topic opened) and a row-less
+// `cz FLOW CODEL 3 3` (the next topic's), and hosted serves nothing after
+// `<B>Module:</B>  DFHCPCOJ`.  An opener with rows of its own flows them:
+// dfhcag49 `3.4` opens its list with `cz FLOW CODEL 3 3` and the lead-in
+// `Whenever a CICS system dump is requested, ...`.
+void a_code_list_is_the_generic_flow_and_closer() {
+  {
+    RecordBuilder builder;
+    builder.heading();
+    builder.line({words("cz"), words("FLOW"), words("MODULE"), words("3"),
+                  words("4")});
+    builder.line({words("    "), words("Module:"), words(" "),
+                  words("DFHCPCOJ")});
+    builder.line({words("cz"), words("OFF"), words("ECODEL"), words("0"),
+                  words("0")});
+    builder.line({words("cz"), words("FLOW"), words("CODEL"), words("3"),
+                  words("3")});
+    auto extracted = run(builder.build(6139));
+    require(extracted.topic.has_value(),
+            "a trailing `cz OFF ECODEL` / `cz FLOW CODEL` pair was rejected: " +
+                extracted.error);
+    if (extracted.topic)
+      require(extracted.topic->blocks.size() == 1 &&
+                  block_text(extracted.topic->blocks[0]) == "Module: DFHCPCOJ",
+              "the code-list pair drew something");
+  }
+  {
+    RecordBuilder builder;
+    builder.heading();
+    builder.line({words("cz"), words("BREAK"), words("3")});
+    builder.line({words("cz"), words("FLOW"), words("CODEL"), words("3"),
+                  words("3")});
+    builder.line({words("    "), words("Whenever"), words("a"),
+                  words("dump"), words("is"), words("requested.")});
+    builder.line({words("cz"), words("FLOW"), words("P"), words("4"),
+                  words("4")});
+    builder.line({words("    "), words("In"), words("most"), words("cases.")});
+    builder.line({words("cz"), words("OFF"), words("ECODEL"), words("0"),
+                  words("0")});
+    builder.line({words("cz"), words("FLOW"), words("H2"), words("3"),
+                  words("3")});
+    auto extracted = run(builder.build(14063));
+    require(extracted.topic.has_value(),
+            "a `cz FLOW CODEL` lead-in was rejected: " + extracted.error);
+    if (extracted.topic)
+      require(extracted.topic->blocks.size() == 2 &&
+                  block_text(extracted.topic->blocks[0]) ==
+                      "Whenever a dump is requested." &&
+                  extracted.topic->blocks[0].kind ==
+                      ProseBlockKindIR::paragraph,
+              "the code list's lead-in is not a paragraph");
+  }
+}
+
+// A message inside a code list.  The full-width rule under its `SRMSG <id>`
+// row is the page's `<hr>` wherever it stands, not only in a message list:
+// SC31-6222-04 `2.1` (DT 19961011013500) opens `cz FLOW CODEL 3 3`, a
+// `cz FLOW XPL` row, then `SRMSG 0801 0000` and the rule, served
+// `<a name="MSG 0801 0000"><hr>` and the headline.
+void a_message_rule_in_a_code_list_is_a_rule() {
+  RecordBuilder builder;
+  builder.heading();
+  builder.line({words("cz"), words("BREAK"), words("3")});
+  builder.line({words("cz"), words("FLOW"), words("CODEL"), words("3"),
+                words("3")});
+  builder.message("IST0801", "Request reject.");
+  builder.line({words("cz"), words("OFF"), words("ECODEL"), words("0"),
+                words("0")});
+  auto extracted = run(builder.build(1430));
+  require(extracted.topic.has_value(),
+          "a message rule inside a code list was rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  const auto &topic = *extracted.topic;
+  require(!topic.blocks.empty() &&
+              topic.blocks[0].kind == ProseBlockKindIR::thematic_break,
+          "the message rule is not the topic's first block");
+  const auto anchor = std::find_if(
+      topic.anchors.begin(), topic.anchors.end(),
+      [](const auto &candidate) { return candidate.id == "MSG IST0801"; });
+  require(anchor != topic.anchors.end() && anchor->position == 0,
+          "`MSG IST0801` does not precede the rule");
+}
+
+// The same rule among the rows before the first directive: GC33-1694-01
+// `1.4.1` (DT 19990719095008) serves `<hr>` under its message heading,
+// ahead of the `DFH0100` headline and the `cz FLOW XPL` block.
+void a_leading_full_width_rule_is_a_rule() {
+  RecordBuilder builder;
+  builder.heading();
+  builder.line({words("   "), TokenWords(63, 0x2500), TokenWords{1},
+                TokenWords(11, 0x2500)});
+  builder.line({words("   "), words("DFH0100"), words("Initialized.")});
+  builder.line({words("cz"), words("FLOW"), words("XPL"), words("3"),
+                words("4")});
+  builder.line({words("    "), words("Explanation:"), words("Done.")});
+  auto extracted = run(builder.build(85));
+  require(extracted.topic.has_value(),
+          "a leading full-width rule was rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto &blocks = extracted.topic->blocks;
+  require(blocks.size() == 3 &&
+              blocks[0].kind == ProseBlockKindIR::thematic_break &&
+              block_text(blocks[1]) == "DFH0100 Initialized.",
+          "the leading rule is not a rule block before the headline");
+}
+
 // A closer whose list this topic did open, but closed already, still
 // declines: the source then closes a list twice.
 void a_second_closer_of_a_closed_list_declines() {
@@ -323,10 +461,12 @@ void a_second_closer_of_a_closed_list_declines() {
           "a second `cz OFF EMSGL` of a closed list was admitted");
 }
 
-// The rule under an `SRMSG <id>` row is a block only inside a message list.
-// Outside one the anchor would have no row to precede, so the topic declines
-// rather than moving the anchor.
-void a_message_anchor_outside_a_message_list_declines() {
+// The rule under an `SRMSG <id>` row is a full-width rule, the page's
+// `<hr>` wherever it stands (outside `cz OFF TABLE`), so it is a block
+// outside a message list too and the anchor precedes it.  Hosted
+// GC33-1694-01 and ICHA6MST `1.2` serve such rules as
+// `<a name="MSG ..."><hr></a>` with no message list around them.
+void a_message_anchor_outside_a_message_list_precedes_its_rule() {
   RecordBuilder builder;
   builder.heading();
   builder.line({words("cz"), words("FLOW"), words("P"), words("3"),
@@ -338,8 +478,19 @@ void a_message_anchor_outside_a_message_list_declines() {
   builder.line({words("   "), words("LTC0008"), words("Bad"),
                 words("value.")});
   auto extracted = run(builder.build(104));
-  require(!extracted.topic.has_value(),
-          "an `SRMSG <id>` rule outside a message list was admitted");
+  require(extracted.topic.has_value(),
+          "an `SRMSG <id>` rule outside a message list was rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  const auto &topic = *extracted.topic;
+  require(topic.blocks.size() == 3 &&
+              topic.blocks[1].kind == ProseBlockKindIR::thematic_break,
+          "the rule outside a message list is not a rule block");
+  const auto anchor = std::find_if(
+      topic.anchors.begin(), topic.anchors.end(),
+      [](const auto &candidate) { return candidate.id == "MSG LTC0008"; });
+  require(anchor != topic.anchors.end() && anchor->position == 1,
+          "`MSG LTC0008` does not precede the rule");
 }
 
 // The opener is always followed by its bare `cz OFF MSGL`; without it the
@@ -460,8 +611,12 @@ int main() {
   a_message_list_is_typed();
   a_body_block_outside_a_message_list_is_a_paragraph();
   a_closer_of_an_earlier_topics_list_is_inert();
+  a_generic_flow_tag_is_a_paragraph();
+  a_code_list_is_the_generic_flow_and_closer();
+  a_message_rule_in_a_code_list_is_a_rule();
+  a_leading_full_width_rule_is_a_rule();
   a_second_closer_of_a_closed_list_declines();
-  a_message_anchor_outside_a_message_list_declines();
+  a_message_anchor_outside_a_message_list_precedes_its_rule();
   a_message_list_opener_without_its_off_declines();
   back_to_back_lists_keep_the_closing_anchor_in_place();
   a_trailing_announcement_draws_nothing();
