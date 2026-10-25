@@ -10,7 +10,8 @@ set(GEIST_W32_ICON "${CMAKE_CURRENT_SOURCE_DIR}/geist-boo-reader.ico")
 set(GEIST_W32_CSS "${PROJECT_SOURCE_DIR}/doc/html-styling.css")
 set(GEIST_W32_IE_CSS "${CMAKE_CURRENT_SOURCE_DIR}/ie11-compat.css")
 # Licence notices, embedded in the executable and shown by Help > About:
-# this project's LICENSE, the Hershey fonts acknowledgement and the texts of
+# this project's LICENSE, the Hershey fonts acknowledgement from
+# THIRD-PARTY-NOTICES and the texts of
 # the statically linked libpng, zlib and giflib. The last three are looked
 # for in GEIST_WIN32_LICENSE_DIR (<name>.txt), in <prefix>/licenses of each
 # CMAKE_PREFIX_PATH entry (as
@@ -21,9 +22,28 @@ set(GEIST_WIN32_LICENSE_DIR "" CACHE PATH
 set(GEIST_W32_NOTICES "${CMAKE_CURRENT_BINARY_DIR}/notices.txt")
 file(READ "${PROJECT_SOURCE_DIR}/LICENSE" _geist_license)
 set(_geist_notices "Geist BOO Reader is licensed under the Apache License, Version 2.0.\n\n${_geist_license}")
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/hershey-fonts.txt" _geist_hershey)
-string(APPEND _geist_notices "\n\n=== Hershey fonts ===\n\n${_geist_hershey}")
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/hershey-fonts.txt")
+# The Hershey fonts acknowledgement is THIRD-PARTY-NOTICES' own section (the
+# text between its "Hershey fonts" heading and the next ===== rule), so the
+# executable and the file shipped beside every other binary cannot drift.
+set(_geist_tpn_file "${PROJECT_SOURCE_DIR}/THIRD-PARTY-NOTICES")
+file(READ "${_geist_tpn_file}" _geist_tpn)
+set(_geist_rule "==============================================================================")
+string(FIND "${_geist_tpn}" "${_geist_rule}\nHershey fonts" _geist_at)
+if(_geist_at EQUAL -1)
+  message(FATAL_ERROR "Win32 reader: no Hershey fonts section in ${_geist_tpn_file}")
+endif()
+string(LENGTH "${_geist_rule}\nHershey fonts" _geist_skip)
+math(EXPR _geist_at "${_geist_at} + ${_geist_skip}")
+string(SUBSTRING "${_geist_tpn}" ${_geist_at} -1 _geist_hershey)
+string(FIND "${_geist_hershey}" "${_geist_rule}\n" _geist_at)
+string(LENGTH "${_geist_rule}\n" _geist_skip)
+math(EXPR _geist_at "${_geist_at} + ${_geist_skip}")
+string(SUBSTRING "${_geist_hershey}" ${_geist_at} -1 _geist_hershey)
+string(FIND "${_geist_hershey}" "${_geist_rule}" _geist_at)
+string(SUBSTRING "${_geist_hershey}" 0 ${_geist_at} _geist_hershey)
+string(STRIP "${_geist_hershey}" _geist_hershey)
+string(APPEND _geist_notices "\n\n=== Hershey fonts ===\n\n${_geist_hershey}\n")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_geist_tpn_file}")
 set(_geist_missing_notices "")
 foreach(_geist_component libpng zlib giflib)
   set(_geist_candidates "")

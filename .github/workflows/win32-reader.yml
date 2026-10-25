@@ -128,7 +128,7 @@ jobs:
           $dist = "dist/$name"
           New-Item -ItemType Directory -Force -Path "$dist/ThirdPartyLicenses" | Out-Null
           Copy-Item build/win32/Release/geist-boo-reader.exe "$dist/$name.exe"
-          Copy-Item LICENSE $dist
+          Copy-Item LICENSE, THIRD-PARTY-NOTICES $dist
           $share = 'build/vcpkg_installed/x64-windows-static/share'
           foreach ($port in 'libpng', 'zlib', 'giflib') {
             Copy-Item "$share/$port/copyright" "$dist/ThirdPartyLicenses/$port.txt"
