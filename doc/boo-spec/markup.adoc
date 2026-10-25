@@ -3601,6 +3601,22 @@ logical record 677, a line between two `CARTDESC` lines is
 eight-byte payload. The description resumes on the next line and closes
 with `CEARTDESC`; only then does the visible `Figure 176.` caption follow.
 
+The picture's description text (served as the image's alternative text)
+is built line by line: every display line whose opcode is `CARTDESC`
+contributes the rest of that line after the opcode, payload blanks
+included, and no other line of the envelope contributes anything. In
+`SC31-6805-03` topic `2.3`, logical record 66, line 37 is `cvfont 12 10 1`:
+bytes `0x1C0A53..0x1C0A58` are `05 D4 0D AB A9 A8`, length byte `05` and a
+five-byte payload, between the `CARTDESC` lines `A picture showing the five
+steps in image processing.` and `Only the Processing step is
+device-independent,`. The hosted reader (DT 19930722182332) serves
+`alt="   A picture showing the five steps in image processing.   Only the
+Processing step is device-independent,   the other steps are all
+device-dependent."`, with nothing of the `CVFONT` line. The same holds
+for an escaped `cvselect` line (`SC33-0668-02` topic `1.2.6`, logical record
+141, line 39 `cvselect 13 8 FIGDSTAB`, DT 19930625001740). Neither escaped
+control is printed anywhere else either.
+
 ==== Captions before picture selectors
 
 A numbered caption may precede its picture selector inside the figure
