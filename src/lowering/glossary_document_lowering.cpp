@@ -4,6 +4,7 @@
 #include "geist/detail/lowering/glossary_document_lowering.hpp"
 
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/lowering/font_style_inlines.hpp"
 
 #include <algorithm>
 #include <set>
@@ -193,6 +194,71 @@ InlineSequenceIR paragraph_inlines(const GlossaryParagraphIR &paragraph,
   return content;
 }
 
+// The CFONT styles of an entry's term or definition: byte ranges that lie
+// inside the text, in order, without overlap, and open and close on a drawn
+// character.
+bool verify_entry_emphasis(const std::string &text,
+                           const std::vector<GlossaryEmphasisIR> &emphasis,
+                           std::string *error) {
+  auto previous_end = std::size_t{0};
+  for (const auto &span : emphasis) {
+    if (span.begin >= span.end || span.end > text.size() ||
+        span.begin < previous_end || text[span.begin] == ' ' ||
+        text[span.end - 1] == ' ')
+      return fail(error, "glossary entry style is not a drawn word range");
+    if (span.source.logical_record == 0 ||
+        span.source.token_begin >= span.source.token_end)
+      return fail(error, "glossary entry style has no font control provenance");
+    previous_end = span.end;
+  }
+  return true;
+}
+
+// Lowers an entry's term or definition text with the styles its CFONT
+// controls prove, every highlight style lowering as it does in running prose
+// (`font_style_inlines.hpp`).  Spans of one control and style separated by a
+// single blank form one run, as hosted's per-word `<B>AID</B> <B>key</B>`
+// reads.
+InlineSequenceIR styled_inlines(const std::string &text,
+                                const std::vector<GlossaryEmphasisIR> &emphasis,
+                                const DocumentNodeOriginIR &source) {
+  InlineSequenceIR content;
+  auto cursor = std::size_t{0};
+  for (std::size_t index = 0; index < emphasis.size();) {
+    auto span = emphasis[index];
+    ++index;
+    while (index < emphasis.size()) {
+      const auto &next = emphasis[index];
+      if (next.style != span.style || !(next.source == span.source) ||
+          next.begin != span.end + 1 || text[span.end] != ' ')
+        break;
+      span.end = next.end;
+      ++index;
+    }
+    if (span.begin > cursor)
+      content.push_back(
+          text_inline(text.substr(cursor, span.begin - cursor), source));
+    auto style_origin = source;
+    style_origin.detail = "glossary font emphasis";
+    add_slice(style_origin, span.source);
+    canonicalize(style_origin);
+    auto styled = text.substr(span.begin, span.end - span.begin);
+    if (font_style_is_code(span.style))
+      content.push_back({CodeInlineIR{std::move(styled),
+                                      font_style_phrase_kind(span.style)},
+                         std::move(style_origin)});
+    else
+      content.push_back({EmphasisInlineIR{std::move(styled),
+                                          font_style_emphasis_kind(span.style),
+                                          font_style_phrase_kind(span.style)},
+                         std::move(style_origin)});
+    cursor = span.end;
+  }
+  if (cursor < text.size())
+    content.push_back(text_inline(text.substr(cursor), source));
+  return content;
+}
+
 bool verify_catalog_shape(const GlossaryCatalogIR &catalog,
                           std::string *error) {
   const auto &introduction = catalog.introduction;
@@ -260,6 +326,10 @@ bool verify_catalog_shape(const GlossaryCatalogIR &catalog,
     return fail(error, "glossary source sequence does not conserve every item");
 
   for (const auto &entry : catalog.entries) {
+    if (!verify_entry_emphasis(entry.term, entry.term_emphasis, error) ||
+        !verify_entry_emphasis(entry.definition.prose,
+                               entry.definition.emphasis, error))
+      return false;
     if (entry.term.empty() || entry.definition.prose.empty() ||
         entry.definition.rows.empty() ||
         (entry.definition.rows.front().role !=
@@ -486,16 +556,28 @@ void lower_glossary_catalog_items(DocumentIR &document,
           row.role == GlossaryDefinitionRowRoleIR::term_echo_prefix)
         merge_origin(definition_origin,
                      row_origin(row, "glossary definition row"));
+    // Hosted BookServer prints the entry as the source draws it: the term
+    // in the style its CFONT gives it, the delimiter after it outside that
+    // style, and the definition running on in the same paragraph
+    // (S85G-8681-00 GLOSSARY, DT 19950803164615:
+    // `<B>AID</B> <B>key</B>.  A control key that generates ...`).
     auto entry_origin = origin("glossary term and definition");
     merge_origin(entry_origin, term_origin);
     merge_origin(entry_origin, definition_origin);
-    DefinitionEntryIR definition;
-    definition.term.push_back(text_inline(entry.term, term_origin));
-    definition.definition.push_back(
-        text_inline(entry.definition.prose, definition_origin));
-    definition.origin = entry_origin;
-    document.blocks.push_back(
-        {DefinitionListBlockIR{{std::move(definition)}}, entry_origin});
+    ParagraphBlockIR paragraph;
+    paragraph.content =
+        styled_inlines(entry.term, entry.term_emphasis, term_origin);
+    paragraph.content.push_back(
+        text_inline(entry.term_delimiter + " ", definition_origin));
+    for (auto &in : styled_inlines(entry.definition.prose,
+                                   entry.definition.emphasis,
+                                   definition_origin)) {
+      merge_origin(entry_origin, in.origin);
+      paragraph.content.push_back(std::move(in));
+    }
+    for (const auto &in : paragraph.content)
+      merge_origin(entry_origin, in.origin);
+    document.blocks.push_back({std::move(paragraph), entry_origin});
     if (entry.definition.embedded_table)
       document.blocks.push_back(table_block(*entry.definition.embedded_table));
   }

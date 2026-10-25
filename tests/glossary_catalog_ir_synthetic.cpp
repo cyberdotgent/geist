@@ -7,6 +7,9 @@
 #include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/layout/layout_ir.hpp"
 #include "geist/detail/layout/ownership_ir.hpp"
+#include "geist/detail/lowering/glossary_document_lowering.hpp"
+#include "geist/detail/render/document_html_renderer.hpp"
+#include "geist/detail/render/document_markdown_renderer.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -103,6 +106,75 @@ make_source(std::uint32_t logical_record, const std::vector<Token> &tokens) {
 } // namespace
 
 int main() {
+  // The term and its delimiter are printed as the source draws them: hosted
+  // BookServer serves S85G-8681-00 GLOSSARY (DT 19950803164615) record 1677
+  // line 13 `   AID key.  A control key ...` under `cfont 3 3 2 7 3 2` as
+  // `<B>AID</B> <B>key</B>.  A control key ...`, and line 26 `   ASCII.  See
+  // American National ...` under `cfont 3 5 2 15 8 1 ...` as `<B>ASCII</B>.
+  // See <I>American</I> <I>National</I> ...`: the term keeps its CFONT
+  // style, the `.` stays outside it and the definition runs on after it,
+  // with its own words styled by the same control.
+  {
+    std::vector<Token> tokens;
+    line(tokens, {"chdlevel", ":GLOSSARY"});
+    line(tokens, {"ST", "  ", "Glossary"});
+    line(tokens, {"SRGLS", "AID", "key"});
+    line(tokens, {"cz", "FLOW", "GD", "3", "3"});
+    line(tokens, {"cfont", "3", "3", "2", "7", "3", "2"});
+    line(tokens, {"   ", "AID", "key", "\x01.", " ", "A", "control", "key."},
+         "          ");
+    line(tokens, {"SRGLS", "ASCII"});
+    line(tokens, {"cz", "FLOW", "GD", "3", "3"});
+    line(tokens, {"cfont", "3", "5", "2", "15", "8", "1"});
+    line(tokens, {"   ", "ASCII", "\x01.", " ", "See", "American", "code."},
+         "          ");
+    const std::vector<geist::detail::DecodedLogicalRecordSource> sources{
+        make_source(1677, tokens)};
+    const auto layout = geist::detail::extract_layout_ir(sources);
+    std::string error;
+    const auto ownership =
+        geist::detail::build_verified_ownership_ir(sources, layout, &error);
+    require(ownership.has_value(), "term glossary ownership was rejected");
+    std::optional<geist::detail::GlossaryCatalogIR> catalog;
+    if (ownership)
+      catalog = geist::detail::extract_glossary_catalog_ir(sources, layout,
+                                                           *ownership, &error);
+    if (!catalog)
+      std::cerr << "term glossary catalog: " << error << '\n';
+    require(catalog.has_value(), "term glossary catalog was rejected");
+    if (catalog) {
+      geist::detail::TopicIdentityIR topic;
+      topic.id = "GLOSSARY";
+      const auto document = geist::detail::lower_glossary_catalog_to_document_ir(
+          topic, *catalog, &error);
+      if (!document)
+        std::cerr << "term glossary lowering: " << error << '\n';
+      require(document.has_value(), "term glossary lowering was rejected");
+      if (document) {
+        const auto markdown = geist::detail::render_document_markdown(*document);
+        const auto html =
+            geist::detail::render_document_html_fragment(*document);
+        if (markdown.find("**AID key**\\. A control key\\.") ==
+                std::string::npos ||
+            markdown.find("**ASCII**\\. See *American* code\\.") ==
+                std::string::npos)
+          std::cerr << markdown << '\n';
+        require(markdown.find("**AID key**\\. A control key\\.") !=
+                    std::string::npos,
+                "the glossary term is not printed bold with its delimiter");
+        require(markdown.find("**ASCII**\\. See *American* code\\.") !=
+                    std::string::npos,
+                "the definition lost the style its CFONT gives a word");
+        require(markdown.find(":**") == std::string::npos,
+                "the glossary term still carries a list-label colon");
+        require(html.find("<strong class=\"geist-strong\">AID key</strong>. "
+                          "A control key.") != std::string::npos,
+                "the HTML glossary term is not bold with its delimiter");
+        require(html.find("<dt") == std::string::npos,
+                "the HTML glossary still prints a definition list");
+      }
+    }
+  }
   // A `cz BREAK` inside a definition draws the lines after it: S20H-1642-01
   // GLOSSARY record 758 lines 29-32 are `   field.  (1) An area in a record
   // ...`, `cz BREAK 3`, `   (2) In the IBM 5250 data stream, ...` and

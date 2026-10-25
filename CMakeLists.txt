@@ -202,6 +202,7 @@ set(GEIST_SOURCES
   src/ir/generated_list_topic_ir.cpp
   src/ir/generated_toc_index_ir.cpp
   src/ir/glossary_catalog_ir.cpp
+  src/ir/glossary_entry_styles.cpp
   src/ir/glossary_ir.cpp
   src/ir/menu_ir.cpp
   src/ir/menu_topic_ir.cpp

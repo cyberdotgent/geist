@@ -121,6 +121,9 @@ struct GlossaryDefinitionIR {
   std::vector<GlossaryDefinitionRowIR> rows;
   std::vector<DocumentSourceSliceIR> structural_sources;
   std::optional<GlossaryEmbeddedTableIR> embedded_table;
+  // CFONT styles of the definition's drawn words, as byte ranges of `prose`
+  // (glossary_entry_styles.hpp); empty where the columns prove none.
+  std::vector<GlossaryEmphasisIR> emphasis;
 };
 
 struct GlossaryEntryIR {
@@ -130,6 +133,12 @@ struct GlossaryEntryIR {
   std::string raw_term;
   std::string source_suffix;
   DocumentSourceSliceIR term_source;
+  // The delimiter the definition's echo of the term draws after it (`.`),
+  // from the first definition row's term-delimiter marker slot; empty when
+  // the echo draws none.
+  std::string term_delimiter;
+  // CFONT styles of the term's drawn words, as byte ranges of `term`.
+  std::vector<GlossaryEmphasisIR> term_emphasis;
   GlossaryDefinitionIR definition;
 };
 

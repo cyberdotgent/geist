@@ -4174,6 +4174,26 @@ visible. Glossary definition rows are fixed-layout rows: a prefix before the
 first matching `CFONT` span and one-byte padded markers such as `<`, `>`, `/`,
 or `"` are structural rather than part of the definition.
 
+The first text line after an entry's `SRGLS` row echoes the term, followed by
+its delimiter and the first line of the definition, and the `CFONT` line
+before it styles the echoed term word by word. `S85G-8681-00.boo` topic
+`GLOSSARY` logical record 1677 display line 12 is `cfont 3 3 2 7 3 2`
+(tokens at `0x93306`..`0x9330c`), and line 13 is
+`   AID key.  A control key that generates a host attention interrupt.`:
+`AID` (`0x9330f`, two-byte token) at column 3, `key` (`0x93311`) at column
+7, then the attach control plus `.` (`01 2e` words, token at `0x93313`) and
+the definition. The triples cover `AID` and `key` and stop before the `.`.
+The hosted BookServer (DT `19950803164615`) serves the line as
+`<B>AID</B> <B>key</B>.  A control key that generates ...`: the term in the
+style its triples give, the delimiter outside it, and the definition
+running on in the same line; later triples of the same control style
+definition words the same way (line 26 `   ASCII.  See American ...` under
+`cfont 3 5 2 15 8 1 ...` is served `<B>ASCII</B>.  See <I>American</I> ...`).
+The delimiter can also be drawn inside the echo row itself rather than in
+an attach token: `SC31-711.boo` `GLOSSARY` logical record 452 echoes
+`Consultative Committee on International Telegraph and Telephone (CCITT).`
+and hosted (DT `19941010174546`) serves `<B>(CCITT)</B>.`.
+
 Within the same glossary fixed stream, exactly four padding spaces after an
 alphabetic token mark a decoder carry token at a physical-row join. This is
 distinct from the wider padding that begins an ordinary wrapped row. Topic

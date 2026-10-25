@@ -86,9 +86,12 @@ int main() {
     require(markdown.find(std::string("<a id=\"GLS ") + term + "\">") !=
                 std::string::npos,
             std::string("anchor GLS ") + term + " is missing");
-    require(markdown.find(std::string("**") + term + ":**") !=
+    // Hosted prints `<B>CSS</B>.  Chirp Spread-Spectrum, ...`: the term in
+    // its CFONT style, then the delimiter, then the definition.
+    require(markdown.find(std::string("**") + term + "**\\. ") !=
                 std::string::npos,
-            std::string("term ") + term + " is not a bold list term");
+            std::string("term ") + term +
+                " is not printed bold with its delimiter");
   }
 
   // The `cz FLOW GD` region draws nothing; its operands are the control's,

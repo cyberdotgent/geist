@@ -3,6 +3,7 @@
 
 #include "geist/detail/ir/glossary_catalog_ir.hpp"
 
+#include "geist/detail/ir/glossary_entry_styles.hpp"
 #include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/core/internal.hpp"
 
@@ -481,6 +482,9 @@ bool same_catalog(const GlossaryCatalogIR &left,
     const auto &b = right.entries[index];
     if (a.term != b.term || a.raw_term != b.raw_term ||
         a.source_suffix != b.source_suffix ||
+        a.term_delimiter != b.term_delimiter ||
+        a.term_emphasis != b.term_emphasis ||
+        a.definition.emphasis != b.definition.emphasis ||
         a.definition.prose != b.definition.prose ||
         !same_slice(a.term_source, b.term_source) ||
         !same_rows(a.definition.rows, b.definition.rows) ||
@@ -1287,6 +1291,41 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
       if (entry.definition.prose.empty())
         return reject("glossary term has no semantic definition prose");
       entry.definition.rows = std::move(content_rows);
+      const auto delimiter_row = std::find_if(
+          entry.definition.rows.begin(), entry.definition.rows.end(),
+          [](const auto &row) {
+            return row.marker_disposition ==
+                       GlossaryMarkerDispositionIR::term_delimiter &&
+                   row.marker;
+          });
+      // The echo can draw the delimiter itself, glued to the term:
+      // SC31-711 GLOSSARY record 452 `Consultative Committee on ...
+      // (CCITT).` (hosted DT 19941010174546 `<B>(CCITT)</B>.`).
+      const auto &echo = entry.definition.rows.front();
+      const auto &echo_text =
+          echo.role == GlossaryDefinitionRowRoleIR::term_echo_prefix &&
+                  echo.continuation_prefix
+              ? echo.continuation_prefix->semantic_text
+              : echo.semantic_text;
+      if (echo_text.size() > entry.term.size() &&
+          echo_text.compare(0, entry.term.size(), entry.term) == 0 &&
+          punctuation(echo_text.substr(entry.term.size())))
+        entry.term_delimiter = echo_text.substr(entry.term.size());
+      else if (delimiter_row != entry.definition.rows.end())
+        entry.term_delimiter = delimiter_row->marker->decoded_text;
+      {
+        // An embedded object's rows draw words the prose does not carry, so
+        // such a definition never verifies and only its term is styled.
+        std::vector<GlossaryStyleSegmentIR> style_segments;
+        for (auto index = cursor + 1; index < next_index; ++index)
+          style_segments.push_back(
+              {ordered[index].record, ordered[index].segment});
+        auto styles = glossary_entry_styles(records, style_segments,
+                                            entry.term, entry.term_delimiter,
+                                            entry.definition.prose);
+        entry.term_emphasis = std::move(styles.term);
+        entry.definition.emphasis = std::move(styles.definition);
+      }
       entry.definition.structural_sources = std::move(structural_sources);
       if (!embedded_controls.empty() || !embedded_rows.empty()) {
         auto embedded = build_embedded_table_ir(std::move(embedded_controls),
