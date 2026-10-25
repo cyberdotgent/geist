@@ -7,6 +7,18 @@ Files: *
 Copyright: 2026 Yvan Janssens
 License: Apache-2.0
 
+Files: src/img/gdf_font.cpp
+Copyright: 2026 Yvan Janssens
+License: Apache-2.0 and Hershey
+Comment: The code is Apache-2.0. The glyph data is the Roman simplex face of
+ the Hershey fonts (upstream SPDX expression "Apache-2.0 AND
+ LicenseRef-Hershey"), converted from futural.jhf of
+ https://github.com/kamalmostafa/hershey-fonts at commit
+ 1356bf2f83d380fcef68c887e88675eb9d445d86 (SHA-256
+ 4958a1d06ea04709feb530deaab53d1efa1285d0d3e92a4a3edd74d279871ced).
+ It is compiled into libgeist, and so into every binary package built from
+ this source. The upstream THIRD-PARTY-NOTICES file carries the same text.
+
 License: Apache-2.0
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -22,3 +34,25 @@ License: Apache-2.0
  .
  On Debian systems, the complete text of the Apache License version 2.0
  can be found in "/usr/share/common-licenses/Apache-2.0".
+
+License: Hershey
+ This distribution of the Hershey Fonts may be used by anyone for any
+ purpose, commercial or otherwise, providing that:
+   1. The following acknowledgements must be distributed with the font
+      data:
+      - The Hershey Fonts were originally created by Dr. A. V. Hershey
+        while working at the U. S. National Bureau of Standards.
+      - The format of the Font data in this distribution was originally
+        created by
+          James Hurt
+          Cognition, Inc.
+          900 Technology Park Drive
+          Billerica, MA 01821
+          (mit-eddie!ci-dandelion!hurt)
+   2. The font data in this distribution may be converted into any other
+      format *EXCEPT* the format distributed by the U.S. NTIS (which
+      organization holds the rights to the distribution and use of the
+      font data in that particular format). Not that anybody would really
+      *want* to use their format... each point is described in eight
+      bytes as "xxx yyy:", where xxx and yyy are the coordinate values as
+      ASCII numbers.
