@@ -420,9 +420,10 @@ bool blank_line(const std::string &text) {
                      [](const auto ch) { return ch == ' '; });
 }
 
-// A full-width rule without corners, the `frame=rule` figure frame; hosted
-// shows it as an empty line (SC09-138 1.3.1, GC23-046 6.2, SC28-1881-05
-// 1.6) while a cornered box top/bottom is displayed.
+// A rule without corners, the `frame=rule` figure frame.  Hosted empties it
+// only when it is full-width (SC09-138 1.3.1, GC23-046 6.2, SC28-1881-05
+// 1.6; see `full_width_rule_line`); a shorter one is displayed, as a
+// cornered box top/bottom is.
 // A dashed rule ("_ _ _ _", SC34-425 1.3.4, drawn from separate one-glyph
 // tokens with decoder-inserted spaces) is drawn content and stays.
 bool frame_rule_line(const DecodedLogicalRecordSource &record,
@@ -1091,21 +1092,26 @@ struct Extractor {
       out.rows = rows_in(*lines[index].record, lines[index].line);
       return out;
     };
+    // Only a full-width frame rule leaves the drawing (the reader empties
+    // it and the page shows `<hr>`); a shorter rule is a drawn row like any
+    // other, printed in the figure's `<pre>` (GC31-7554-01 6.6.2, DT
+    // 19930625133538: 45-cell rules `   ____...` above, inside and below
+    // the figure body).
     if (frame_rule_line(*lines[body_begin].record, lines[body_begin].line,
-                        classes[body_begin].text)) {
-      if (full_width_rule_line(*lines[body_begin].record,
-                               lines[body_begin].line))
-        block.rule_above = rule_line(body_begin);
+                        classes[body_begin].text) &&
+        full_width_rule_line(*lines[body_begin].record,
+                             lines[body_begin].line)) {
+      block.rule_above = rule_line(body_begin);
       classes[body_begin].kind = LineKind::spacing;
       while (body_begin < body_end && classes[body_begin].kind != LineKind::body)
         ++body_begin;
     }
     if (body_end > body_begin &&
         frame_rule_line(*lines[body_end - 1].record, lines[body_end - 1].line,
-                        classes[body_end - 1].text)) {
-      if (full_width_rule_line(*lines[body_end - 1].record,
-                               lines[body_end - 1].line))
-        block.rule_below = rule_line(body_end - 1);
+                        classes[body_end - 1].text) &&
+        full_width_rule_line(*lines[body_end - 1].record,
+                             lines[body_end - 1].line)) {
+      block.rule_below = rule_line(body_end - 1);
       classes[body_end - 1].kind = LineKind::spacing;
       while (body_end > body_begin && classes[body_end - 1].kind != LineKind::body)
         --body_end;

@@ -930,10 +930,20 @@ void figure_frame_rules(bool full) {
               body < bottom && bottom < caption &&
               !contains(html, "_____"),
           "the full-width frame rules are not the page's rules: " + html);
-  else
-    check(!contains(html, "<hr") && !contains(html, "_____") &&
-              body != std::string::npos,
-          "a short frame rule became a page rule: " + html);
+  else {
+    // A shorter rule is an ordinary drawn row: the reader empties only rows
+    // of more than 71 `U+2500` from column 3, and hosted prints the short
+    // ones in the figure's `<pre>` (GC31-7554-01 6.6.2, DT 19930625133538:
+    // `<a name="FIGC06F6">   ____...</a>` with 45 `_`, then the inner rules
+    // and the closing one).
+    const std::string rule = "   " + std::string(cells, '_');
+    const auto pre = pre_body(html);
+    check(!contains(html, "<hr") && body != std::string::npos &&
+              pre.rfind(rule + "\n", 0) == 0 &&
+              pre.size() >= rule.size() &&
+              pre.compare(pre.size() - rule.size(), rule.size(), rule) == 0,
+          "a short frame rule is not a drawn row of the figure: " + html);
+  }
 }
 
 int main() {

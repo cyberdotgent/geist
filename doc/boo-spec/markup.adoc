@@ -1842,6 +1842,18 @@ rule cells from column 3), `cselect 3 9 PIC1` over `PICTURE 1`, a second
 resources it works with`; hosted (DT `19990319094841`) serves
 `<a name="FIGDFHT25O"><hr>`, the image, `<hr>`, the caption.
 
+A shorter frame rule is an ordinary display line of the figure.
+`GC31-7554-01.boo` topic `6.6.2`, logical record 316, follows `SRFIGC06F6`
+with display line 45 at BOO byte `0x8f2b1`: length byte `03`, `12` (three
+blanks), `cc4a` (a run of 45 `U+2500` words) -- 45 rule cells from column 3,
+too few for the full-width test.  Three more such lines follow (lines 49 and
+on), the last of them closing the body before the caption.  Hosted
+BookServer (DT `19930625133538`) prints all four inside the topic's `<pre>`
+as `   _____...` (45 `_`), the first wrapped in `<a name="FIGC06F6">`, and
+draws no `<hr>`.  In a 650-book sample every `frame=rule` figure whose rule
+is shorter than 72 cells (8 figures in 5 books that hosted serves as a
+figure) has its rule lines printed this way.
+
 *A numbered figure caption is a run of display lines, and its continuations are
 indented to the title column.* The caption line is `Figure <n>. <title>`;
 every line that continues it starts at exactly the column where `<title>`
