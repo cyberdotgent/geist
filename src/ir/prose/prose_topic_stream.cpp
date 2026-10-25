@@ -426,6 +426,19 @@ bool vertical_space_operands(const std::string& lower_text) {
          rest == "p p c" || rest == "mm p c";
 }
 
+// Whether `token` sits on a display row opened by a menu control
+// (`cmenu`, `cmitem`, `cemenu`), whose extent the menu pass owns.
+bool on_menu_control_row(const std::vector<DecodedLogicalRecordSource>& records,
+                         std::size_t record_index, std::size_t token) {
+  const auto& record = records[record_index];
+  const auto* line = display_line_of_token(record, token);
+  if (line == nullptr || line->prefix_token + 1 >= line->token_end)
+    return false;
+  const auto opcode = ascii_lower(
+      body_text(view_token(records, record_index, line->prefix_token + 1)));
+  return opcode == "cmenu" || opcode == "cmitem" || opcode == "cemenu";
+}
+
 // Front matter carries a named `CHDLEVEL` form instead of an `h1`-`h6`
 // level.  Hosted BookServer serves every one of these forms as a level-1
 // heading; the form itself is never visible.  Verified topic by topic
@@ -1139,6 +1152,9 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   // The segment that carries the rest of the line is the title.
   std::optional<std::pair<std::size_t, std::size_t>> split_title;
   bool menu_open = false;
+  // The display line (record, length-byte token) of the last word a trailing
+  // subject-index term claimed after the menu.
+  std::optional<std::pair<std::size_t, std::size_t>> index_term_line;
   // The verbatim `cz OFF` regions of the topic.  An `SRFIG`/`SRTBL` envelope
   // marker inside one is not an object envelope -- the span plan leaves it
   // alone (prose_topic_spans.cpp) -- so it reaches this pass as the bare
@@ -1704,6 +1720,52 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             segment.kind == BookControlKind::menu_end ||
             segment.kind == BookControlKind::menu_start)
           continue;
+        // A term word spelled like a control splits the `SI` line it stands
+        // on: LAA5MST 1.3.9.1 record 228 line 40 is `SI synonyms used to
+        // sort FILELIST, SRECF`, and the flattened splitter opens an `SRECF`
+        // segment on its last word; qb3agz01 3.6.1.3 record 1441 line 28 is
+        // `SI SR (subroutine identifier)`.  The reader skips the whole `SI`
+        // line, so these words are the term's, never an anchor or body.
+        if (!segment.source_tokens.empty() &&
+            !build.trailing_index_terms.empty() && index_term_line) {
+          const auto opcode_token = segment.source_tokens.front();
+          const auto* line = display_line_of_token(record, opcode_token);
+          if (line != nullptr && opcode_token > line->prefix_token + 1 &&
+              *index_term_line ==
+                  std::make_pair(record_index, line->prefix_token) &&
+              is_subject_index_display_line(record, *line)) {
+            auto& term = build.trailing_index_terms.back();
+            std::vector<std::pair<std::size_t, std::size_t>> refs;
+            for (const auto token : segment.source_tokens) {
+              const auto view = view_token(records, record_index, token);
+              if (token >= line->token_end) {
+                if (!is_row_control_slot(records, view))
+                  return fail(error, "content follows the trailing menu");
+                if (!ledger.assign(record_index, token,
+                                   ProseTokenRoleIR::padding, error))
+                  return false;
+                continue;
+              }
+              if (is_bare(view) || is_space_run(view) ||
+                  is_placeholder_run(view) || is_padding(view)) {
+                if (!ledger.assign(record_index, token,
+                                   ProseTokenRoleIR::padding, error))
+                  return false;
+                continue;
+              }
+              if (!term.term.empty()) term.term.push_back(' ');
+              term.term += body_text(view);
+              refs.emplace_back(record_index, token);
+              if (!ledger.assign(record_index, token,
+                                 ProseTokenRoleIR::index_term, error))
+                return false;
+            }
+            term.term = collapse_ascii_whitespace(term.term);
+            for (auto& slice : slices_for(records, refs))
+              term.slices.push_back(std::move(slice));
+            continue;
+          }
+        }
         if (segment.kind == BookControlKind::text) {
           // Subject-index terms after the menu (FA1PLMM0 record 42): the
           // keyword, its term words and padding only; a row break followed
@@ -1736,6 +1798,9 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
               if (ascii_lower(body_text(view)) != "si")
                 return fail(error, "content follows the trailing menu");
               keyword_seen = true;
+              if (const auto* line = display_line_of_token(record, token))
+                index_term_line = std::make_pair(record_index,
+                                                 line->prefix_token);
               if (!ledger.assign(record_index, token,
                                  ProseTokenRoleIR::index_keyword, error))
                 return false;
@@ -1754,6 +1819,9 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             if (!term.term.empty()) term.term.push_back(' ');
             term.term += body_text(view);
             refs.emplace_back(record_index, token);
+            if (const auto* line = display_line_of_token(record, token))
+              index_term_line = std::make_pair(record_index,
+                                               line->prefix_token);
             if (!ledger.assign(record_index, token,
                                ProseTokenRoleIR::index_term, error))
               return false;
@@ -1817,6 +1885,26 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                 !is_row_control_slot(records, build.items[index].token) &&
                 !is_placeholder_run(build.items[index].token))
               return fail(error, "content follows the trailing menu");
+          continue;
+        }
+        // Inside the menu, a row's length byte that spells a metadata or
+        // font opcode opens no control either: SC09-2540-01 2.1.7.5 record
+        // 788 token 267 frames the `cmitem 2.1.7.5.3 ...` row (line 34) and
+        // spells `cbacklevel`; dfheba03 1.3.4.2 record 207 opens on a byte
+        // spelled `CPARENT` that frames `cmitem 1.3.4.2.4 ...`.  The reader
+        // reads the row, an item, and hosted (SC09-2540-01 DT
+        // 19990312111603) lists every item and nothing else.  Any visible
+        // token the segment carries must sit on a menu control's own row,
+        // where the menu pass owns it.
+        if (is_display_line_length_opcode(record, segment)) {
+          for (const auto token : segment.source_tokens) {
+            const auto view = view_token(records, record_index, token);
+            if (is_row_control_slot(records, view) || !is_visible(view) ||
+                is_padding(view) || is_placeholder_run(view) ||
+                on_menu_control_row(records, record_index, token))
+              continue;
+            return fail(error, "content follows the trailing menu");
+          }
           continue;
         }
         return fail(error, "content follows the trailing menu");

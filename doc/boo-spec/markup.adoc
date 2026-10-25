@@ -4694,6 +4694,14 @@ no `SI` byte at all.  `SC24-5527-02.boo` 4.1.1 record 380 opens the
 `XSESDSK` envelope with `SI VMSES/E, service disks` on the first line after
 `SRTBLXSESDSK` and the caption `Table 4-1. ...` on the next.
 
+A term word may be spelled like a control name; it is still a word of the
+invisible line.  `LAA5MST.BOO` 1.3.9.1, logical record 228 line 40, is the
+twelve-byte line `0C A4 ...` at `0x139BEE`, `SI synonyms used to sort
+FILELIST, SRECF`, whose last token `E6 19` at `0x139BF9` spells `SRECF`; it
+stands after the topic's menu.  Hosted DT `19920211144125` prints the menu
+and no word of the line.  `qb3agz01` 3.6.1.3 (record 1441 line 28,
+`SI SR (subroutine identifier)`) has a term whose first word is `SR`.
+
 The earlier reading of a "visible tail after `?`" on an `SI` row was an
 artifact of the flattened decoded string: the tail is the _next_ display
 line.  `QSYSNEWG.BOO` record 40 holds `SI display station` on one line and

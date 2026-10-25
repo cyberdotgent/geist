@@ -80,7 +80,9 @@ BookTopicCatalogIR catalog() {
 }
 void chapter_menu(const std::vector<std::string>& skip, bool admitted,
                   const std::string& level = ":H0",
-                  bool spelled_length = false, bool trailing_text = false) {
+                  bool spelled_length = false, bool trailing_text = false,
+                  const std::string& item_length_spelling = "",
+                  const std::vector<std::string>& trailing_index = {}) {
   RecordBuilder builder;
   builder.line({words("sh1.0")});
   builder.line({words("ctopicn"), words("22")});
@@ -102,8 +104,16 @@ void chapter_menu(const std::vector<std::string>& skip, bool admitted,
   builder.line({words("cmenu")});
   builder.line({words("cmitem"), words("1.1"), words("Preparing"),
                 words("your"), words("application"), words("to"), words("run")});
+  const auto item_length = builder.record.tokens.size();
   builder.line({words("cmitem"), words("1.2"), words("Language"), words("considerations")});
+  if (!item_length_spelling.empty())
+    builder.record.tokens[item_length] = words(item_length_spelling);
   builder.line({words("cemenu")});
+  if (!trailing_index.empty()) {
+    std::vector<TokenWords> index_line{words("SI")};
+    for (const auto& word : trailing_index) index_line.push_back(words(word));
+    builder.line(std::move(index_line));
+  }
   if (spelled_length)
     builder.line({words("cz"), words("OFF"), words("EDL"), words("0"), words("0")});
   // A length byte is framing even when its dictionary expansion also
@@ -153,4 +163,18 @@ int main() {
   chapter_menu({"p"}, true);
   chapter_menu({"1"}, true, ":H1", true);
   chapter_menu({"1"}, false, ":H1", true, true);
+  // An item row's length byte that the dictionary spells as a metadata
+  // opcode opens no control inside the menu: SC09-2540-01 2.1.7.5 record 788
+  // token 267 frames `cmitem 2.1.7.5.3 ...` and spells `cbacklevel`; hosted
+  // (DT 19990312111603) lists every item and nothing else.
+  chapter_menu({"1"}, true, ":H1", false, false, "cbacklevel");
+  chapter_menu({"1"}, true, ":H1", false, false, "CPARENT");
+  // A subject-index line after the menu whose term has a word spelled like
+  // an `SR` anchor control: LAA5MST 1.3.9.1 record 228 line 40 `SI synonyms
+  // used to sort FILELIST, SRECF`, qb3agz01 3.6.1.3 record 1441 line 28 `SI
+  // SR (subroutine identifier)`.  The reader skips the whole `SI` line.
+  chapter_menu({"1"}, true, ":H1", false, false, "",
+               {"synonyms", "FILELIST,", "SRECF"});
+  chapter_menu({"1"}, true, ":H1", false, false, "",
+               {"SR", "(subroutine", "identifier)"});
 }
