@@ -57,10 +57,18 @@ struct GeneratedListEntryIR {
   std::optional<char32_t> revision_mark;
 };
 
+// An `SR<id>` destination row in the topic envelope, ahead of the `ST`
+// title (`SRHDRFIGURES`).  It draws nothing; other topics link to it.
+struct GeneratedListAnchorIR {
+  std::string id;
+  DocumentSourceSliceIR source;
+};
+
 struct GeneratedListTopicIR {
   GeneratedListTopicKindIR kind = GeneratedListTopicKindIR::figures;
   std::string title;
   DocumentSourceSliceIR heading_source;
+  std::vector<GeneratedListAnchorIR> anchors;
   std::vector<GeneratedListEntryIR> entries;
   std::vector<GeneratedListTopicSegmentIR> segments;
 };

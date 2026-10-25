@@ -5,6 +5,7 @@
 
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/layout/display_lines.hpp"
+#include "geist/detail/ir/sr_anchor_name.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -355,6 +356,19 @@ std::optional<GeneratedListEntryIR> make_entry(
 
 bool same_topic(const GeneratedListTopicIR& left,
                 const GeneratedListTopicIR& right) {
+  if (left.anchors.size() != right.anchors.size()) return false;
+  for (std::size_t index = 0; index < left.anchors.size(); ++index) {
+    const auto& a = left.anchors[index];
+    const auto& b = right.anchors[index];
+    if (a.id != b.id ||
+        std::tie(a.source.logical_record, a.source.segment_index,
+                 a.source.token_begin, a.source.token_end, a.source.byte_begin,
+                 a.source.byte_end) !=
+            std::tie(b.source.logical_record, b.source.segment_index,
+                     b.source.token_begin, b.source.token_end,
+                     b.source.byte_begin, b.source.byte_end))
+      return false;
+  }
   if (left.kind != right.kind || left.title != right.title ||
       left.entries.size() != right.entries.size() ||
       left.segments.size() != right.segments.size() ||
@@ -477,18 +491,39 @@ std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
   if (records.empty()) return reject("generated-list source is empty");
   const OwnershipIR& ownership = verified_ownership;
   std::string inner_error;
-  if (!verify_selector_catalog_ir(records, selectors, &inner_error) ||
+  // A list with no entries is a heading alone: the book declared no figure
+  // or table, and the reader prints only the title (SC31-8836-04 TABLES,
+  // SC33-6733-01 TABLES: `cz OFF TLIST` directly followed by `cz OFF ETLIST
+  // 0 0`; hosted serves `<h1>    Tables</h1>` and nothing else).  Such a
+  // source has no selector, so the catalog is empty and there is no
+  // selection display to verify; the envelope checks below still apply, and
+  // no visible cell may stand after the title.
+  const auto empty_list = selectors.selectors.empty();
+  if ((!empty_list &&
+       !verify_selector_catalog_ir(records, selectors, &inner_error)) ||
       !verify_layout_ir(records, layout, &inner_error) ||
       !ownership_verified_for(verified_ownership, records, layout,
                               &inner_error))
     return reject("generated-list prerequisite IR rejected: " + inner_error);
-  const auto display = extract_selector_display_ir(
-      records, selectors, layout, verified_ownership, &inner_error);
-  if (!display || !verify_selector_display_ir(
-                      records, selectors, layout, verified_ownership, *display,
-                      &inner_error))
-    return reject("generated-list display rejected: " + inner_error);
-  if (display->rows.empty() || display->rows.size() != selectors.selectors.size() ||
+  if (empty_list)
+    for (const auto& record : records)
+      for (const auto& segment : record.control_segments)
+        if (segment.kind == BookControlKind::select)
+          return reject("generated-list selector catalog is empty but the "
+                        "source has a selector");
+  std::optional<SelectorDisplayIR> display;
+  if (empty_list) {
+    display.emplace();
+  } else {
+    display = extract_selector_display_ir(records, selectors, layout,
+                                          verified_ownership, &inner_error);
+    if (!display || !verify_selector_display_ir(
+                        records, selectors, layout, verified_ownership,
+                        *display, &inner_error))
+      return reject("generated-list display rejected: " + inner_error);
+  }
+  if ((display->rows.empty() && !empty_list) ||
+      display->rows.size() != selectors.selectors.size() ||
       display->bindings.size() != selectors.selectors.size() ||
       !display->objects.empty())
     return reject("generated-list selectors do not map one-to-one to rows");
@@ -564,6 +599,20 @@ std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
           saw_title = true;
           continue;
         }
+        // An `SR<id>` destination row between the metadata and the title
+        // (dfhtkb00 FIGURES record 30 segment 8 `SRHDRFIGURES`) names the
+        // topic for other topics' links and draws nothing.
+        if (segment.kind == BookControlKind::structural && !segment.malformed &&
+            segment.payload_range.begin == segment.payload_range.end &&
+            ascii_lower(segment.opcode).rfind("srhdr", 0) == 0) {
+          const auto name =
+              sr_row_anchor_name(record, segment.source_tokens.front());
+          if (!name || !ascii_equals_case_insensitive(
+                           *name, segment.opcode.substr(2)))
+            return reject("generated-list anchor row is not its own name");
+          result.anchors.push_back({*name, source_slice(record, segment)});
+          continue;
+        }
         switch (segment.kind) {
         case BookControlKind::topic_start:
         case BookControlKind::topic_number:
@@ -573,7 +622,11 @@ std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
         case BookControlKind::summary:
         case BookControlKind::source_file: break;
         default:
-          return reject("control outside the generated-list metadata envelope");
+          return reject("control outside the generated-list metadata "
+                        "envelope at " +
+                        std::to_string(record.logical_record) + ':' +
+                        std::to_string(segment.segment_index) + " opcode=" +
+                        segment.opcode);
         }
         if (segment.payload_range.begin != segment.payload_range.end &&
             !((segment.kind == BookControlKind::forward_level ||
@@ -599,9 +652,35 @@ std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
           const auto list = result.kind == GeneratedListTopicKindIR::figures
                                 ? "figlist"
                                 : "tlist";
+          // The payload may hold the next row's length byte, whatever the
+          // dictionary spells it (SC31-8836-04 TABLES record 22: `cz OFF
+          // TLIST` is followed by the byte that frames `cz OFF ETLIST 0 0`,
+          // spelled as a run of rule glyphs); that byte is row geometry.
+          // The blank the decoder inserts after the last operand maps back
+          // to that operand's token, which is the directive's own.
+          const auto payload_words = decoded_byte_range_to_word_range(
+              record.assembled, segment.payload_range);
+          const auto payload_tokens = source_tokens_intersecting_output(
+              record.assembled, payload_words.begin, payload_words.end);
+          const auto operand_words = decoded_byte_range_to_word_range(
+              record.assembled, segment.operand_range);
+          const auto operand_tokens = source_tokens_intersecting_output(
+              record.assembled, operand_words.begin, operand_words.end);
           if (segment.malformed ||
-              segment.payload_range.begin != segment.payload_range.end)
-            return reject("malformed generated-list directive");
+              !std::all_of(payload_tokens.begin(), payload_tokens.end(),
+                           [&](const auto token) {
+                             return is_display_line_length_token(record,
+                                                                 token) ||
+                                    std::find(operand_tokens.begin(),
+                                              operand_tokens.end(),
+                                              token) != operand_tokens.end();
+                           }))
+            return reject("malformed generated-list directive at " +
+                          std::to_string(record.logical_record) + ':' +
+                          std::to_string(segment.segment_index) +
+                          (segment.malformed ? " (malformed)" : "") +
+                          " payload='" +
+                          range_text(record, segment.payload_range) + "'");
           if (operand == "break 3") {
             if (saw_entry || saw_break)
               return reject("misplaced or duplicate generated-list break");
@@ -611,7 +690,8 @@ std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
               return reject("misplaced or duplicate generated-list opener");
             saw_list_open = true;
           } else if (operand == "off e" + std::string(list) + " 0 0") {
-            if (!saw_entry || saw_list_close)
+            if ((!saw_entry && !(empty_list && saw_list_open)) ||
+                saw_list_close)
               return reject("misplaced or duplicate generated-list closer");
             saw_list_close = true;
           } else {
@@ -619,6 +699,13 @@ std::optional<GeneratedListTopicIR> extract_generated_list_topic_ir(
           }
           continue;
         }
+        // A `c.rev` line between the entries sets SCRIPT revision state and
+        // draws nothing: the reader skips every `C.` control line whole
+        // (SC41-4304-00 TABLES record 31 segment 16, `c.rev MJA |`; hosted
+        // DT 19951006131114 lists the entries around it and nothing else).
+        if (segment.kind == BookControlKind::revision_definition &&
+            !segment.malformed && !has_owned_visible(record, segment))
+          continue;
         if (segment.kind != BookControlKind::select &&
             segment.kind != BookControlKind::text &&
             segment.kind != BookControlKind::font) {

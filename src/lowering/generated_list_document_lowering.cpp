@@ -62,7 +62,7 @@ CrossReferenceTargetIR target(const SelectorTargetIR& source) {
 std::optional<DocumentIR> canonical_document(TopicIdentityIR identity,
                                              const GeneratedListTopicIR& list,
                                              std::string* error) {
-  if (list.title.empty() || list.entries.empty()) {
+  if (list.title.empty()) {
     fail(error, "generated-list semantics are incomplete");
     return std::nullopt;
   }
@@ -77,6 +77,15 @@ std::optional<DocumentIR> canonical_document(TopicIdentityIR identity,
   InlineIR heading_text{TextInlineIR{list.title}, heading_origin};
   document.blocks.push_back(
       {HeadingBlockIR{1, {std::move(heading_text)}}, heading_origin});
+  // Destination rows ahead of the title follow the heading, where the prose
+  // family places its own leading anchors.
+  for (const auto& anchor : list.anchors) {
+    DocumentNodeOriginIR anchor_origin;
+    anchor_origin.derivation = DocumentDerivationIR::semantic_lowering;
+    anchor_origin.slices.push_back(anchor.source);
+    anchor_origin.detail = "generated-list source anchor";
+    document.blocks.push_back({AnchorBlockIR{anchor.id}, anchor_origin});
+  }
 
   for (const auto& entry : list.entries) {
     if (entry.label_fragments.empty()) {

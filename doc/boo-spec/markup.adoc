@@ -4176,6 +4176,27 @@ Checking one marked selection row in each of 75 library books: the 63
 lists without the envelope print the mark in front of the anchor inside
 `<pre>`, the 12 with it print `<dd>` rows and no mark.
 
+Three further shapes occur in the lists of a 500-book random census.
+
+* An `SR<id>` destination row may stand between the metadata and the `ST`
+line, as in any other topic: `dfhtkb00` `FIGURES`, logical record 30,
+stores `02 E5 C3` at `0x787EA` (length byte, then the two-byte token
+`SRHDRFIGURES`) and then `04 9B 09 D6 25` (`ST`, one blank, `Figures`).  It
+names the topic for links and draws nothing.  47 of the census's list
+topics, all in CICS books, have it.
+* A `c.rev` line may stand between two selections.  Like every `C.` control
+line it draws nothing: `SC41-4304-00` `TABLES`, logical record 31 line 31,
+is `05 CB 52 E9 EA 86` at `0xFE8D` (`c.rev TRANS |`) after the last
+selection row; hosted DT `19951006131114` lists the selections and no
+`c.rev` text.
+* A list may have no entries at all: `SC31-8836-04` `TABLES`, logical record
+22, is `ST  Tables`, `c.sp 1 p`, `cz BREAK 3`, `cz OFF TLIST` (`04 3F 75 E8
+4B` at `0xE2C53`) and at once `cz OFF ETLIST 0 0` (`06 3F 75 CF 98 84 84`).
+Hosted serves the heading `Tables` and nothing else; `SC33-6733-01`
+`TABLES` is the same.  The length byte `06` of the closer's line is spelled
+as a run of rule glyphs by that book's dictionary; it is row geometry, not
+part of the `cz OFF TLIST` directive.
+
 [[markup_srtbl_records_with_an_inline_first_row]]
 === SRTBL records with an inline first row
 

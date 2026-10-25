@@ -103,7 +103,6 @@ bool generated_list_source_candidate(
     const std::vector<DecodedLogicalRecordSource> &sources) {
   bool heading = false;
   bool title = false;
-  bool selector = false;
   for (const auto &record : sources) {
     const auto text = token_words_to_ascii(record.assembled.words);
     for (const auto &segment : record.control_segments) {
@@ -114,12 +113,13 @@ bool generated_list_source_candidate(
         heading = heading || operand == ":figlist" || operand == ":tlist";
       } else if (segment.kind == BookControlKind::title) {
         title = true;
-      } else if (segment.kind == BookControlKind::select) {
-        selector = true;
       }
     }
   }
-  return heading && title && selector;
+  // No selector is required: a list with no entries has none, only its
+  // `cz OFF FIGLIST` directive pair, and the family itself decides whether
+  // that envelope is complete.
+  return heading && title;
 }
 
 // True when the token's decoded word run, ignoring a spacing-control prefix
@@ -300,8 +300,22 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
   std::optional<GeneratedListTopicIR> generated_list;
   std::optional<SelectorCatalogIR> generated_selectors;
   if (generated_list_source_candidate(sources)) {
-    generated_selectors = extract_selector_catalog_ir(sources, declined_sink);
-    note_declined("generated list selectors", generated_selectors.has_value());
+    // A list with no entries has no selector at all; the family receives an
+    // empty catalog and decides from the envelope alone.
+    const auto has_selector = std::any_of(
+        sources.begin(), sources.end(), [](const auto &record) {
+          return std::any_of(record.control_segments.begin(),
+                             record.control_segments.end(),
+                             [](const auto &segment) {
+                               return segment.kind == BookControlKind::select;
+                             });
+        });
+    if (has_selector) {
+      generated_selectors = extract_selector_catalog_ir(sources, declined_sink);
+      note_declined("generated list selectors", generated_selectors.has_value());
+    } else {
+      generated_selectors.emplace();
+    }
     if (generated_selectors) {
       generated_list = extract_generated_list_topic_ir(
           sources, *generated_selectors, layout, ownership, declined_sink);

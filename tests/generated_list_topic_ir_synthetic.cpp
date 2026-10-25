@@ -6,6 +6,7 @@
 #include "test_failures.hpp"
 #include "geist/detail/ir/generated_list_topic_ir.hpp"
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/lowering/topic_document_lowering.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -660,6 +661,186 @@ void verify_corpus_inventory() {
 
 } // namespace
 
+// A whole generated-list topic through the typed dispatcher.  Every line is
+// a length byte followed by its tokens, as the reader frames a record.
+using Line = std::vector<TokenWords>;
+
+DecodedLogicalRecordSource framed_topic(
+    const std::vector<Line>& lines,
+    const std::vector<std::pair<std::size_t, TokenWords>>& length_spellings) {
+  DecodedLogicalRecordSource record;
+  std::uint16_t next_encoded = 0x40;
+  for (std::size_t index = 0; index < lines.size(); ++index) {
+    const auto& content = lines[index];
+    record.encoded_tokens.push_back(
+        {static_cast<std::uint16_t>(2 * content.size()), 1});
+    // The record's first length byte spells `,` after a spacing control, as
+    // the real ones do (dfhtkb00 record 30 token 0, value 2), so that the
+    // `sh` line opens the record's first segment.
+    TokenWords length =
+        record.tokens.empty() ? TokenWords{1, ','} : TokenWords{0x25BA};
+    for (const auto& spelling : length_spellings)
+      if (spelling.first == index) length = spelling.second;
+    record.tokens.push_back(length);
+    for (const auto& token : content) {
+      record.encoded_tokens.push_back({next_encoded++, 2});
+      record.tokens.push_back(token);
+    }
+  }
+  record.logical_record = 2;
+  record.assembled =
+      geist::detail::assemble_logical_record_with_sources(record.tokens);
+  record.ir.logical_record = 2;
+  std::uint32_t byte = 1;
+  for (std::size_t token = 0; token < record.tokens.size(); ++token) {
+    const auto encoded = record.encoded_tokens[token];
+    const auto spacing =
+        !record.tokens[token].empty() && record.tokens[token].front() < 4;
+    record.ir.tokens.push_back(
+        {token, encoded, record.tokens[token],
+         {byte, static_cast<std::uint32_t>(byte + encoded.width)}, spacing,
+         spacing ? record.tokens[token].front() : std::uint16_t{3}});
+    byte += encoded.width;
+  }
+  record.ir.payload_range = {1, byte};
+  geist::detail::assign_display_line_framing(record.ir);
+  record.control_segments = geist::detail::decode_control_segments(
+      record.logical_record, record.assembled, record.encoded_tokens,
+      record.ir.display_lines);
+  geist::detail::demote_display_line_owned_controls(record);
+  geist::detail::assign_display_line_margin_marks(record);
+  return record;
+}
+
+// The dispatched document as `<family>=` and its blocks: `h<n>:<text>`,
+// `a:<id>`, `p` or `?`, joined by `|`; `<declined: ...>` when no typed family
+// claimed the topic.
+std::string dispatched_outline(
+    const std::string& id, const std::vector<Line>& body,
+    const std::string& level,
+    const std::vector<std::pair<std::size_t, TokenWords>>& body_length_spellings =
+        {}) {
+  std::vector<Line> lines = {
+      {words("sh" + geist::detail::ascii_lower(id))},
+      {words("ctopicn"), words("6")},
+      {words("cparent")},
+      {words("cforwardlevel"), words("1.0")},
+      {words("cbacklevel")},
+      {words("csummary"), words("2"), words("0"), words("2")},
+      {words("chdlevel"), words(level)},
+      {words("csourcefn"), words("RBANSMST")},
+  };
+  std::vector<std::pair<std::size_t, TokenWords>> length_spellings;
+  for (const auto& spelling : body_length_spellings)
+    length_spellings.push_back({lines.size() + spelling.first, spelling.second});
+  lines.insert(lines.end(), body.begin(), body.end());
+  std::vector<DecodedLogicalRecordSource> records{
+      framed_topic(lines, length_spellings)};
+  geist::detail::TopicIdentityIR identity;
+  identity.id = id;
+  identity.start_logical_record = 2;
+  identity.end_logical_record = 2;
+  std::string rejection;
+  geist::detail::TypedLoweringTraceIR trace;
+  const auto document = geist::detail::try_lower_topic_to_document_ir(
+      identity, records, nullptr, &rejection, &trace);
+  if (!document) {
+    std::string declined = "<declined: " + rejection;
+    for (const auto& reason : trace.declined)
+      if (reason.rfind("generated list", 0) == 0) declined += " | " + reason;
+    return declined + ">";
+  }
+  std::string outline = trace.family + "=";
+  for (const auto& block : document->blocks) {
+    if (outline.back() != '=') outline += '|';
+    if (const auto* heading =
+            std::get_if<geist::detail::HeadingBlockIR>(&block.node)) {
+      outline += "h" + std::to_string(heading->level) + ":";
+      for (const auto& item : heading->content)
+        if (const auto* text =
+                std::get_if<geist::detail::TextInlineIR>(&item.node))
+          outline += text->text;
+    } else if (const auto* anchor =
+                   std::get_if<geist::detail::AnchorBlockIR>(&block.node)) {
+      outline += "a:" + anchor->id;
+    } else if (std::holds_alternative<geist::detail::ParagraphBlockIR>(
+                   block.node)) {
+      outline += "p";
+    } else {
+      outline += "?";
+    }
+  }
+  return outline;
+}
+
+void expect_dispatched(const std::string& label, const std::string& found,
+                       const std::string& expected) {
+  require(found == expected,
+          label + ": '" + found + "', expected '" + expected + "'");
+}
+
+void generated_list_envelope_shapes() {
+  // A destination row between the metadata and the title.  dfhtkb00
+  // FIGURES record 30 stores `SRHDRFIGURES` (segment 8) before `ST
+  // Figures`; it names the topic for links and draws nothing.
+  expect_dispatched(
+      "SRHDRFIGURES before ST",
+      dispatched_outline(
+          "FIGURES",
+          {{words("SRHDRFIGURES")},
+           {words("ST"), words("  "), words("Figures")},
+           {words("cselect"), words("3"), words("15"), words("FIGONE")},
+           {words("   "), words("1."), words("  "), words("Alpha"),
+            words("   "), words("1.1")}},
+          ":FIGLIST"),
+      "generated list=h1:Figures|a:HDRFIGURES|p");
+  // A `c.rev` line between two entries draws nothing (SC41-4304-00 TABLES
+  // record 31 segment 16, `c.rev MJA |`; hosted DT 19951006131114).
+  expect_dispatched(
+      "c.rev between entries",
+      dispatched_outline(
+          "TABLES",
+          {{words("ST"), words("  "), words("Tables")},
+           {words("cselect"), words("3"), words("15"), words("TBLONE")},
+           {words("   "), words("1."), words("  "), words("Alpha"),
+            words("   "), words("1.1")},
+           {words("c.rev"), words("MJA"), TokenWords{0x2502}},
+           {words("cselect"), words("3"), words("14"), words("TBLTWO")},
+           {words("   "), words("2."), words("  "), words("Beta"),
+            words("   "), words("1.2")}},
+          ":TLIST"),
+      "generated list=h1:Tables|p|p");
+  // A list with no entries: the directive pair alone.  SC31-8836-04 TABLES
+  // record 22 lines 10-12 are `cz BREAK 3`, `cz OFF TLIST`, `cz OFF ETLIST 0
+  // 0`; hosted serves `<h1>    Tables</h1>` and nothing else.
+  expect_dispatched(
+      "empty TLIST",
+      dispatched_outline("TABLES",
+                         {{words("ST"), words("  "), words("Tables")},
+                          {words("c.sp"), words("1"), words("p")},
+                          {words("cz"), words("BREAK"), words("3")},
+                          {words("cz"), words("OFF"), words("TLIST")},
+                          {words("cz"), words("OFF"), words("ETLIST"),
+                           words("0"), words("0")}},
+                         ":TLIST"),
+      "generated list=h1:Tables");
+  // The same where the closer's length byte spells a rule run and the
+  // splitter leaves it in the opener's payload: SC31-8836-04 TABLES record
+  // 22 line 12, `cz OFF TLIST` + a 62-cell rule spelling, then `cz OFF
+  // ETLIST 0 0`.
+  expect_dispatched(
+      "empty TLIST, closer's length byte spelled as a rule",
+      dispatched_outline("TABLES",
+                         {{words("ST"), words("  "), words("Tables")},
+                          {words("c.sp"), words("1"), words("p")},
+                          {words("cz"), words("BREAK"), words("3")},
+                          {words("cz"), words("OFF"), words("TLIST")},
+                          {words("cz"), words("OFF"), words("ETLIST"),
+                           words("0"), words("0")}},
+                         ":TLIST", {{4, TokenWords(62, 0x2500)}}),
+      "generated list=h1:Tables");
+}
+
 int main() {
   framed_selection_keeps_its_payload(true, false);
   framed_selection_keeps_its_payload(false, false);
@@ -678,6 +859,7 @@ int main() {
   framed_selection_keeps_its_payload(false, false, false, true, false, false, 1,
                                      "|", true);
   verify_synthetic_contract();
+  generated_list_envelope_shapes();
 #ifdef GEIST_FIXTURE_DIR
   verify_corpus_inventory();
 #endif
