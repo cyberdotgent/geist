@@ -105,8 +105,20 @@ std::optional<GeneratedListEntryIR> make_entry(
            source->run == row.owner.run &&
            source->row_index == row.owner.physical_row_index;
   };
+  // A display line's length byte is row geometry whatever its dictionary
+  // spelling.  SC31-8219-00 TABLES record 15 token 64 frames the next
+  // selector's line and is spelled as 62 rule glyphs; the selection row
+  // before it ended at `Commands`, and hosted prints no rule.
+  const auto length_byte_cell = [&](const SelectorDisplayCellIR& cell) {
+    if (!cell.source || cell.source->kind != SelectorSourceCellKind::token_word)
+      return false;
+    const auto* record = find_record(records, cell.source->logical_record);
+    return record != nullptr &&
+           is_display_line_length_token(*record, cell.source->token_index);
+  };
   const auto label_anchor = [&](const SelectorDisplayCellIR& cell) {
-    if (decoder_artifact(records, cell) || first_row_marker(cell))
+    if (decoder_artifact(records, cell) || first_row_marker(cell) ||
+        length_byte_cell(cell))
       return false;
     const auto* source = owned_cell(cell);
     return source != nullptr &&

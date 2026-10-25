@@ -763,9 +763,13 @@ std::string dispatched_outline(
     } else if (const auto* anchor =
                    std::get_if<geist::detail::AnchorBlockIR>(&block.node)) {
       outline += "a:" + anchor->id;
-    } else if (std::holds_alternative<geist::detail::ParagraphBlockIR>(
-                   block.node)) {
+    } else if (const auto* paragraph =
+                   std::get_if<geist::detail::ParagraphBlockIR>(&block.node)) {
       outline += "p";
+      for (const auto& item : paragraph->content)
+        if (const auto* link =
+                std::get_if<geist::detail::CrossReferenceInlineIR>(&item.node))
+          outline += "[" + link->label + "]";
     } else {
       outline += "?";
     }
@@ -793,7 +797,7 @@ void generated_list_envelope_shapes() {
            {words("   "), words("1."), words("  "), words("Alpha"),
             words("   "), words("1.1")}},
           ":FIGLIST"),
-      "generated list=h1:Figures|a:HDRFIGURES|p");
+      "generated list=h1:Figures|a:HDRFIGURES|p[1.   Alpha    1.1]");
   // A `c.rev` line between two entries draws nothing (SC41-4304-00 TABLES
   // record 31 segment 16, `c.rev MJA |`; hosted DT 19951006131114).
   expect_dispatched(
@@ -809,7 +813,7 @@ void generated_list_envelope_shapes() {
            {words("   "), words("2."), words("  "), words("Beta"),
             words("   "), words("1.2")}},
           ":TLIST"),
-      "generated list=h1:Tables|p|p");
+      "generated list=h1:Tables|p[1.   Alpha    1.1]|p[2.   Beta    1.2]");
   // A list with no entries: the directive pair alone.  SC31-8836-04 TABLES
   // record 22 lines 10-12 are `cz BREAK 3`, `cz OFF TLIST`, `cz OFF ETLIST 0
   // 0`; hosted serves `<h1>    Tables</h1>` and nothing else.
@@ -839,6 +843,28 @@ void generated_list_envelope_shapes() {
                            words("0"), words("0")}},
                          ":TLIST", {{4, TokenWords(62, 0x2500)}}),
       "generated list=h1:Tables");
+  // A selection's label ends with its row, even where the next row's
+  // length byte spells visible glyphs: SC31-8219-00 TABLES record 15 line
+  // 13 is the row (styled by the `cfont` of line 12) and line 14 (`cselect
+  // 8 40 TBLTRCF32B`, the continuation's selector) opens on the byte `06`,
+  // which that book's dictionary spells as a run of 62 rule glyphs.  Hosted prints `1.  Flags and Parameters ... Commands` and the
+  // continuation, and no rule.
+  expect_dispatched(
+      "label ends before the next row's length byte",
+      dispatched_outline("TABLES",
+                         {{words("ST"), words("  "), words("Tables")},
+                          {words("cselect"), words("3"), words("15"),
+                           words("TBLONE")},
+                          {words("cfont"), words("8"), words("5"),
+                           words("2")},
+                          {words("   "), words("1."), words("  "),
+                           words("Alpha"), words("   "), words("1.1")},
+                          {words("cselect"), words("3"), words("14"),
+                           words("TBLTWO")},
+                          {words("   "), words("2."), words("  "),
+                           words("Beta"), words("   "), words("1.2")}},
+                         ":TLIST", {{4, TokenWords(62, 0x2500)}}),
+      "generated list=h1:Tables|p[1.   Alpha    1.1]|p[2.   Beta    1.2]");
 }
 
 int main() {
