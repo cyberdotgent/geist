@@ -406,6 +406,20 @@ elseif(NOT APPLE AND GEIST_BUILD_MAC_READER STREQUAL "ON")
   message(FATAL_ERROR "The native Geist BOO Reader requires macOS")
 endif()
 
+# A native Win32 reader on the system MSHTML WebBrowser control, built by
+# MinGW-w64 as well as MSVC. AUTO builds it for Windows targets; ON makes
+# any other target an error; OFF never builds it.
+set(GEIST_BUILD_WIN32_READER "AUTO" CACHE STRING
+  "Build the native Geist BOO Reader for Windows: AUTO, ON or OFF"
+)
+set_property(CACHE GEIST_BUILD_WIN32_READER PROPERTY STRINGS AUTO ON OFF)
+if(WIN32 AND NOT GEIST_BUILD_WIN32_READER STREQUAL "OFF")
+  enable_language(RC)
+  add_subdirectory(win32)
+elseif(NOT WIN32 AND GEIST_BUILD_WIN32_READER STREQUAL "ON")
+  message(FATAL_ERROR "The native Win32 Geist BOO Reader requires a Windows target")
+endif()
+
 # Installation -------------------------------------------------------------
 #
 # Standard GNU locations: libraries in lib, headers in include/geist, the
@@ -697,6 +711,14 @@ if(Python3_Interpreter_FOUND)
   add_test(NAME macos_release_verifier_test
     COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/macos_release_verifier_test.py")
+  # The Win32 reader is standalone: Windows-only imports, and the DPI and
+  # Common Controls 6 manifest embedded as its RT_MANIFEST resource.
+  if(TARGET geist-boo-reader AND WIN32)
+    add_test(NAME win32_reader_executable_test
+      COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/win32/verify_exe.py"
+        "$<TARGET_FILE:geist-boo-reader>")
+  endif()
   add_test(NAME corpus_gate_synthetic_test
     COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/corpus_gate_synthetic.py")
@@ -715,6 +737,9 @@ set(_geist_version_tools
 )
 if(TARGET geist-hardcopy)
   list(APPEND _geist_version_tools $<TARGET_FILE:geist-hardcopy>)
+endif()
+if(TARGET geist-boo-reader AND WIN32 AND NOT CMAKE_CROSSCOMPILING)
+  list(APPEND _geist_version_tools $<TARGET_FILE:geist-boo-reader>)
 endif()
 add_test(NAME tool_versions_test
   COMMAND ${CMAKE_COMMAND}

@@ -1,0 +1,54 @@
+/* Copyright 2026 Yvan Janssens */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/*
+ * The Win32 reader shows topics in MSHTML's IE11 document mode, which
+ * predates CSS logical properties. This sheet follows the shared
+ * doc/html-styling.css and restates its logical margins, paddings and
+ * borders as physical ones for a left-to-right page. It only adds rules;
+ * the library's output is unchanged.
+ */
+
+.geist-topic { margin-top: 2rem; margin-bottom: 2rem; }
+.geist-heading { margin-top: 1.5em; margin-bottom: 0.5em; }
+.geist-paragraph { margin-top: 0.75em; margin-bottom: 0.75em; }
+.geist-thematic-break { margin-top: 1em; margin-bottom: 1em; border-top: 1px solid #888; }
+.geist-list { margin-top: 0.75em; margin-bottom: 0.75em; padding-left: 1.5em; }
+.geist-list-item { margin-top: 0.25em; margin-bottom: 0.25em; }
+.geist-list-item[data-geist-depth="1"] { margin-left: 1.5em; }
+.geist-list-item[data-geist-depth="2"] { margin-left: 3em; }
+.geist-revised { border-left: 2px solid #888; padding-left: 0.25em; }
+.geist-definition-list { margin-top: 0.75em; margin-bottom: 0.75em; }
+.geist-definition-term { margin-top: 0.5em; }
+.geist-definition-description { margin-left: 1.5em; }
+.geist-table { margin-top: 1em; margin-bottom: 1em; }
+.geist-table-row { border-bottom: 1px solid #ddd; }
+.geist-table-header-cell { text-align: left; }
+.geist-preformatted { margin-top: 1em; margin-bottom: 1em; }
+.geist-note { margin-top: 1em; margin-bottom: 1em; border-left: 4px solid #888; }
+.geist-note-label { margin-top: 0; margin-bottom: 0.25em; }
+.geist-note-content { margin-top: 0; margin-bottom: 0; }
+.geist-publication-list { margin-top: 1em; margin-bottom: 1em; padding-left: 1.5em; }
+.geist-publication-entry { margin-top: 0.75em; margin-bottom: 0.75em; }
+.geist-publication-title { margin-top: 0; margin-bottom: 0; }
+.geist-publication-paragraph { margin-top: 0.25em; margin-bottom: 0; }
+.geist-figure { margin: 1.5em 0; }
+.geist-figure-caption { margin-top: 0.5em; }
+.geist-footnote { margin-top: 0.5em; margin-bottom: 0.5em; }
+.geist-footnote-label { margin-right: 0.5em; }
+.geist-index-group { margin-top: 1em; margin-bottom: 1em; }
+.geist-index-heading { margin-top: 0.5em; margin-bottom: 0.25em; }
+.geist-index-entries { margin-top: 0; margin-bottom: 0; padding-left: 1.5em; }
+.geist-index-entry { margin-top: 0.1em; margin-bottom: 0.1em; }
+.geist-menu { margin-top: 1em; margin-bottom: 1em; }
+.geist-menu-lead { margin-top: 0; margin-bottom: 0.25em; }
+.geist-menu-items { margin-top: 0; margin-bottom: 0; padding-left: 1.5em; }
+.geist-menu-item { margin-top: 0.1em; margin-bottom: 0.1em; }
+.geist-opaque { margin-top: 1em; margin-bottom: 1em; }
+[data-geist-degraded="true"] { border-left: 3px solid #c8a000; }
+.geist-diagnostic { margin-top: 1em; margin-bottom: 1em; }
+.geist-diagnostic-message { margin-top: 0; margin-bottom: 0.25em; }
+.geist-diagnostic-source { margin-top: 0; margin-bottom: 0; }
+.geist-diagnostic-reason { margin-top: 0.25em; margin-bottom: 0; }
+/* IE11 has no text-decoration-style; a dashed unresolved link keeps its grey. */
+.geist-link--unresolved { text-decoration: none; border-bottom: 1px dashed #666; }
