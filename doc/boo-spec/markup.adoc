@@ -5379,6 +5379,14 @@ region's generic closer such as `cz OFF EXMP` prints nothing and leaves the
 region's `<pre width="80">` open, so the rows it carries are drawn as
 stored inside it: 70 closer rows sampled in 40 books, hosted, including
 `SC31-6552-00` `1.5.1` ` | After MVS substitutes ...`, DT `19950503072955`.)
+The named closers `cz OFF ETABLE`, `EFIG`, `ELBLBOX` and `EDL` draw their
+rows as stored too: unless a figure or labelled box is still open, the
+reader prints `</pre>` and opens `<pre width="132">` at such a closer, and
+the next `CZ FLOW` closes it.  `SC41-3512-05.boo` `APPENDIX1.7.1` (DT
+`19980528085436`) follows an unopened `cz OFF ELBLBOX 0 0` with prose and
+`__ 1.` rows, all served in `<pre width="132"><!-- * -->`; in a 650-book
+sample, the first row after a named closer is served inside that `<pre>` in
+all 145 books checked.
 * The pairing is not always one-to-one.  A figure region may frame a table,
 in which case only the `ETABLE` closer is written: `SC41-485` `1.2`,
 record 8 segments 22-25 are `cz OFF LBLBOX`, a `CFONT` header row,

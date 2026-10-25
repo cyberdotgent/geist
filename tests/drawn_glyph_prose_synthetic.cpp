@@ -860,7 +860,42 @@ void full_width_rule_in_verbatim_region() {
         "the full-width rules are drawn instead of breaking: " + html);
 }
 
+// The rows after a named CZ closer -- `cz OFF ETABLE`, `EFIG`, `ELBLBOX` or
+// `EDL` -- are drawn as stored: the reader prints `</pre>` and opens
+// `<pre width="132">` there, which the next `cz FLOW` closes.
+// SC41-3512-05 APPENDIX1.7.1 (DT 19980528085436) follows an unopened
+// `cz OFF ELBLBOX 0 0` with prose and `__ 1.` rows, all served verbatim in
+// `<pre width="132"><!-- * -->`; 145 sampled books serve the rows after a
+// named closer inside that `<pre>`.
+void rows_after_named_closer(bool list) {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  if (list) {
+    builder.line({w("cz"), w("FLOW"), w("DL"), w("3"), w("3")});
+    builder.line({w("cz"), w("FLOW"), w("DT"), w("3"), w("13")});
+    builder.line({sp(3), w("Term"), sp(6), w("Definition.")});
+    builder.line({w("cz"), w("OFF"), w("EDL"), w("0"), w("0")});
+  } else {
+    builder.line({w("cz"), w("OFF"), w("ELBLBOX"), w("0"), w("0")});
+  }
+  builder.line({sp(3), w("Rows"), w("after"), w("the"), w("closer:")});
+  builder.line({sp(3), bullet(), sp(3), w("first"), w("row")});
+  builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  builder.line({sp(3), w("Flowed"), w("again.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "rows after a named closer declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(html, "<pre class=\"geist-preformatted\">   Rows after the "
+                       "closer:\n   \u00b0    first row</pre>") &&
+            contains(html, "<p class=\"geist-paragraph\">Flowed again.</p>"),
+        "the rows after the named closer are not drawn as stored: " + html);
+}
+
 int main() {
+  rows_after_named_closer(false);
+  rows_after_named_closer(true);
   full_width_rule_in_verbatim_region();
   glossary_letter_box(false);
   broken_bar_margin_mark();

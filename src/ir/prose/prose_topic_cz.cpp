@@ -1111,6 +1111,32 @@ struct CzBuilder {
     return paragraphs(groups, 1);
   }
 
+  // The rows a named closer carries -- `cz OFF ETABLE`, `EFIG`, `ELBLBOX`,
+  // `EDL`.  The reader prints `</pre>` and opens `<pre width="132">` at such
+  // a closer (unless a figure or labelled box is still open, when the rows
+  // are that object's) and the next `CZ FLOW` closes it, so the rows are
+  // drawn as stored: SC41-3512-05 APPENDIX1.7.1 (DT 19980528085436) serves
+  // the prose and `__ 1.` rows after an unopened `cz OFF ELBLBOX 0 0` in
+  // `<pre width="132"><!-- * -->`; 145 sampled books serve the rows after a
+  // named closer inside that `<pre>`.
+  bool named_closer_rows(std::pair<std::size_t, std::size_t> range) {
+    if (range.first == npos ||
+        std::none_of(lines.begin() + static_cast<std::ptrdiff_t>(range.first),
+                     lines.begin() + static_cast<std::ptrdiff_t>(range.second),
+                     [](const Line& line) { return has_text(line); }))
+      return true;
+    // The plain verbatim reading draws no link: rows that carry one keep
+    // the flowed reading rather than drop it.  (The styled native reading
+    // of generic regions does not verify for margin-marked rows here.)
+    if (std::any_of(lines.begin() + static_cast<std::ptrdiff_t>(range.first),
+                    lines.begin() + static_cast<std::ptrdiff_t>(range.second),
+                    [](const Line& line) { return !line.links.empty(); }))
+      return paragraphs(group_lines(lines, range.first, range.second,
+                                    in_message_list()),
+                        0);
+    return preformatted(range.first, range.second);
+  }
+
   // `cz OFF XMP` .. `cz OFF EXMP`: the display rows verbatim.  CFONT spans
   // inside (hosted `<samp>` per word) carry no structure the block keeps.
   bool preformatted(std::size_t begin, std::size_t end,
@@ -1907,7 +1933,7 @@ struct CzBuilder {
             return fail(error, name + " carries display text");
           return true;
         }
-        return paragraphs(groups, 0);
+        return named_closer_rows(range);
       }
       // `SCREEN` is the second verbatim region of the dialect and behaves
       // exactly like `XMP`: hosted BookServer serves the rows between
@@ -2159,6 +2185,25 @@ struct CzBuilder {
                 return earlier.mode == "off" && earlier.tag == opened;
               });
           if (!opener_before) {
+            // An unopened `ELBLBOX` is still the named closer: its rows are
+            // the `<pre width="132">` it opens -- unless a figure is still
+            // open, when the reader treats the closer as inert and the rows
+            // stay the figure's.
+            // (A figure is open when an `EFIG` follows before any `FIG`; the
+            // figure span consumes its own opener.)
+            auto figure_open = false;
+            for (auto later = index + 1; later < build.directives.size();
+                 ++later) {
+              const auto& next = build.directives[later];
+              if (next.mode != "off") continue;
+              if (next.tag == "fig") break;
+              if (next.tag == "efig") {
+                figure_open = true;
+                break;
+              }
+            }
+            if (tag == "elblbox" && !figure_open)
+              return named_closer_rows(range);
             if (!groups.empty())
               return fail(error, name + " closes no open " + opened +
                                      " and carries display text");
@@ -2180,10 +2225,12 @@ struct CzBuilder {
           // `cz FLOW SL 3 3` / `cz FLOW P 7 7` / `cz OFF ESL` as `<ul>` and the
           // paragraph's rows.
           stack.pop_back();
-          // Like `cz OFF EXMP`, a list closer carries the body text that
-          // follows the list as ordinary paragraphs (SC09-2417-00 4.2.2
-          // record 898 `cz OFF EOL 0 0   The best way to instantiate
-          // templates ...`, which hosted prints after `</ol>`).
+          // A list closer carries the body text that follows the list as
+          // ordinary paragraphs (SC09-2417-00 4.2.2 record 898 `cz OFF EOL
+          // 0 0   The best way to instantiate templates ...`, which hosted
+          // prints after `</ol>`); `EDL` is a named closer and its rows are
+          // drawn as stored (`named_closer_rows`).
+          if (tag == "edl") return named_closer_rows(range);
           return paragraphs(groups, 0);
         }
         // Every other `cz OFF <tag>` is the reader's generic region (see

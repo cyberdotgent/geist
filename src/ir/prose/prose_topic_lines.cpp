@@ -1750,6 +1750,15 @@ struct LineBuilder {
             if (!nested_verbatim) generic_closer_rows = true;
             xmp_mode = true;
             nested_verbatim = false;
+          } else if (item.directive.tag == "etable" ||
+                     item.directive.tag == "efig" ||
+                     item.directive.tag == "edl") {
+            // A named closer opens the reader's `<pre width="132">` until the
+            // next `cz FLOW`: the rows it carries are drawn rows, margin
+            // marks and bullets as stored (prose_topic_cz.cpp,
+            // `named_closer_rows`).
+            xmp_mode = true;
+            generic_closer_rows = true;
           } else if (generic_region_opener(index)) {
             xmp_mode = true;
             generic_region_closer = "e" + item.directive.tag;
