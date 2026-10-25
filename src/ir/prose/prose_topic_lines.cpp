@@ -2075,7 +2075,25 @@ struct LineBuilder {
         return true;
       }
     }
+    // A `U+2666` stored as a two-byte dictionary word is never the decoder's
+    // one-byte separator, whatever segment boundary it stands at: inside its
+    // display line, in front of the row's first word, it is the row's bullet
+    // (handled with the other line-opening glyphs below).  It reaches here as
+    // a separator only where the row opens a record, because a record's
+    // leading blanks and bullet lie before its first text segment:
+    // SC24-5780-01 3.123 record 1119 opens with the length byte, a
+    // seven-cell origin run, the bullet (token 2, value 50947) and a
+    // two-cell gap before `shn`, the row hosted serves as the list item
+    // `<li>            <var>shn</var> is the line number ...` like its
+    // siblings stored mid-record.  Taken for a row slot, the bullet opened a
+    // new row at the gap and the row lost its origin and bullet columns.
+    const auto record_opening_bullet =
+        view.width == 2 && is_bullet_glyph(view) && line_open &&
+        line_visible_cells == 0 &&
+        display_line_of(view.record, view.token) != nullptr &&
+        !opens_display_line(view);
     if (cz_mode && item.separator && !is_placeholder_run(view) &&
+        !record_opening_bullet &&
         (is_separator(view) || is_bullet_glyph(view)) &&
         view.body.size() == 1) {
       // Unclaimed one-cell decoder separators of the CZ dialect.  A `,`

@@ -130,6 +130,26 @@ struct Extracted {
   std::string error;
 };
 
+Extracted extract_sources(Extracted extracted) {
+  extracted.layout = geist::detail::extract_layout_ir(extracted.sources);
+  extracted.ownership = geist::detail::build_verified_ownership_ir(
+      extracted.sources, extracted.layout, &extracted.error);
+  require(extracted.ownership.has_value(),
+          "the list fixture's frame is not verifiable: " + extracted.error);
+  if (!extracted.ownership) return extracted;
+  extracted.prose = geist::detail::extract_prose_topic_ir(
+      extracted.sources, extracted.layout, *extracted.ownership, topic_title,
+      nullptr, &extracted.error);
+  if (extracted.prose) {
+    std::string verify_error;
+    require(geist::detail::verify_prose_topic_ir(
+                extracted.sources, extracted.layout, *extracted.ownership,
+                topic_title, nullptr, *extracted.prose, &verify_error),
+            "the list fixture did not verify: " + verify_error);
+  }
+  return extracted;
+}
+
 Extracted extract_record(RecordBuilder builder, std::uint32_t record) {
   Extracted extracted;
   extracted.sources.push_back(builder.build(record));
@@ -529,6 +549,54 @@ void a_flag_without_an_ordinal_stays_text() {
 
 } // namespace
 
+// A bullet item whose row opens a record.  SC24-5780-01 3.123 ends record
+// 1118 with `cz FLOW LI 7 11` and `cfont 11 3 V`; record 1119 opens with the
+// row `       °   shn is the line number ...`: the length byte (token 0), a
+// seven-cell origin run (token 1), the `U+2666` bullet stored as a two-byte
+// dictionary word (token 2, value 50947), a two-cell gap and `shn`.  Hosted
+// serves `<li>            <var>shn</var> is the line number ...` exactly
+// like its sibling items stored mid-record.  The bullet is the item's
+// bullet, not a row slot that opens a new row at the gap: that reading
+// dropped the origin and bullet columns, and `cfont 11 3 V` then tore `shn`.
+void a_bullet_row_opening_a_record_keeps_its_columns() {
+  RecordBuilder first;
+  metadata(first);
+  directive(first, "FLOW", "UL", "7", "7");
+  directive(first, "FLOW", "LI", "7", "11");
+  first.line({words("cfont"), words("11"), words("3"), words("V")});
+  first.line({words("       "), TokenWords{0x2666}, words("  "), words("sln"),
+              words("is"), words("the"), words("first")});
+  directive(first, "FLOW", "LI", "7", "11");
+  first.line({words("cfont"), words("11"), words("3"), words("V")});
+  RecordBuilder second;
+  second.next_encoded = first.next_encoded;
+  second.line({words("       "), TokenWords{0x2666}, words("  "),
+               words("shn"), words("is"), words("the"), words("second")});
+  directive(second, "OFF", "EUL", "0", "0");
+
+  Extracted extracted;
+  extracted.sources.push_back(first.build(21));
+  extracted.sources.push_back(second.build(22));
+  extracted = extract_sources(std::move(extracted));
+  require(extracted.prose.has_value(),
+          "the record-opening bullet row was declined: " + extracted.error);
+  if (!extracted.prose) return;
+  const auto *item =
+      find_block(*extracted.prose, ProseBlockKindIR::list_item, "second");
+  require(item != nullptr, "the record-opening item was not built");
+  if (item == nullptr) return;
+  require(contains(block_text(*item), "shn is the second") &&
+              !contains(block_text(*item), "\xE2\x99\xA6"),
+          "the record-opening item lost its text or kept its bullet: '" +
+              block_text(*item) + "'");
+  bool styled = false;
+  for (const auto &fragment : item->inlines)
+    if (fragment.text == "shn" &&
+        fragment.style != geist::detail::FontStyleIR::unknown)
+      styled = true;
+  require(styled, "the `cfont 11 3 V` triple did not land on `shn`");
+}
+
 int main() {
   a_dash_in_the_bullet_columns_is_the_nested_bullet();
   a_dash_outside_the_bullet_columns_stays_text();
@@ -537,6 +605,7 @@ int main() {
   a_head_with_a_word_before_its_ordinal_is_a_label();
   a_revision_flag_before_an_ordinal_opens_the_item_line();
   a_flag_without_an_ordinal_stays_text();
+  a_bullet_row_opening_a_record_keeps_its_columns();
   geist_test::exit_with_failures();
   std::cout << "cz_list_labels_synthetic: ok\n";
   return 0;
