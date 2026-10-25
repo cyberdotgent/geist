@@ -71,6 +71,7 @@ enum class CrossReferenceTargetKindIR {
   book_contents,
   book_heading,
   book_spot,  // a spot (`SRSPT<id>`) inside another book
+  book_anchor,  // a figure or table (`SRFIG<id>`, `SRTBL<id>`) of another book
 };
 
 struct CrossReferenceTargetIR {
@@ -90,6 +91,10 @@ struct CrossReferenceTargetIR {
   // Alternative 2 of a `<SPT>` reference: the spot anchor inside the other
   // book, which hosted BookServer addresses as `SPT<anchor>`.
   std::string spot_anchor;
+  // A `<FIG>` or `<TBL>` reference's destination inside the other book, as
+  // hosted BookServer addresses it: alternative 1 then alternative 2
+  // (`FIGLSA1`, `TBLDFHE503`).
+  std::string book_anchor;
   std::string url;
 };
 

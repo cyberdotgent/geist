@@ -3334,6 +3334,8 @@ selector's column/length address the next display row, which the following
 |`<BOOK>` |`GG24-395.boo` `PREFACE.4.1` |`<BOOK> <> <> <GG24-3070> <ANY> <G243070>` l|../../DOCNUM/GG24-3070/CCONTENTS
 |`<HDR>` |`SC41-485.boo` `1.2.3` |`<HDR> <FMTRTVI> <> <SC41-4801> <> <4801>` l|../../DOCNUM/SC41-4801/HDRFMTRTVI?ScrollTOP=HDRFMTRTVI#HDRFMTRTVI
 |`<SPT>` |`dfhle513.boo` (GC33-1162-02) `1.6.9.1` |`<SPT> <XDLIPRE> <> <SC33-1165> <00> <DFHA300>` l|../../DOCNUM/SC33-1165/SPTXDLIPRE?ScrollTOP=SPTXDLIPRE#SPTXDLIPRE?DocnumLevel=00
+|`<FIG>` |`SH19-6902-00.boo` `1.1.1` |`<FIG> <LSA1> <> <SH19-6817> <ANY> <LR>` l|../../DOCNUM/SH19-6817/FIGLSA1?ScrollTOP=FIGLSA1#FIGLSA1?DocnumLevel=ANY
+|`<FIG>` |`SC34-3058-00.boo` `2.0` |`<FIG> <EJ2F00Y> <> <SC34-3056> <ANY> <EJRW2>` l|../../DOCNUM/SC34-3056/FIGEJ2F00Y?ScrollTOP=FIGEJ2F00Y#FIGEJ2F00Y?DocnumLevel=ANY
 |`<OTHER>` |`XWEBDEMO.boo` `1.4.4` |`<OTHER> <INTERNET> <> <http://www.ibm.com/> <> <IBMHOME>` |`http://www.ibm.com/`
 |`<IMAGE>` |`XWEBDEMO.boo` `1.4.1` |`<IMAGE> <INTERNET> <> </bookmgr/monetcoq.jpg> <> <MONET1>` l|<a href="/bookmgr/monetcoq.jpg"><img src="/bookmgr/monetcoq.jpg" ...>.</a>
 |`<IMAGE>` |`XWEBDEMO.boo` `1.0` |`<IMAGE> <INTERNET> </bookmgr/product.gif> <http://booksrv2.raleigh.ibm.com/cgi-bin/bookmgr/bookmgr.cmd/library> <> <ICON>` l|<a href="http://booksrv2.raleigh.ibm.com/cgi-bin/bookmgr/bookmgr.cmd/library"><img src="/bookmgr/product.gif" ...>IBM BookManager BookServer</a>
@@ -3347,7 +3349,27 @@ URL of an `<OTHER>`/`<IMAGE>` one, alternative 5 the `DocnumLevel` BookServer
 appends as a query, and alternative 6 the target's own identifier.  Hosted
 DTs used: ITPPIBOK `19910628074854`, GG24-395 `19941215160749`, SC41-485
 `19951003131222`, XWEBDEMO `19970423182524`, GC33-1162-02 (served as
-`GC33-116`) `19990317155853`.
+`GC33-116`) `19990317155853`, SH19-6902-00 `19930503083907`, SC34-3058-00
+`19940805145225`.
+
+Every kind other than `<BOOK>` is addressed the same way: the document
+number, then alternative 1 and alternative 2 concatenated (`HDR<anchor>`,
+`SPT<anchor>`, `FIG<anchor>`).  `<TBL>` follows that rule for the
+`SRTBL<id>` destinations of the other book: the CICS books carry it
+(`dfhqae42.boo` `6.4.3`, `cselect 20 39 LNK <TBL> <DFHP484> <> <SC33-1688>
+<00> <DFHP400>`; `dfhtmb02.boo` `2.2.7.3`, `<TBL> <DEPISCP> <> <SC34-6474>
+<> <DFHT800>`), although none of the books seen with it is in the hosted
+catalog.  The CICS books also write the kind `<FIGURE>` (`dfhqaa2a.boo`
+`1.4.3.5`, `<FIGURE> <DFHS101> <> <GC33-1693> <00> <DFHS100>`); that
+spelling is not one of the reader's link kinds (`HDR`, `BOOK`, `FIG`, `TBL`,
+`SPT` and others), no hosted page shows one, and it remains unresolved.
+
+When a `<BOOK>` selector and a `<FIG>` selector cover the same columns, the
+first one in source order is the link: `SC33-6799-00.boo` `1.2.1` record 50
+stores `cselect 66 4 LNK <BOOK> <> <> <SC33-1683> <> <DFHA300>` (segment 15)
+and then `cselect 66 4 LNK <FIG> <DFHA30N> <> <SC33-1683> <> <DFHA300>`
+(segment 16) over `CICS`, and hosted (DT `19990426163655`) serves
+`<a href="../../DOCNUM/SC33-1683/CCONTENTS">`.
 
 An `<IMAGE>` link can carry two URLs.  `XWEBDEMO.boo` `1.0` logical record
 5 display line 14 is `cselect 3 26 LNK` with the alternatives above,

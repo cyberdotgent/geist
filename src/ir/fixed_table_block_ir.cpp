@@ -758,6 +758,9 @@ public:
     case SelectorLinkKindIR::book_spot:
       pending.link.target_kind = CrossReferenceTargetKindIR::book_spot;
       break;
+    case SelectorLinkKindIR::book_anchor:
+      pending.link.target_kind = CrossReferenceTargetKindIR::book_anchor;
+      break;
     case SelectorLinkKindIR::external_link:
       pending.link.target_kind = CrossReferenceTargetKindIR::external;
       break;

@@ -86,6 +86,17 @@ std::optional<SelectorLinkIR> parse_selector_link(
     link.destination = "DOCNUM/" + fourth + "/SPT" + anchor;
     return link;
   }
+  // A figure or table of the other book: BookServer addresses it as the
+  // kind followed by the anchor, `FIG<anchor>` or `TBL<anchor>`.
+  if (kind == "fig" || kind == "tbl") {
+    if (fourth.empty() || anchor.empty())
+      return reject("LNK <" + link.alternatives[0] +
+                    "> selector has no document number or anchor");
+    link.kind = SelectorLinkKindIR::book_anchor;
+    link.destination =
+        "DOCNUM/" + fourth + "/" + (kind == "fig" ? "FIG" : "TBL") + anchor;
+    return link;
+  }
   if (kind == "other" || kind == "internet" || kind == "image") {
     if (fourth.empty())
       return reject("LNK <" + link.alternatives[0] +

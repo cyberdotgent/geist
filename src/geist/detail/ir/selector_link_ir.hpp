@@ -43,6 +43,19 @@ struct DecodedLogicalRecordSource;
 //           SPTXDLIPRE#SPTXDLIPRE?DocnumLevel=00">` (`GC33-116`, DT
 //           19990317155853)
 //
+//   <FIG>   <LSA1>  <> <SH19-6817> <ANY> <LR>   SH19-6902-00 1.1.1
+//           hosted `<a href="../../DOCNUM/SH19-6817/FIGLSA1?ScrollTOP=
+//           FIGLSA1#FIGLSA1?DocnumLevel=ANY">` (DT 19930503083907); also
+//           SC34-3058-00 2.0 `<FIG> <EJ2F00Y> <> <SC34-3056> <ANY> <EJRW2>`
+//           -> `../../DOCNUM/SC34-3056/FIGEJ2F00Y?ScrollTOP=...`
+//   <TBL>   <DFHE503> <> <GC33-1571> <00> <DFHE500>   dfhqaa2a CHANGES
+//
+// BookServer forms every kind but `<BOOK>` the same way: the document
+// number, then alternative 1 and alternative 2 concatenated, so a `<TBL>`
+// link names `TBL<anchor>` in the other book exactly as `<FIG>` names
+// `FIG<anchor>`.  `FIG` and `TBL` are in the reader's own list of link kinds
+// beside `HDR`, `BOOK` and `SPT`.
+//
 // So alternative 1 is the kind, alternative 2 the in-book anchor name of a
 // `<HDR>` link (the reader prefixes `HDR`) or of a `<SPT>` link (prefixed
 // `SPT`: the `SRSPT<id>` spot of the other book), alternative 4 the document
@@ -55,6 +68,8 @@ enum class SelectorLinkKindIR {
   book_contents,  // another book's table of contents
   book_heading,   // a heading inside another book
   book_spot,      // a spot (`SRSPT<id>`) inside another book
+  book_anchor,    // a figure or table (`SRFIG<id>`, `SRTBL<id>`) of another
+                  // book
   external_link,  // a URL the reader opens
   external_image, // a link whose content starts with an image
 };
@@ -65,7 +80,8 @@ struct SelectorLinkIR {
   // order.
   std::vector<std::string> alternatives;
   // Canonical destination: `DOCNUM/<docnum>/CCONTENTS`,
-  // `DOCNUM/<docnum>/HDR<anchor>`, `DOCNUM/<docnum>/SPT<anchor>`, or the URL
+  // `DOCNUM/<docnum>/HDR<anchor>`, `DOCNUM/<docnum>/SPT<anchor>`,
+  // `DOCNUM/<docnum>/FIG<anchor>`, `DOCNUM/<docnum>/TBL<anchor>`, or the URL
   // itself.
   std::string destination;
   // Alternative 5, the `DocnumLevel` a live BookServer appends to a

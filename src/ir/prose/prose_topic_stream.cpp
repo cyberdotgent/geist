@@ -3179,6 +3179,9 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           case SelectorLinkKindIR::book_spot:
             item.target_kind = CrossReferenceTargetKindIR::book_spot;
             break;
+          case SelectorLinkKindIR::book_anchor:
+            item.target_kind = CrossReferenceTargetKindIR::book_anchor;
+            break;
           case SelectorLinkKindIR::external_link:
           // An `<IMAGE>` selector outside a figure is the same external link
           // with an image leading its selected columns: hosted BookServer

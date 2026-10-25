@@ -53,6 +53,8 @@ enum class HtmlLinkKind {
   book_heading,
   // A spot (`SRSPT<id>`) inside another book.
   book_spot,
+  // A figure or table (`SRFIG<id>`, `SRTBL<id>`) inside another book.
+  book_anchor,
   // An absolute URL named from inside a drawn row.
   external_url,
 };
@@ -84,6 +86,10 @@ struct HtmlCrossBookReference {
   // addresses it in the other book as `SPT<anchor>`, where a `<HDR>` anchor
   // is `HDR<anchor>`.  Empty for every other kind.
   std::string spot_anchor;
+  // The destination of a `<FIG>` or `<TBL>` reference inside the other
+  // book, as hosted BookServer addresses it: the kind followed by
+  // alternative 2 (`FIGLSA1`, `TBLDFHE503`).  Empty for every other kind.
+  std::string anchor;
   // Alternative 6: the target identifier the selector names.
   std::string target;
   // The whole alternative list verbatim, in source order, without its angle

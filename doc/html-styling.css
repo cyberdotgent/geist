@@ -395,6 +395,10 @@
   text-decoration-style: double;
 }
 
+.geist-link--book-anchor {
+  text-decoration-style: double;
+}
+
 .geist-link--external-url::after {
   content: " \2197";
   font-size: 0.8em;

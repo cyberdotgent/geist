@@ -1265,9 +1265,11 @@ struct Extractor {
         if (parsed->kind == SelectorLinkKindIR::external_image)
           return decline(region, "drawn figure text selector names an image");
         // A cross-book spot link is proven in prose only.
-        if (parsed->kind == SelectorLinkKindIR::book_spot)
-          return decline(region, "drawn figure LNK selector: LNK <SPT> is "
-                                 "not modelled in a figure");
+        if (parsed->kind == SelectorLinkKindIR::book_spot ||
+            parsed->kind == SelectorLinkKindIR::book_anchor)
+          return decline(region, "drawn figure LNK selector: LNK <" +
+                                     parsed->alternatives[0] +
+                                     "> is not modelled in a figure");
         link.alternatives = parsed->alternatives;
         link.target = parsed->alternatives[5];
         switch (parsed->kind) {
@@ -1289,6 +1291,7 @@ struct Extractor {
           break;
         case SelectorLinkKindIR::external_image:
         case SelectorLinkKindIR::book_spot:
+        case SelectorLinkKindIR::book_anchor:
           break;
         }
       } else {

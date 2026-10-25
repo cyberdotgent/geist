@@ -183,6 +183,16 @@ DocumentIR build_document() {
     spot.spot_anchor = "XDLIPRE";
     rich.push_back(in(CrossReferenceInlineIR{spot, "guide"}));
   }
+  {
+    // A `LNK <FIG>` reference: a figure inside another book.
+    CrossReferenceTargetIR figure{CrossReferenceTargetKindIR::book_anchor,
+                                  "LR"};
+    figure.alternatives = {"FIG", "LSA1", "", "SH19-6817", "ANY", "LR"};
+    figure.document_number = "SH19-6817";
+    figure.document_level = "ANY";
+    figure.book_anchor = "FIGLSA1";
+    rich.push_back(in(CrossReferenceInlineIR{figure, "field types"}));
+  }
   rich.push_back(in(ImageInlineIR{"resource:70", "alt \"<image>\" & more"}));
   rich.push_back(in(OpaqueInlineIR{"legacy<span>", "raw & value"}));
   {
@@ -658,7 +668,7 @@ int main() {
   // Every link kind carries its modifier class.
   for (const auto *kind : {"topic", "anchor", "resource", "external",
                            "in-book", "book-contents", "book-heading",
-                           "book-spot", "external-url"})
+                           "book-spot", "book-anchor", "external-url"})
     contains(fragment, std::string("geist-link--") + kind,
              "a link kind modifier class was not emitted");
 

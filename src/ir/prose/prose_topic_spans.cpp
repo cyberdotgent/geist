@@ -411,10 +411,12 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
             return fail(error, "table '" + block.object_id +
                                    "' cell carries an external image");
           // A cross-book spot link is proven in prose only.
-          if (parsed->kind == SelectorLinkKindIR::book_spot)
+          if (parsed->kind == SelectorLinkKindIR::book_spot ||
+              parsed->kind == SelectorLinkKindIR::book_anchor)
             return fail(error, "table '" + block.object_id +
-                                   "' selector rejected: LNK <SPT> is not "
-                                   "modelled in a table");
+                                   "' selector rejected: LNK <" +
+                                   parsed->alternatives[0] +
+                                   "> is not modelled in a table");
           link.target = parsed->alternatives[5];
           switch (parsed->kind) {
           case SelectorLinkKindIR::book_contents:
@@ -428,6 +430,7 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
             break;
           case SelectorLinkKindIR::external_image:
           case SelectorLinkKindIR::book_spot:
+          case SelectorLinkKindIR::book_anchor:
             return fail(error, "table '" + block.object_id +
                                    "' cell carries an external image");
           }
