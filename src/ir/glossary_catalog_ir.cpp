@@ -4,6 +4,7 @@
 #include "geist/detail/ir/glossary_catalog_ir.hpp"
 
 #include "geist/detail/ir/glossary_entry_styles.hpp"
+#include "geist/detail/ir/sr_anchor_name.hpp"
 #include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/core/internal.hpp"
 
@@ -239,6 +240,12 @@ semantic_term(const std::string &raw,
 
 bool is_glossary_control(const ControlSegmentIR &segment) {
   return ascii_equals_case_insensitive(segment.opcode, "srgls");
+}
+
+// `text` is `prefix`, or `prefix` followed by a blank and more words.
+bool starts_with_words(const std::string &text, const std::string &prefix) {
+  return text.compare(0, prefix.size(), prefix) == 0 &&
+         (text.size() == prefix.size() || text[prefix.size()] == ' ');
 }
 
 // `cz BREAK <n>`: the reader prints `<br>` and draws the lines after it.
@@ -501,7 +508,7 @@ bool same_catalog(const GlossaryCatalogIR &left,
     const auto &b = right.entries[index];
     if (a.term != b.term || a.raw_term != b.raw_term ||
         a.source_suffix != b.source_suffix ||
-        a.term_delimiter != b.term_delimiter ||
+        a.term_delimiter != b.term_delimiter || a.anchor != b.anchor ||
         a.term_emphasis != b.term_emphasis ||
         a.definition.emphasis != b.definition.emphasis ||
         a.definition.prose != b.definition.prose ||
@@ -1338,6 +1345,14 @@ std::optional<GlossaryCatalogIR> extract_glossary_catalog_ir(
       entry.term_source =
           source_slice(*boundary.record, boundary.segment->segment_index,
                        boundary.segment->payload_range);
+      entry.anchor = "GLS " + entry.term;
+      if (const auto stored = sr_row_anchor_name(
+              *boundary.record, boundary.segment->source_tokens.front());
+          stored && stored->size() > 4 &&
+          ascii_equals_case_insensitive(stored->substr(0, 4), "gls ") &&
+          starts_with_words(collapse_ascii_whitespace("GLS" + stored->substr(3)),
+                            entry.anchor))
+        entry.anchor = "GLS" + stored->substr(3);
       if (!has_source(entry.term_source))
         return reject("glossary term source provenance is incomplete");
       content_rows.front().role =

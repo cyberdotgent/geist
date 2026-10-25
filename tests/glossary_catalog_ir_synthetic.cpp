@@ -175,6 +175,50 @@ int main() {
       }
     }
   }
+  // The entry's anchor is named after its `SRGLS` row as stored, blank runs
+  // included: QS3X38EN GLOSSARY stores `SRGLS logical unit  (LU)` and hosted
+  // serves `<a name="GLS logical unit  (LU)">`.
+  {
+    std::vector<Token> tokens;
+    line(tokens, {"chdlevel", ":GLOSSARY"});
+    line(tokens, {"ST", "  ", "Glossary"});
+    line(tokens, {"SRGLS", "logical", "unit", " ", "(LU)"});
+    line(tokens, {"cz", "FLOW", "GD", "3", "3"});
+    line(tokens, {"cfont", "3", "7", "2", "11", "4", "2", "16", "4", "2"});
+    line(tokens, {"   ", "logical", "unit", "(LU)", "\x01.", " ", "A", "port."},
+         "          ");
+    const std::vector<geist::detail::DecodedLogicalRecordSource> sources{
+        make_source(901, tokens)};
+    const auto &display = sources.front().ir.display_lines;
+    require(display.size() > 2 &&
+                geist::detail::display_line_text(sources.front(),
+                                                 display[2]) ==
+                    "SRGLS logical unit  (LU)",
+            "the synthetic SRGLS row is not `SRGLS logical unit  (LU)`");
+    const auto layout = geist::detail::extract_layout_ir(sources);
+    std::string error;
+    const auto ownership =
+        geist::detail::build_verified_ownership_ir(sources, layout, &error);
+    std::optional<geist::detail::GlossaryCatalogIR> catalog;
+    if (ownership)
+      catalog = geist::detail::extract_glossary_catalog_ir(sources, layout,
+                                                           *ownership, &error);
+    require(catalog.has_value(), ("the stored-blank glossary was rejected: " +
+                                     error).c_str());
+    if (catalog) {
+      geist::detail::TopicIdentityIR topic;
+      topic.id = "GLOSSARY";
+      const auto document = geist::detail::lower_glossary_catalog_to_document_ir(
+          topic, *catalog, &error);
+      require(document.has_value(), "stored-blank glossary lowering rejected");
+      if (document) {
+        const auto html =
+            geist::detail::render_document_html_fragment(*document);
+        require(html.find("id=\"GLS logical unit  (LU)\"") != std::string::npos,
+                ("the glossary anchor lost its stored blanks: " + html).c_str());
+      }
+    }
+  }
   // A `cz BREAK` inside a definition draws the lines after it: S20H-1642-01
   // GLOSSARY record 758 lines 29-32 are `   field.  (1) An area in a record
   // ...`, `cz BREAK 3`, `   (2) In the IBM 5250 data stream, ...` and

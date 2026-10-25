@@ -140,6 +140,10 @@ struct GlossaryEntryIR {
   // from the first definition row's term-delimiter marker slot; empty when
   // the echo draws none.
   std::string term_delimiter;
+  // The entry's anchor name: `GLS` and the `SRGLS` row as stored, blank runs
+  // included (hosted QS3X38EN `GLS logical unit  (LU)`), or `GLS <term>`
+  // where the control does not open a row of its own.
+  std::string anchor;
   // CFONT styles of the term's drawn words, as byte ranges of `term`.
   std::vector<GlossaryEmphasisIR> term_emphasis;
   GlossaryDefinitionIR definition;

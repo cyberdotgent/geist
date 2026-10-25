@@ -2095,6 +2095,14 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           if (!term.empty()) {
             ProseAnchorIR anchor;
             anchor.id = "GLS " + collapse_ascii_whitespace(term);
+            // Named after the row as stored, blank runs included and
+            // punctuation where the row puts it: SH12-5915-01 GLOSSARY
+            // `SRGLS Interactive Control Service  (ICS)` is served as
+            // `<a name="GLS Interactive Control Service  (ICS)">`.
+            if (const auto stored = sr_row_anchor_name(record, first);
+                stored && stored->size() > 4 &&
+                ascii_equals_case_insensitive(stored->substr(0, 4), "gls "))
+              anchor.id = "GLS" + stored->substr(3);
             anchor.source = token_slice(record, first, last + 1);
             Item item;
             item.kind = ItemKind::anchor;

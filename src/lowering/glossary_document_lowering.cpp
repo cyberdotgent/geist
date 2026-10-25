@@ -277,6 +277,16 @@ InlineSequenceIR styled_inlines(const std::string &text,
   return content;
 }
 
+// The entry's anchor is its `SRGLS` row, which spells the term and may run
+// on past the words the term echo verified (`GLS automatic calling unit
+// (ACU)` over the term `automatic calling`).
+bool anchor_names_term(const std::string &anchor, const std::string &term) {
+  const auto named = collapse_ascii_whitespace(anchor);
+  const auto expected = "GLS " + term;
+  return named.compare(0, expected.size(), expected) == 0 &&
+         (named.size() == expected.size() || named[expected.size()] == ' ');
+}
+
 bool verify_catalog_shape(const GlossaryCatalogIR &catalog,
                           std::string *error) {
   const auto &introduction = catalog.introduction;
@@ -349,6 +359,7 @@ bool verify_catalog_shape(const GlossaryCatalogIR &catalog,
                                entry.definition.emphasis, error))
       return false;
     if (entry.term.empty() || entry.definition.prose.empty() ||
+        !anchor_names_term(entry.anchor, entry.term) ||
         entry.definition.rows.empty() ||
         (entry.definition.rows.front().role !=
              GlossaryDefinitionRowRoleIR::term_echo &&
@@ -569,7 +580,7 @@ void lower_glossary_catalog_items(DocumentIR &document,
     add_slice(term_origin, entry.term_source);
     canonicalize(term_origin);
     document.blocks.push_back(
-        {AnchorBlockIR{"GLS " + entry.term}, term_origin});
+        {AnchorBlockIR{entry.anchor}, term_origin});
 
     auto definition_origin = origin("glossary definition prose");
     for (const auto &row : entry.definition.rows)

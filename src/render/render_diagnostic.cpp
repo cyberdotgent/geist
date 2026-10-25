@@ -506,6 +506,15 @@ std::vector<std::string> best_effort_anchors(
       // the book can reference; the typed families resolve `SRFTN` to
       // nothing, and a verbatim topic must not publish one either.
       if (ascii_lower(id.substr(0, 3)) == "ftn") continue;
+      // The reader names the anchor after the whole row: `SRGLS logical
+      // unit  (LU)` is `GLS logical unit  (LU)`, blanks as stored.
+      if (!segment.source_tokens.empty())
+        if (const auto stored =
+                sr_row_anchor_name(record, segment.source_tokens.front());
+            stored && stored->size() > id.size() &&
+            ascii_equals_case_insensitive(stored->substr(0, id.size()), id) &&
+            (*stored)[id.size()] == ' ')
+          id = *stored;
       if (std::find(anchors.begin(), anchors.end(), id) == anchors.end())
         anchors.push_back(std::move(id));
     }
