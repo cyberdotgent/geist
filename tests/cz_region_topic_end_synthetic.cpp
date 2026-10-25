@@ -212,6 +212,33 @@ void a_trailing_region_after_a_paragraph() {
               block_text(blocks[1]) + "'");
 }
 
+// The message rule inside a generic region is the page's `<hr>`, not a drawn
+// row.  SC33-1654-09 `2.10.4.1.1` (DT 20050714075613) writes `cz OFF MSG`, a
+// 74-cell `U+2500` rule from column 3 and the headline row; hosted serves
+// `<pre width="80"><!-- * -->`, `<hr>`, then the headline in the `<pre>`.
+void a_rule_inside_a_generic_region_is_a_thematic_break() {
+  RecordBuilder builder;
+  builder.heading("2.10.4.1.1", "ERRMSG02");
+  builder.empty();
+  builder.cz({"cz", "OFF", "MSG"});
+  builder.line({words("   "), TokenWords(74, 0x2500)});
+  builder.row("   ", {"ERRMSG02", "PROGRAM", "HAS", "TERMINATED."});
+  auto extracted = run(builder.build(700), "ERRMSG02");
+  require(extracted.topic.has_value(),
+          "a cz OFF MSG region with its rule was rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  const auto &blocks = extracted.topic->blocks;
+  require(blocks.size() == 2 &&
+              blocks[0].kind == ProseBlockKindIR::thematic_break &&
+              blocks[1].kind == ProseBlockKindIR::preformatted,
+          "expected the rule as a thematic break before the verbatim "
+          "headline, got " + std::to_string(blocks.size()) + " block(s)");
+  if (blocks.size() != 2) return;
+  require(contains(block_text(blocks[1]), "ERRMSG02"),
+          "the headline row was lost: '" + block_text(blocks[1]) + "'");
+}
+
 // Another region opener before the end leaves the first region's boundary
 // unproven: the topic still declines.
 void a_second_opener_before_the_end_declines() {
@@ -231,6 +258,7 @@ void a_second_opener_before_the_end_declines() {
 int main() {
   a_region_running_to_the_topic_end_is_verbatim();
   a_trailing_region_after_a_paragraph();
+  a_rule_inside_a_generic_region_is_a_thematic_break();
   a_second_opener_before_the_end_declines();
   geist_test::exit_with_failures();
   std::cout << "cz region topic end checks passed\n";

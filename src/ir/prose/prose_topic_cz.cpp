@@ -1735,8 +1735,32 @@ struct CzBuilder {
     // The region owns its opener and everything up to its closer (its own
     // rows included) or up to the `cz FLOW` that ends it.
     index = closed ? closer_index : closer_index - 1;
-    if (region_begin == npos ||
-        std::none_of(lines.begin() + static_cast<std::ptrdiff_t>(region_begin),
+    if (region_begin == npos) return RegionOutcome::emitted;
+    return region_rows(region_begin, region_end, breaks, tag);
+  }
+
+  // The rows [begin, end) of a generic region (`generic_region`).  A
+  // full-width rule row among them is the page's `<hr>`, not a drawn row
+  // (`full_width_rule` in the line builder): SC33-1654-09 2.10.4.1.1 (DT
+  // 20050714075613) opens `cz OFF MSG`, draws a 74-cell `U+2500` rule from
+  // column 3 and then the message headline, and hosted serves
+  // `<pre width="80"><!-- * -->`, `<hr>` and the headline in that `<pre>`.
+  // The rows on either side of the rule are blocks of their own.
+  RegionOutcome region_rows(std::size_t region_begin, std::size_t region_end,
+                            const std::vector<std::size_t>& breaks,
+                            const std::string& tag) {
+    if (breaks.empty()) {
+      for (auto line = region_begin; line < region_end; ++line) {
+        if (!lines[line].thematic_break || has_text(lines[line])) continue;
+        if (line > region_begin) {
+          const auto before = region_rows(region_begin, line, breaks, tag);
+          if (before != RegionOutcome::emitted) return before;
+        }
+        if (!message_rule(line)) return RegionOutcome::declined;
+        return region_rows(line + 1, region_end, breaks, tag);
+      }
+    }
+    if (std::none_of(lines.begin() + static_cast<std::ptrdiff_t>(region_begin),
                      lines.begin() + static_cast<std::ptrdiff_t>(region_end),
                      [](const Line& line) { return has_text(line); }))
       return RegionOutcome::emitted;
