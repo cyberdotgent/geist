@@ -542,11 +542,12 @@ endif()
 # therefore configures, builds and tests with no parent directory present.
 set(GEIST_FIXTURE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
 
-# Registers a test executable. Pass FIXTURE to give it GEIST_FIXTURE_DIR, and
-# THREADS for a test that starts threads of its own.
+# Registers a test executable. Pass FIXTURE to give it GEIST_FIXTURE_DIR,
+# THREADS for a test that starts threads of its own, and SOURCES for the
+# consumer sources a test exercises beside the library.
 function(geist_add_test name)
-  cmake_parse_arguments(GEIST_TEST "FIXTURE;THREADS" "" "" ${ARGN})
-  add_executable(${name}_test tests/${name}.cpp)
+  cmake_parse_arguments(GEIST_TEST "FIXTURE;THREADS" "" "SOURCES" ${ARGN})
+  add_executable(${name}_test tests/${name}.cpp ${GEIST_TEST_SOURCES})
   target_link_libraries(${name}_test PRIVATE geist::geist_static)
   # These executables use assertions as their test checks. Release normally
   # defines NDEBUG, which would turn a passing CTest run into a no-op.
@@ -673,6 +674,13 @@ foreach(fixture_test
     probe_matches_open)
   geist_add_test(${fixture_test} FIXTURE)
 endforeach()
+
+# The Win32 reader's URL space, link map, search and Print Book page plan are
+# plain C++ over the public API, so they are tested on every platform.
+geist_add_test(win32_reader_core FIXTURE
+  SOURCES win32/book_source.cpp win32/print_plan.cpp)
+target_include_directories(win32_reader_core_test PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/win32")
 
 # Concurrent `const` access to one opened document, and the determinism the
 # lock-free cache publication rests on (issue #49). Build it with
