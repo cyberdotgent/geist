@@ -437,13 +437,16 @@ bool vertical_space_operands(const std::string& lower_text) {
 // `soa` (DREICMST CHANGES, DT 19911219125856), `title` (ITPPIBOK TITLE,
 // DT 19910628074854), `bibliog` (ITPPIBOK BIBLIOGRAPHY), `abstract`
 // (FA1PLMM0 ABSTRACT) and `abbrev` (GG24-4302-00 ABBREVIATIONS, DT
-// 19950308184737).  Anything else stays fail-closed.
-bool front_matter_heading_form(const std::string& lower_form) {
-  for (const char* form :
-       {"abbrev", "abstract", "bibliog", "cover", "glossary", "index",
-        "notices", "preface", "soa", "title", "toc", "vnotice"})
-    if (lower_form == form) return true;
-  return false;
+// 19950308184737).  The reader has no list of these forms: a level that is
+// not `H1`-`H6` or `MSGNO` heads the topic at level 1 whatever its name, and
+// `legend` is served the same way (SC31-6171-00 and SC31-6173-01 LEGEND,
+// `<h1> LEGEND   Notices</h1>`, DT 19930505133732).  The form must still be
+// a name; an empty or unreadable operand stays fail-closed.
+bool named_heading_form(const std::string& lower_form) {
+  if (lower_form.empty()) return false;
+  for (const auto ch : lower_form)
+    if (std::isalnum(static_cast<unsigned char>(ch)) == 0) return false;
+  return true;
 }
 
 // The decoded spelling of a run of tokens, in token order, with the spacing
@@ -1093,7 +1096,13 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
   auto heading_level = ascii_lower(trim_ascii(operand_text(
       heading_record,
       heading_record.control_segments[heading_cursor.segment].operand_range)));
-  if (!heading_level.empty() && heading_level.front() == ':')
+  // The reader copies the level from a fixed column of the line, the one
+  // after `chdlevel` and the character that follows its blank, so that
+  // character is skipped whatever it is: `:` almost everywhere, `.` in the
+  // foil book GG24-4137-00 (`chdlevel .H3`, record 306 line 6), which hosted
+  // (DT 19941221141316) heads `<H3> 2.21.1   FOIL: ...</H3>`.
+  if (!heading_level.empty() &&
+      (heading_level.front() == ':' || heading_level.front() == '.'))
     heading_level.erase(heading_level.begin());
   envelope.heading_form = heading_level;
   // :H0 is the chapter/Part level. HTML has no level zero; render it at
@@ -1106,7 +1115,10 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
   if (heading_level == "msgno") heading_level = "h6";
   if (heading_level.size() != 2 || heading_level.front() != 'h' ||
       heading_level.back() < '1' || heading_level.back() > '6') {
-    if (!front_matter_heading_form(heading_level))
+    // The generated figure and table lists are the generated-list
+    // family's; prose would reflow their rows into paragraphs.
+    if (heading_level == "figlist" || heading_level == "tlist" ||
+        !named_heading_form(heading_level))
       return fail(error, "heading level '" + heading_level +
                              "' is not an h1-h6 prose heading");
     heading_level = "h1";

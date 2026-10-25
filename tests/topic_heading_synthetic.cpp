@@ -382,5 +382,21 @@ int main() {
                     {9, TokenWords{1}},
                     {10, TokenWords{1}}});
   }
+
+  // The reader takes the level from a fixed column of the `chdlevel` line,
+  // skipping the one character after the opcode's blank whatever it is: the
+  // foil book GG24-4137-00 writes `chdlevel .H3` (record 306 line 6) and
+  // hosted (DT 19941221141316) heads 2.21.1 `<H3> 2.21.1   FOIL: ...</H3>`.
+  expect_outline("chdlevel .H3",
+                 topic("2.21.1", ".H3",
+                       {words("ST"), words("  "), words("FOIL:"),
+                        words("Background")}),
+                 "2.21.1", "FOIL: Background", "h3:2.21.1 FOIL: Background|p");
+  // Any level other than H1-H6 and MSGNO heads the topic at the top level:
+  // SC31-6171-00 LEGEND `chdlevel :LEGEND` (DT 19930505133732) is served
+  // `<h1> LEGEND   Notices</h1>`, SC31-6173-01 LEGEND the same.
+  expect_outline("chdlevel :LEGEND",
+                 topic("LEGEND", ":LEGEND", {words("ST"), words("Notices")}),
+                 "LEGEND", "Notices", "h1:LEGEND Notices|p");
   return 0;
 }

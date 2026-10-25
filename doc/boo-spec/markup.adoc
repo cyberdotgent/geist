@@ -6122,6 +6122,22 @@ level-1 heading; the form itself is never displayed.
 `figlist` and `tlist` name generated topics that the generated-list stream
 models separately.
 
+The list above is what has been observed, not a closed set: every form other
+than `H1`-`H6` and `MSGNO` is served at level 1.  `SC31-6171-00` topic
+`LEGEND` stores `chdlevel :LEGEND` (`37 D0 E5` at `0x2C0A94`, the form a
+two-byte token) and hosted DT `19930505133732` serves
+`<h1> LEGEND   Notices</h1>`; `SC31-6173-01` `LEGEND` is the same.
+
+The level is read from a fixed column of the `chdlevel` display line: the
+character after the opcode's blank is skipped whatever it is, and the level
+starts after it.  It is `:` in almost every book, but the foil books
+`GG24-4137-00` and `SG24-4575-00` write `.`: `GG24-4137-00` topic `2.21.1`
+(logical record 306) stores `36 1D` at `0x936F0`, `chdlevel` and the token
+`.H3`.  Hosted serves `<H3> 2.21.1   FOIL: Background: I/O Validation</H3>`
+(DT `19941221141316`), `GG24-4137-00` `2.1` (`.H2`) as
+`<H2> 2.1   PART: System Management</H2>` and `SG24-4575-00` `2.1` as
+`<H2> 2.1   PART: Overview</H2>`.
+
 [[markup_message_heading_level]]
 ==== Message topics are headed at level 6
 
