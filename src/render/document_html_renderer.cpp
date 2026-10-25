@@ -524,6 +524,12 @@ void append_inline(HtmlSink &sink, const InlineIR &node) {
           sink.attribute("alt", value.alt_text);
           append_image_size(sink, value.resource);
           sink.markup(">");
+          // Inside a preformatted row the image stands at the first cell it
+          // occupies and every one of those cells prints blank, so the rest
+          // of the row keeps its columns after it (hosted BookServer,
+          // G544-3305-00 2.3.1).
+          if (!value.cells.empty())
+            sink.text(blank_image_cells(value));
         } else if constexpr (std::is_same_v<T, HardBreakInlineIR>) {
           sink.markup("<br>");
         } else if constexpr (std::is_same_v<T, RevisedInlineIR>) {

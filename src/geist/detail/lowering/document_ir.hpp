@@ -103,6 +103,15 @@ struct CrossReferenceTargetClaimIR {
 struct ImageInlineIR {
   std::string resource;
   std::string alt_text;
+  // Set only when the image stands inside a styled preformatted row: the
+  // row cells it occupies, exactly as the source row spells them (a picture
+  // selector's covered columns, ` PICTURE 23`).  The row still flattens to
+  // its literal source text through them, which is the block's geometry
+  // rule.  Hosted BookServer draws the image at the first of these columns
+  // and prints every one of them blank, so the rest of the row -- a frame's
+  // right rail -- keeps its place after the image (G544-3305-00 2.3.1).
+  // Empty for an image in running text, where it occupies no cell.
+  std::string cells = {};
 };
 
 struct CrossReferenceInlineIR {
@@ -395,7 +404,9 @@ struct PreformattedBlockIR {
   // flattens byte-for-byte to the matching entry in `lines`, including its
   // spaces, and has a matching line origin. Links live in these inlines,
   // never simultaneously in `line_links`. No inline may create another row
-  // or replace a source character with an image/opaque rendering.
+  // or replace a source character with an opaque rendering.  An image may
+  // stand in a row only over cells of its own (`ImageInlineIR::cells`): the
+  // picture placeholder columns of a drawn frame, which it flattens back to.
   std::vector<InlineSequenceIR> styled_lines;
 };
 
@@ -522,6 +533,11 @@ bool valid_revision_mark(char32_t mark);
 // `inlines` with every revised run replaced by its children, in place: what a
 // target without a margin (Markdown) prints.
 InlineSequenceIR flatten_revised_inlines(const InlineSequenceIR& inlines);
+
+// The cells an image occupies in a preformatted row, printed blank: one
+// space per column of `ImageInlineIR::cells` (a UTF-8 sequence is one
+// column).  Empty for an image in running text.
+std::string blank_image_cells(const ImageInlineIR& image);
 bool has_revised_inline(const InlineSequenceIR& inlines);
 
 bool verify_document_ir(const DocumentIR& document,

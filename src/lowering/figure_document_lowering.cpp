@@ -105,6 +105,12 @@ bool same_inlines(const InlineSequenceIR &left, const InlineSequenceIR &right) {
             a.heading_anchor != b.heading_anchor || a.url != b.url)
           return false;
       }
+    } else if (const auto *image =
+                   std::get_if<ImageInlineIR>(&left[index].node)) {
+      const auto &other = std::get<ImageInlineIR>(right[index].node);
+      if (image->resource != other.resource ||
+          image->alt_text != other.alt_text || image->cells != other.cells)
+        return false;
     } else {
       return false;
     }
@@ -741,6 +747,17 @@ bool verify_figure_document_blocks(const FigureSourceBlockIR &figure,
           !same_line_anchors(node->line_anchors,
                              actual_node.line_anchors))
         return fail(error, "figure body lines differ from canonical");
+      if (node->styled_lines.size() != actual_node.styled_lines.size() ||
+          node->line_origins.size() != actual_node.line_origins.size())
+        return fail(error, "figure frame rows differ from canonical");
+      for (std::size_t line = 0; line < node->styled_lines.size(); ++line)
+        if (!same_inlines(node->styled_lines[line],
+                          actual_node.styled_lines[line]))
+          return fail(error, "figure frame rows differ from canonical");
+      for (std::size_t line = 0; line < node->line_origins.size(); ++line)
+        if (!same_origin(node->line_origins[line],
+                         actual_node.line_origins[line]))
+          return fail(error, "figure frame rows differ from canonical");
     } else if (const auto *node =
                    std::get_if<ParagraphBlockIR>(&expected.node)) {
       if (!same_inlines(node->content,

@@ -559,6 +559,124 @@ void append_preformatted_html_block(
   sink.boundary("</pre>", "preformatted block close", origin);
 }
 
+// The text an inline of a styled preformatted row spells there, an image
+// standing in its cells printed blank.
+std::string preformatted_row_text(const InlineIR &in) {
+  return std::visit(
+      [](const auto &value) -> std::string {
+        using Inline = std::decay_t<decltype(value)>;
+        if constexpr (std::is_same_v<Inline, TextInlineIR> ||
+                      std::is_same_v<Inline, EmphasisInlineIR> ||
+                      std::is_same_v<Inline, UnderlineInlineIR>)
+          return value.text;
+        else if constexpr (std::is_same_v<Inline, CodeInlineIR>)
+          return value.code;
+        else if constexpr (std::is_same_v<Inline, CrossReferenceInlineIR>)
+          return value.label.empty() ? value.targets.front().target.value
+                                     : value.label;
+        else if constexpr (std::is_same_v<Inline, ImageInlineIR>)
+          return blank_image_cells(value);
+        else
+          return std::string();
+      },
+      in.node);
+}
+
+bool row_places_image(const InlineSequenceIR &row) {
+  return std::any_of(row.begin(), row.end(), [](const InlineIR &in) {
+    return std::holds_alternative<ImageInlineIR>(in.node);
+  });
+}
+
+bool places_images(const PreformattedBlockIR &node) {
+  return std::any_of(node.styled_lines.begin(), node.styled_lines.end(),
+                     row_places_image);
+}
+
+// One stretch of a split drawing: a fence when its rows are plain text, the
+// raw `<pre>` otherwise, exactly as a whole block would choose.
+void append_preformatted_stretch(
+    RenderSink &sink, PreformattedBlockIR stretch,
+    const DocumentNodeOriginIR *origin,
+    const DocumentMarkdownRendererOptions &options) {
+  const auto plain = std::all_of(
+      stretch.styled_lines.begin(), stretch.styled_lines.end(),
+      [](const InlineSequenceIR &row) {
+        return std::all_of(row.begin(), row.end(), [](const InlineIR &in) {
+          return std::holds_alternative<TextInlineIR>(in.node);
+        });
+      });
+  if (plain && stretch.line_links.empty() && stretch.line_anchors.empty())
+    append_fenced_block(sink, stretch.lines, origin, "preformatted line",
+                        &stretch.line_origins);
+  else
+    append_preformatted_html_block(sink, stretch, origin, options);
+}
+
+// A drawing whose rows place images (a picture inside a drawn frame).  A
+// fence holds no image, so the drawing is split at each picture row: the
+// rows above it, then the image as a block of its own, then the picture row
+// -- its image cells blank, the frame around them intact -- and the rows
+// below.  The rows keep every column; only the image moves out of the row.
+void append_preformatted_with_images(
+    RenderSink &sink, const PreformattedBlockIR &node,
+    const DocumentNodeOriginIR *origin,
+    const DocumentMarkdownRendererOptions &options) {
+  PreformattedBlockIR stretch;
+  bool first = true;
+  const auto separate = [&] {
+    if (!first)
+      sink.boundary("\n\n", "preformatted image split", origin);
+    first = false;
+  };
+  const auto flush = [&] {
+    if (stretch.lines.empty())
+      return;
+    separate();
+    append_preformatted_stretch(sink, std::move(stretch), origin, options);
+    stretch = PreformattedBlockIR{};
+  };
+  std::size_t next_anchor = 0;
+  for (std::size_t index = 0; index < node.lines.size(); ++index) {
+    const PathScope step(sink, "line", index);
+    const auto &row = node.styled_lines[index];
+    if (row_places_image(row)) {
+      flush();
+      for (const auto &in : row) {
+        if (!std::holds_alternative<ImageInlineIR>(in.node))
+          continue;
+        separate();
+        append_inlines(sink, InlineSequenceIR{in}, InlineContext::prose,
+                       options);
+      }
+    }
+    std::string text;
+    InlineSequenceIR drawn;
+    for (const auto &in : row) {
+      const auto spelled = preformatted_row_text(in);
+      text += spelled;
+      if (const auto *image = std::get_if<ImageInlineIR>(&in.node)) {
+        (void)image;
+        if (!spelled.empty())
+          drawn.push_back({TextInlineIR{spelled}, in.origin});
+        continue;
+      }
+      drawn.push_back(in);
+    }
+    while (next_anchor < node.line_anchors.size() &&
+           node.line_anchors[next_anchor].line == index) {
+      auto anchor = node.line_anchors[next_anchor++];
+      anchor.line = stretch.lines.size();
+      stretch.line_anchors.push_back(std::move(anchor));
+    }
+    stretch.lines.push_back(std::move(text));
+    if (index < node.line_origins.size())
+      stretch.line_origins.push_back(node.line_origins[index]);
+    stretch.styled_lines.push_back(std::move(drawn));
+  }
+  flush();
+}
+
 void append_table(RenderSink &sink, const TableBlockIR &table,
                   const DocumentNodeOriginIR *origin,
                   const DocumentMarkdownRendererOptions &options) {
@@ -872,8 +990,11 @@ void append_block(RenderSink &sink, const BlockIR &block,
           // source rows selected for verbatim HTML serialization. It may be
           // present with no accepted links; that still preserves the exact
           // source-row route instead of silently changing it to a fence.
-          if (!node.styled_lines.empty() || !node.line_links.empty() ||
-              !node.line_anchors.empty())
+          if (places_images(node))
+            append_preformatted_with_images(sink, node, block_origin,
+                                            options);
+          else if (!node.styled_lines.empty() || !node.line_links.empty() ||
+                   !node.line_anchors.empty())
             append_preformatted_html_block(sink, node, block_origin, options);
           else
             append_fenced_block(sink, node.lines, block_origin,

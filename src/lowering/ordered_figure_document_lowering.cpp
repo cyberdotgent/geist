@@ -3,6 +3,8 @@
 
 #include "geist/detail/lowering/ordered_figure_document_lowering.hpp"
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/lowering/cross_reference_target.hpp"
+#include "geist/detail/lowering/font_style_inlines.hpp"
 #include "geist/detail/lowering/prose_topic_document_lowering.hpp"
 #include <algorithm>
 #include <iterator>
@@ -45,6 +47,130 @@ void normalize(DocumentNodeOriginIR &origin) {
                                 }),
                     origin.rows.end());
 }
+CrossReferenceTargetKindIR link_target_kind(FigureLinkKindIR kind) {
+  switch (kind) {
+  case FigureLinkKindIR::in_book:
+    return CrossReferenceTargetKindIR::anchor;
+  case FigureLinkKindIR::book_contents:
+    return CrossReferenceTargetKindIR::book_contents;
+  case FigureLinkKindIR::book_heading:
+    return CrossReferenceTargetKindIR::book_heading;
+  case FigureLinkKindIR::external_url:
+    return CrossReferenceTargetKindIR::external;
+  }
+  return CrossReferenceTargetKindIR::anchor;
+}
+
+// The drawn frame of a picture region as one preformatted block: every row
+// verbatim, its CFONT runs styled, its selector runs linked, and each
+// picture an image standing over the placeholder cells its selector covers
+// (`ImageInlineIR::cells`), which is where hosted BookServer draws it.
+// `images` are the per-picture templates (anchors, then the image block);
+// the anchors come out ahead of the block, the image blocks lend it their
+// resource, description and source.
+std::optional<std::vector<BlockIR>>
+drawn_frame_blocks(const FigureSourceBlockIR &figure,
+                   std::vector<std::vector<BlockIR>> &images,
+                   std::string *error) {
+  std::vector<BlockIR> result;
+  std::vector<const FigureBlockIR *> pictures;
+  BlockIR frame;
+  frame.origin.derivation = DocumentDerivationIR::semantic_lowering;
+  frame.origin.detail = "figure block: drawn frame";
+  for (auto &image : images) {
+    for (auto &block : image) {
+      if (const auto *picture = std::get_if<FigureBlockIR>(&block.node)) {
+        pictures.push_back(picture);
+        frame.origin.slices.insert(frame.origin.slices.end(),
+                                   block.origin.slices.begin(),
+                                   block.origin.slices.end());
+        frame.origin.rows.insert(frame.origin.rows.end(),
+                                 block.origin.rows.begin(),
+                                 block.origin.rows.end());
+        continue;
+      }
+      result.push_back(std::move(block));
+    }
+  }
+  PreformattedBlockIR body;
+  for (const auto &line : figure.drawn_lines) {
+    DocumentNodeOriginIR line_origin;
+    line_origin.derivation = DocumentDerivationIR::semantic_lowering;
+    line_origin.detail = "figure frame row";
+    line_origin.slices = line.slices;
+    line_origin.rows = line.rows;
+    normalize(line_origin);
+    std::string text;
+    InlineSequenceIR row;
+    for (const auto &run : line.runs) {
+      text += run.text;
+      InlineIR in;
+      in.origin = line_origin;
+      in.origin.slices = run.slices;
+      in.origin.detail = "figure frame run";
+      normalize(in.origin);
+      if (run.picture) {
+        if (*run.picture >= pictures.size())
+          return fail(error, "drawn frame names an unknown picture");
+        const auto &picture = *pictures[*run.picture];
+        const auto placeholder = trim_ascii_whitespace(run.text);
+        if (placeholder.empty())
+          return fail(error, "drawn frame picture covers no placeholder");
+        ImageInlineIR image;
+        image.resource = picture.resource;
+        // As the figure image: the book's own description when it gave one,
+        // else the placeholder the image replaces (hosted's alt text).
+        image.alt_text =
+            picture.description.empty() ? placeholder : picture.description;
+        image.cells = run.text;
+        in.origin.detail = "figure frame picture";
+        in.node = std::move(image);
+      } else if (run.link) {
+        CrossReferenceInlineIR reference;
+        auto control = line_origin;
+        control.detail = "figure frame row: CSELECT target";
+        control.slices = {run.link->source};
+        control.rows.clear();
+        reference.targets.push_back(
+            {selector_cross_reference_target(link_target_kind(run.link->kind),
+                                             run.link->target,
+                                             run.link->alternatives),
+             control});
+        reference.label = run.text;
+        if (run.style != FontStyleIR::unknown) {
+          if (font_style_is_code(run.style))
+            reference.label_code = true;
+          else
+            reference.label_emphasis = font_style_emphasis_kind(run.style);
+          reference.label_phrase = font_style_phrase_kind(run.style);
+        }
+        in.node = std::move(reference);
+      } else if (run.style == FontStyleIR::unknown) {
+        in.node = TextInlineIR{run.text};
+      } else if (font_style_is_code(run.style)) {
+        in.node =
+            CodeInlineIR{run.text, font_style_phrase_kind(run.style)};
+      } else {
+        in.node = EmphasisInlineIR{run.text,
+                                   font_style_emphasis_kind(run.style),
+                                   font_style_phrase_kind(run.style)};
+      }
+      row.push_back(std::move(in));
+    }
+    frame.origin.slices.insert(frame.origin.slices.end(),
+                               line_origin.slices.begin(),
+                               line_origin.slices.end());
+    frame.origin.rows.insert(frame.origin.rows.end(), line_origin.rows.begin(),
+                             line_origin.rows.end());
+    body.lines.push_back(std::move(text));
+    body.line_origins.push_back(std::move(line_origin));
+    body.styled_lines.push_back(std::move(row));
+  }
+  normalize(frame.origin);
+  frame.node = std::move(body);
+  result.push_back(std::move(frame));
+  return result;
+}
 } // namespace
 std::optional<std::vector<BlockIR>>
 lower_ordered_figure_document_blocks(const FigureSourceBlockIR &figure,
@@ -55,6 +181,7 @@ lower_ordered_figure_document_blocks(const FigureSourceBlockIR &figure,
   auto metadata = figure;
   metadata.content.clear();
   metadata.caption.reset();
+  metadata.drawn_lines.clear();
   auto templates = lower_figure_block_to_document_blocks(metadata, error);
   if (!templates)
     return std::nullopt;
@@ -77,7 +204,24 @@ lower_ordered_figure_document_blocks(const FigureSourceBlockIR &figure,
   if (!pending.empty())
     return fail(error, "ordered figure leaves unattached anchors");
   std::vector<bool> emitted(images.size());
+  // A drawn frame stands where its first part stood: the region opens with
+  // it, since only the parts after the frame are blocks of their own.
+  if (!figure.drawn_lines.empty()) {
+    if (figure.content.empty() || !figure.content.front().drawn)
+      return fail(error, "drawn frame does not open its figure");
+    auto frame = drawn_frame_blocks(figure, images, error);
+    if (!frame)
+      return std::nullopt;
+    result.insert(result.end(), std::make_move_iterator(frame->begin()),
+                  std::make_move_iterator(frame->end()));
+    std::fill(emitted.begin(), emitted.end(), true);
+  }
   for (const auto &part : figure.content) {
+    if (part.drawn) {
+      if (figure.drawn_lines.empty())
+        return fail(error, "figure part is drawn without a frame");
+      continue;
+    }
     if (part.picture) {
       if (part.picture_index >= images.size() || emitted[part.picture_index])
         return fail(error, "ordered figure has an invalid picture ordinal");

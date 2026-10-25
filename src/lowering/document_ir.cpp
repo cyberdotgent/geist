@@ -149,8 +149,10 @@ bool phrase_fits(PhraseKindIR phrase, bool code, EmphasisKindIR kind) {
   return false;
 }
 
+// `preformatted_row`: the inlines are one styled preformatted row, the only
+// place an image may occupy cells of its own (`ImageInlineIR::cells`).
 bool verify_inlines(const InlineSequenceIR& inlines, bool allow_empty,
-                    std::string* error) {
+                    std::string* error, bool preformatted_row = false) {
   if (!allow_empty && inlines.empty())
     return fail(error, "required inline sequence is empty");
   for (const auto& in : inlines) {
@@ -200,7 +202,9 @@ bool verify_inlines(const InlineSequenceIR& inlines, bool allow_empty,
               return valid_cross_reference_target(claim.target);
             });
           } else if constexpr (std::is_same_v<T, ImageInlineIR>) {
-            return !node.resource.empty();
+            return !node.resource.empty() &&
+                   node.cells.empty() != preformatted_row &&
+                   node.cells.find_first_of("\r\n") == std::string::npos;
           } else if constexpr (std::is_same_v<T, OpaqueInlineIR>) {
             return !node.kind.empty();
           } else if constexpr (std::is_same_v<T, RevisedInlineIR>) {
@@ -540,7 +544,8 @@ bool verify_block(const BlockIR& block, bool nested, std::string* error) {
             if (!node.line_links.empty())
               return fail(error, "styled preformatted rows have competing link ownership");
             for (std::size_t line = 0; line < node.lines.size(); ++line) {
-              if (!verify_inlines(node.styled_lines[line], true, error)) return false;
+              if (!verify_inlines(node.styled_lines[line], true, error, true))
+                return false;
               std::string flattened;
               for (const auto& in : node.styled_lines[line]) {
                 const auto valid = std::visit([&](const auto& value) {
@@ -555,6 +560,10 @@ bool verify_block(const BlockIR& block, bool nested, std::string* error) {
                     flattened += value.label.empty()
                                      ? value.targets.front().target.value
                                      : value.label;
+                  // An image occupies the cells it names: the row's own
+                  // placeholder columns, so the row keeps its geometry.
+                  else if constexpr (std::is_same_v<Inline, ImageInlineIR>)
+                    flattened += value.cells;
                   else return false;
                   return true;
                 }, in.node);
@@ -770,8 +779,12 @@ void format_inlines(std::ostringstream& out, const InlineSequenceIR& inlines) {
             }
           }
           else if constexpr (std::is_same_v<T, ImageInlineIR>)
+          {
             out << "image=" << quoted(node.resource) << ':'
                 << quoted(node.alt_text);
+            if (!node.cells.empty())
+              out << " cells=" << quoted(node.cells);
+          }
           else if constexpr (std::is_same_v<T, HardBreakInlineIR>)
             out << "hard_break";
           else if constexpr (std::is_same_v<T, RevisedInlineIR>) {
@@ -1143,6 +1156,13 @@ bool has_revised_inline(const InlineSequenceIR& inlines) {
   return std::any_of(inlines.begin(), inlines.end(), [](const InlineIR& in) {
     return std::holds_alternative<RevisedInlineIR>(in.node);
   });
+}
+
+std::string blank_image_cells(const ImageInlineIR& image) {
+  std::size_t columns = 0;
+  for (const auto ch : image.cells)
+    if ((static_cast<unsigned char>(ch) & 0xc0) != 0x80) ++columns;
+  return std::string(columns, ' ');
 }
 
 InlineSequenceIR flatten_revised_inlines(const InlineSequenceIR& inlines) {

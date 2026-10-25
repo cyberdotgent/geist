@@ -254,11 +254,39 @@ struct FigureContentPartIR {
   bool picture = false;
   std::size_t picture_index = 0;
   bool caption = false;
+  // The part stands on a row of the region's drawn frame
+  // (`FigureSourceBlockIR::drawn_lines`), which draws it in place; only the
+  // parts after the frame are blocks of their own.
+  bool drawn = false;
   std::vector<FigureTextRunIR> runs;
   std::vector<DocumentSourceRowIR> rows;
   // Native origin and caption continuation column, not UTF-8 byte offsets.
   std::size_t column = 0;
   std::size_t continuation_column = 0;
+};
+
+// One run of a drawn frame row: cells sharing one presentation, in column
+// order.  `text` is the run's cells as the row spells them (blanks and box
+// glyphs included, `figure_display_glyph`), so a row's runs concatenate to
+// the row exactly.  A picture run covers the selector's columns, which spell
+// the `PICTURE n` placeholder; `picture` is its ordinal (0 for the main
+// picture, i for `additional_pictures[i - 1]`).
+struct FigureDrawnRunIR {
+  std::string text;
+  FontStyleIR style = FontStyleIR::unknown; // unknown here means unstyled
+  std::optional<FigureLinkIR> link;
+  std::optional<std::size_t> picture;
+  // Whole tokens the run's cells come from.
+  std::vector<DocumentSourceSliceIR> slices;
+};
+
+// One display row of a drawn frame, from the frame's first row to its last.
+// A row with no visible cell is an empty run list.
+struct FigureDrawnLineIR {
+  std::vector<FigureDrawnRunIR> runs;
+  // Whole tokens of the row's content, one slice per owning segment run.
+  std::vector<DocumentSourceSliceIR> slices;
+  std::vector<DocumentSourceRowIR> rows;
 };
 
 struct FigureSourceBlockIR {
@@ -312,6 +340,17 @@ struct FigureSourceBlockIR {
   // inspecting the private IR; lowering follows this sequence, not a rule
   // that puts every caption after every picture.
   std::vector<FigureContentPartIR> content;
+  // Non-empty when the picture stands inside a drawn frame: a picture row
+  // carries a frame glyph (`|`, `_`, a box-drawing word) on both sides of
+  // its placement.  The compiler drew the frame as display rows -- top rule,
+  // rails, the placeholder row, bottom rule -- and hosted BookServer serves
+  // them verbatim inside its `<pre>` with the `<img>` at the selector column
+  // (G544-3305-00 2.3.1, GC33-1789-01 1.3, GC28-1063-02 1.4.2; 85 of 85
+  // sampled books).  These are those rows, from the frame's first row to
+  // its last, control/index/description lines left out; the content parts
+  // on them are `drawn`, and only the parts after the frame (the caption)
+  // stand on their own.
+  std::vector<FigureDrawnLineIR> drawn_lines;
 };
 
 struct FigureBlockDeclineIR {

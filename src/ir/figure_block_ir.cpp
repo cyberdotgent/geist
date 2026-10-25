@@ -156,6 +156,26 @@ bool same_block(const FigureSourceBlockIR &left,
   for (std::size_t index = 0; index < left.cells.size(); ++index)
     if (!same_cell(left.cells[index], right.cells[index]))
       return false;
+  if (left.drawn_lines.size() != right.drawn_lines.size())
+    return false;
+  for (std::size_t index = 0; index < left.drawn_lines.size(); ++index) {
+    const auto &a = left.drawn_lines[index];
+    const auto &b = right.drawn_lines[index];
+    if (a.slices != b.slices || a.runs.size() != b.runs.size() ||
+        a.rows.size() != b.rows.size())
+      return false;
+    for (std::size_t row = 0; row < a.rows.size(); ++row)
+      if (!same_row(a.rows[row], b.rows[row]))
+        return false;
+    for (std::size_t run = 0; run < a.runs.size(); ++run) {
+      const auto &x = a.runs[run];
+      const auto &y = b.runs[run];
+      if (x.text != y.text || x.style != y.style || x.picture != y.picture ||
+          x.slices != y.slices || x.link.has_value() != y.link.has_value() ||
+          (x.link && !same_link(*x.link, *y.link)))
+        return false;
+    }
+  }
   return true;
 }
 
@@ -1921,6 +1941,8 @@ std::string format_figure_blocks_ir(const FigureBlocksIR &blocks) {
       out << " placeholder='" << block.placeholder_text << "'";
     if (block.caption)
       out << " caption='" << block.caption->text << "'";
+    if (!block.drawn_lines.empty())
+      out << " drawn-lines=" << block.drawn_lines.size();
     for (const auto &spot : block.spot_anchors) {
       out << " spot='" << spot.id << "'@" << spot.logical_record << ':'
           << spot.segment_index;

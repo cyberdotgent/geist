@@ -341,6 +341,15 @@
   height: auto;
 }
 
+/*
+ * A picture inside a drawn frame stands in its row, at the column the source
+ * placed it, with the frame's rails beside it. Hang it from the row's top so
+ * the rail on its left stays level with the rows above.
+ */
+.geist-preformatted .geist-image {
+  vertical-align: top;
+}
+
 .geist-opaque-inline {
   font-family: "DejaVu Sans Mono", Consolas, monospace;
   background: #fff8e0;

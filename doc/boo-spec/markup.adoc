@@ -1759,6 +1759,44 @@ The generated caption separator is not invariably a period:
 `Figure 2:`. These spellings describe observed captions, not delimiters
 that authorize discarding other visible text inside a figure.
 
+*A picture inside a drawn frame keeps its frame.* The compiler draws the
+frame of a framed picture as ordinary display lines of the figure region:
+a top rule, rails, the placeholder line between the rails, more rails and a
+bottom rule.  `G544-3305-00.boo` topic `2.3.1`, logical record 43, after
+`SRFIGMEM1` (line 4):
+
+----
+0x27d31  0b 0e dc29 00 09 00 dc30 00 dc28   line 5:  U+250C, U+2500 x 72, U+2510
+0x27d3d  05 0e 92 1a 13 92                   line 6 (7-9 alike): '   ' U+2502 blanks U+2502
+0x27d55  05 40 d5 db e254                    line 10: cselect 5 9 PIC1
+0x27d5b  08 0e 92 e252 b8 dc62 92            line 11: '   ' U+2502 PICTURE 1 blanks U+2502
+0x27d76  0b 0e dc2a 00 09 00 dc30 00 dc2b    line 15: U+2514, U+2500 x 72, U+2518
+         ...                                 line 16: '   Figure 1. Internal Memo'
+----
+
+(`0e` is three blanks, `92` U+2502, `e252` `PICTURE`, `b8` `1`, `dc62` a run
+of 61 blanks; `00` attaches the next token.)  Columns 5--13 of line 11 spell
+exactly `PICTURE 1`, which line 10's `5 9` names.  Hosted BookServer (DT
+`19910508143433`) serves lines 5--16 verbatim inside the topic's `<pre>`, the
+top rule wrapped in the figure's `<a name="FIGMEM1">`, and line 11 as
+
+----
+   | <a href="picture-1?mode=zoom"><img src=".../P1.GIF" alt="PICTURE 1"></a>   ...   |
+----
+
+-- the `<img>` at column 5, then nine blanks where `PICTURE 1` stood, then the
+row's own 62 blanks and its right rail.  The frame is not dropped and the
+placeholder's columns are not removed: the image takes the selected columns
+and they print blank, exactly as in a table envelope (see "Selectors inside a
+table envelope").  A picture region whose placeholder line carries a rail on
+both sides of the selected columns was served this way in every sampled book
+(85 books, one topic each, of 118 books in a 650-book sample with the shape;
+every frame line, the caption line included, appeared on the hosted page in
+order).  The selected columns may include the blank before the placeholder:
+`SC41-3531-02.boo` topic `1.1.6.1.1` names ` PICTURE 23` with
+`cselect 5 11 PIC23`, and hosted's `<img>` stands at column 5, the blank, with
+eleven blank columns after it.
+
 *A numbered figure caption is a run of display lines, and its continuations are
 indented to the title column.* The caption line is `Figure <n>. <title>`;
 every line that continues it starts at exactly the column where `<title>`

@@ -65,10 +65,39 @@ struct Row {
   bool index = false;
   bool metadata = false;
   bool barrier = false;
+  // Cell 1 is the native revision margin's bar, hidden from text parts.
+  bool margin_bar = false;
 };
 struct Attr {
   FontStyleIR style = FontStyleIR::unknown;
   const SelectorIR *link = nullptr;
+};
+// A frame's rail: the vertical rule a drawn box puts on each side of its
+// content (`|`, or a box-drawing word).
+bool rail(std::uint16_t word) {
+  return word == '|' || (word >= 0x2500 && word <= 0x257f);
+}
+// Any glyph a drawn frame is made of: a rail, or the `_` of its rules.
+bool frame_glyph(std::uint16_t word) { return word == '_' || rail(word); }
+// How one native row of the region reads when its frame is drawn
+// (`FigureSourceBlockIR::drawn_lines`).
+struct Drawn {
+  bool visible = false;
+  // A control, subject-index or description line: it draws nothing.
+  bool control = false;
+  // The row's runs reproduce its native display text exactly.
+  bool usable = true;
+  // A visible frame glyph outside the picture placements.
+  bool glyph = false;
+  // A picture placement with a rail on both sides of it.
+  bool railed = false;
+  // Picture placements: columns [begin, end) and picture ordinal.
+  std::vector<std::tuple<std::size_t, std::size_t, std::size_t>> spans;
+  // `figure.content.size()` once the row is read, and the part an earlier
+  // row opened that this row continued, if any.
+  std::size_t parts_end = 0;
+  std::optional<std::size_t> merged_into;
+  FigureDrawnLineIR line;
 };
 
 DocumentSourceSliceIR selector_target_slice(
@@ -97,6 +126,9 @@ struct Reader {
   std::set<Token> controls;
   std::vector<Row> rows;
   bool allow_wrap = false;
+  // The part the last wrapped caption row continued (`text_part`).
+  std::optional<std::size_t> last_merge;
+  std::vector<Drawn> drawn;
 
   bool inside(std::uint32_t record, std::size_t token) const {
     const auto found = source.tokens.find(record);
@@ -285,6 +317,7 @@ struct Reader {
             roles[{r.logical_record, bar.token, bar.word_index}] =
                 FigureCellRoleIR::text_layout;
             row.hidden[1] = true;
+            row.margin_bar = true;
           }
         }
         rows.push_back(std::move(row));
@@ -312,6 +345,151 @@ struct Reader {
     out.character_end =
         out.character_begin +
         static_cast<std::uint32_t>(token_words_to_ascii({c.word}).size());
+    return out;
+  }
+  // The cross reference a non-picture selector places on picture text.
+  std::optional<FigureLinkIR> selector_link(const SelectorIR &selector) {
+    FigureLinkIR link;
+    link.selector = {selector.logical_record, selector.segment_index,
+                     selector.selector_ordinal};
+    link.target = selector.target;
+    const auto &r = *by_record.at(selector.logical_record);
+    const auto &segment = r.control_segments.at(selector.segment_index);
+    link.source = selector_target_slice(r, segment, {});
+    if (ascii_lower(link.target) != "lnk")
+      return link;
+    std::vector<std::string> alternatives;
+    const auto alternative_tokens =
+        selector_link_alternative_tokens(r, segment, &alternatives);
+    const auto parsed = parse_selector_link(alternatives, error);
+    if (!parsed || parsed->kind == SelectorLinkKindIR::external_image ||
+        parsed->kind == SelectorLinkKindIR::book_spot) {
+      fail(error, "unsupported link inside picture text");
+      return std::nullopt;
+    }
+    link.target = parsed->alternatives[5];
+    link.alternatives = parsed->alternatives;
+    link.document_level = parsed->document_level;
+    switch (parsed->kind) {
+    case SelectorLinkKindIR::book_contents:
+      link.kind = FigureLinkKindIR::book_contents;
+      link.document_number = parsed->alternatives[3];
+      break;
+    case SelectorLinkKindIR::book_heading:
+      link.kind = FigureLinkKindIR::book_heading;
+      link.document_number = parsed->alternatives[3];
+      link.heading_anchor = parsed->alternatives[1];
+      break;
+    case SelectorLinkKindIR::external_link:
+      link.kind = FigureLinkKindIR::external_url;
+      link.external = true;
+      link.document_level.clear();
+      link.url = parsed->alternatives[3];
+      break;
+    case SelectorLinkKindIR::external_image:
+    case SelectorLinkKindIR::book_spot:
+      fail(error, "unsupported link inside picture text");
+      return std::nullopt;
+    }
+    link.source = selector_target_slice(r, segment, alternative_tokens);
+    return link;
+  }
+  // Whole-token slices of `tokens` (record-local, any order), one per run
+  // of consecutive tokens owned by one segment.
+  std::vector<DocumentSourceSliceIR>
+  token_slices(const Row &row, std::vector<std::size_t> tokens) const {
+    std::sort(tokens.begin(), tokens.end());
+    tokens.erase(std::unique(tokens.begin(), tokens.end()), tokens.end());
+    const auto &r = *row.record;
+    const auto owner = [&](std::size_t t) {
+      const auto found = owners.find({r.logical_record, t});
+      return found == owners.end() ? std::size_t{0} : found->second;
+    };
+    std::vector<DocumentSourceSliceIR> out;
+    for (const auto t : tokens) {
+      if (!out.empty() && out.back().token_end == t &&
+          out.back().segment_index == owner(t)) {
+        out.back().token_end = t + 1;
+        out.back().byte_end = r.ir.tokens[t].byte_range.end;
+        continue;
+      }
+      DocumentSourceSliceIR slice;
+      slice.logical_record = r.logical_record;
+      slice.segment_index = owner(t);
+      slice.token_begin = t;
+      slice.token_end = t + 1;
+      slice.byte_begin = r.ir.tokens[t].byte_range.begin;
+      slice.byte_end = r.ir.tokens[t].byte_range.end;
+      out.push_back(slice);
+    }
+    return out;
+  }
+  // The row as the frame draws it: every cell in column order, cut into
+  // runs where the picture placement, the CFONT style or the selector link
+  // changes.  `usable` is cleared when the runs cannot reproduce the row's
+  // native display text exactly (a control word inside it, a glyph that
+  // renders differently).
+  using Span = std::tuple<std::size_t, std::size_t, std::size_t>;
+  FigureDrawnLineIR drawn_line(const Row &row, const std::vector<Attr> &attrs,
+                               const std::vector<Span> &spans, bool &usable) {
+    FigureDrawnLineIR out;
+    out.rows = physical_rows(row);
+    const auto &r = *row.record;
+    std::vector<std::size_t> line_tokens;
+    for (auto t = row.line.prefix_token + 1; t < row.line.token_end; ++t)
+      if (inside(r.logical_record, t))
+        line_tokens.push_back(t);
+    out.slices = token_slices(row, line_tokens);
+    struct Key {
+      std::size_t span = npos;
+      FontStyleIR style = FontStyleIR::unknown;
+      const SelectorIR *link = nullptr;
+      bool operator==(const Key &o) const {
+        return span == o.span && style == o.style && link == o.link;
+      }
+    };
+    std::vector<std::pair<Key, std::vector<std::size_t>>> run_tokens;
+    std::string text;
+    for (std::size_t i = 0; i < row.cells.size(); ++i) {
+      const auto &c = row.cells[i];
+      if (row.hidden[i] && !(row.margin_bar && i == 1)) {
+        usable = false;
+        continue;
+      }
+      Key key;
+      for (std::size_t s = 0; s < spans.size(); ++s)
+        if (std::get<0>(spans[s]) <= i && i < std::get<1>(spans[s]))
+          key.span = s;
+      if (key.span == npos && i < attrs.size()) {
+        key.style = attrs[i].style;
+        key.link = attrs[i].link;
+      }
+      const auto glyph = figure_display_glyph(c.word);
+      text += glyph;
+      if (out.runs.empty() || !(run_tokens.back().first == key)) {
+        FigureDrawnRunIR run;
+        if (key.span != npos)
+          run.picture = std::get<2>(spans[key.span]);
+        run.style = key.style;
+        if (key.link) {
+          auto link = selector_link(*key.link);
+          if (!link) {
+            usable = false;
+            return out;
+          }
+          run.link = std::move(*link);
+        }
+        out.runs.push_back(std::move(run));
+        run_tokens.push_back({key, {}});
+      }
+      out.runs.back().text += glyph;
+      if (c.token != npos && inside(r.logical_record, c.token))
+        run_tokens.back().second.push_back(c.token);
+    }
+    for (std::size_t k = 0; k < out.runs.size(); ++k)
+      out.runs[k].slices = token_slices(row, run_tokens[k].second);
+    if (text != display_line_text(r, row.line))
+      usable = false;
     return out;
   }
   bool text_part(Row &row, std::size_t begin, std::size_t end,
@@ -359,49 +537,10 @@ struct Reader {
         FigureTextRunIR run;
         run.style = attr.style;
         if (attr.link) {
-          FigureLinkIR link;
-          link.selector = {attr.link->logical_record, attr.link->segment_index,
-                           attr.link->selector_ordinal};
-          link.target = attr.link->target;
-          const auto &r = *by_record.at(attr.link->logical_record);
-          const auto& segment =
-              r.control_segments.at(attr.link->segment_index);
-          link.source = selector_target_slice(r, segment, {});
-          if (ascii_lower(link.target) == "lnk") {
-            std::vector<std::string> alternatives;
-            const auto alternative_tokens =
-                selector_link_alternative_tokens(r, segment, &alternatives);
-            const auto parsed = parse_selector_link(alternatives, error);
-            if (!parsed || parsed->kind == SelectorLinkKindIR::external_image ||
-                parsed->kind == SelectorLinkKindIR::book_spot)
-              return fail(error, "unsupported link inside picture text");
-            link.target = parsed->alternatives[5];
-            link.alternatives = parsed->alternatives;
-            link.document_level = parsed->document_level;
-            switch (parsed->kind) {
-            case SelectorLinkKindIR::book_contents:
-              link.kind = FigureLinkKindIR::book_contents;
-              link.document_number = parsed->alternatives[3];
-              break;
-            case SelectorLinkKindIR::book_heading:
-              link.kind = FigureLinkKindIR::book_heading;
-              link.document_number = parsed->alternatives[3];
-              link.heading_anchor = parsed->alternatives[1];
-              break;
-            case SelectorLinkKindIR::external_link:
-              link.kind = FigureLinkKindIR::external_url;
-              link.external = true;
-              link.document_level.clear();
-              link.url = parsed->alternatives[3];
-              break;
-            case SelectorLinkKindIR::external_image:
-            case SelectorLinkKindIR::book_spot:
-              return fail(error, "unsupported link inside picture text");
-            }
-            link.source =
-                selector_target_slice(r, segment, alternative_tokens);
-          }
-          run.link = std::move(link);
+          auto link = selector_link(*attr.link);
+          if (!link)
+            return false;
+          run.link = std::move(*link);
         }
         part.runs.push_back(std::move(run));
       }
@@ -440,6 +579,7 @@ struct Reader {
                              part.runs.end());
         previous.rows.insert(previous.rows.end(), part.rows.begin(),
                              part.rows.end());
+        last_merge = figure.content.size() - 1;
         return true;
       }
     }
@@ -461,10 +601,72 @@ struct Reader {
     }
     return npos;
   }
+  // A picture inside a drawn frame keeps the frame.  The frame is decided by
+  // the rows themselves: a picture placement with a rail on each side of it.
+  // Its rows run from the region's first visible row to the last row that
+  // draws a frame glyph; every placement must lie on them, every visible row
+  // must reproduce its native text, and no wrapped caption may straddle the
+  // frame's end.  Otherwise the region stays an image with its text parts.
+  void draw_frame() {
+    figure.drawn_lines.clear();
+    if (std::none_of(drawn.begin(), drawn.end(),
+                     [](const Drawn &d) { return d.railed; }))
+      return;
+    std::size_t first = npos, last = npos;
+    for (std::size_t k = 0; k < drawn.size(); ++k) {
+      if (!drawn[k].visible)
+        continue;
+      if (first == npos)
+        first = k;
+      if (drawn[k].glyph)
+        last = k;
+    }
+    if (first == npos || last == npos || last < first)
+      return;
+    for (std::size_t k = 0; k < drawn.size(); ++k) {
+      const auto &d = drawn[k];
+      if (!d.spans.empty() && (k < first || k > last))
+        return;
+      if (k >= first && k <= last && !d.control && !d.usable)
+        return;
+    }
+    const auto frame_parts = drawn[last].parts_end;
+    for (auto k = last + 1; k < drawn.size(); ++k)
+      if (drawn[k].merged_into && *drawn[k].merged_into < frame_parts)
+        return;
+    for (std::size_t i = 0; i < frame_parts && i < figure.content.size(); ++i)
+      figure.content[i].drawn = true;
+    for (auto k = first; k <= last; ++k) {
+      const auto &d = drawn[k];
+      if (d.control)
+        continue;
+      figure.drawn_lines.push_back(d.line);
+      // The frame's cells are drawn now, not suppressed; only the picture
+      // placements still give their cells to the image.
+      const auto &row = rows[k];
+      for (std::size_t i = 0; i < row.cells.size(); ++i) {
+        const auto &c = row.cells[i];
+        if (c.token == npos)
+          continue;
+        bool covered = false;
+        for (const auto &place : d.spans)
+          covered = covered ||
+                    (std::get<0>(place) <= i && i < std::get<1>(place));
+        if (covered)
+          continue;
+        const auto found =
+            roles.find({row.record->logical_record, c.token, c.word_index});
+        if (found != roles.end() &&
+            found->second == FigureCellRoleIR::placeholder_suppressed)
+          found->second = FigureCellRoleIR::body_layout;
+      }
+    }
+  }
   bool emit() {
     std::vector<FontSpanIR> fonts;
     std::vector<const SelectorIR *> pending;
     std::set<std::size_t> pictures;
+    drawn.clear();
     for (auto &row : rows) {
       fonts.insert(fonts.end(), row.fonts.begin(), row.fonts.end());
       pending.insert(pending.end(), row.selectors.begin(), row.selectors.end());
@@ -474,12 +676,27 @@ struct Reader {
           visible = true;
           frame = frame && outline(row.cells[i].word);
         }
+      drawn.emplace_back();
+      auto &d = drawn.back();
+      d.visible = visible;
+      d.control = row.index || row.metadata;
+      for (std::size_t i = 0; i < row.cells.size(); ++i)
+        if (row.hidden[i] && !(row.margin_bar && i == 1))
+          d.control = true;
+      d.parts_end = figure.content.size();
+      last_merge.reset();
       if (!visible) {
+        if (!d.control)
+          d.line = drawn_line(row, {}, {}, d.usable);
         if (row.line.token_end == row.line.prefix_token + 1 || row.barrier)
           allow_wrap = false;
         continue;
       }
       if (frame && pending.empty()) {
+        d.line = drawn_line(row, {}, {}, d.usable);
+        for (std::size_t i = 0; i < row.cells.size(); ++i)
+          if (!row.hidden[i] && frame_glyph(row.cells[i].word))
+            d.glyph = true;
         mark_cells(row, 0, row.cells.size(),
                    FigureCellRoleIR::placeholder_suppressed);
         fonts.clear();
@@ -547,6 +764,27 @@ struct Reader {
       }
       pending.clear();
       std::sort(placed.begin(), placed.end());
+      if (!placed.empty()) {
+        const auto from = std::get<0>(placed.front());
+        const auto to = std::get<1>(placed.back());
+        bool left = false, right = false;
+        for (std::size_t i = 0; i < row.cells.size(); ++i)
+          if (!row.hidden[i] && rail(row.cells[i].word)) {
+            left = left || i < from;
+            right = right || i >= to;
+          }
+        d.railed = left && right;
+      }
+      for (std::size_t i = 0; i < row.cells.size(); ++i) {
+        bool covered = false;
+        for (const auto &place : placed)
+          covered = covered ||
+                    (std::get<0>(place) <= i && i < std::get<1>(place));
+        if (!covered && !row.hidden[i] && frame_glyph(row.cells[i].word))
+          d.glyph = true;
+      }
+      d.spans = placed;
+      d.line = drawn_line(row, attrs, placed, d.usable);
       std::size_t begin = 0;
       for (const auto &place : placed) {
         const auto from = std::get<0>(place), to = std::get<1>(place);
@@ -584,11 +822,14 @@ struct Reader {
                    FigureCellRoleIR::placeholder_suppressed);
       else if (!text_part(row, begin, row.cells.size(), attrs))
         return false;
+      d.parts_end = figure.content.size();
+      d.merged_into = last_merge;
     }
     if (pictures.size() != figure.additional_pictures.size() + 1)
       return fail(error, "picture region leaves an image unplaced");
     if (!pending.empty())
       return fail(error, "picture region leaves a selector unbound");
+    draw_frame();
     // A sole terminal label is the unnumbered caption. This is a region
     // relationship, not a six-line grammar or a test of its English words.
     if (!figure.content.empty() && !figure.content.back().picture) {
@@ -707,7 +948,8 @@ bool same_figure_content_ir(const std::vector<FigureContentPartIR> &a,
   for (std::size_t i = 0; i < a.size(); ++i) {
     if (a[i].picture != b[i].picture ||
         a[i].picture_index != b[i].picture_index ||
-        a[i].caption != b[i].caption || a[i].column != b[i].column ||
+        a[i].caption != b[i].caption || a[i].drawn != b[i].drawn ||
+        a[i].column != b[i].column ||
         a[i].continuation_column != b[i].continuation_column ||
         a[i].runs.size() != b[i].runs.size() ||
         a[i].rows.size() != b[i].rows.size())
