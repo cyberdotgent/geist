@@ -260,7 +260,10 @@ void draw_text(HDC dc, const std::wstring& text, RECT box, HFONT font, COLORREF 
 // positions of block starts and line starts, in CSS pixels.
 const char kMeasureScript[] =
     "<style>html,body{overflow:hidden !important;background:#fff !important;}"
-    "body{position:relative;}</style><script>"
+    "body{position:relative;}"
+    // Drawn rows print whole: a wide one widens the page instead of
+    // scrolling inside its box, so the topic is measured as wide.
+    ".geist-preformatted,.geist-opaque{overflow:visible !important;}</style><script>"
     "function geistMeasure(){"
     "var b=document.body,h=document.documentElement;"
     "var sy=window.pageYOffset||h.scrollTop||0;"
@@ -277,7 +280,7 @@ const char kMeasureScript[] =
     "r.selectNodeContents(c);var rs=r.getClientRects();"
     "for(var k=0;k<rs.length;k++)if(rs[k].bottom>rs[k].top)lines.push(Math.round(rs[k].top+sy));}}"
     "else if(c.nodeType==1)walk(c);}};walk(b);}"
-    "var w=Math.max(b.scrollWidth,h.scrollWidth),ht=Math.max(b.scrollHeight,h.scrollHeight);"
+    "var w=Math.max(b.scrollWidth,h.scrollWidth),ht=b.scrollHeight;"
     "b.setAttribute('data-geist-measure',h.clientWidth+' '+w+' '+ht+'|'+blocks.join(',')+'|'+lines.join(','));"
     "}</script>";
 
