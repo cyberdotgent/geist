@@ -6207,6 +6207,48 @@ each of sixteen books: `GC33-1177-01`, `SC24-5777-00`, `SC30-3989-00`,
 `SY27-0327-05` (the only differences are words hosted splits at a style
 change, such as `<U>de</U><B>lete</B>`).
 
+*A region with no structure of its own.*  Every `cz OFF <tag>` whose tag
+has no reading of its own -- not a table, figure, footnote, message-list,
+title-page, artwork or list tag -- is the generic region of the table above,
+whatever the tag: `DANGER`, `DIRECT`, `CGRAPHIC`, `MAP`, `PARTSASM`, `LQ`,
+`SCHDATE` and others.  Its rows are printed as stored, inside the
+`<pre width="80">` it opens, with the `CFONT` highlighting and the
+`CSELECT` links of each row kept, an `SR<id>` anchor between two rows
+standing on the row after it.  The region ends where the `<pre>` ends: at the
+next `CZ FLOW`.  Its own `cz OFF E<tag>` closer prints nothing, so the rows
+the closer owns are rows of the region too.
+
+* `SC41-4153-00.boo` `FRONT_1.1.1` closes its first `DANGER` box with
+  logical record 13 line 7, `06 41 A3 E1 10 BA BA` at `0xBF1B`
+  (`cz OFF EDANGER 0 0`); after `SRDGR` and a `cfont` line, line 10 is
+  `03 0B E0 00` at `0xBF2B` (three blanks, `DANGER`), and the next directive
+  is the following region's `cz OFF DANGER`.  Hosted (DT `19950706142729`)
+  prints the box rows with every word in `<strong>`, then `<p>` and
+  pass:[<literal>&lt;a name="DGR"&gt;&#160;&#160;&#160;&lt;strong&gt;DANGER&lt;/strong&gt;&lt;/a&gt;</literal>] inside the same
+  `<pre width="80">`, and `</pre><pre width="80">` only at the next region.
+* `SC33-0824-02.boo` `2.1.1.1` opens `cz OFF CGRAPHIC` at logical record
+  117 line 17, `04 4D A8 DE 93` at `0x11204`, and has no closer: the
+  function-shipping diagram (lines 18-31) runs to line 33,
+  `05 4D 9D AA CA CA` at `0x112F3` (`cz FLOW P 3 3`).  Hosted
+  (DT `19950807110137`) prints the diagram in `<pre width="80">`, its
+  `cfont ... C` words in `<cite>`, and the paragraph after `</pre>`.
+* `SY27-0327-05.boo` `2.1.8` draws its step diagram inside `cz OFF MAP`;
+  hosted (DT `19961016091447`) keeps the `CSELECT` links of its `Yes`
+  branches and puts `<a name="STPSTPUNIQ112">` around the row
+  `    |    |    |` that follows the `SRSTPSTPUNIQ112` line.
+
+Over 22 books with a closed generic region (`SC41-4153-00`,
+`SC24-5783-00`, `SC33-1695-01`, `SC31-6071-04`, `SC41-5722-02`,
+`SC41-4204-00`, `SC26-7041-03`, `SC33-1365-01`, `GA27-4996-01`,
+`GC28-1215-01`, `GX27-3989-00`, `SC24-5754-00`, `SY27-0345-05`,
+`SC24-5780-00`, `S20H-1642-01`, `SC41-3510-02`, `SC31-7187-01`,
+`SC31-7187-03`, `SC33-1658-04`, `SA41-4109-00`, `SC31-8459-00`,
+`SC31-8461-00`) every stored row of the region is a line of hosted's
+`<pre width="80">`, and over 30 books a `cz OFF CGRAPHIC` with no closer is
+served the same way up to the next `CZ FLOW`.  The only rows that differ
+are rows holding an arrow word (`U+2190`..`U+2193`), which hosted prints as
+a control byte of its display code page.
+
 *A directive inside a picture region.*  A layout directive line standing
 between `SRFIG` and `SREFIG` is a control line as a whole, even where the
 display text around a picture is otherwise read as its caption.

@@ -15,9 +15,14 @@ struct NativeRow {
   const DisplayLineIR *line = nullptr;
 };
 
+// With `padding`, a row whose native display text is the line's text after
+// leading blanks the line holds no cell for also matches; `*padding` is the
+// number of those blanks.
 std::optional<NativeRow>
 native_row(const std::vector<DecodedLogicalRecordSource> &records,
-           const Line &line) {
+           const Line &line, std::size_t *padding = nullptr) {
+  if (padding != nullptr)
+    *padding = 0;
   std::optional<NativeRow> native;
   for (const auto &cell : line.cells) {
     if (cell.record == npos)
@@ -33,9 +38,17 @@ native_row(const std::vector<DecodedLogicalRecordSource> &records,
   }
   // The native row is authoritative, not a layout fragment or an accidentally
   // merged paragraph. Include its complete origin, padding and trailing cells.
-  if (!native || display_line_text(records[native->record], *native->line) !=
-                     line_text(line))
+  if (!native)
     return std::nullopt;
+  const auto display = display_line_text(records[native->record], *native->line);
+  const auto text = line_text(line);
+  if (display == text)
+    return native;
+  if (padding == nullptr || display.size() <= text.size() ||
+      display.compare(display.size() - text.size(), text.size(), text) != 0 ||
+      display.find_first_not_of(' ') < display.size() - text.size())
+    return std::nullopt;
+  *padding = display.size() - text.size();
   return native;
 }
 
@@ -129,9 +142,23 @@ bool hidden_instruction(const DecodedLogicalRecordSource &record,
   return false;
 }
 
+// With `ledger`, a display line none of whose content tokens is display text
+// -- a directive, an envelope or index line -- also draws nothing.
 std::optional<std::vector<NativeRow>>
 intervening_blank_rows(const std::vector<DecodedLogicalRecordSource> &records,
-                       const NativeRow &previous, const NativeRow &next) {
+                       const NativeRow &previous, const NativeRow &next,
+                       Ledger *ledger = nullptr) {
+  const auto draws_nothing = [&](std::size_t record,
+                                 const DisplayLineIR &line) {
+    if (hidden_instruction(records[record], line))
+      return true;
+    if (ledger == nullptr)
+      return false;
+    for (auto token = line.prefix_token + 1; token < line.token_end; ++token)
+      if (ledger->at(record, token).role == ProseTokenRoleIR::text)
+        return false;
+    return true;
+  };
   if (previous.record > next.record ||
       (previous.record == next.record &&
        previous.line->prefix_token >= next.line->prefix_token))
@@ -153,7 +180,7 @@ intervening_blank_rows(const std::vector<DecodedLogicalRecordSource> &records,
       if (std::all_of(text.begin(), text.end(),
                       [](const auto ch) { return ch == ' ' || ch == '\t'; }))
         result.push_back({record, &line});
-      else if (!hidden_instruction(records[record], line))
+      else if (!draws_nothing(record, line))
         return std::nullopt;
     }
   }
@@ -237,6 +264,98 @@ bool build_styled_example_block(
   const std::vector<std::pair<std::size_t, std::size_t>> all_refs(refs.begin(),
                                                                   refs.end());
   block.slices = slices_for(records, all_refs);
+  return true;
+}
+
+bool build_native_verbatim_block(
+    const std::vector<DecodedLogicalRecordSource> &records,
+    const std::vector<Line> &lines, std::size_t begin, std::size_t end,
+    ProseBlockIR &block, Ledger &ledger, std::size_t block_index, bool &matched,
+    std::vector<std::pair<std::size_t, std::size_t>> &line_rows) {
+  matched = false;
+  line_rows.clear();
+  // Every text row must be one whole native display row, and only empty
+  // rows or rows that draw nothing may stand between two of them.
+  std::vector<std::size_t> rows;
+  std::vector<NativeRow> natives;
+  std::vector<std::size_t> paddings;
+  for (auto row = begin; row < end && row < lines.size(); ++row) {
+    const auto &line = lines[row];
+    if (line.cells.size() <= line.text_begin)
+      continue;
+    std::size_t pad = 0;
+    const auto native = native_row(records, line, &pad);
+    if (!native)
+      return true;
+    if (!natives.empty() &&
+        !intervening_blank_rows(records, natives.back(), *native, &ledger))
+      return true;
+    rows.push_back(row);
+    natives.push_back(*native);
+    paddings.push_back(pad);
+  }
+  if (rows.empty())
+    return true;
+  const auto saved = ledger.entries;
+  ProseBlockIR built;
+  built.kind = ProseBlockKindIR::preformatted;
+  const auto append_row = [&](const NativeRow &native, std::string text) {
+    built.preformatted_lines.push_back(std::move(text));
+    built.preformatted_line_inline_ends.push_back(built.inlines.size());
+    built.preformatted_line_sources.push_back(
+        token_slice(records[native.record], native.line->prefix_token,
+                    native.line->token_end));
+  };
+  std::string ignored;
+  for (std::size_t at = 0; at < rows.size(); ++at) {
+    std::vector<NativeRow> blanks;
+    if (at > 0)
+      blanks = *intervening_blank_rows(records, natives[at - 1], natives[at],
+                                        &ledger);
+    for (const auto &blank_row : blanks) {
+        auto text =
+            display_line_text(records[blank_row.record], *blank_row.line);
+        if (!text.empty()) {
+          ProseInlineIR blank;
+        blank.text = text;
+        built.inlines.push_back(std::move(blank));
+      }
+      append_row(blank_row, std::move(text));
+    }
+    auto line = lines[rows[at]];
+    // A row whose leading blanks the line builder read as its origin keeps
+    // them: the reader prints the row from its first column, and the
+    // operands' columns count from there too.
+    line.cells.insert(line.cells.begin(), paddings[at],
+                      Cell{npos, 0, " ", true});
+    line.text_begin = 0;
+    const auto inline_begin = built.inlines.size();
+    if (!build_block(records, {line}, 0, 1, built, ledger, block_index,
+                     &ignored, true)) {
+      // The row's controls do not partition it: leave the ledger as it was
+      // and let the caller keep its plain reading.
+      ledger.entries = saved;
+      line_rows.clear();
+      return true;
+    }
+    std::string display_text;
+    for (auto item = inline_begin; item < built.inlines.size(); ++item)
+      display_text += built.inlines[item].text;
+    line_rows.emplace_back(rows[at], built.preformatted_lines.size());
+    append_row(natives[at], std::move(display_text));
+  }
+  std::set<std::pair<std::size_t, std::size_t>> refs;
+  for (const auto row : rows)
+    for (const auto &cell : lines[row].cells)
+      if (cell.record != npos &&
+          ledger.at(cell.record, cell.token).role == ProseTokenRoleIR::text)
+        refs.emplace(cell.record, cell.token);
+  const std::vector<std::pair<std::size_t, std::size_t>> all_refs(refs.begin(),
+                                                                  refs.end());
+  built.slices = slices_for(records, all_refs);
+  built.origin = lines[rows.front()].origin;
+  block = std::move(built);
+  matched = true;
   return true;
 }
 

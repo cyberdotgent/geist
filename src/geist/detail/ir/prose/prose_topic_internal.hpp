@@ -552,6 +552,18 @@ bool build_styled_example_block(
     const std::vector<Line>& lines, std::size_t begin, std::size_t end,
     ProseBlockIR& block, Ledger& ledger, std::size_t block_index,
     bool& matched, std::string* error);
+// A source-declared verbatim region whose rows keep their inline styles and
+// links: every text line of [begin, end) must be one whole native display
+// row, with only empty rows or rows that draw nothing between two of them.
+// Blank native rows between text rows become empty rows of the block.  Sets
+// `matched` and fills `block` only when every row partitions; otherwise the
+// ledger is left as it was and the caller keeps its plain reading.
+// `line_rows` maps each text line to its row of the block.
+bool build_native_verbatim_block(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    const std::vector<Line>& lines, std::size_t begin, std::size_t end,
+    ProseBlockIR& block, Ledger& ledger, std::size_t block_index,
+    bool& matched, std::vector<std::pair<std::size_t, std::size_t>>& line_rows);
 std::size_t styled_example_range_end(
     const std::vector<DecodedLogicalRecordSource>& records,
     const std::vector<Line>& lines, std::size_t begin, std::size_t limit,

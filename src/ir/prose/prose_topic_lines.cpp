@@ -69,8 +69,12 @@ struct LineBuilder {
   // (`only_unopened_region_closers`): the topic is read as flattened.
   bool inert_closers = false;
   // The closer tag of the open generic `cz OFF` region (see
-  // `generic_region_opener`), empty when none is open.
+  // `generic_region_opener`), empty when none is open.  A `cz FLOW` ends the
+  // region too.
   std::string generic_region_closer;
+  // The generic region's own closer was the last directive: its rows are
+  // still rows of the region, up to the next directive.
+  bool generic_closer_rows = false;
   // The open verbatim region holds an immediately closed verbatim pair
   // (`cz OFF XMP` .. `cz OFF EXMP` inside `cz OFF SCREEN`): its closer
   // leaves the outer region open.
@@ -1469,21 +1473,23 @@ struct LineBuilder {
 
   // A `cz OFF <tag>` the CZ dialect gives no structure of its own -- no
   // table, figure, footnote, message-list or title-page reading, and none of
-  // the named verbatim, artwork or table-data regions -- whose very next
-  // directive is its own `cz OFF E<tag>` closer.  The reader serves any such
-  // region as the generic `CZ OFF` block: `</pre><pre width="80">` and the
-  // region's rows column for column (re-notes: the generic "CZ OFF" rule),
-  // and the CZ block builder emits it as a verbatim block bounded by that
-  // closer (`degraded_region`, prose_topic_cz.cpp).  Its stored box words
-  // are therefore drawn cells, exactly as inside `cz OFF XMP`.
+  // the named verbatim, artwork or table-data regions -- that its own
+  // `cz OFF E<tag>` closer or the next `cz FLOW` ends.  The reader serves
+  // any such region as the generic `CZ OFF` block: `</pre><pre width="80">`
+  // and the region's rows column for column, up to the next `CZ FLOW`
+  // (re-notes: the generic "CZ OFF" rule), and the CZ block builder emits it
+  // as a verbatim block (`generic_region`, prose_topic_cz.cpp).  Its stored
+  // box words are therefore drawn cells, exactly as inside `cz OFF XMP`.
   // SY27-0327-05 4.5 record 691 line 25 opens `cz OFF DANGER` and record 692
   // line 4 closes it with `cz OFF EDANGER 0 0`; between them the `DANGER`
   // notice is a closed box of `U+2500` rules and `U+2502` rails, and hosted
   // BookServer (DT 19961016091447) prints it inside
-  // `<pre width="80"><!-- * -->` row for row; 5.1, A.1.1, A.1.39 and E.1.2
-  // of the same book draw the same notice.  A region with no closer of its
-  // own (`cz OFF CGRAPHIC` ended by the next `cz FLOW`, SC33-0824-02
-  // 2.1.1.1) is not this shape and keeps its old reading.
+  // `<pre width="80"><!-- * -->` row for row.  SC33-0824-02 2.1.1.1 record
+  // 117 opens `cz OFF CGRAPHIC` (line 17) and has no closer: its diagram
+  // rows run to `cz FLOW P 3 3` (line 33), and hosted (DT 19950807110137)
+  // prints them in `<pre width="80">` up to that paragraph.  The region walk
+  // is the CZ builder's: `cz BREAK`, a footnote end marker and the
+  // `SRFIG`/`SRTBL` envelope delimiters stand inside it.
   bool generic_region_opener(std::size_t index) const {
     const auto& directive = items[index].directive;
     const auto& tag = directive.tag;
@@ -1491,17 +1497,17 @@ struct LineBuilder {
         tag == "table" || tag == "fig" || tag == "fn" || tag == "msgl" ||
         cz_title_page_tag(tag))
       return false;
-    // The block the CZ builder emits for such a region keeps no inline
-    // model, so a region whose rows carry a cross-reference (`cselect`)
-    // would lose it: SY27-0327-05 2.1.8 draws its step diagram in a
-    // `cz OFF MAP` region whose `Yes` branches and `"Cable Signal Quality
-    // Check."` references hosted links.  Such a region keeps its old
-    // reading.
     for (auto next = index + 1; next < items.size(); ++next) {
-      if (items[next].kind == ItemKind::select) return false;
       if (items[next].kind != ItemKind::layout) continue;
-      return items[next].directive.mode == "off" &&
-             items[next].directive.tag == "e" + tag;
+      const auto& inner = items[next].directive;
+      if (inner.mode == "flow") return true;
+      if (inner.mode == "break") continue;
+      if (inner.mode != "off") return false;
+      if (inner.tag == "e" + tag) return true;
+      if (inner.tag == "fn" || inner.tag == "table" || inner.tag == "etable" ||
+          inner.tag == "fig" || inner.tag == "efig")
+        continue;
+      return false;
     }
     return false;
   }
@@ -1616,6 +1622,15 @@ struct LineBuilder {
         if (item.directive.mode == "off" && item.directive.tag == "fn" &&
             !trim_footnote_terminator())
           return false;
+        // A generic region ends with the rows of its own closer, or at the
+        // `cz FLOW` that follows it when it has none.
+        if (generic_closer_rows ||
+            (!generic_region_closer.empty() &&
+             item.directive.mode == "flow")) {
+          xmp_mode = false;
+          generic_closer_rows = false;
+          generic_region_closer.clear();
+        }
         if (item.directive.mode == "off") {
           // `cz OFF ARTWORK` is a display region too: hosted BookServer
           // serves its rows inside a `<pre width="80">`, so its drawn words
@@ -1646,7 +1661,9 @@ struct LineBuilder {
             generic_region_closer = "e" + item.directive.tag;
           } else if (!generic_region_closer.empty() &&
                      item.directive.tag == generic_region_closer) {
-            xmp_mode = false;
+            // The generic closer prints nothing and leaves the region open:
+            // its own rows are region rows too.
+            generic_closer_rows = true;
             generic_region_closer.clear();
           } else if (cz_title_page_tag(item.directive.tag)) {
             title_page_mode = true;
@@ -2321,11 +2338,18 @@ struct LineBuilder {
     // Inside a verbatim region the mark is one of the region's drawn cells
     // and stays printed: the same topic's `cz OFF XMP` row (line 22,
     // ` |       http://www.ibm.com/s390/vm`) is served ` |       <samp>http:`.
+    //
+    // The same holds for a one-byte mark: inside a verbatim region every
+    // stored cell is drawn.  GC28-1215-01 4.11.1 record 1068 stores ` | ` +
+    // `ASFP033E ...` rows inside `cz OFF DIRECT`, and hosted (DT
+    // 19950727111944) serves ` | ASFP033E          2           12` in its
+    // `<pre width="80">`.  A decoder placeholder run carries no character
+    // and stays a marker.
     if (line_visible_cells == 0 &&
         ((!xmp_mode && stored_row_margin_mark(view) &&
           line().cells.size() <= 1) ||
          (view.width == 1 &&
-        (punctuation_glyph(view) || is_placeholder_run(view)) &&
+        ((!xmp_mode && punctuation_glyph(view)) || is_placeholder_run(view)) &&
         // CZ rows carry their markers as explicit slots (bullet, change bar,
         // `?`), so an ordinary punctuation glyph opening a row is display
         // text there: packet 3.2 record 80 token 255 `#` before `name` is

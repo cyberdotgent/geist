@@ -23,9 +23,16 @@
 //   6. it is marked at the block, with a stable code and the check that
 //      failed.
 //
-// So the region goes out verbatim, marked degraded, and the prose around it
-// stays typed. A region the source never closes with its own `E<tag>` fails
+// So the region went out verbatim, marked degraded, and the prose around it
+// stayed typed. A region the source never closes with its own `E<tag>` fails
 // condition 2 and the topic still declines whole.
+//
+// The region is now modelled: BookServer serves every `cz OFF <tag>` it has
+// no rule for as one generic block -- `<pre width="80">` and the rows as
+// stored, highlighting and links kept, up to the next `CZ FLOW` -- and the
+// hosted census of 22 books with such a closed region confirms it.  The
+// unmodelled tag below is therefore a typed verbatim block, no longer a
+// degraded one; the open region still declines.
 //
 // This is deliberately synthetic. The tag that happens to be unmodelled moves
 // as the families land -- `cz OFF COVER` and `cz OFF TIPAGE` reached this
@@ -1353,110 +1360,88 @@ void unproven_list_parts_still_decline() {
 
 // The closed region: emitted verbatim, marked degraded, everything around it
 // typed.
-void a_closed_unmodelled_region_degrades_its_block() {
+void a_closed_generic_region_is_a_typed_verbatim_block() {
   auto extracted = extract("WIDGET", "EWIDGET");
   require(extracted.prose.has_value(),
-          "a closed unmodelled cz OFF region was declined: " +
-              extracted.error);
+          "a closed generic cz OFF region was declined: " + extracted.error);
   if (!extracted.prose) return;
 
   std::string error;
   require(geist::detail::verify_prose_topic_ir(
               extracted.sources, extracted.layout, *extracted.ownership,
               topic_title, nullptr, *extracted.prose, &error),
-          "the degraded topic failed the prose verifier: " + error);
+          "the topic failed the prose verifier: " + error);
   for (const auto &entry : extracted.prose->ledger)
     require(entry.role != geist::detail::ProseTokenRoleIR::unassigned,
-            "the degraded topic left a token unassigned");
+            "the topic left a token unassigned");
 
-  // Invariant 6: the block, not the topic, names the construct and the check
-  // that failed.
-  const auto degraded = std::find_if(
+  // The region is the reader's generic `CZ OFF` block: a verbatim block of
+  // display rows, not a degraded fallback.  The closer prints nothing and
+  // leaves the region open, so the row it owns is a row of the block too.
+  const auto region = std::find_if(
       extracted.prose->blocks.begin(), extracted.prose->blocks.end(),
-      [](const auto &block) { return !block.degradation_code.empty(); });
-  require(degraded != extracted.prose->blocks.end(),
-          "no block of the topic was marked degraded");
-  if (degraded == extracted.prose->blocks.end()) return;
-  require(degraded->kind == geist::detail::ProseBlockKindIR::preformatted,
-          "the degraded block is not the verbatim region");
-  require(degraded->degradation_code == "cz-off-region-unmodelled",
-          "degradation code is '" + degraded->degradation_code + "'");
-  require(contains(degraded->degradation_detail, "cz OFF WIDGET") &&
-              contains(degraded->degradation_detail, "is not modelled") &&
-              contains(degraded->degradation_detail, "cz OFF EWIDGET"),
-          "the detail names neither the construct nor its proven closer: " +
-              degraded->degradation_detail);
+      [](const auto &block) {
+        return block.kind == geist::detail::ProseBlockKindIR::preformatted;
+      });
+  require(region != extracted.prose->blocks.end(),
+          "the generic region is not a verbatim block");
+  if (region == extracted.prose->blocks.end()) return;
+  require(region->degradation_code.empty(),
+          "the generic region is marked degraded: " + region->degradation_code);
+  require(region->preformatted_lines.size() == 3 &&
+              contains(region->preformatted_lines[0], "alpha beta") &&
+              contains(region->preformatted_lines[1], "gamma delta") &&
+              contains(region->preformatted_lines[2], "After the region."),
+          "the block is not the region's rows and its closer's row");
 
-  // Invariant 5: display rows in source order, and nothing else.
-  require(degraded->preformatted_lines.size() == 2 &&
-              contains(degraded->preformatted_lines[0], "alpha beta") &&
-              contains(degraded->preformatted_lines[1], "gamma delta"),
-          "the degraded block is not the region's two display rows");
+  // Traceability: every row of the block names its own native display row.
+  require(region->preformatted_line_sources.size() ==
+              region->preformatted_lines.size(),
+          "the region rows carry no per-row provenance");
+  for (const auto &source : region->preformatted_line_sources)
+    require(source.token_end > source.token_begin,
+            "a region row names no source slice");
 
-  // Traceability: every row of a degraded block names its own source, so
-  // `bootrace --explain-offset` resolves a byte of the fence to that row's
-  // records, tokens and BOO byte extents and not merely to the region.
-  require(degraded->preformatted_line_inlines.size() ==
-              degraded->preformatted_lines.size(),
-          "the degraded rows carry no per-row provenance");
-  for (std::size_t row = 0; row < degraded->preformatted_lines.size(); ++row) {
-    const auto inline_index = degraded->preformatted_line_inlines[row];
-    if (degraded->preformatted_lines[row].empty()) continue;
-    require(inline_index < degraded->inlines.size() &&
-                !degraded->inlines[inline_index].slices.empty(),
-            "a degraded row names no source slice");
-  }
-
-  // The prose on both sides of the region stays typed, which is the whole
-  // point: the topic is not discarded over one unproven block.
   std::string typed_text;
-  for (const auto &block : extracted.prose->blocks) {
-    if (!block.degradation_code.empty()) continue;
+  for (const auto &block : extracted.prose->blocks)
     for (const auto &fragment : block.inlines) typed_text += fragment.text + " ";
-  }
-  require(contains(typed_text, "Read the widget note.") &&
-              contains(typed_text, "After the region."),
-          "the typed prose around the region was lost; it carries '" +
+  require(contains(typed_text, "Read the widget note."),
+          "the typed prose before the region was lost; it carries '" +
               typed_text + "'");
 
-  // Down through the lowering: one degraded node, the document still
-  // verifies with no relaxation, and the rendered file marks the fence.
+  // Down through the lowering: no degraded node, a typed topic.
   const auto document = geist::detail::lower_prose_topic_to_document_ir(
       identity(), *extracted.prose, &error);
-  require(document.has_value(), "lowering the degraded topic failed: " + error);
+  require(document.has_value(), "lowering the topic failed: " + error);
   if (!document) return;
   require(geist::detail::verify_document_ir(*document, &error),
-          "a document carrying a degraded block did not verify: " + error);
-  const auto degraded_nodes = static_cast<std::size_t>(std::count_if(
-      document->blocks.begin(), document->blocks.end(), [](const auto &block) {
-        return block.origin.fidelity ==
-               geist::detail::DocumentFidelityIR::degraded;
-      }));
-  require(degraded_nodes == 1,
-          "the document carries " + std::to_string(degraded_nodes) +
-              " degraded blocks, not one");
+          "the document did not verify: " + error);
+  require(std::none_of(document->blocks.begin(), document->blocks.end(),
+                       [](const auto &block) {
+                         return block.origin.fidelity ==
+                                geist::detail::DocumentFidelityIR::degraded;
+                       }),
+          "the document carries a degraded block");
 
   geist::detail::TypedLoweringTraceIR trace;
   trace.family = "prose";
   const auto diagnostic = geist::detail::classify_typed_lowering(
       identity(), &*document, {}, trace);
-  require(diagnostic.severity == geist::RenderSeverity::typed_degraded,
-          "the topic is not typed-degraded, it is " +
+  require(diagnostic.severity == geist::RenderSeverity::typed,
+          "the topic is not typed, it is " +
               std::string(geist::to_string(diagnostic.severity)));
 
   const auto markdown = geist::detail::render_document_markdown(*document);
-  require(contains(markdown,
-                   "<!-- geist-block: degraded=cz-off-region-unmodelled -->\n"
-                   "```"),
-          "the rendered file does not mark the degraded fence: " + markdown);
+  require(!contains(markdown, "degraded="),
+          "the rendered file marks a degraded fence: " + markdown);
   require(contains(markdown, "alpha beta") && contains(markdown, "gamma delta"),
           "the rendered file lost the region's rows");
   require(contains(markdown, "Read the widget note"),
           "the rendered file lost the typed prose before the region");
 }
 
-// The open region: the check that failed *is* the closure check, so the
-// boundary is not proven and the topic must still fall whole.
+// A region that neither its own closer nor a `CZ FLOW` ends: nothing proves
+// where its rows stop, and the topic must still fall whole.
 void an_unclosed_unmodelled_region_declines_the_topic() {
   const auto extracted = extract("WIDGET", "EGIZMO");
   require(!extracted.prose.has_value(),
@@ -1541,7 +1526,7 @@ int main() {
   balanced_nested_verbatim_delimiters_stay_inside_the_outer_region();
   a_list_part_paragraph_divides_its_definition_list();
   unproven_list_parts_still_decline();
-  a_closed_unmodelled_region_degrades_its_block();
+  a_closed_generic_region_is_a_typed_verbatim_block();
   an_unclosed_unmodelled_region_declines_the_topic();
   an_address_region_is_a_typed_verbatim_block();
   an_unclosed_address_region_declines_the_topic();

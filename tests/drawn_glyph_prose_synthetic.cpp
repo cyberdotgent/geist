@@ -406,24 +406,123 @@ void box_in_generic_region() {
         "the generic region's box was not drawn: " + html);
 }
 
-// The CZ builder's block for a generic region keeps no inline model, so a
-// region whose rows carry a cross-reference keeps its old reading and the
-// topic still declines: SY27-0327-05 2.1.8 draws a step diagram with linked
-// `Yes` branches inside `cz OFF MAP`, and hosted links them.
-void linked_generic_region_declines() {
+// A generic region is a verbatim region like `XMP`, and it keeps the
+// `CFONT` highlighting and the `CSELECT` links of its rows: hosted serves
+// SC41-4153-00 FRONT_1.1.1 (DT 19950706142729) `cz OFF DANGER` rows as
+// `   | <strong>An</strong> <strong>electrical</strong> ...` inside
+// `<pre width="80">`, and SY27-0327-05 2.1.8 (DT 19961016091447) its
+// `cz OFF MAP` step diagram with the `Yes` branches linked and its
+// `STPSTPUNIQ...` anchors on the rows they open.  The block is no degraded
+// fallback.
+void styled_generic_region(bool link) {
   Builder builder(true);
   builder.line({sp(3), w("Lead.")});
   builder.blank();
-  builder.line({w("cz"), w("OFF"), w("MAP")});
+  builder.line({w("cz"), w("OFF"), w(link ? "MAP" : "DANGER")});
   builder.line({sp(3), box(run(0x250C, 0x2500, 12, 0x2510))});
-  builder.line({w("cselect"), w("5"), w("6"), w("TARGET")});
+  if (link)
+    builder.line({w("cselect"), w("5"), w("6"), w("TARGET")});
+  else
+    builder.line({w("cfont"), w("5"), w("6"), w("2")});
   builder.line({sp(3), box({0x2502}), w("Inside"), sp(4), box({0x2502})});
   builder.line({sp(3), box(run(0x2514, 0x2500, 12, 0x2518))});
-  builder.line({w("cz"), w("OFF"), w("EMAP"), w("0"), w("0")});
+  builder.line({w("cz"), w("OFF"), w(link ? "EMAP" : "EDANGER"), w("0"),
+                w("0")});
+  builder.line({w("SRTARGET")});
+  builder.line({sp(3), w("Target.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "a styled generic region declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  // The closer prints nothing and leaves the region open: the row it owns
+  // is a row of the region, and the anchor before that row opens it.
+  check(untagged(pre) ==
+            "    ____________ \n   | Inside     |\n   |____________|\n   Target.",
+        "the styled generic region's rows changed: " + html);
+  check(contains(pre, "id=\"TARGET\"></span>   Target."),
+        "the anchor does not open its region row: " + html);
+  check(link ? contains(pre, "<a ") && contains(pre, "Inside</a>")
+             : contains(pre, "<strong") && contains(pre, "Inside</strong>"),
+        std::string("the generic region lost its ") +
+            (link ? "link" : "highlighting") + ": " + html);
+  check(!contains(html, "data-geist-degraded"),
+        "the generic region is still a degraded block: " + html);
+}
+
+// A one-byte revision mark in the margin of a generic region's row is one of
+// the region's drawn cells: GC28-1215-01 4.11.1 record 1068 line 42 stores a
+// blank, `|` (token 254) and `ASFP033E ...` inside `cz OFF DIRECT`, and
+// hosted (DT 19950727111944) serves ` | ASFP033E          2           12`.
+void marked_generic_region_row() {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("DIRECT")});
+  builder.line({sp(3), w("ASFP016I"), sp(10), w("2")});
+  builder.line({sp(1), b({'|'}, 0x7C), w("ASFP033E"), sp(10), w("2")});
+  builder.line({w("cz"), w("OFF"), w("EDIRECT"), w("0"), w("0")});
+  builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "a marked generic region row declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(untagged(pre_body(html)),
+                 "   ASFP016I           2\n | ASFP033E           2"),
+        "the generic region row lost its stored mark: " + html);
+}
+
+// A generic region with no closer of its own ends at the next `CZ FLOW`:
+// the reader's generic `CZ OFF` opens `<pre width="80">` and only a
+// `CZ FLOW` closes it.  SC33-0824-02 2.1.1.1 record 117 opens
+// `cz OFF CGRAPHIC` (line 17), draws the function-shipping diagram (lines
+// 18-31) and goes on with `cz FLOW P 3 3` (line 33); hosted (DT
+// 19950807110137) prints the diagram rows in `<pre width="80">` and the
+// paragraph after `</pre>`.
+void generic_region_ended_by_flow() {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("CGRAPHIC")});
+  builder.line({sp(3), box(run(0x250C, 0x2500, 12, 0x2510))});
+  builder.line({sp(3), box({0x2502}), w("Inside"), sp(4), box({0x2502})});
+  builder.line({sp(3), box(run(0x2514, 0x2500, 12, 0x2518))});
+  builder.blank();
+  builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  builder.line({sp(3), w("After"), w("the"), w("diagram.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(),
+        "a generic region ended by cz FLOW declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(untagged(pre_body(html)) ==
+            "    ____________ \n   | Inside     |\n   |____________|",
+        "the flow-ended region's rows were not drawn: " + html);
+  check(contains(html, "<p class=\"geist-paragraph\">After the diagram.</p>"),
+        "the paragraph after the region is not typed: " + html);
+  check(!contains(html, "data-geist-degraded"),
+        "the flow-ended region is a degraded block: " + html);
+}
+
+// A generic region that neither its own closer nor a `CZ FLOW` ends still
+// declines: nothing proves where its rows stop.
+void unended_generic_region_declines() {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("CGRAPHIC")});
+  builder.line({sp(3), box(run(0x250C, 0x2500, 12, 0x2510))});
+  builder.line({sp(3), box({0x2502}), w("Inside"), sp(4), box({0x2502})});
+  builder.line({sp(3), box(run(0x2514, 0x2500, 12, 0x2518))});
+  builder.line({w("cz"), w("OFF"), w("EGIZMO"), w("0"), w("0")});
   std::string error;
   const auto doc = lower(builder, error);
   check(!doc.has_value(),
-        "a generic region with a cross-reference was typed without it");
+        "a generic region closed by another tag's closer was typed");
 }
 
 // An anchor whose next display line is a body control line (`c.cp 6`) that
@@ -504,6 +603,10 @@ int main() {
   bullet_in_verbatim_region();
   box_rows_after_nested_verbatim_pair();
   box_in_generic_region();
-  linked_generic_region_declines();
+  styled_generic_region(false);
+  styled_generic_region(true);
+  marked_generic_region_row();
+  generic_region_ended_by_flow();
+  unended_generic_region_declines();
   return 0;
 }
