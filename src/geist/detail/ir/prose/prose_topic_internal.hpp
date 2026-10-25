@@ -539,6 +539,12 @@ bool build_lines(const std::vector<DecodedLogicalRecordSource>& records,
                  const std::vector<Item>& items, Ledger& ledger,
                  LineBuild& out, std::string* error);
 std::string line_text(const Line& line);
+// Builds the preformatted block of one drawn box region from its rows
+// [begin, end) (`Line::box`), the rows printed verbatim.
+bool build_box_block(const std::vector<DecodedLogicalRecordSource>& records,
+                     const std::vector<Line>& lines, std::size_t begin,
+                     std::size_t end, ProseBlockIR& block, Ledger& ledger,
+                     std::size_t block_index, std::string* error);
 // Builds one block's inlines from the display lines [begin, end); text cells
 // before each line's `text_begin` are excluded.
 bool build_block(const std::vector<DecodedLogicalRecordSource>& records,

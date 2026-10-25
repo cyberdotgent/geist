@@ -1540,10 +1540,46 @@ struct CzBuilder {
   // same shape as one unordered list.  Rows that continue an item stand to
   // the right of its bullet; a bullet at another column would be a level the
   // rows do not prove, and fails closed.
+  // Rows [begin, end) of a stretch where the reader is inside its `<pre>`
+  // (before the first directive, or after a named region closer): the rows
+  // of a closed drawn box the line build admitted there
+  // (`cz_pre_zone_box`, prose_topic_lines.cpp) become one verbatim block
+  // per box, and the rows around them are read as `rows` reads them.
+  template <typename Rows>
+  bool rows_around_boxes(std::size_t begin, std::size_t end, Rows rows) {
+    auto index = begin;
+    while (index < end) {
+      if (lines[index].box) {
+        auto stop = index + 1;
+        while (stop < end && lines[stop].box && !lines[stop].box_first) ++stop;
+        ProseBlockIR block;
+        if (!build_box_block(records, lines, index, stop, block, ledger,
+                             topic.blocks.size(), error))
+          return false;
+        block.origin = lines[index].origin;
+        append(std::move(block), index);
+        index = stop;
+        continue;
+      }
+      auto stop = index + 1;
+      while (stop < end && !lines[stop].box) ++stop;
+      if (!rows(index, stop)) return false;
+      index = stop;
+    }
+    return true;
+  }
+
   bool leading_rows(std::size_t end) {
+    return rows_around_boxes(0, end, [&](std::size_t begin, std::size_t stop) {
+      return leading_rows(begin, stop);
+    });
+  }
+
+  bool leading_rows(std::size_t begin, std::size_t end) {
     auto list = npos;
     std::size_t item_origin = 0;
-    for (const auto& [group_begin, group_end] : group_lines(lines, 0, end)) {
+    for (const auto& [group_begin, group_end] :
+         group_lines(lines, begin, end)) {
       auto index = group_begin;
       while (index < group_end) {
         auto stop = index + 1;
@@ -1615,7 +1651,48 @@ struct CzBuilder {
     if (!leading_rows(leading_end)) return false;
     for (std::size_t index = 0; index < directives.size(); ++index) {
       const auto& directive = directives[index];
-      const auto range = ranges[index];
+      auto range = ranges[index];
+      // A drawn box after a named region closer (`cz_pre_zone_box`): the
+      // closer reads the rows before it, and the box and the rows after it
+      // are the closer's verbatim stretch.
+      std::size_t boxed = npos;
+      if (range.first != npos)
+        for (auto line = range.first; line < range.second; ++line)
+          if (lines[line].box) {
+            boxed = line;
+            break;
+          }
+      if (boxed != npos) {
+        if (directive.mode != "off" ||
+            (directive.tag != "etable" && directive.tag != "efig" &&
+             directive.tag != "elblbox" && directive.tag != "edl"))
+          return fail(error, "internal: a drawn box follows cz " +
+                                 directive.mode + " " + directive.tag);
+        const auto tail = range;
+        range = boxed == range.first
+                    ? std::pair<std::size_t, std::size_t>{npos, npos}
+                    : std::pair<std::size_t, std::size_t>{range.first, boxed};
+        const auto head =
+            range.first == npos
+                ? std::vector<std::pair<std::size_t, std::size_t>>{}
+                : group_lines(lines, range.first, range.second,
+                              in_message_list());
+        const auto name = "cz " + directive.mode + " " + directive.tag;
+        if (!handle(index, directive, range, head, name, directive.tag)) {
+          if (error != nullptr && error->rfind("cz ", 0) != 0)
+            *error = name + ": " + *error;
+          return false;
+        }
+        if (!rows_around_boxes(boxed, tail.second,
+                               [&](std::size_t begin, std::size_t stop) {
+                                 return paragraphs(
+                                     group_lines(lines, begin, stop,
+                                                 in_message_list()),
+                                     0);
+                               }))
+          return false;
+        continue;
+      }
       const auto groups =
           range.first == npos
               ? std::vector<std::pair<std::size_t, std::size_t>>{}

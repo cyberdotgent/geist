@@ -6163,8 +6163,30 @@ on top of it.
 |`CZ FLOW ...` (any tag, also none) |Closes the open `<pre>` first; the rows that follow flow.
 |`CZ OFF ...` of a generic region (`XMP`, `SYNTAX`, `LINES`, ...) |Opens `<pre width="80">`; a nested generic `CZ OFF` only counts the depth.
 |`CZ OFF E...` of a generic region |Ends the depth count and prints nothing; the `<pre width="80">` stays open until the next `CZ FLOW`.
+|`CZ OFF ETABLE`, `CZ OFF EFIG`, `CZ OFF ELBLBOX`, `CZ OFF EDL` |While a figure or labelled-box region is still open: nothing.  Otherwise closes the open `<pre>` and opens `<pre width="132"><!-- * -->` (`<pre width="80">` in a book without `CREFLOW=ON`); the rows after the closer are printed as stored until the next `CZ FLOW`.  The comparison spans the first 11 bytes (`CZ OFF ETAB`, `CZ OFF EFIG`), 14 bytes (`CZ OFF ELBLBOX`) or 10 bytes (`CZ OFF EDL`) of the line.
 |Any `CZ` line matching no prefix |Nothing: no output and no change of state.
 |===
+
+`SC41-3512-05` `APPENDIX1.7.1` (record 948) shows the named closer with no
+region open: line 27 is `06 4B 8D CD 63 A5 A5` at `0x59A624` (`cz OFF
+ELBLBOX 0 0`, with no `cz OFF LBLBOX` in the topic) and line 28, length byte
+`19` at `0x59A62B`, the text row `   Hardware; specifically the adapter
+card, ...`.  Hosted (DT `19980528085436`) serves `</pre>`, then
+`<pre width="132"><!-- * -->` and that row and every row after it as stored,
+bulleted rows (`°   Check the Adapter Card`) and numbered rows
+(`__ 1.  Run INSTALL.EXE. ...`) included.
+
+*A closed box in a `<pre>` stretch.*  A closed drawn box that stands before
+the first directive, or after a named closer of the table above and before
+the next directive, is printed verbatim like every row of that stretch.
+`dfhla313.boo` `1.1.3.1`, record 153, closes its exit-point table with line
+8, `06 3F 76 B3 AF 7E 7E` at `0x38C6D` (`cz OFF ETABLE 0 0`), and draws the
+`Important` box from line 10 (length byte `0E` at `0x38C79`; a change bar,
+the top-left corner and the label) to the bottom rule on line 15 (length
+byte `0C` at `0x38CC8`, three blanks, then `U+2514` ...).  The next
+directive is line 16, `cz OFF ELBLBOX 0 0`.  A closed box in flowed text --
+after a `CZ FLOW`, where the reader has closed its `<pre>` -- has no such
+reading.
 
 Unverified: a book whose `CBLDVERS=` value contains `BUILD` (`dfha3a09.boo`
 carries `1.3.1 of BUILD/VM ...`) is not opened with the post-heading

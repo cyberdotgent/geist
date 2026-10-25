@@ -709,9 +709,66 @@ void grid_inside_box() {
         "the inner grid was read as a table: " + html);
 }
 
+// In a CZ topic the reader is inside a `<pre>` before the first directive
+// (`<pre width="132">` after the heading) and after a named region closer
+// (`cz OFF ETABLE`, `EFIG`, `ELBLBOX`, `EDL` print `</pre>` and open
+// `<pre width="132">`) until the next `cz FLOW`, so a closed box drawn there
+// is printed verbatim.  dfhla313 1.1.3.2 record 154 draws its `APAR
+// PQ12071` box on lines 11-15, before its first directive (`cz OFF ELBLBOX
+// 0 0`, line 18); dfhla313 1.1.3.1 record 153 draws its `Important` box on
+// lines 10-15, right after `cz OFF ETABLE 0 0` (line 8).
+void box_in_cz_pre_zone(bool after_closer) {
+  Builder builder(false);
+  if (after_closer) {
+    builder.line({w("cz"), w("FLOW"), w("DL"), w("3"), w("3")});
+    builder.line({w("cz"), w("FLOW"), w("DT"), w("3"), w("13")});
+    builder.line({sp(3), w("Term"), sp(6), w("Its"), w("definition.")});
+    builder.blank();
+    builder.line({w("cz"), w("OFF"), w("EDL"), w("0"), w("0")});
+  }
+  builder.line({w("cfont"), w("8"), w("6"), w("2")});
+  note_box(builder, "Inside", 12, false);
+  builder.blank();
+  if (!after_closer)
+    builder.line({w("cz"), w("OFF"), w("ELBLBOX"), w("0"), w("0")});
+  builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), std::string("box in a CZ pre zone declined") +
+                             (after_closer ? " (after EDL)" : " (leading)") +
+                             ": " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(untagged(pre_body(html)) ==
+            "    ____________ \n   | Inside     |\n   |____________|",
+        "the box in a CZ pre zone was not drawn: " + html);
+  check(contains(html, "<p class=\"geist-paragraph\">After.</p>"),
+        "the paragraph after the box is not typed: " + html);
+  check(!after_closer || contains(html, "Its definition."),
+        "the definition list before the closer was lost: " + html);
+}
+
+// A closed box drawn in flowed CZ text -- after `cz FLOW P`, where the reader
+// has closed its `<pre>` -- has no proven reading and still declines.
+void box_in_cz_flow_declines() {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  note_box(builder, "Inside", 12, false);
+  builder.blank();
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  check(!lower(builder, error).has_value(),
+        "a box in flowed CZ text was typed");
+}
+
 } // namespace
 
 int main() {
+  box_in_cz_pre_zone(false);
+  box_in_cz_pre_zone(true);
+  box_in_cz_flow_declines();
   grid_inside_box();
   envelope_straddling_box(false);
   envelope_straddling_box(true);

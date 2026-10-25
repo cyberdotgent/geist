@@ -1533,6 +1533,56 @@ struct LineBuilder {
   // at 0x55AAB4), with no `cz OFF FIG` in the topic; hosted BookServer (DT
   // 19980528085436) prints every box row in the topic's own
   // `<pre width="132">`, exactly as for the `ELBLBOX` closers below.
+  // A closed drawn box of a CZ topic that stands where the reader is inside
+  // a `<pre>` by its own layout rules (re-read from the reader's CZ control
+  // dispatch; doc/boo-spec/markup.adoc, "Reading a CZ body"):
+  //
+  //   * before the first directive, inside the `<pre width="132">` the
+  //     reader opens after the heading (rule 1).  dfhla313 1.1.3.2 record
+  //     154 draws its `APAR PQ12071` box on lines 11-15 and its first
+  //     directive is `cz OFF ELBLBOX 0 0` on line 18;
+  //   * after a named region closer -- `cz OFF ETABLE`, `EFIG`, `ELBLBOX`
+  //     or `EDL` -- which prints `</pre>` and opens `<pre width="132">`
+  //     (`<pre width="80">` in a book without reflow), and before the next
+  //     directive.  dfhla313 1.1.3.1 record 153 draws its `Important` box on
+  //     lines 10-15 right after `cz OFF ETABLE 0 0` (line 8).
+  //
+  // No directive may stand inside the box: a `cz FLOW` there closes the
+  // reader's `<pre>` in the middle of the drawing.
+  bool cz_pre_zone_box(const BoxRegion& region) const {
+    if (!region.closed) return false;
+    const auto inside = [&](const Item& item) {
+      if (item.kind != ItemKind::token) return false;
+      const auto record = item.token.record;
+      const auto token = item.token.token;
+      if (record < region.begin_record || record > region.end_record)
+        return false;
+      if (record == region.begin_record && token < region.begin_token)
+        return false;
+      if (record == region.end_record && token > region.end_token)
+        return false;
+      return true;
+    };
+    std::size_t first = npos;
+    std::size_t last = npos;
+    for (std::size_t index = 0; index < items.size(); ++index)
+      if (inside(items[index])) {
+        if (first == npos) first = index;
+        last = index;
+      }
+    if (first == npos) return false;
+    for (auto index = first; index <= last; ++index)
+      if (items[index].kind == ItemKind::layout) return false;
+    for (auto index = first; index-- > 0;) {
+      if (items[index].kind != ItemKind::layout) continue;
+      const auto& directive = items[index].directive;
+      return directive.mode == "off" &&
+             (directive.tag == "etable" || directive.tag == "efig" ||
+              directive.tag == "elblbox" || directive.tag == "edl");
+    }
+    return true;
+  }
+
   bool only_unopened_region_closers() const {
     bool any = false;
     for (const auto& item : items) {
@@ -1568,8 +1618,15 @@ struct LineBuilder {
                 return item.kind == ItemKind::layout;
               });
     // Drawn box regions are a flattened-dialect shape; the CZ dialect names
-    // its own verbatim blocks (`cz OFF XMP`).
-    if (cz_mode) boxes.clear();
+    // its own verbatim blocks (`cz OFF XMP`).  Only where the reader is
+    // already inside a `<pre>` by its own layout rules does a closed box of
+    // a CZ topic stay drawn (`cz_pre_zone_box`).
+    if (cz_mode)
+      boxes.erase(std::remove_if(boxes.begin(), boxes.end(),
+                                 [&](const BoxRegion& region) {
+                                   return !cz_pre_zone_box(region);
+                                 }),
+                  boxes.end());
     for (std::size_t index = 0; index < items.size(); ++index) {
       const auto& item = items[index];
       // Every item inside a drawn box region belongs to its preformatted
