@@ -222,6 +222,19 @@ lower_ordered_figure_document_blocks(const FigureSourceBlockIR &figure,
         return fail(error, "figure part is drawn without a frame");
       continue;
     }
+    if (part.rule) {
+      // A full-width rule row: the page's horizontal rule where it stands.
+      if (!part.runs.empty() || part.picture || part.caption)
+        return fail(error, "figure rule part carries content");
+      BlockIR rule;
+      rule.node = ThematicBreakBlockIR{};
+      rule.origin.derivation = DocumentDerivationIR::semantic_lowering;
+      rule.origin.detail = "figure frame rule";
+      rule.origin.rows = part.rows;
+      normalize(rule.origin);
+      result.push_back(std::move(rule));
+      continue;
+    }
     if (part.picture) {
       if (part.picture_index >= images.size() || emitted[part.picture_index])
         return fail(error, "ordered figure has an invalid picture ordinal");

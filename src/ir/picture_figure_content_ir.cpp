@@ -429,6 +429,16 @@ struct Reader {
   // changes.  `usable` is cleared when the runs cannot reproduce the row's
   // native display text exactly (a control word inside it, a glyph that
   // renders differently).
+  // More than 71 consecutive `U+2500` cells from display column 3: the row
+  // the reader empties outside `cz OFF TABLE`, showing `<hr>` instead.
+  bool full_width_rule(const Row &row) const {
+    std::size_t run = 0;
+    for (auto i = std::size_t{3};
+         i < row.cells.size() && !row.hidden[i] && row.cells[i].word == 0x2500;
+         ++i)
+      ++run;
+    return run > 71;
+  }
   using Span = std::tuple<std::size_t, std::size_t, std::size_t>;
   FigureDrawnLineIR drawn_line(const Row &row, const std::vector<Attr> &attrs,
                                const std::vector<Span> &spans, bool &usable) {
@@ -700,6 +710,17 @@ struct Reader {
         mark_cells(row, 0, row.cells.size(),
                    FigureCellRoleIR::placeholder_suppressed);
         fonts.clear();
+        // A full-width rule -- more than 71 `U+2500` cells from column 3 --
+        // is the page's `<hr>` where it stands (SC33-1698-01 1.2.2: `<hr>`,
+        // the image, `<hr>`, the caption).
+        if (full_width_rule(row)) {
+          FigureContentPartIR part;
+          part.rule = true;
+          part.rows = physical_rows(row);
+          figure.content.push_back(std::move(part));
+          allow_wrap = false;
+          d.parts_end = figure.content.size();
+        }
         continue;
       }
       std::vector<Attr> attrs(row.cells.size());
@@ -832,11 +853,15 @@ struct Reader {
     draw_frame();
     // A sole terminal label is the unnumbered caption. This is a region
     // relationship, not a six-line grammar or a test of its English words.
-    if (!figure.content.empty() && !figure.content.back().picture) {
-      auto &last = figure.content.back();
-      if (!last.caption && figure.content.size() == 2 &&
-          figure.content.front().picture)
-        last.caption = true;
+    // A full-width rule row between them is the page's rule, not content.
+    {
+      std::vector<FigureContentPartIR *> parts;
+      for (auto &part : figure.content)
+        if (!part.rule)
+          parts.push_back(&part);
+      if (parts.size() == 2 && parts.front()->picture &&
+          !parts.back()->picture && !parts.back()->caption)
+        parts.back()->caption = true;
     }
     figure.caption.reset();
     for (auto &part : figure.content) {
@@ -937,7 +962,8 @@ bool extract_picture_figure_content_ir(
     const SelectorCatalogIR &selectors, const PictureFigureSourceIR &source,
     FigureSourceBlockIR &figure, std::string *error) {
   Reader reader{records, layout, ownership, selectors, source, figure, error,
-                {},      {},     {},        {},        {},     false};
+                {},      {},     {},        {},        {},     false,
+                {},      {}};
   return reader.prepare() && reader.emit() && reader.claim();
 }
 
@@ -949,6 +975,7 @@ bool same_figure_content_ir(const std::vector<FigureContentPartIR> &a,
     if (a[i].picture != b[i].picture ||
         a[i].picture_index != b[i].picture_index ||
         a[i].caption != b[i].caption || a[i].drawn != b[i].drawn ||
+        a[i].rule != b[i].rule ||
         a[i].column != b[i].column ||
         a[i].continuation_column != b[i].continuation_column ||
         a[i].runs.size() != b[i].runs.size() ||

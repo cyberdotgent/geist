@@ -258,6 +258,10 @@ struct FigureContentPartIR {
   // (`FigureSourceBlockIR::drawn_lines`), which draws it in place; only the
   // parts after the frame are blocks of their own.
   bool drawn = false;
+  // A full-width rule row (more than 71 `U+2500` cells from display column
+  // 3), which the reader empties and the page shows as `<hr>` where it
+  // stands; the part carries no runs.
+  bool rule = false;
   std::vector<FigureTextRunIR> runs;
   std::vector<DocumentSourceRowIR> rows;
   // Native origin and caption continuation column, not UTF-8 byte offsets.

@@ -313,9 +313,47 @@ void table_envelope_picture_stands_in_its_row() {
             text < image,
         "markdown image does not stand at its row: " + md);
 }
+// A picture figure framed by full-width rules (`frame=rule`): the rule rows
+// are the page's `<hr>` around the image.  SC33-1698-01 1.2.2 record 104
+// (`SRFIGDFHT25O`, `cz OFF FIG`, a rule, `cselect 3 9 PIC1` over
+// `PICTURE 1`, a rule, the caption) is served by hosted as `<hr>`, the
+// image, `<hr>`, the caption.
+void rule_framed_picture() {
+  Builder b;
+  b.heading();
+  b.line({w("   "), w("Lead.")});
+  b.line({w("SRFIGRULED")});
+  TokenWords rule_words(74, 0x2500);
+  b.line({w("   "), rule_words});
+  b.line({});
+  b.line({w("cselect"), w("3"), w("9"), w("PIC1")});
+  b.line({w("   "), w("PICTURE"), w("1")});
+  b.line({});
+  b.line({w("   "), rule_words});
+  b.line({w("   "), w("Figure"), w("3."), w("Ruled picture")});
+  b.line({w("SREFIG")});
+  b.line({w("   "), w("After.")});
+  auto d = lower({b.finish(104)});
+  if (!d)
+    return;
+  const auto html = render_document_html_fragment(*d);
+  const auto anchor = html.find("id=\"FIGRULED\"");
+  const auto top = html.find("<hr", anchor);
+  const auto img = html.find("<img");
+  const auto bottom = html.find("<hr", img);
+  const auto caption = html.find("Figure 3. Ruled picture");
+  check(anchor != std::string::npos && top != std::string::npos &&
+            img != std::string::npos && bottom != std::string::npos &&
+            caption != std::string::npos && anchor < top && top < img &&
+            img < bottom && bottom < caption,
+        "the full-width rules around the picture are not page rules: " + html);
+  check(html.find("<pre") == std::string::npos,
+        "a rule-framed picture became a drawn frame: " + html);
+}
 } // namespace
 
 int main() {
+  rule_framed_picture();
   image_cells_keep_row_geometry();
   frame_rows_stay_with_the_image_inline();
   styled_label_inside_the_frame();

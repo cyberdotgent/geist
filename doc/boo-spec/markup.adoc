@@ -1824,7 +1824,14 @@ hosted BookServer (DT `19950325182347`) serves `<a name="FIGFIGUNIQ22"><hr>`,
 the figure's rows, and `<hr>` again.  Across a 650-book sample, 51 of 52
 books with such a figure (one topic each) serve exactly one `<hr>` per rule
 row; the 52nd serves one more `<hr>` from another source.  The caption line,
-when present, follows the bottom rule and is shown after its `<hr>`.
+when present, follows the bottom rule and is shown after its `<hr>`.  A
+picture figure is framed the same way: `SC33-1698-01.boo` topic `1.2.2`,
+logical record 104, follows `SRFIGDFHT25O` and `cz OFF FIG` with line 2 at
+BOO byte `0x107d15` (length byte `06`, three blanks, two `U+2500` runs, 74
+rule cells from column 3), `cselect 3 9 PIC1` over `PICTURE 1`, a second
+74-cell rule on line 9 and the caption `Figure 3. CICS recovery manager and
+resources it works with`; hosted (DT `19990319094841`) serves
+`<a name="FIGDFHT25O"><hr>`, the image, `<hr>`, the caption.
 
 *A numbered figure caption is a run of display lines, and its continuations are
 indented to the title column.* The caption line is `Figure <n>. <title>`;
