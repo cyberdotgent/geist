@@ -859,6 +859,9 @@ void an_unstyled_row_final_comma_before_a_control_stays_padding() {
 // 18-24 (`Table` at 20), `4-8` 26-28, `now` 30-32.
 enum class GluedFont { none, corroborating, torn };
 
+DecodedLogicalRecordSource glued_end_record(const std::string &select_begin,
+                                            bool corroborated, bool one_token);
+
 DecodedLogicalRecordSource glued_label_record(const std::string &select_length,
                                               GluedFont font, bool one_token) {
   RecordBuilder builder;
@@ -906,13 +909,19 @@ void a_selector_label_glued_to_a_word_is_a_link() {
   require(label, "the link does not carry exactly the label `Table 4-8`");
 }
 
-// Without another span of the row on whole words nothing proves the row's
-// columns, and the same span is the signature of a displaced margin.
-void a_glued_label_without_a_corroborating_span_still_fails() {
+// Without another span on whole words the row's own stored display line
+// proves its columns: every word cell stands where the line stores it
+// (SH09-8107-00 1.2.6.4, `listed in Table 6and round up` under the single
+// `cselect 19 7 TBLDIRECT`, served `listed in <a ...>Table 6</a>and round
+// up`, DT 19920529121056).
+void a_glued_label_on_its_stored_columns_needs_no_second_span() {
   std::string error;
-  require(!extract(glued_label_record("9", GluedFont::none, true),
-                   "Build List", error),
-          "an uncorroborated torn selector was admitted");
+  require(extract(glued_label_record("9", GluedFont::none, true),
+                  "Build List", error).has_value(),
+          "a glued label on its stored columns was rejected: " + error);
+  require(extract(glued_end_record("13", false, true), "Build List", error)
+              .has_value(),
+          "an end-glued label on its stored columns was rejected: " + error);
 }
 
 // A label that also ends inside a word is torn at both ends.
@@ -938,6 +947,65 @@ void a_torn_font_span_over_a_glued_word_still_fails() {
   require(!extract(glued_label_record("9", GluedFont::torn, true),
                    "Build List", error),
           "a torn font span over a glued word was admitted");
+}
+
+// The mirror shape: the label's *end* is glued to the word after it.
+// SC33-6705-01 6.12.2.1 record 605 token 228 is the one word `Guideprovides`
+// under `cselect 3 16 LNK ...`, served (DT 19991011131428)
+// `<a ...><cite>Operations</cite> <cite>Guide</cite></a>provides`.
+//
+// Row cells: origin 0-2, `Enter` 3-7, `the` 9-11, `Table` 13-17, `4-8now`
+// 19-24 (`now` at 22), `please` 26-31.
+DecodedLogicalRecordSource glued_end_record(const std::string &select_begin,
+                                            bool corroborated,
+                                            bool one_token) {
+  RecordBuilder builder;
+  metadata(builder, "1.15", {"Build", "List"});
+  builder.line({words("cselect"), words(select_begin), words("9"),
+                words("TBLXREXBL")});
+  if (corroborated)
+    builder.line({words("cfont"), words("3"), words("5"), words("2")});
+  std::vector<TokenWords> row{words("   "), words("Enter"), words("the"),
+                              words("Table")};
+  if (one_token) {
+    row.push_back(words("4-8now"));
+  } else {
+    row.push_back(words("4-8"));
+    row.push_back(glued("now"));
+  }
+  row.push_back(words("please"));
+  builder.line(std::move(row));
+  return builder.build(45);
+}
+
+void a_selector_label_glued_to_the_next_word_is_a_link() {
+  const auto record = glued_end_record("13", true, true);
+  std::string error;
+  const auto prose = extract(record, "Build List", error);
+  require(prose.has_value(),
+          "a selector label glued to the word after it was rejected: " +
+              error);
+  if (!prose) return;
+  require(verify(record, "Build List", *prose, error),
+          "the end-glued selector label is not conserved: " + error);
+  require(body_text(*prose).find("Enter the Table 4-8now please") !=
+              std::string::npos,
+          "the end-glued row lost its text: '" + body_text(*prose) + "'");
+  bool label = false;
+  for (const auto &block : prose->blocks)
+    for (const auto &fragment : block.inlines)
+      if (fragment.kind == geist::detail::ProseInlineKindIR::cross_reference &&
+          fragment.text == "Table 4-8")
+        label = true;
+  require(label, "the link does not carry exactly the label `Table 4-8`");
+}
+
+void an_end_glued_label_keeps_its_guards() {
+  std::string error;
+  require(!extract(glued_end_record("14", true, true), "Build List", error),
+          "a selector torn at both ends was admitted");
+  require(!extract(glued_end_record("13", true, false), "Build List", error),
+          "a selector torn between two stored tokens was admitted");
 }
 
 // -------------------------------------------------------------------------
@@ -1161,10 +1229,12 @@ int main() {
   a_styled_row_final_comma_before_a_control_is_display_text();
   an_unstyled_row_final_comma_before_a_control_stays_padding();
   a_selector_label_glued_to_a_word_is_a_link();
-  a_glued_label_without_a_corroborating_span_still_fails();
+  a_glued_label_on_its_stored_columns_needs_no_second_span();
   a_glued_label_torn_at_both_ends_still_fails();
   a_split_between_two_tokens_still_fails();
   a_torn_font_span_over_a_glued_word_still_fails();
+  a_selector_label_glued_to_the_next_word_is_a_link();
+  an_end_glued_label_keeps_its_guards();
   a_glyph_glued_to_text_under_its_word_span_is_display_text();
   a_glued_glyph_without_its_word_span_is_display_text();
   a_glued_glyph_opening_an_unstyled_row_is_display_text();

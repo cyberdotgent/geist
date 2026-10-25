@@ -180,16 +180,71 @@ std::pair<std::size_t, std::size_t> visible_extent(const Line& line,
 // ends on a word boundary, and another span of the same row lands on whole
 // display words, which proves the row's columns.  A displaced margin moves
 // every span of the row by the same amount and leaves none of them whole.
-bool glued_selector_label(const Line& line, const Span& self, std::size_t begin,
-                          std::size_t end) {
-  if (begin == 0 || begin <= line.text_begin || begin >= line.cells.size())
-    return false;
-  const auto& left = line.cells[begin - 1];
-  const auto& right = line.cells[begin];
-  if (left.space || right.space || left.record == npos ||
-      left.record != right.record || left.token != right.token)
-    return false;
-  if (end < line.cells.size() && !boundary_between(line, end - 1, end))
+//
+// The compiler glues the other end the same way: the word after the label
+// follows it with no blank, one stored token spelling both.  SC33-6705-01
+// 6.12.2.1 record 605 token 228 is the two-byte word `Guideprovides` under
+// `cselect 3 16 LNK ...` over `   Operations Guideprovides details ...`,
+// served `<a ...><cite>Operations</cite> <cite>Guide</cite></a>provides`
+// (DT 19991011131428); SC33-1169-00 6.3.3.7 `Figure 7575` under
+// `cselect 17 9` and `cselect 26 2` is served `<a ...>Figure 75</a><a
+// ...>75</a> show` (DT 19990319122050).  The mirror reading takes the same
+// proof: the label's end falls inside one stored token, its start on a word
+// boundary, and the row's columns are proven -- by another span of the row
+// on whole words, or by the row's own stored line (below).
+bool glued_at(const Line& line, std::size_t cell) {
+  if (cell == 0 || cell >= line.cells.size()) return false;
+  const auto& left = line.cells[cell - 1];
+  const auto& right = line.cells[cell];
+  return !left.space && !right.space && left.record != npos &&
+         left.record == right.record && left.token == right.token;
+}
+
+// A row that carries no second span is proven by its own record instead: the
+// selector's columns are display columns of the stored display line, so when
+// every word cell of the row model stands at the column the stored line puts
+// it in, the row's columns are the stored ones and a label edge inside a
+// stored token is exactly where the operand says.  SH09-8107-00 1.2.6.4
+// record stores `   DASD, listed in Table 6and round up ...` under the single
+// `cselect 19 7 TBLDIRECT`, served
+// `listed in <a ...>Table 6</a>and round up` (DT 19920529121056).  A row the
+// model displaced -- the defect this guard exists to catch -- disagrees with
+// its stored line and keeps failing.
+bool row_matches_stored_line(
+    const std::vector<DecodedLogicalRecordSource>& records, const Line& line) {
+  std::size_t record = npos;
+  const DisplayLineIR* stored = nullptr;
+  std::vector<DisplayLineCellIR> cells;
+  bool any = false;
+  for (std::size_t column = 0; column < line.cells.size(); ++column) {
+    const auto& cell = line.cells[column];
+    if (cell.space || cell.record == npos) continue;
+    if (cell.record >= records.size()) return false;
+    if (stored == nullptr) {
+      record = cell.record;
+      stored = display_line_of_token(records[record], cell.token);
+      if (stored == nullptr) return false;
+      cells = display_line_cells(records[record], *stored);
+    }
+    if (cell.record != record || column >= cells.size() ||
+        cells[column].token != cell.token)
+      return false;
+    any = true;
+  }
+  return any;
+}
+
+bool glued_selector_label(
+    const std::vector<DecodedLogicalRecordSource>& records, const Line& line,
+    const Span& self, std::size_t begin, std::size_t end) {
+  if (begin >= line.cells.size()) return false;
+  const auto glued_begin = begin > line.text_begin && glued_at(line, begin);
+  const auto aligned_begin =
+      begin <= line.text_begin || boundary_between(line, begin - 1, begin);
+  const auto glued_end = glued_at(line, end);
+  const auto aligned_end =
+      end >= line.cells.size() || boundary_between(line, end - 1, end);
+  if (!(glued_begin && aligned_end) && !(aligned_begin && glued_end))
     return false;
   const auto whole = [&](const Span& other) {
     if (&other == &self) return false;
@@ -201,7 +256,8 @@ bool glued_selector_label(const Line& line, const Span& self, std::size_t begin,
             boundary_between(line, other_end - 1, other_end));
   };
   return std::any_of(line.fonts.begin(), line.fonts.end(), whole) ||
-         std::any_of(line.links.begin(), line.links.end(), whole);
+         std::any_of(line.links.begin(), line.links.end(), whole) ||
+         row_matches_stored_line(records, line);
 }
 
 // One selector span's destination as the block builder needs it: the typed
@@ -212,7 +268,8 @@ struct LinkTarget {
   bool picture = false;
 };
 
-bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
+bool resolve_spans(const std::vector<DecodedLogicalRecordSource>& records,
+                   const Line& line, std::vector<Attr>& attrs,
                    std::vector<LinkTarget>& targets,
                    std::string* error) {
   attrs.assign(line.cells.size(), Attr{});
@@ -281,7 +338,7 @@ bool resolve_spans(const Line& line, std::vector<Attr>& attrs,
     // token's decoded word, so the two inlines that meet inside a word each
     // own their own half and no token is claimed twice.
     if (torn_across_a_gap(line, begin, end) &&
-        !(link && glued_selector_label(line, span, begin, end)))
+        !(link && glued_selector_label(records, line, span, begin, end)))
       return fail(error, "row columns are unproven: span [" +
                              std::to_string(span.begin) + "," +
                              std::to_string(span.end) +
@@ -398,7 +455,8 @@ bool build_block(const std::vector<DecodedLogicalRecordSource>& records,
     const auto& line = lines[index];
     std::vector<Attr> attrs;
     std::vector<LinkTarget> line_targets;
-    if (!resolve_spans(line, attrs, line_targets, error)) return false;
+    if (!resolve_spans(records, line, attrs, line_targets, error))
+      return false;
     const auto target_base = targets.size();
     targets.insert(targets.end(), line_targets.begin(), line_targets.end());
     const auto revision = row_revision_mark(records, line, ledger);
