@@ -91,8 +91,10 @@ if(MSVC)
   target_link_options(geist-boo-reader PRIVATE /MANIFEST:NO)
 else()
   target_compile_options(geist-boo-reader PRIVATE -Wall -Wextra)
-  # The C++ runtime, libgcc and winpthreads go into the executable.
-  target_link_options(geist-boo-reader PRIVATE -static -static-libgcc -static-libstdc++)
+  # The C++ runtime, libgcc and winpthreads go into the executable; release
+  # builds are stripped.
+  target_link_options(geist-boo-reader PRIVATE -static -static-libgcc -static-libstdc++
+    $<$<CONFIG:Release,MinSizeRel>:-s>)
 endif()
 
 install(TARGETS geist-boo-reader RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
