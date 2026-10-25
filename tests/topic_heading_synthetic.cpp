@@ -62,14 +62,22 @@ TokenWords words(const std::string &text) {
 }
 
 // One logical record; every line is a length byte followed by its tokens.
-DecodedLogicalRecordSource build(const std::vector<Line> &lines,
-                                 std::uint32_t logical_record) {
+// `length_spellings` overrides the dictionary spelling of chosen lines'
+// length bytes (by line index), as real dictionaries spell them.
+DecodedLogicalRecordSource
+build(const std::vector<Line> &lines, std::uint32_t logical_record,
+      const std::vector<std::pair<std::size_t, TokenWords>> &length_spellings =
+          {}) {
   DecodedLogicalRecordSource record;
   std::uint16_t next_encoded = 0x40;
-  for (const auto &content : lines) {
+  for (std::size_t index = 0; index < lines.size(); ++index) {
+    const auto &content = lines[index];
     record.encoded_tokens.push_back(
         {static_cast<std::uint16_t>(2 * content.size()), 1});
-    record.tokens.push_back(TokenWords{0x25BA});
+    TokenWords length{0x25BA};
+    for (const auto &spelling : length_spellings)
+      if (spelling.first == index) length = spelling.second;
+    record.tokens.push_back(length);
     for (const auto &token : content) {
       record.encoded_tokens.push_back({next_encoded++, 2});
       record.tokens.push_back(token);
@@ -165,9 +173,11 @@ std::vector<Heading> headings(const std::vector<Line> &lines,
 // The document's blocks in order: `hN:<text>` for a heading, `a:<id>` for
 // an anchor, `p` for a paragraph and `?` for anything else.
 std::string outline(const std::vector<Line> &lines, const std::string &id,
-                    const std::string &catalog_title, std::string *rejection) {
+                    const std::string &catalog_title, std::string *rejection,
+                    const std::vector<std::pair<std::size_t, TokenWords>>
+                        &length_spellings = {}) {
   std::vector<DecodedLogicalRecordSource> records;
-  records.push_back(build(lines, 2));
+  records.push_back(build(lines, 2, length_spellings));
   geist::detail::TopicIdentityIR identity;
   identity.id = id;
   identity.title = catalog_title;
@@ -200,9 +210,12 @@ std::string outline(const std::vector<Line> &lines, const std::string &id,
 
 void expect_outline(const std::string &label, const std::vector<Line> &lines,
                     const std::string &id, const std::string &catalog_title,
-                    const std::string &expected) {
+                    const std::string &expected,
+                    const std::vector<std::pair<std::size_t, TokenWords>>
+                        &length_spellings = {}) {
   std::string rejection;
-  const auto found = outline(lines, id, catalog_title, &rejection);
+  const auto found =
+      outline(lines, id, catalog_title, &rejection, length_spellings);
   require(found == expected, label + ": blocks '" + found + "' (" +
                                  rejection + "), expected '" + expected + "'");
 }
@@ -341,5 +354,33 @@ int main() {
                  second_title_topic({words("ST")},
                                     {words("ST"), words("Purpose")}),
                  "2.3.3", "", "h2:2.3.3|p|a:HDRPURPOSE|h2:2.3.3 Purpose|p");
+  // A bare `ST` display line followed directly by body rows: the title is
+  // the `ST` line alone, so it is empty and the topic is headed by its id;
+  // the rows after it are body, although the flattened segment that opens
+  // with the opcode runs on across them.  GC24-5611-01 FRONT record 2
+  // line 6 is `ST` (one token) and line 7 the cover's drawn rule; hosted
+  // (DT 19931102100502) serves `<h1> FRONT </h1>` and then the cover.
+  expect_outline("bare ST line, body rows follow",
+                 topic("FRONT", ":H1", {words("ST")}), "FRONT", "",
+                 "h1:FRONT|p");
+  // The same in a message topic: SC38-3058-02 11.2.4.17 (DT 19960430074838)
+  // `<MSGNO> 11.2.4.17 </MSGNO>` and then the message body.
+  expect_outline("bare ST line, message topic",
+                 topic("11.2.4.17", ":MSGNO", {words("ST")}), "11.2.4.17",
+                 "", "h6:11.2.4.17|p");
+  // The same where the `ST` line is glued to `csourcefn`: SC38-3058-02
+  // 11.2.4.17 record 474 spells the `ST` line's length byte (value 1) `.`
+  // and the two empty lines' bytes (value 0) as the bare spacing control,
+  // and the flattened segment `csourcefn ADNL2PRO. ST` runs on across them.
+  {
+    auto lines = topic("11.2.4.17", ":MSGNO", {words("ST")});
+    lines.insert(lines.begin() + 9, Line{});
+    lines.insert(lines.begin() + 9, Line{});
+    expect_outline("glued bare ST line, empty rows follow", lines,
+                   "11.2.4.17", "", "h6:11.2.4.17|p",
+                   {{8, TokenWords{1, '.'}},
+                    {9, TokenWords{1}},
+                    {10, TokenWords{1}}});
+  }
   return 0;
 }

@@ -338,6 +338,9 @@ struct Envelope {
   std::vector<ProseAnchorIR> leading_anchors;
   bool glued_title = false;
   std::size_t glued_title_record = 0;
+  // The `ST` opcode token of a glued title, which opens the title's display
+  // line; `npos` when unknown.
+  std::size_t glued_title_opcode = static_cast<std::size_t>(-1);
   std::vector<std::size_t> glued_title_tokens;
   // The topic has no `ST` line at all: the display line after `CSOURCEFN`
   // is already a body row, and the flattened splitter glued it into the

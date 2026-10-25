@@ -518,6 +518,23 @@ found the shape in `SC09-138.boo` only, *41 topics* (an earlier sweep
 restricted to legacy-routed topics reported 40 and missed that book's `FRONT`
 topic, whose envelope is itself irregular).
 
+The title is the `ST` display line and nothing after it.  An `ST` line that
+holds the opcode alone is an empty title even when the following rows carry
+no control boundary in front of them, so that a flattened reading of the
+record runs the opcode straight into the next rows.  Those rows are body.
+
+[cols="<18,<30,<40",options="header"]
+|===
+|Topic |Bytes |Hosted
+
+|`GC24-5611-01` `FRONT`, logical record 2 |`01` at `0x4147` (line 6 is one byte), `B9` at `0x4148` (`ST`), then `06` at `0x4149` opening line 7, the cover's drawn rule |DT `19931102100502`: `<h1> FRONT </h1>`, then the rule and the cover rows
+|`SC38-3058-02` `11.2.4.17`, logical record 474 |`01 A8` at `0x5293A` (`ST` alone), `00 00` at `0x5293C` (two empty lines), then `04` opening the drawn rule |DT `19960430074838`: `<MSGNO> 11.2.4.17 </MSGNO>`, then the rule and the message body
+|===
+
+A 500-book random census found 94 such topics in 20 books, 57 of them message
+topics of `SC38-3058-02`; the rest are mostly `FRONT` topics whose `ST` line
+is followed directly by the cover.
+
 [[logical-controls_a_title_that_spells_the_topic_id_is_served_without_it]]
 ===== A Title That Spells The Topic Id Is Served Without It
 

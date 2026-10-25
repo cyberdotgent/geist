@@ -978,6 +978,7 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
         }
         if (ascii_lower(body_text(view)) == "st") {
           st_seen = true;
+          envelope.glued_title_opcode = token;
           if (!ledger.assign(record_index, token, ProseTokenRoleIR::envelope,
                              error))
             return false;
@@ -1071,6 +1072,7 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
     envelope.leading_anchors.push_back(std::move(anchor));
     envelope.glued_title = true;
     envelope.glued_title_record = anchor_record;
+    envelope.glued_title_opcode = st_at;
     ++cursor.segment;
   }
   // Without `CHDLEVEL` the topic is headed at the top level, under its title
@@ -1217,7 +1219,66 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   // Anchors that stood among the topic metadata controls precede every
   // anchor the body contributes, in source order.
   build.leading_anchors = envelope.leading_anchors;
-  if (envelope.glued_title) {
+  // A glued `ST` display line that holds the opcode alone is an empty title
+  // (see the `ST` case below); the rows glued after it are body.  SC38-3058-02
+  // 11.2.4.17 record 474: `csourcefn ADNL2PRO` and `ST` (token 28, alone on
+  // line 9) share a flattened segment with two empty rows and a drawn rule.
+  std::vector<std::size_t> glued_body;
+  if (envelope.glued_title && envelope.glued_title_opcode != npos) {
+    const auto& glued_record = records[envelope.glued_title_record];
+    const auto* line =
+        display_line_of_token(glued_record, envelope.glued_title_opcode);
+    bool line_payload = false;
+    bool beyond_line = false;
+    if (line != nullptr)
+      for (const auto token : envelope.glued_title_tokens) {
+        if (token >= line->token_end) {
+          beyond_line = true;
+          continue;
+        }
+        const auto view =
+            view_token(records, envelope.glued_title_record, token);
+        if (is_visible(view) && !is_padding(view) && !is_placeholder_run(view))
+          line_payload = true;
+      }
+    if (line != nullptr && beyond_line && !line_payload) {
+      std::vector<std::pair<std::size_t, std::size_t>> refs{
+          {envelope.glued_title_record, envelope.glued_title_opcode}};
+      for (const auto token : envelope.glued_title_tokens) {
+        if (token >= line->token_end) {
+          glued_body.push_back(token);
+          continue;
+        }
+        refs.push_back({envelope.glued_title_record, token});
+        if (!ledger.assign(envelope.glued_title_record, token,
+                           ProseTokenRoleIR::padding, error))
+          return false;
+      }
+      const auto slices = slices_for(records, refs);
+      if (slices.empty())
+        return fail(error, "ST control has no source provenance");
+      auto slice = slices.front();
+      slice.token_end = slices.back().token_end;
+      slice.byte_end = slices.back().byte_end;
+      build.empty_title_source = slice;
+    }
+  }
+  if (envelope.glued_title && !glued_body.empty()) {
+    title_seen = true;
+    Item title_end;
+    title_end.kind = ItemKind::segment_end;
+    title_end.empty_title = true;
+    build.items.push_back(std::move(title_end));
+    for (const auto token : glued_body) {
+      Item item;
+      item.kind = ItemKind::token;
+      item.token = view_token(records, envelope.glued_title_record, token);
+      build.items.push_back(std::move(item));
+    }
+    Item end;
+    end.kind = ItemKind::segment_end;
+    build.items.push_back(std::move(end));
+  } else if (envelope.glued_title) {
     title_seen = true;
     bool first_payload = true;
     for (const auto token : envelope.glued_title_tokens) {
@@ -1847,6 +1908,74 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           break;
         }
         title_seen = true;
+        // The title is the `ST` display line and nothing else; a bare `ST`
+        // line is an empty title even when the flattened segment that opens
+        // on it runs on across the next rows.  GC24-5611-01 FRONT record 2
+        // line 6 is `ST` alone (token 18) and line 7 the cover's drawn rule;
+        // SC38-3058-02 11.2.4.17 record 474 line 9 is `ST` alone, followed by
+        // two empty rows and a rule.  Hosted serves `<h1> FRONT </h1>`
+        // (DT 19931102100502) and `<MSGNO> 11.2.4.17 </MSGNO>`
+        // (DT 19960430074838), each followed by those rows as body.
+        if (!segment.source_tokens.empty()) {
+          const auto* line =
+              display_line_of_token(record, segment.source_tokens.front());
+          const auto operands = operand_tokens(record, segment);
+          bool line_payload = false;
+          bool beyond_line = false;
+          if (line != nullptr)
+            for (const auto token : segment.source_tokens) {
+              if (std::binary_search(operands.begin(), operands.end(), token))
+                continue;
+              if (token >= line->token_end) {
+                beyond_line = true;
+                continue;
+              }
+              const auto view = view_token(records, record_index, token);
+              if (is_visible(view) && !is_padding(view) &&
+                  !is_placeholder_run(view))
+                line_payload = true;
+            }
+          if (line != nullptr && beyond_line && !line_payload) {
+            std::vector<std::pair<std::size_t, std::size_t>> refs;
+            std::vector<std::size_t> rest;
+            for (const auto token : segment.source_tokens) {
+              if (token >= line->token_end) {
+                rest.push_back(token);
+                continue;
+              }
+              refs.push_back({record_index, token});
+              if (!ledger.assign(
+                      record_index, token,
+                      std::binary_search(operands.begin(), operands.end(),
+                                         token)
+                          ? ProseTokenRoleIR::envelope
+                          : ProseTokenRoleIR::padding,
+                      error))
+                return false;
+            }
+            const auto slices = slices_for(records, refs);
+            if (slices.empty())
+              return fail(error, "ST control has no source provenance");
+            auto slice = slices.front();
+            slice.token_end = slices.back().token_end;
+            slice.byte_end = slices.back().byte_end;
+            build.empty_title_source = slice;
+            Item title_end;
+            title_end.kind = ItemKind::segment_end;
+            title_end.empty_title = true;
+            build.items.push_back(std::move(title_end));
+            for (const auto token : rest) {
+              Item item;
+              item.kind = ItemKind::token;
+              item.token = view_token(records, record_index, token);
+              build.items.push_back(std::move(item));
+            }
+            Item end;
+            end.kind = ItemKind::segment_end;
+            build.items.push_back(std::move(end));
+            break;
+          }
+        }
         const auto before = build.items.size();
         if (!push_payload(ProseTokenRoleIR::envelope, true, false, false))
           return false;
