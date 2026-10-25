@@ -53,6 +53,7 @@
 #include "geist/detail/core/internal.hpp"
 
 #include <cstdint>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -75,7 +76,7 @@ enum class GeneratedTocIndexLineKindIR {
   index_group,
   index_term,
   index_end,
-  spacing,
+  spacing,  // any `C.` line (`c.sp`, `C.CP`): the reader draws nothing
   region_directive,
 };
 
@@ -97,7 +98,9 @@ struct GeneratedTocDefinitionIR {
 
 struct GeneratedTocEntryIR {
   // `ctoce <depth> <style> <topic id> <title>`.  `depth` is the entry's nesting
-  // level (0 at the top); `style` selects the `ctocdef` row format.
+  // level (0 at the top); `style` selects the `ctocdef` row format.  A
+  // version 1.0/1.1 line stores no depth: it is the topic's CPARENT chain
+  // length (GeneratedContentsGrammarIR).
   std::uint32_t depth = 0;
   std::uint32_t style = 0;
   std::string topic_id;
@@ -153,12 +156,28 @@ struct GeneratedTocIndexTopicIR {
   std::vector<GeneratedTocIndexLineIR> lines;
 };
 
+// How the book writes its `CTOCE` lines.  A version 1.2 container writes
+// `CTOCE <nesting> <style> <id> <title>`; a version 1.0 or 1.1 container
+// writes `CTOCE <style> <id> <title>` and stores no nesting (doc/boo-spec,
+// toc, "CTOCE In Version 1.0 And 1.1 Containers").  The nesting the
+// version 1.2 field carries is the length of the target topic's `CPARENT`
+// chain, so for the older grammar the book supplies it here, per topic.
+struct GeneratedContentsGrammarIR {
+  TocEntryGrammar grammar = TocEntryGrammar::nesting_and_style;
+  // ASCII-lower-cased topic id -> `CPARENT` chain length, for every topic
+  // whose chain reaches a top-level topic.  Read only for `style_only`; an
+  // entry whose topic is absent declines the whole topic.
+  std::map<std::string, std::uint32_t> nesting;
+};
+
 // Recognizes a generated CONTENTS/INDEX topic.  Fails closed on any display
 // line it cannot type, on any control outside the grammar, and on any TOC
-// entry whose topic id the book's own topic catalog does not carry.
+// entry whose topic id the book's own topic catalog does not carry.  Without
+// `contents` the `CTOCE` lines are read in the version 1.2 grammar.
 std::optional<GeneratedTocIndexTopicIR> extract_generated_toc_index_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const BookTopicCatalogIR* catalog, std::string* error = nullptr);
+    const BookTopicCatalogIR* catalog, std::string* error = nullptr,
+    const GeneratedContentsGrammarIR* contents = nullptr);
 
 // Canonical re-extraction verifier: rebuilds the model from the same source
 // and requires exact structural equality, so a hand-built or mutated model is
@@ -166,6 +185,7 @@ std::optional<GeneratedTocIndexTopicIR> extract_generated_toc_index_topic_ir(
 bool verify_generated_toc_index_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const BookTopicCatalogIR* catalog, const GeneratedTocIndexTopicIR& topic,
-    std::string* error = nullptr);
+    std::string* error = nullptr,
+    const GeneratedContentsGrammarIR* contents = nullptr);
 
 } // namespace geist::detail

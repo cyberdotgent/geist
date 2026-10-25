@@ -228,7 +228,8 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
     const std::vector<DecodedLogicalRecordSource> &sources,
     const BookTopicCatalogIR *book_topic_catalog,
     std::string *typed_rejection, TypedLoweringTraceIR *trace,
-    const std::set<std::string> *resource_ids) {
+    const std::set<std::string> *resource_ids,
+    const GeneratedContentsGrammarIR *contents_grammar) {
   if (typed_rejection != nullptr)
     typed_rejection->clear();
   if (trace != nullptr)
@@ -310,7 +311,7 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
   std::optional<GeneratedTocIndexTopicIR> navigation;
   if (generated_navigation_source_candidate(sources)) {
     navigation = extract_generated_toc_index_topic_ir(
-        sources, book_topic_catalog, declined_sink);
+        sources, book_topic_catalog, declined_sink, contents_grammar);
     note_declined("generated navigation", navigation.has_value());
   }
   std::optional<MenuTopicIR> menu;
@@ -505,7 +506,8 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
   } else if (navigation) {
     family = "generated navigation";
     if (!verify_generated_toc_index_topic_ir(sources, book_topic_catalog,
-                                             *navigation, &error)) {
+                                             *navigation, &error,
+                                             contents_grammar)) {
       reject(typed_rejection, family + " semantics rejected: " + error);
       return std::nullopt;
     }

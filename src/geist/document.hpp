@@ -24,6 +24,7 @@ namespace geist {
 
 namespace detail {
 struct BookTopicCatalogIR;
+struct GeneratedContentsGrammarIR;
 struct LogicalDecodeContext;
 struct TypedRouteInventoryIR;
 struct DrawnWordConservationIR;
@@ -173,6 +174,8 @@ private:
   std::shared_ptr<const std::map<std::string, HtmlImageSize>>
       image_display_sizes_;
   std::shared_ptr<const detail::BookTopicCatalogIR> topic_catalog_ir_;
+  // How this book writes its `CTOCE` lines, for its CONTENTS topic.
+  std::shared_ptr<const detail::GeneratedContentsGrammarIR> contents_grammar_;
   std::shared_ptr<detail::LogicalDecodeContext> decode_context_;
 };
 

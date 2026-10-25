@@ -4,6 +4,7 @@
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/ir/book_topic_catalog_ir.hpp"
+#include "geist/detail/ir/generated_toc_index_ir.hpp"
 #include "geist/detail/ir/fixed_table_block_ir.hpp"
 #include "geist/detail/ir/comment_delivery_ir.hpp"
 #include "geist/detail/ir/selector_display_ir.hpp"
@@ -72,6 +73,7 @@ struct TopicLoaderBundle {
 struct LazyTopicState {
   std::shared_ptr<LogicalDecodeContext> context;
   std::shared_ptr<const BookTopicCatalogIR> topic_catalog;
+  std::shared_ptr<const GeneratedContentsGrammarIR> contents_grammar;
   std::shared_ptr<const std::set<std::string>> resource_ids;
   std::shared_ptr<const std::map<std::string, std::string>> topic_titles;
   TopicData topic;
@@ -112,12 +114,14 @@ TopicLoaderBundle make_topic_loaders(
     TopicIdentityIR identity, std::string id, std::string title,
     std::uint32_t level, std::uint32_t style,
     const std::shared_ptr<const BookTopicCatalogIR>& topic_catalog,
+    const std::shared_ptr<const GeneratedContentsGrammarIR>& contents_grammar,
     const std::shared_ptr<const std::map<std::string, std::string>>&
         topic_titles,
     const std::shared_ptr<const std::set<std::string>>& resource_ids) {
   auto state = std::make_shared<LazyTopicState>();
   state->context = context;
   state->topic_catalog = topic_catalog;
+  state->contents_grammar = contents_grammar;
   state->resource_ids = resource_ids;
   state->topic_titles = topic_titles;
   state->topic = std::move(topic);
@@ -137,7 +141,7 @@ TopicLoaderBundle make_topic_loaders(
     auto typed = try_lower_topic_to_document_ir(
         state->identity, loaded.fixed_layout_sources,
         state->topic_catalog.get(), &outcome->rejection, &outcome->trace,
-        state->resource_ids.get());
+        state->resource_ids.get(), state->contents_grammar.get());
     outcome->typed_claimed = typed.has_value();
     outcome->source_decoded = !loaded.fixed_layout_sources.empty();
     if (typed && document_ir_has_body(*typed)) {
@@ -257,9 +261,23 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
       break;
     }
   }
+  const auto contents_entry_grammar = toc_entry_grammar(document.directory_);
   document.toc_ = build_table_of_contents(
       contents_records, topics, false, &contents_display_line_starts,
-      &contents_sources, toc_entry_grammar(document.directory_));
+      &contents_sources, contents_entry_grammar);
+  {
+    // The CONTENTS topic's own lines are read in the same grammar; an older
+    // book's entries take their nesting from the CPARENT chain.
+    GeneratedContentsGrammarIR contents_grammar;
+    contents_grammar.grammar = contents_entry_grammar;
+    if (contents_entry_grammar == TocEntryGrammar::style_only)
+      for (const auto& topic : topics)
+        if (const auto nesting = parent_chain_length(topics, topic.id))
+          contents_grammar.nesting.emplace(ascii_lower(topic.id), *nesting);
+    document.contents_grammar_ =
+        std::make_shared<const GeneratedContentsGrammarIR>(
+            std::move(contents_grammar));
+  }
   // A book with no CONTENTS topic has no contents page to read a table of
   // contents from, and short books are published that way. Its topics still
   // carry their own hierarchy -- `:H1`, `:H2` -- which is what the
@@ -322,7 +340,7 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
     auto loaders = make_topic_loaders(
         context, std::move(topic_data), make_topic_identity(entry), entry_id,
         entry_title, entry_level, entry_style, document.topic_catalog_ir_,
-        topic_titles, resource_ids);
+        document.contents_grammar_, topic_titles, resource_ids);
     entry.attach_loaders(std::move(loaders.document),
                          document.image_display_sizes_);
   }
@@ -444,7 +462,7 @@ TocEntry BooDocument::synthesize_topic_entry(
       std::make_shared<const std::map<std::string, std::string>>(topic_titles_);
   auto loaders = make_topic_loaders(
       decode_context_, topic, make_topic_identity(entry), topic.id,
-      topic.title, 0, 0, topic_catalog_ir_, topic_titles,
+      topic.title, 0, 0, topic_catalog_ir_, contents_grammar_, topic_titles,
       lowercase_resource_ids(resources_));
   entry.attach_loaders(std::move(loaders.document), image_display_sizes_);
   return entry;

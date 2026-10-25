@@ -374,6 +374,24 @@ A reader that needs the nesting derives it as the version-1.2 field is
 defined: the length of the target topic's `CPARENT` chain. A reader that
 cannot follow a chain to a top-level topic should not guess one.
 
+The `CONTENTS` topic of these books also carries `C.` control lines among
+its entries, which the reader draws nothing for, operands included (see
+<<topics_topic_lines_in_older_containers>>): a `C.SP 5 P` line between the
+title and the first `CTOCDEF`, and after the last entry a `C.CP` line and a
+`C.CP 12DV` line. `EDCGV1R2.BOO` record 11, file offset `0x8b54`:
+
+[cols="<20,<30,<50",options="header"]
+|===
+|Offset |Bytes |Display line
+
+|`0x8b54` |`06 7b 8f b1d5 b1d6` |length 6: `CTOCE 1 INDEX Index`
+|`0x8b5b` |`01 6d` |length 1: `C.CP`
+|`0x8b5d` |`02 6d 97` |length 2: `C.CP 12DV`
+|===
+
+All five books have exactly these three `C.` lines in their `CONTENTS`
+topic and no other.
+
 Hosted BookServer reads these lines with the four-field version-1.2 grammar
 and so takes the first title word for the topic id: for `EDCGV1R2.BOO` at DT
 `19891031000000` it serves `CTOCE 1 ABSTRACT Abstract` as
@@ -405,8 +423,11 @@ numbers to IDs.
 (`<length byte><that many bytes of tokens>`), as documented in <<logical-controls_display_lines_inside_a_record_payload>>.
 Each line holds exactly one control.
 . Skip the nine envelope lines, read the seven `CTOCDEF` lines, then parse each
-`CTOCE` line as `(nesting, toc_style, topic_id, title...)`. The title runs to
+`CTOCE` line as `(nesting, toc_style, topic_id, title...)` -- or, in a
+version 1.0/1.1 container, as `(toc_style, topic_id, title...)` with the
+nesting taken from the target topic's `CPARENT` chain. The title runs to
 the end of the display line, so its internal spacing survives verbatim.
+Skip any line whose control starts with `C.`.
 . Stop at the end of the topic's logical-record range. Do not look for a
 terminator control; 29 of 34 books have none.
 . Normalize display case through the same token-word translation and display

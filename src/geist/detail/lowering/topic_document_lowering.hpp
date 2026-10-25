@@ -14,6 +14,7 @@ namespace geist::detail {
 
 struct DecodedLogicalRecordSource;
 struct BookTopicCatalogIR;
+struct GeneratedContentsGrammarIR;
 
 // Diagnostic trace of one typed lowering attempt. `family` names the typed
 // family that claimed the topic (whether or not its verification succeeded);
@@ -30,13 +31,15 @@ struct TypedLoweringTraceIR {
 // document, leaving the caller's existing whole-topic compatibility path
 // untouched. `resource_ids` are the book's lower-cased resource catalog ids;
 // without them a figure span cannot prove its picture and its topic fails
-// closed.
+// closed.  `contents_grammar` says how the book writes its `CTOCE` lines;
+// without it they are read in the version 1.2 grammar.
 std::optional<DocumentIR> try_lower_topic_to_document_ir(
     TopicIdentityIR topic,
     const std::vector<DecodedLogicalRecordSource> &sources,
     const BookTopicCatalogIR *book_topic_catalog = nullptr,
     std::string *typed_rejection = nullptr,
     TypedLoweringTraceIR *trace = nullptr,
-    const std::set<std::string> *resource_ids = nullptr);
+    const std::set<std::string> *resource_ids = nullptr,
+    const GeneratedContentsGrammarIR *contents_grammar = nullptr);
 
 } // namespace geist::detail

@@ -420,6 +420,11 @@ enum class TocEntryGrammar {
   style_only,
 };
 TocEntryGrammar toc_entry_grammar(const BooDirectory& directory);
+// The length of a topic's `CPARENT` chain: 0 for a top-level topic.  No value
+// when the chain cannot be followed to the top (a parent never read, a parent
+// that is not a topic of the book, or a cycle).
+std::optional<std::uint32_t> parent_chain_length(
+    const std::vector<TopicData>& topics, const std::string& topic_id);
 std::vector<TocEntry> extract_toc_entries(
     const std::string& decoded_record,
     const std::vector<std::size_t>& display_line_starts = {},

@@ -191,8 +191,9 @@ std::string lower(std::string value) { return ascii_lower(std::move(value)); }
 class Extractor {
 public:
   Extractor(const std::vector<DecodedLogicalRecordSource>& records,
-            const BookTopicCatalogIR* catalog)
-      : records_(records), catalog_(catalog) {}
+            const BookTopicCatalogIR* catalog,
+            const GeneratedContentsGrammarIR* contents)
+      : records_(records), catalog_(catalog), contents_(contents) {}
 
   std::optional<GeneratedTocIndexTopicIR> run(std::string* error) {
     if (records_.empty()) return reject(error, "generated navigation topic is empty");
@@ -275,7 +276,10 @@ private:
         kind = GeneratedTocIndexLineKindIR::index_term;
       } else if (opcode == "cendindex") {
         kind = GeneratedTocIndexLineKindIR::index_end;
-      } else if (opcode == "c.sp") {
+      } else if (opcode.rfind("c.", 0) == 0) {
+        // The reader skips every display line whose control name starts
+        // with `C.`, operands included: `c.sp` in every book, `C.CP` and
+        // `C.CP 12DV` in the version 1.0/1.1 contents pages.
         kind = GeneratedTocIndexLineKindIR::spacing;
       } else if (opcode == "cz") {
         if (!region(view, error)) return false;
@@ -354,10 +358,22 @@ private:
     if (topic_.definitions.empty())
       return fail(error, "CTOCE precedes every CTOCDEF");
     const auto fields = space_fields(view.cells, view.body, view.cells.size());
-    if (fields.size() < 4)
-      return fail(error, "CTOCE has fewer than four fields");
-    const auto depth = cell_text(view.cells, fields[0].begin, fields[0].end);
-    const auto style = cell_text(view.cells, fields[1].begin, fields[1].end);
+    // A version 1.0/1.1 container writes `CTOCE <style> <id> <title>`; its
+    // nesting is the target topic's CPARENT chain length, which the book
+    // supplies.  Version 1.2 stores that nesting as a leading field.
+    const auto stored_nesting =
+        contents_ == nullptr ||
+        contents_->grammar == TocEntryGrammar::nesting_and_style;
+    const std::size_t first = stored_nesting ? 1 : 0;
+    if (fields.size() < first + 3)
+      return fail(error, stored_nesting
+                             ? "CTOCE has fewer than four fields"
+                             : "CTOCE has fewer than three fields");
+    const auto style =
+        cell_text(view.cells, fields[first].begin, fields[first].end);
+    const auto depth =
+        stored_nesting ? cell_text(view.cells, fields[0].begin, fields[0].end)
+                       : std::string("0");
     if (!decimal_text(depth) || !decimal_text(style))
       return fail(error, "CTOCE level operands are not decimal");
     GeneratedTocEntryIR entry;
@@ -367,7 +383,9 @@ private:
         static_cast<std::uint32_t>(std::strtoul(style.c_str(), nullptr, 10));
     if (entry.style >= topic_.definitions.size())
       return fail(error, "CTOCE style has no CTOCDEF");
-    entry.topic_id = cell_text(view.cells, fields[2].begin, fields[2].end);
+    const auto& id_field = fields[first + 1];
+    const auto& title_field = fields[first + 2];
+    entry.topic_id = cell_text(view.cells, id_field.begin, id_field.end);
     if (!valid_topic_id(entry.topic_id))
       return fail(error, "CTOCE topic id is not an identifier: '" +
                              entry.topic_id + "'");
@@ -375,14 +393,21 @@ private:
         find_book_topic_catalog_entry(*catalog_, entry.topic_id) == nullptr)
       return fail(error, "CTOCE topic id is absent from the book topic "
                          "catalog: '" + entry.topic_id + "'");
+    if (!stored_nesting) {
+      const auto nesting = contents_->nesting.find(lower(entry.topic_id));
+      if (nesting == contents_->nesting.end())
+        return fail(error, "CTOCE topic has no CPARENT chain to derive its "
+                           "nesting from: '" + entry.topic_id + "'");
+      entry.depth = nesting->second;
+    }
     entry.title =
-        trim_text(cell_text(view.cells, fields[3].begin, view.cells.size()));
+        trim_text(cell_text(view.cells, title_field.begin, view.cells.size()));
     if (entry.title.empty())
       return fail(error, "CTOCE carries no title");
     entry.source = whole_line_slice(*view.record, view.line);
-    cell_slices(*view.record, view.cells, fields[2].begin, fields[2].end,
+    cell_slices(*view.record, view.cells, id_field.begin, id_field.end,
                 entry.topic_id_slices);
-    cell_slices(*view.record, view.cells, fields[3].begin, view.cells.size(),
+    cell_slices(*view.record, view.cells, title_field.begin, view.cells.size(),
                 entry.title_slices);
     topic_.entries.push_back(std::move(entry));
     return true;
@@ -545,6 +570,7 @@ private:
 
   const std::vector<DecodedLogicalRecordSource>& records_;
   const BookTopicCatalogIR* catalog_;
+  const GeneratedContentsGrammarIR* contents_;
   std::vector<LineView> views_;
   GeneratedTocIndexTopicIR topic_;
 };
@@ -627,16 +653,17 @@ bool same_topic(const GeneratedTocIndexTopicIR& left,
 
 std::optional<GeneratedTocIndexTopicIR> extract_generated_toc_index_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
-    const BookTopicCatalogIR* catalog, std::string* error) {
-  return Extractor(records, catalog).run(error);
+    const BookTopicCatalogIR* catalog, std::string* error,
+    const GeneratedContentsGrammarIR* contents) {
+  return Extractor(records, catalog, contents).run(error);
 }
 
 bool verify_generated_toc_index_topic_ir(
     const std::vector<DecodedLogicalRecordSource>& records,
     const BookTopicCatalogIR* catalog, const GeneratedTocIndexTopicIR& topic,
-    std::string* error) {
+    std::string* error, const GeneratedContentsGrammarIR* contents) {
   const auto canonical =
-      extract_generated_toc_index_topic_ir(records, catalog, error);
+      extract_generated_toc_index_topic_ir(records, catalog, error, contents);
   if (!canonical) return false;
   if (!same_topic(*canonical, topic))
     return fail(error,

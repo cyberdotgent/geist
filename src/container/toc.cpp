@@ -204,8 +204,6 @@ void attach_topic_data(
   entry.end_logical_record = topic.end_logical_record;
 }
 
-namespace {
-
 // The nesting a version 1.2 book stores in each `CTocE` is the length of the
 // target topic's `CPARENT` chain (doc/boo-spec, toc). A version 1.0 or 1.1
 // book stores no nesting, so it is read off that same chain. Returns
@@ -223,8 +221,6 @@ std::optional<std::uint32_t> parent_chain_length(
   }
   return std::nullopt;
 }
-
-} // namespace
 
 std::vector<TocEntry> build_table_of_contents(
     const std::vector<std::string>& decoded_records,

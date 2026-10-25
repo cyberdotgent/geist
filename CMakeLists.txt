@@ -622,6 +622,7 @@ foreach(synthetic_test
     topic_heading_synthetic
     vertical_space_line_extent_synthetic
     old_container_topic_lines_synthetic
+    old_container_contents_synthetic
     envelope_length_byte_opcode_synthetic
     length_byte_control_word_synthetic
     art_description_figure_synthetic
