@@ -1035,7 +1035,41 @@ void marked_figure_caption(bool picture) {
         "picture figure caption lost its revision mark: " + html);
 }
 
+// A picture in a revised example row: SC41-4612-00 3.2.65.1 record 625
+// lines 26-29 are `cz OFF XMP`, `cselect 20 11 PIC16`, `cfont 14 5 2` and
+// ` |            UPPER  PICTURE 16`.  The revision mark wraps the row's
+// inlines, the image among them, and the image must still stand over the
+// cells its selector covers, or the row no longer spells its literal text
+// and the topic falls to best-effort.
+void picture_in_marked_example_row() {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("XMP")});
+  builder.line({w("cselect"), w("20"), w("11"), w("PIC16")});
+  builder.line({w("cfont"), w("14"), w("5"), w("2")});
+  builder.line({sp(1), b({'|'}, 136), sp(11), w("UPPER"), sp(1),
+                w("PICTURE"), b({'1', '6'}, 178)});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("EXMP"), w("4"), w("4")});
+  std::string error;
+  const std::set<std::string> resources{"16"};
+  const auto doc = try_lower_topic_to_document_ir(
+      {"1.1", "Example", ":H2", 10, 20, 21}, {builder.finish()}, nullptr,
+      &error, nullptr, &resources);
+  check(doc.has_value(),
+        "a picture in a revised example row declined: " + error);
+  if (!doc) return;
+  std::string verify_error;
+  check(verify_document_ir(*doc, &verify_error),
+        "revised picture row document invalid: " + verify_error);
+  const auto body = pre_body(render_document_html_fragment(*doc));
+  check(contains(body, "UPPER</") && contains(body, "alt=\"PICTURE 16\""),
+        "the revised row lost its styling or its picture: " + body);
+}
+
 int main() {
+  picture_in_marked_example_row();
   marked_figure_caption(true);
   marked_figure_caption(false);
   bare_picture_in_closed_box();

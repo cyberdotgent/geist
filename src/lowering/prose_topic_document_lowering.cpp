@@ -753,11 +753,19 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
             // covers, which print blank after the `<img>` (hosted
             // SG24-4478-00 12.1.4, SH19-4369-00 4.0): the row keeps them as
             // the image's cells, and the placeholder words are its alt text.
-            for (auto& in : row)
+            // A revised row wraps its inlines, the image among them
+            // (SC41-4612-00 3.2.65.1 ` |            UPPER  PICTURE 16`).
+            const auto place_image = [](InlineIR& in) {
               if (auto* image = std::get_if<ImageInlineIR>(&in.node)) {
                 image->cells = image->alt_text;
                 image->alt_text = trim_ascii_whitespace(image->alt_text);
               }
+            };
+            for (auto& in : row) {
+              place_image(in);
+              if (auto* revised = std::get_if<RevisedInlineIR>(&in.node))
+                for (auto& child : revised->children) place_image(child);
+            }
             preformatted.styled_lines.push_back(std::move(row));
             preformatted.line_origins.push_back(
                 origin({block.preformatted_line_sources[row_index]},

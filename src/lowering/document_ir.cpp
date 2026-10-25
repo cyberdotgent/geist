@@ -222,7 +222,8 @@ bool verify_inlines(const InlineSequenceIR& inlines, bool allow_empty,
         in.node);
     if (!valid) return fail(error, "inline node is not canonical");
     if (const auto* revised = std::get_if<RevisedInlineIR>(&in.node))
-      if (!verify_inlines(revised->children, false, error)) return false;
+      if (!verify_inlines(revised->children, false, error, preformatted_row))
+        return false;
   }
   return true;
 }
