@@ -172,6 +172,7 @@ DecodedLogicalRecordSource make_source(std::uint32_t logical_record,
       source.logical_record, source.assembled, source.encoded_tokens,
       source.ir.display_lines);
   geist::detail::demote_display_line_owned_controls(source);
+  geist::detail::assign_display_line_margin_marks(source);
   return source;
 }
 
@@ -1813,6 +1814,74 @@ int main() {
                   *built.catalog, &error),
               "the revised entry failed verification: " + error);
     }
+    // The document carries the bar: hosted BookServer prints each revised
+    // row with its mark in the margin (PRG1SQLG B.1.2, DT 19940622113002:
+    // ` | <B>SQL0133</B> ...`, ` | <B>Explanation:</B>  Operator on ...`),
+    // so both the headline and the field are revised runs under `|`.
+    std::string lower_error;
+    const auto document = geist::detail::try_lower_topic_to_document_ir(
+        {"12", "Sample Messages", ":H2", 12, 70, 71}, built.sources, nullptr,
+        &lower_error);
+    require(document.has_value(),
+            "the revised catalogue did not lower: " + lower_error);
+    std::size_t revised_paragraphs = 0;
+    if (document)
+      for (const auto &block : document->blocks)
+        if (const auto *list =
+                std::get_if<geist::detail::ListBlockIR>(&block.node))
+          for (const auto &item : list->items)
+            for (const auto &inner : item.blocks)
+              if (const auto *paragraph =
+                      std::get_if<geist::detail::ParagraphBlockIR>(
+                          &inner.node))
+                if (paragraph->content.size() == 1)
+                  if (const auto *run =
+                          std::get_if<geist::detail::RevisedInlineIR>(
+                              &paragraph->content.front().node))
+                    revised_paragraphs += run->mark == U'|';
+    require(revised_paragraphs == 2,
+            "the revised headline and field do not carry their bar: " +
+                std::to_string(revised_paragraphs));
+  }
+
+  // Only the revised rows carry the mark: an unrevised field after a
+  // revised headline stays plain.
+  {
+    auto tokens = header("Sample", "Messages");
+    append(tokens, line({t("SRMSG", 110), t("640", 292)}));
+    append(tokens, line({t("cfont", 111), t("3", 112), t("3", 112),
+                         t("2", 113)}));
+    append(tokens, revised({t("640", 292)}));
+    append(tokens,
+           line({t("cfont", 111), t("3", 112), t("4", 293), t("2", 113),
+                 t("8", 294), t("9", 295), t("2", 113)}));
+    append(tokens, line({origin(), t("User", 296), t("Response:", 297),
+                         t("Contact", 298), t("support.", 299)}));
+    std::vector<DecodedLogicalRecordSource> sources{make_source(75, tokens)};
+    std::string lower_error;
+    const auto document = geist::detail::try_lower_topic_to_document_ir(
+        {"12", "Sample Messages", ":H2", 12, 75, 76}, sources, nullptr,
+        &lower_error);
+    require(document.has_value(),
+            "a partly revised catalogue did not lower: " + lower_error);
+    std::vector<bool> revised_blocks;
+    if (document)
+      for (const auto &block : document->blocks)
+        if (const auto *list =
+                std::get_if<geist::detail::ListBlockIR>(&block.node))
+          for (const auto &item : list->items)
+            for (const auto &inner : item.blocks)
+              if (const auto *paragraph =
+                      std::get_if<geist::detail::ParagraphBlockIR>(
+                          &inner.node))
+                revised_blocks.push_back(std::any_of(
+                    paragraph->content.begin(), paragraph->content.end(),
+                    [](const auto &in) {
+                      return std::holds_alternative<
+                          geist::detail::RevisedInlineIR>(in.node);
+                    }));
+    require(revised_blocks == std::vector<bool>{true, false},
+            "the revision mark did not stay with the revised row");
   }
 
   // Mutation: the same headline under a CFONT one column off. With the bar

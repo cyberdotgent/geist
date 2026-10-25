@@ -248,6 +248,7 @@ set(GEIST_SOURCES
   src/lowering/message_document_lowering.cpp
   src/lowering/prose_topic_document_lowering.cpp
   src/lowering/publication_document_lowering.cpp
+  src/lowering/revision_mark_lowering.cpp
   src/lowering/source_rows_document_lowering.cpp
   src/lowering/topic_document_lowering.cpp
   src/lowering/topic_identity.cpp

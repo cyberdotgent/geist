@@ -25,6 +25,7 @@
 #include "geist/detail/ir/message_topic_ir.hpp"
 #include "geist/detail/layout/ownership_ir.hpp"
 #include "geist/detail/lowering/prose_topic_document_lowering.hpp"
+#include "geist/detail/lowering/revision_mark_lowering.hpp"
 #include "geist/detail/ir/prose/prose_topic_ir.hpp"
 #include "geist/detail/lowering/publication_document_lowering.hpp"
 #include "geist/detail/ir/publication_ir.hpp"
@@ -530,6 +531,11 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
     }
   }
 
+  // Revised body rows print their mark in the margin whatever the family
+  // (markup.adoc, "Revision marks as stored").  The generated list carries
+  // its own; the generated table of contents and index draw no body rows.
+  if (!generated_list && !navigation)
+    carry_row_revision_marks(*document, sources);
   prepend_topic_id_to_heading(*document, sources);
   if (!verify_document_ir(*document, &error)) {
     reject(typed_rejection, family + " identity policy rejected: " + error);
