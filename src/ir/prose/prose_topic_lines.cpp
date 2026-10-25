@@ -2283,8 +2283,12 @@ struct LineBuilder {
     // dfhla313 stores one-byte `+` and `#` marks in front of its CZ list
     // bullets, which the ordinary-glyph conditions below admit only as `|`
     // in that dialect.  Those conditions still apply to every other glyph.
+    // Inside a verbatim region the mark is one of the region's drawn cells
+    // and stays printed: the same topic's `cz OFF XMP` row (line 22,
+    // ` |       http://www.ibm.com/s390/vm`) is served ` |       <samp>http:`.
     if (line_visible_cells == 0 &&
-        ((stored_row_margin_mark(view) && line().cells.size() <= 1) ||
+        ((!xmp_mode && stored_row_margin_mark(view) &&
+          line().cells.size() <= 1) ||
          (view.width == 1 &&
         (punctuation_glyph(view) || is_placeholder_run(view)) &&
         // CZ rows carry their markers as explicit slots (bullet, change bar,

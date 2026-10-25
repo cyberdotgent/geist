@@ -274,6 +274,28 @@ void marked_cz_bullet(Tok mark) {
         "marked CZ bullet is not a revised list item: " + html);
 }
 
+// Inside a verbatim region the stored mark is a drawn cell of the row, at
+// any width: GC24-5841-01 PREFACE.5 record 32 line 22 stores ` ` + the
+// two-byte `|` + a seven-cell run + `http://www.ibm.com/s390/vm` inside
+// `cz OFF XMP`, and hosted (DT 19990525154647) serves
+// ` |       <samp>http:</samp>...` in its `<pre width="80">`.
+void marked_verbatim_row(Tok mark) {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("XMP")});
+  builder.line({sp(1), mark, sp(7), w("http://x")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("EXMP"), w("4"), w("4")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "marked verbatim row declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(pre_body(html) == " |        http://x",
+        "the verbatim row lost its stored mark: " + html);
+}
+
 // The mark stays a marker when the row is a definition term styled by a
 // `cfont` span: SC41-5401-00 2.1.2.21 record 269 line 23 stores ` ` + the
 // two-byte `|` (token 161) + `*` + attach + `YES` under `cz FLOW DT 3 13`
@@ -378,6 +400,8 @@ int main() {
   marked_cz_bullet(w("|"));
   marked_cz_bullet(b({'+'}, 0x2B));
   marked_cz_bullet(b({'#'}, 0x23));
+  marked_verbatim_row(w("|"));
+  marked_verbatim_row(b({'|'}, 0x7C));
   marked_styled_term(w("|"));
   marked_styled_term(b({'|'}, 0x7C));
   bullet_in_verbatim_region();
