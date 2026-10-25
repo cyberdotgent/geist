@@ -145,6 +145,9 @@ struct Item {
   // A bare `SRGLS`: the reader looks ahead for a glossary letter box and,
   // when the next drawn rows are one, prints a letter divider instead.
   bool glossary_letter = false;
+  // The anchor of an `SRFIG<id>` that opens no figure
+  // (`SpanPlan::anchor_figure_openers`).
+  bool figure_anchor = false;
   bool index_start = false;
   bool continuation_start = false;
   std::vector<FontSpanIR> spans;
@@ -292,6 +295,9 @@ struct SpanPlan {
   // `SI` subject-index entries a table envelope carries; hidden, like the
   // ones the display-line pass finds in prose.
   std::vector<ProseIndexTermIR> index_terms;
+  // `SRFIG<id>` openers that open no figure -- no picture selector, no
+  // `SREFIG` -- (record index, first token): each is a bare anchor.
+  std::set<std::pair<std::size_t, std::size_t>> anchor_figure_openers;
   template <typename Region>
   static const Region* find_segment(const std::vector<Region>& list,
                                     std::size_t record, std::size_t segment) {
@@ -471,6 +477,9 @@ struct LineBuild {
   std::vector<std::pair<std::size_t, std::size_t>> title_refs;
   // CZ directives in source order; empty for the flattened dialect.
   std::vector<LayoutDirective> directives;
+  // The topic names an `SRFIG<id>` that opens no figure: its `cz OFF FIG` ..
+  // `cz OFF EFIG` pair delimits rows printed as stored, not a figure span.
+  bool figure_anchors = false;
 };
 
 // One drawn box region embedded in prose: a `U+250C ... U+2510` top rule,
@@ -501,6 +510,9 @@ struct BoxRegion {
   bool closed = false;
   // True for the rows of an implicit CFONT grid (`implicit_grid_region`).
   bool grid = false;
+  // Bare `SR<id>` anchor lines between the rows of an open drawing (record
+  // index, the line's length byte): each wraps the row after it.
+  std::vector<std::pair<std::size_t, std::size_t>> anchor_lines;
 };
 
 // Every closed box region, every open native drawing and every inline syntax

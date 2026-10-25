@@ -518,8 +518,11 @@ void negative_fixtures() {
   // change here as well.  The table, screen-capture, implicit-grid and
   // unproven-margin classes went with the books that cannot be published
   // (issue #59).
-  reject("packet.boo", "GLOSSARY",
-         "placeholder run '?' is followed by visible text");
+  // GLOSSARY used to reject here ("placeholder run '?' is followed by
+  // visible text"): its letter boxes follow `cz BREAK` and the empty line
+  // after each `cz FLOW GD` entry, where the reader's `<pre>` is open, and
+  // now read as letter headings (the glossary family still owns the topic;
+  // drawn_glyph_prose_synthetic covers the prose reading).
   // A trailing menu needs the book catalog to validate its targets.
   {
     auto extracted = extract("packet.boo", "1.0");

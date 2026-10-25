@@ -1039,6 +1039,28 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
               "figure region has no picture selector (unterminated)" &&
           box_figure_opener(records, decline.begin))
         continue;
+      // Anywhere else such an opener is a bare anchor as well: the reader
+      // prints `<a name="<id>">` around the next row and the rows after it
+      // as it prints any rows.  SC41-5612-02 5.20.3 (DT 19970827101707)
+      // serves `SRFIGFIGUNIQ223` above the `data-type:` diagram as
+      // `<a name="FIGFIGUNIQ223">   <B>data-type:</B></a>`; SC33-6733-01
+      // B.1.3.1 (DT 19990624) serves the rows its `cz OFF FIG` opens after
+      // `SRFIGFIGUNIQ213` in `<pre width="132"><!-- figure -->`, verbatim.
+      if (decline.reason ==
+          "figure region has no picture selector (unterminated)") {
+        const auto record = record_index_of(records, decline.begin.logical_record);
+        if (record &&
+            decline.begin.segment_index <
+                records[*record].control_segments.size()) {
+          const auto& segment =
+              records[*record].control_segments[decline.begin.segment_index];
+          if (!segment.source_tokens.empty()) {
+            plan.anchor_figure_openers.insert(
+                {*record, segment.source_tokens.front()});
+            continue;
+          }
+        }
+      }
       return fail(error, (decline.anchor.empty()
                               ? std::string("figure region")
                               : "figure '" + decline.anchor + "'") +

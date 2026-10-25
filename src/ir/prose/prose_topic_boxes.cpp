@@ -247,6 +247,38 @@ bool hidden_drawing_line(const DecodedLogicalRecordSource& record,
   return true;
 }
 
+// A display line that is one bare body anchor `SR<id>` and nothing else: no
+// envelope delimiter (`SRFIG`, `SRTBL`, `SRFTN`, `SRMSG`, their closers), no
+// list-item closer, no glossary entry.  The reader prints nothing for the
+// line and wraps the next display row in `<a name="<id>">`: SY27-0327-02
+// 2.1.1 record 121 stores `SRSTPSTPUNIQ13` between two rail rows of a step
+// diagram, and hosted (DT 19931101160725) serves
+// `<a name="STPSTPUNIQ13">    |</a>` for the rail row after it.
+bool bare_anchor_line(const DecodedLogicalRecordSource& record,
+                      const Candidate& candidate) {
+  if (!candidate.control_only || candidate.index) return false;
+  std::size_t segment_index = record.control_segments.size();
+  for (auto token = candidate.line.prefix_token + 1;
+       token < candidate.line.token_end; ++token) {
+    const auto segment = segment_of(record, token);
+    if (segment >= record.control_segments.size()) return false;
+    if (segment_index == record.control_segments.size())
+      segment_index = segment;
+    else if (segment != segment_index)
+      return false;
+  }
+  if (segment_index >= record.control_segments.size()) return false;
+  const auto& segment = record.control_segments[segment_index];
+  if (segment.kind != BookControlKind::structural || segment.malformed)
+    return false;
+  const auto opcode = ascii_lower(segment.opcode);
+  if (opcode.rfind("sr", 0) != 0 || opcode.size() <= 2) return false;
+  for (const auto* reserved : {"srfig", "srefig", "srtbl", "sretbl", "srftn",
+                               "sreftn", "srmsg", "sremsg", "srelis", "srgls"})
+    if (opcode.rfind(reserved, 0) == 0) return false;
+  return true;
+}
+
 // A display line whose every token is display text: no token is the opcode,
 // an operand or the `LNK` destination of a control.
 bool display_row(const DecodedLogicalRecordSource& record,
@@ -365,22 +397,29 @@ std::optional<BoxRegion> open_drawing(
     const std::vector<Candidate>& candidates, std::size_t first,
     std::size_t last) {
   // Leading and trailing instruction lines address rows outside the run;
-  // the line builder applies them as it does around a closed box.
-  while (first <= last &&
-         hidden_drawing_line(records[candidates[first].record],
-                             candidates[first]))
-    ++first;
-  while (first <= last &&
-         hidden_drawing_line(records[candidates[last].record],
-                             candidates[last]))
-    --last;
+  // the line builder applies them as it does around a closed box.  A bare
+  // anchor line at either end names the row after it, which is the first
+  // row of the run or a row after it.
+  const auto outside = [&](const Candidate& candidate) {
+    const auto& record = records[candidate.record];
+    return hidden_drawing_line(record, candidate) ||
+           bare_anchor_line(record, candidate);
+  };
+  while (first <= last && outside(candidates[first])) ++first;
+  while (first <= last && outside(candidates[last])) --last;
   if (first > last) return std::nullopt;
   bool drawn = false;
   std::size_t rows = 0;
+  std::vector<std::pair<std::size_t, std::size_t>> anchor_lines;
   for (auto cursor = first; cursor <= last; ++cursor) {
     const auto& candidate = candidates[cursor];
     const auto& record = records[candidate.record];
     if (hidden_drawing_line(record, candidate)) continue;
+    // An anchor line between the rows wraps the row after it.
+    if (bare_anchor_line(record, candidate)) {
+      anchor_lines.emplace_back(candidate.record, candidate.line.prefix_token);
+      continue;
+    }
     if (!display_row(record, candidate.line)) return std::nullopt;
     // Every cell must have a known hosted spelling.  An unmapped word, or a
     // box word whose hosted glyph is unproven (FA1PLMM0 C.0 record 781 line
@@ -422,6 +461,7 @@ std::optional<BoxRegion> open_drawing(
   region.begin_token = candidates[first].line.prefix_token;
   region.end_record = candidates[last].record;
   region.end_token = candidates[last].line.token_end - 1;
+  region.anchor_lines = std::move(anchor_lines);
   return region;
 }
 

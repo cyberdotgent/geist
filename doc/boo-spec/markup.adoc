@@ -5166,6 +5166,17 @@ The reading applies only to the proven shape:
 An anchor separated from the box by an empty line, or standing above an
 open drawing, is not proven to name it.
 
+Inside the blank-delimited run of an open drawing, a line that is one bare
+`SR<id>` anchor and nothing else names the row after it, as a body anchor
+names the row after it anywhere.  `SY27-0327-02.boo` `2.1.1` record 121 draws
+a step diagram (`Yes  No` branch rails, `|002|` step boxes) and stores line
+42 as `02 E1 E8` at `0xD76F0` (length byte, the two-byte `SRSTPSTPUNIQ13`)
+between the rail rows on lines 41 and 43 (`02 15 83`: four blanks and
+`U+2502`).  Hosted (DT `19931101160725`) prints the run verbatim and wraps
+the line-43 row in `<a name="STPSTPUNIQ13">`.  Two such lines in a row both
+name the row after them; an anchor line that ends the run names the row
+that follows the run.
+
 The anchor can be a figure opener `SRFIG<id>` that opens no figure.
 SC09-138 `3.1.9` (logical record 376) draws the `RENAME` syntax diagram
 this way, and no `SREFIG` follows anywhere in the topic:
@@ -5193,6 +5204,18 @@ and it opens nothing.  The reading needs all of these:
 
 A figure opener whose `SREFIG` follows still opens a figure, and a table
 opener `SRTBL<id>` above a box still opens a table.
+
+The opener need not stand above a box: with no picture selector and no
+`SREFIG` after it, an `SRFIG<id>` is a bare body anchor wherever it stands,
+and the rows after it are read as the rows around it.  `SC41-5612-02.boo`
+`5.20.3` record 1187 line 54 is `02 DF 42` at `0x79E67` (`SRFIGFIGUNIQ223`)
+above the `data-type:` syntax diagram, and the topic never closes it; hosted
+(DT `19980522111551`) serves `<a name="FIGFIGUNIQ223">   <B>data-type:</B></a>`
+and the diagram rows.  In the `CZ` dialect such an opener is followed by
+`cz OFF FIG`, which prints `<pre width="132"><!-- figure -->`, and the rows
+up to `cz OFF EFIG` are printed as stored: `SC33-6733-01.boo` `B.1.3.1`
+(DT `20000720144410`) serves its framed `IPW$IDM` syntax diagram this way
+after `SRFIGFIGUNIQ213`, the anchor around the first row.
 
 [[markup_frame_rows_around_table]]
 ==== Frame rows around a table
@@ -6571,9 +6594,66 @@ the next directive, is printed verbatim like every row of that stretch.
 `Important` box from line 10 (length byte `0E` at `0x38C79`; a change bar,
 the top-left corner and the label) to the bottom rule on line 15 (length
 byte `0C` at `0x38CC8`, three blanks, then `U+2514` ...).  The next
-directive is line 16, `cz OFF ELBLBOX 0 0`.  A closed box in flowed text --
-after a `CZ FLOW`, where the reader has closed its `<pre>` -- has no such
-reading.
+directive is line 16, `cz OFF ELBLBOX 0 0`.
+
+The same holds in every stretch the table above leaves inside a `<pre>`,
+and for a drawing that closes no frame (a blank-delimited run of rows, one
+of them drawn from box words alone) as much as for a closed box:
+
+* after a region opener whose object ends before the next directive.
+  `SG24-2083-01.boo` `BACK_1.2`, record 1001, closes the last table of
+  `cz OFF TABLE` with `SRETBL` (line 1); line 4 is
+  `08 C7 4A D6 F5 B9 B9` at `0xB32E37` (`cz ON TABLE 4 4`, a line no
+  prefix matches), and line 6, length byte `0B` at `0xB32E45`, opens the
+  `Redpieces` box (`11` three blanks, `06` `U+250C`, the rule and the
+  label).  No `CZ FLOW` follows; hosted (DT `19981124162140`) prints the
+  twelve box rows inside the table's `<pre width="132">`.
+* after an empty display line that ended a flowed block.  A glossary's
+  letter boxes stand there: each entry is a `cz FLOW GD` paragraph ended
+  by an empty line, and the bare `SRGLS` and its box follow (`GX27-3990-01`
+  `GLOSSARY`, `SC33-0789-04` `GLOSSARY`, `SC38-3058-02` `GLOSSARY`; hosted
+  serves the letter dividers the `SRGLS` look-ahead prints, see the
+  `SRGLS <term>` notes under the body controls).
+
+A closed box drawn directly under the rows of a `CZ FLOW` -- with no empty
+line between them, where the reader's `<pre>` is closed -- has no such
+reading.  The rows after a drawing, up to the next directive, are in the same
+`<pre>` and are printed as stored.
+
+*Generic regions that end without a closer.*  A second `cz OFF <tag>` of the
+same tag inside an open generic region only deepens it and prints nothing,
+and the opener of a verbatim region (`XMP`, `SCREEN`, `SYNTAX`, ...) inside
+it takes the rows from there on.  A generic region with no later directive
+runs to the end of the topic: `SC41-5612-02.boo` `2.17.1.2` opens
+`cz OFF CGRAPHIC` on record 442 line 11 and has no other directive after
+it; hosted (DT `19980522111551`) serves the five diagram rows in
+`<pre width="80">` up to the topic's end.
+
+*Arrows in a verbatim region.*  An arrow word (`U+2190`..`U+2193`) on a row of
+a `CZ` verbatim region is a drawn cell of that row.  `SC41-4870-00.boo`
+`1.10.3.1` record 100 line 15 follows `cz OFF CGRAPHIC` with the row
+`09 1B 09 00 0B 00 ...` at `0xF7BF`: the length byte, three blanks, the
+one-byte word `09` (`U+2192`), an attach token, `0B` (two `U+2500`), the
+attach, `name1`, and the same rule and arrow again.  Hosted
+(DT `19950913090941`) serves the row in `<pre width="80">` with each arrow
+as the byte `FF`; the code page the server writes has no arrow, and other
+books serve the same word as `22` or `19`.  The arrow is the drawn
+character; the substituted byte is not part of the format.
+
+*A control word inside a text row is text.*  The reader reads a control only
+from a display line whose first cell is not a blank, so a dictionary word
+spelled like a control name inside a text row is display text.
+`G544-3290-04.boo` `GLOSSARY.2` record 1472 line 3 is the row
+` | to any size.  The IBM outline font character sets have a CZ prefix.`,
+with the two-byte word `CZ` (`CE 82` at `0x19DF7C`) after `a`; hosted (DT
+`19950505123110`) prints the whole row, `CZ prefix.` included.
+
+*A glossary term spelled like a control.*  The term after `SRGLS` is the rest
+of its own display line even when it is spelled like a control name.
+`SY27-0327-05.boo` `ABBREVIATIONS` record 1330 line 66 is
+`02 97 95 05` at `0x146190`: length byte, `SRGLS` (`97`), `SI` (`95`) and
+the next line's length byte.  Hosted (DT `19961016091447`) serves
+`<a name="GLS SI">` before `SI.  Suppress Index.`.
 
 Unverified: a book whose `CBLDVERS=` value contains `BUILD` (`dfha3a09.boo`
 carries `1.3.1 of BUILD/VM ...`) is not opened with the post-heading

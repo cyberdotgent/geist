@@ -85,6 +85,9 @@ struct LineBuilder {
   // Inside `cz OFF XMP` .. `cz OFF EXMP`: the rows are verbatim example
   // text, not reflowed prose, so no visible token is a row-control slot.
   bool xmp_mode = false;
+  // The last anchor was an `SRFIG<id>` that opens no figure and no directive
+  // has followed it yet.
+  bool figure_anchor_open = false;
   // Inside `cz OFF COVER`/`cz OFF TIPAGE` .. their closers: the generated
   // title-page projection, whose rows the reader re-flows.  Its wide rows
   // carry the two-run leading whitespace the change-bar margin rule reads,
@@ -767,19 +770,38 @@ struct LineBuilder {
         // (DT 19921218151459) wraps exactly that row in
         // `<a name="TBLTBLUNIQ492">`.  Any other anchor still has no proven
         // row.
-        if (!box_envelope_anchor(item))
+        // An open drawing's bare anchor line wraps the row after it
+        // (`BoxRegion::anchor_lines`).
+        const auto anchor_line = std::any_of(
+            region.anchor_lines.begin(), region.anchor_lines.end(),
+            [&](const auto& at) {
+              return records[at.first].logical_record ==
+                         item.source.logical_record &&
+                     at.second < item.source.token_begin &&
+                     item.source.token_begin <
+                         display_line_end_at(at.first, at.second);
+            });
+        if (!anchor_line && !box_envelope_anchor(item))
           return fail(error,
                       "anchor inside a drawn box needs a native row position");
         const auto row = box_row_after(region, item.source);
         if (row == npos)
           return fail(error, "anchor inside a drawn box has no later row");
         auto& line = out.lines[first_row + row];
-        if (line.anchor_before)
+        // Two anchor lines in a row before one drawing row both name it:
+        // the earlier precedes the later, as a run of anchors before a
+        // flowed row does (`anchor_successors`).  cn7v8001 2.2.11 record
+        // 284 stores `SRSTPs11corv` and `SRSTPSTPUNIQ76` on lines 29-30.
+        if (line.anchor_before && !anchor_line)
           return fail(error, "drawn box row carries two anchors");
         ProseAnchorIR anchor;
         anchor.id = item.anchor_id;
         anchor.source = item.source;
         out.body_anchors.push_back(std::move(anchor));
+        out.anchor_successors.resize(out.body_anchors.size(), npos);
+        if (line.anchor_before)
+          out.anchor_successors[line.anchor_index] =
+              out.body_anchors.size() - 1;
         line.anchor_before = true;
         line.anchor_index = out.body_anchors.size() - 1;
         continue;
@@ -1533,9 +1555,17 @@ struct LineBuilder {
       if (inner.tag == "fn" || inner.tag == "table" || inner.tag == "etable" ||
           inner.tag == "fig" || inner.tag == "efig")
         continue;
+      // A second opener of the same tag only deepens the reader's region.
+      if (inner.tag == tag) continue;
+      // A verbatim region's opener deepens it as well, and the rows from
+      // there on are that region's (qb3auv00 5.3 record 472: `cz OFF
+      // CGRAPHIC`, its drawing, then `cz OFF XMP`).
+      if (cz_verbatim_region_tag(inner.tag)) return true;
       return false;
     }
-    return false;
+    // No later directive: the reader's `<pre>` stays open to the topic's
+    // end (SC41-5612-02 2.17.1.2 record 442, `cz OFF CGRAPHIC` on line 11).
+    return true;
   }
 
   // True when the directive after layout item `index` is its own
@@ -1559,8 +1589,8 @@ struct LineBuilder {
   // at 0x55AAB4), with no `cz OFF FIG` in the topic; hosted BookServer (DT
   // 19980528085436) prints every box row in the topic's own
   // `<pre width="132">`, exactly as for the `ELBLBOX` closers below.
-  // A closed drawn box of a CZ topic that stands where the reader is inside
-  // a `<pre>` by its own layout rules (re-read from the reader's CZ control
+  // A drawn box of a CZ topic that stands where the reader is inside a
+  // `<pre>` by its own layout rules (re-read from the reader's CZ control
   // dispatch; doc/boo-spec/markup.adoc, "Reading a CZ body"):
   //
   //   * before the first directive, inside the `<pre width="132">` the
@@ -1573,10 +1603,68 @@ struct LineBuilder {
   //     directive.  dfhla313 1.1.3.1 record 153 draws its `Important` box on
   //     lines 10-15 right after `cz OFF ETABLE 0 0` (line 8).
   //
+  //   * after any other region opener -- `cz OFF TABLE` with its rows after
+  //     `SRETBL`, `cz OFF FIG` -- which prints `</pre>` and its own
+  //     `<pre width="132">` until the next `cz FLOW`.  SG24-2083-01 BACK_1.2
+  //     record 1001 draws its `Redpieces` box (lines 6-17) after `SRETBL`,
+  //     `cz ON TABLE 4 4` (which the reader ignores) and no `cz FLOW`;
+  //     hosted (DT 19981124162140) prints it inside that `<pre>`;
+  //   * after an empty display line that ends a flowed block: the reader
+  //     prints `</pre><pre width="132">` there (rule 2).  b1bu1ab8 GLOSSARY
+  //     record 423 draws its first letter box (lines 20-23) after the
+  //     introduction's `cz FLOW P` paragraph and three empty lines.
+  //
+  // Inside a verbatim region (`cz OFF XMP`, a generic `cz OFF <tag>`, a
+  // labelled box) the region draws its own rows, so no separate box is
+  // planned there.  A drawing with no closed frame -- an open drawing or a
+  // syntax diagram the box planner proves -- is drawn the same way.
+  //
   // No directive may stand inside the box: a `cz FLOW` there closes the
   // reader's `<pre>` in the middle of the drawing.
-  bool cz_pre_zone_box(const BoxRegion& region) const {
-    if (!region.closed) return false;
+  bool cz_reader_pre_open(std::size_t at) {
+    bool pre = true;
+    bool region = false;
+    bool figure = false;
+    bool labelled = false;
+    for (std::size_t index = 0; index < at; ++index) {
+      const auto& item = items[index];
+      if (item.kind == ItemKind::token) {
+        if (is_bare(item.token) && blank_display_line(item.token)) pre = true;
+        continue;
+      }
+      if (item.kind != ItemKind::layout) continue;
+      const auto& directive = item.directive;
+      if (directive.mode == "flow") {
+        pre = false;
+        region = false;
+        continue;
+      }
+      if (directive.mode != "off" || directive.tag.empty()) continue;
+      if (directive.tag.front() == 'e') {
+        region = false;
+        if (directive.tag == "efig") figure = false;
+        if (directive.tag == "elblbox") labelled = false;
+        const bool named = directive.tag == "etable" ||
+                           directive.tag == "efig" ||
+                           directive.tag == "elblbox" ||
+                           directive.tag == "edl";
+        if (named && !figure && !labelled) pre = true;
+        continue;
+      }
+      pre = true;
+      if (directive.tag == "fig") figure = true;
+      if (directive.tag == "lblbox") labelled = true;
+      // `cz OFF MSGL` is the generic `CZ OFF` to the reader, but the CZ
+      // builder reads a message list's rows itself; a box there is the
+      // drawn heading of a message (`SRMSG` + box), printed as stored.
+      if (directive.tag != "table" && directive.tag != "fig" &&
+          directive.tag != "msgl")
+        region = true;
+    }
+    return pre && !region;
+  }
+
+  bool cz_pre_zone_box(const BoxRegion& region) {
     const auto inside = [&](const Item& item) {
       if (item.kind != ItemKind::token) return false;
       const auto record = item.token.record;
@@ -1598,15 +1686,10 @@ struct LineBuilder {
       }
     if (first == npos) return false;
     for (auto index = first; index <= last; ++index)
-      if (items[index].kind == ItemKind::layout) return false;
-    for (auto index = first; index-- > 0;) {
-      if (items[index].kind != ItemKind::layout) continue;
-      const auto& directive = items[index].directive;
-      return directive.mode == "off" &&
-             (directive.tag == "etable" || directive.tag == "efig" ||
-              directive.tag == "elblbox" || directive.tag == "edl");
-    }
-    return true;
+      if (items[index].kind == ItemKind::layout ||
+          items[index].kind == ItemKind::span)
+        return false;
+    return cz_reader_pre_open(first);
   }
 
   bool only_unopened_region_closers() const {
@@ -1759,6 +1842,13 @@ struct LineBuilder {
             // `named_closer_rows`).
             xmp_mode = true;
             generic_closer_rows = true;
+          } else if (item.directive.tag == "fig" && figure_anchor_open) {
+            // The `cz OFF FIG` of an `SRFIG<id>` that opens no figure: the
+            // reader prints `<pre width="132"><!-- figure -->` and the rows
+            // as stored, up to the next `cz FLOW` (SC33-6733-01 B.1.3.1,
+            // hosted DT 19990624).
+            xmp_mode = true;
+            generic_region_closer = "efig";
           } else if (generic_region_opener(index)) {
             xmp_mode = true;
             generic_region_closer = "e" + item.directive.tag;
@@ -1774,6 +1864,7 @@ struct LineBuilder {
             title_page_mode = false;
           }
         }
+        figure_anchor_open = false;
         out.directives.push_back(item.directive);
         current_directive = out.directives.size() - 1;
         // A row opened by the previous directive's trailing slot and a lone
@@ -1795,6 +1886,10 @@ struct LineBuilder {
         break;
       case ItemKind::anchor: {
         if (!finish_title() || !finish_index()) return false;
+        if (item.figure_anchor) {
+          out.figure_anchors = true;
+          figure_anchor_open = true;
+        }
         ProseAnchorIR anchor;
         anchor.id = item.anchor_id;
         anchor.source = item.source;
@@ -1845,6 +1940,25 @@ struct LineBuilder {
     // planned drawing region (`run` routes a region's tokens to `emit_box`).
     // Read as prose it would run its drawing's rows together (see the
     // stream's `drawn_arrow`), so the topic declines.
+    // Inside a CZ verbatim region every row is printed as stored, so the
+    // arrow is a drawn cell of its row like the region's box words
+    // (`drawn_region_cell`): SC41-4870-00 1.10.3.1 record 100 line 15
+    // `   ->__ name1 __->` directly under `cz OFF CGRAPHIC`, served in
+    // `<pre width="80">` (DT 19950630115246).  The word keeps its own glyph.
+    if (item.drawn_arrow && xmp_mode) {
+      if (!ensure_line()) return false;
+      if (pending_space && view.prefix != 0 && view.prefix != 1)
+        line().cells.push_back({npos, 0, " ", true});
+      for (const auto word : view.body)
+        line().cells.push_back(
+            {view.record, view.token, figure_display_glyph(word), false});
+      ++line_visible_cells;
+      letter_lookahead = false;
+      last_visible.clear();
+      pending_space = view.prefix != 2;
+      trailing_bare = 0;
+      return assign(view, ProseTokenRoleIR::text);
+    }
     if (item.drawn_arrow) {
       static constexpr char hex[] = "0123456789ABCDEF";
       std::string spelled;

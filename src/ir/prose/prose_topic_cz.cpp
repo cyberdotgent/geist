@@ -96,6 +96,26 @@ bool collect_layout_directive(
       segment.source_tokens.empty()
           ? nullptr
           : display_line_of_token(record, segment.source_tokens.front());
+  // The reader reads a control only from a display line whose first byte is
+  // not a blank; a row that starts with blanks is text whatever words it
+  // holds.  G544-3290-04 GLOSSARY.2 stores the row ` | to any size.  The
+  // IBM outline font character sets have a CZ prefix.`, and the dictionary
+  // word `CZ` in it opened a segment here; hosted prints the row.  A `cz`
+  // that is not the first token of its display line is such text: the
+  // segment's tokens re-enter the stream as row tokens.
+  if (opcode_line != nullptr &&
+      segment.source_tokens.front() > opcode_line->prefix_token + 1) {
+    for (const auto token : segment.source_tokens) {
+      Item item;
+      item.kind = ItemKind::token;
+      item.token = view_token(records, record_index, token);
+      items.push_back(std::move(item));
+    }
+    Item end;
+    end.kind = ItemKind::segment_end;
+    items.push_back(std::move(end));
+    return true;
+  }
   for (const auto token : segment.source_tokens) {
     const auto view = view_token(records, record_index, token);
     if (stage == 3 && opcode_line != nullptr &&
@@ -1691,13 +1711,27 @@ struct CzBuilder {
       } else if (inner.tag == "table" || inner.tag == "etable" ||
                  inner.tag == "fig" || inner.tag == "efig") {
         take(inner_rows, false);
+      } else if (cz_verbatim_region_tag(inner.tag)) {
+        // A verbatim region opened inside the generic one prints nothing
+        // at its opener (rule 5 only deepens the region); its rows are its
+        // own block (qb3auv00 5.3 record 472 `cz OFF CGRAPHIC` .. `cz OFF
+        // XMP`).
+        break;
+      } else if (inner.tag == tag) {
+        // A second opener of the same tag inside the open region prints
+        // nothing: the reader only counts its region depth (rule 5), so the
+        // rows go on in the same `<pre width="80">`.  SC41-3425-00
+        // APPENDIX1.2 record 1417 opens `cz OFF CGRAPHIC` on lines 25 and 32
+        // with no closer and no `cz FLOW` between them.
+        take(inner_rows, false);
       } else {
         return RegionOutcome::not_a_region;
       }
       ++closer_index;
     }
-    if (!closed && closer_index >= build.directives.size())
-      return RegionOutcome::not_a_region;
+    // With no later directive the reader's `<pre>` stays open to the end
+    // of the topic: SC41-5612-02 2.17.1.2 record 442 opens `cz OFF
+    // CGRAPHIC` on line 11 and draws its rows to the topic's end.
     // The region owns its opener and everything up to its closer (its own
     // rows included) or up to the `cz FLOW` that ends it.
     index = closed ? closer_index : closer_index - 1;
@@ -1947,9 +1981,11 @@ struct CzBuilder {
                       std::pair<std::size_t, std::size_t> range) {
     const auto& directives = build.directives;
     {
-      // A drawn box after a named region closer (`cz_pre_zone_box`): the
-      // closer reads the rows before it, and the box and the rows after it
-      // are the closer's verbatim stretch.
+      // A drawn box where the reader's `<pre>` is open (`cz_pre_zone_box`:
+      // after a region opener or closer, or after an empty line that ended
+      // the directive's flowed rows): the directive reads the rows before
+      // it, and the box and the rows after it, up to the next directive, are
+      // the verbatim stretch the reader prints as stored.
       std::size_t boxed = npos;
       if (range.first != npos)
         for (auto line = range.first; line < range.second; ++line)
@@ -1958,32 +1994,16 @@ struct CzBuilder {
             break;
           }
       if (boxed != npos) {
-        if (directive.mode != "off" ||
-            (directive.tag != "etable" && directive.tag != "efig" &&
-             directive.tag != "elblbox" && directive.tag != "edl"))
-          return fail(error, "internal: a drawn box follows cz " +
-                                 directive.mode + " " + directive.tag);
         const auto tail = range;
         range = boxed == range.first
                     ? std::pair<std::size_t, std::size_t>{npos, npos}
                     : std::pair<std::size_t, std::size_t>{range.first, boxed};
-        const auto head =
-            range.first == npos
-                ? std::vector<std::pair<std::size_t, std::size_t>>{}
-                : group_lines(lines, range.first, range.second,
-                              in_message_list(), &full_rules);
-        const auto name = "cz " + directive.mode + " " + directive.tag;
-        if (!handle(index, directive, range, head, name, directive.tag)) {
-          if (error != nullptr && error->rfind("cz ", 0) != 0)
-            *error = name + ": " + *error;
-          return false;
-        }
+        // The rows before the box hold no box: the directive reads them as
+        // it reads any rows.
+        if (!directive_rows(index, directive, range)) return false;
         if (!rows_around_boxes(boxed, tail.second,
                                [&](std::size_t begin, std::size_t stop) {
-                                 return paragraphs(
-                                     group_lines(lines, begin, stop,
-                                                 in_message_list(), &full_rules),
-                                     0);
+                                 return named_closer_rows({begin, stop});
                                }))
           return false;
         return true;
@@ -2175,6 +2195,20 @@ struct CzBuilder {
         const auto kind = (tag == "table" || tag == "etable")
                               ? ProseSpanKindIR::table
                               : ProseSpanKindIR::figure;
+        // An `SRFIG<id>` that opens no figure (`LineBuild::figure_anchors`)
+        // leaves its `cz OFF FIG` .. `cz OFF EFIG` pair no figure to
+        // delimit: the reader prints the rows of both as stored, in
+        // `<pre width="132"><!-- figure -->` and then the closer's
+        // `<pre width="132">` (SC33-6733-01 B.1.3.1, hosted DT 19990624).
+        if (build.figure_anchors && kind == ProseSpanKindIR::figure) {
+          const auto spanned =
+              std::any_of(topic.spans.begin(), topic.spans.end(),
+                          [](const ProseSpanIR& span) {
+                            return span.kind == ProseSpanKindIR::figure;
+                          });
+          if ((tag == "fig" && !groups.empty()) || !spanned)
+            return named_closer_rows(range);
+        }
         if (std::none_of(topic.spans.begin(), topic.spans.end(),
                          [kind](const ProseSpanIR& span) {
                            return span.kind == kind;

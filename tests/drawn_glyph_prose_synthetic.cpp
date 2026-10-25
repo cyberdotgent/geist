@@ -526,6 +526,232 @@ void styled_box_rows(bool envelope) {
 // 18-31) and goes on with `cz FLOW P 3 3` (line 33); hosted (DT
 // 19950807110137) prints the diagram rows in `<pre width="80">` and the
 // paragraph after `</pre>`.
+// A second `cz OFF CGRAPHIC` inside an open one only deepens the reader's
+// region (rule 5: depth > 0 counts, prints nothing), so the rows between and
+// after it stay rows of the first `<pre width="80">` up to the next
+// `cz FLOW`.  SC41-3425-00 APPENDIX1.2 record 1417 opens `cz OFF CGRAPHIC`
+// on line 25 (a one-row box insert), prints a text row, and opens it again
+// on line 32 before its next `cz FLOW P`.
+void nested_generic_opener() {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("CGRAPHIC")});
+  builder.line({sp(3), box(run(0x250C, 0x2500, 12, 0x2510))});
+  builder.line({sp(3), box({0x2502}), w("Inside"), sp(4), box({0x2502})});
+  builder.line({sp(3), box(run(0x2514, 0x2500, 12, 0x2518))});
+  builder.blank();
+  builder.line({sp(3), w("Between.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("CGRAPHIC")});
+  builder.line({sp(3), box({0x2502}), w("Second"), sp(4), box({0x2502})});
+  builder.blank();
+  builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "a nested generic opener declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(untagged(pre_body(html)), "   Between.") &&
+            contains(untagged(pre_body(html)), "| Second"),
+        "the rows of the nested opener left the region: " + html);
+  check(contains(html, "<p class=\"geist-paragraph\">After.</p>"),
+        "the paragraph after the region is not typed: " + html);
+}
+
+// An arrow word on a row of a CZ verbatim region is a drawn cell of that
+// row.  SC41-4870-00 1.10.3.1 record 100 line 15 is `   ->__ name1 __->`
+// right after `cz OFF CGRAPHIC`, both arrows the dictionary word U+2192;
+// hosted (DT 19950630115246) prints the row in `<pre width="80">`.  The
+// arrow keeps its own glyph (the reader's per-book display byte is no
+// character of the drawing).  Outside a drawing an arrow still declines.
+void arrow_in_verbatim_region(bool region) {
+  const Tok arrow{TokenWords{0x2192}, 2, 0};
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  if (region) builder.line({w("cz"), w("OFF"), w("CGRAPHIC")});
+  builder.line({sp(3), arrow, box(TokenWords(2, 0x2500)), w("name1"),
+                box(TokenWords(2, 0x2500)), arrow});
+  builder.blank();
+  builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  if (!region) {
+    check(!doc.has_value() || !contains(render_document_html_fragment(*doc),
+                                        "\xE2\x86\x92"),
+          "an arrow outside a drawing was typed as text");
+    return;
+  }
+  check(doc.has_value(), "an arrow in a verbatim region declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(untagged(pre_body(html)), "   \xE2\x86\x92 __ name1 __ \xE2\x86\x92"),
+        "the arrow row was not drawn: " + html);
+}
+
+// A step diagram: a blank-delimited run of rows with branch rails, one row
+// drawn from box words alone, and a bare `SR<id>` anchor line between two of
+// its rows naming the branch target.  SY27-0327-02 2.1.1 record 121 stores
+// `SRSTPSTPUNIQ13` between the rail rows of its `Yes  No` branch, and hosted
+// (DT 19931101160725) prints the run verbatim with
+// `<a name="STPSTPUNIQ13">    |</a>` around the row after the anchor line.
+// An anchor line closing the run belongs to what follows it; two anchor
+// lines in a row (cn7v8001 2.2.11 record 284 lines 29-30) both name the row
+// after them.
+void step_diagram_with_anchor(bool trailing, bool twice = false) {
+  Builder builder(false);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({sp(3), w("Question?")});
+  builder.line({sp(3), w("Yes"), sp(2), w("No")});
+  builder.line({sp(4), box({0x2502}), sp(4), box({0x2502})});
+  if (!trailing) builder.line({w("SRSTPNEXT")});
+  if (twice) builder.line({w("SRSTPOTHER")});
+  builder.line({sp(4), box({0x2502})});
+  builder.line({sp(4), box({0x2514, 0x2500, 0x2500})});
+  if (trailing) builder.line({w("SRSTPNEXT")});
+  builder.blank();
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), std::string("a step diagram with an anchor line ") +
+                             (trailing ? "after it" : "inside it") +
+                             " declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = untagged(pre_body(html));
+  check(contains(pre, "   Question?\n") && contains(pre, "    |__"),
+        "the step diagram was not drawn as stored: " + html);
+  check(contains(html, "id=\"STPNEXT\"") &&
+            (!twice || contains(html, "id=\"STPOTHER\"")),
+        "the anchor line inside the diagram was lost: " + html);
+}
+
+// An `SRFIG<id>` that opens no figure -- no picture selector and no
+// `SREFIG` anywhere after it in the topic -- is a bare anchor, and the rows
+// after it are read as the rows around it are.  SC41-5612-02 5.20.3 record
+// 444 stores `SRFIGFIGUNIQ223` above the `data-type:` syntax diagram and
+// never closes it; hosted (DT 19970827101707) serves
+// `<a name="FIGFIGUNIQ223">   <B>data-type:</B></a>` and the diagram rows.
+// In a CZ topic the opener is followed by `cz OFF FIG` .. `cz OFF EFIG`, and
+// the reader prints the rows between them as stored in
+// `<pre width="132"><!-- figure -->`: dfha6a04 2.10.1 record 337, the `ADD`
+// command's syntax diagram; hosted SC33-6733-01 B.1.3.1 (DT 19990624)
+// serves the same shape verbatim.
+void pictureless_figure_opener(bool cz) {
+  Builder builder(cz);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("SRFIGSYN1")});
+  if (cz) builder.line({w("cz"), w("OFF"), w("FIG")});
+  builder.line({sp(3), w(">>"), box(TokenWords(2, 0x2500)), w("ADd"),
+                box(TokenWords(2, 0x2500)), w("><")});
+  if (cz) {
+    builder.line({w("cz"), w("OFF"), w("EFIG"), w("0"), w("0")});
+    builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  } else {
+    builder.blank();
+  }
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), std::string("a pictureless figure opener ") +
+                             (cz ? "(CZ) " : "") + "declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(html, "id=\"FIGSYN1\""),
+        "the opener's anchor was lost: " + html);
+  check(contains(html, "ADd") && contains(html, "After."),
+        "the rows after the opener were lost: " + html);
+  check(!cz || contains(pre_body(html), "&gt;&gt;"),
+        "the CZ figure rows are not printed as stored: " + html);
+}
+
+// The reader reads a control only from a display line whose first byte is
+// not a blank: a row that starts with blanks is text, whatever words it
+// holds.  G544-3290-04 GLOSSARY.2 stores the row
+// ` | to any size.  The IBM outline font character sets have a CZ prefix.`
+// under `cz FLOW GD`; the dictionary word `CZ` in it is the text hosted
+// prints, not a layout control.
+void cz_word_inside_a_row() {
+  Builder builder(true);
+  builder.line({sp(3), w("Sets"), w("have"), w("a"), w("CZ"), w("prefix.")});
+  builder.blank();
+  builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "a row holding the word CZ declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(html, "Sets have a CZ prefix."),
+        "the words after CZ in a text row were dropped: " + html);
+}
+
+// A glossary term spelled like a control is still the term: SY27-0327-05
+// ABBREVIATIONS record 1330 stores `SRGLS SI` (the splitter opens a second
+// segment at `SI`), and hosted (DT 19961016091447) serves
+// `<a name="GLS SI">` before `SI.  Suppress Index.`.
+void glossary_term_spelled_like_a_control() {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("SRGLS"), w("SHM")});
+  builder.line({w("cz"), w("FLOW"), w("GD"), w("3"), w("3")});
+  builder.line({sp(3), w("SHM."), sp(2), w("Short"), w("hold.")});
+  builder.blank();
+  builder.line({w("SRGLS"), w("SI")});
+  builder.line({w("cz"), w("FLOW"), w("GD"), w("3"), w("3")});
+  builder.line({sp(3), w("SI."), sp(2), w("Suppress"), w("Index.")});
+  builder.blank();
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "a glossary term spelled SI declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(html, "id=\"GLS SI\"") && contains(html, "Short hold.</p>"),
+        "the SRGLS SI term was not its anchor: " + html);
+}
+
+// A generic region the topic never closes runs to the topic's end (the
+// reader's `<pre width="80">` stays open: SC41-5612-02 2.17.1.2 record 442
+// opens `cz OFF CGRAPHIC` on line 11 and has no later directive), and one
+// followed by another verbatim region's opener ends where that region
+// begins (qb3auv00 5.3 record 472: `cz OFF CGRAPHIC`, the positional
+// pattern drawing, a text row, then `cz OFF XMP`).
+void generic_region_unended(bool then_xmp) {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("CGRAPHIC")});
+  builder.line({sp(3), box({0x2502}), w("2"), box({0x2502})});
+  builder.line({sp(3), box({0x2514, 0x2500, 0x2518})});
+  builder.blank();
+  if (then_xmp) {
+    builder.line({sp(3), w("Example:")});
+    builder.blank();
+    builder.line({w("cz"), w("OFF"), w("XMP")});
+    builder.line({sp(5), w("CALL"), w("X")});
+    builder.line({w("cz"), w("OFF"), w("EXMP"), w("0"), w("0")});
+    builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+    builder.line({sp(3), w("After.")});
+  }
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), std::string("an unended generic region ") +
+                             (then_xmp ? "before XMP " : "") +
+                             "declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(untagged(pre_body(html)), "| 2 |"),
+        "the region rows were not drawn: " + html);
+  check(!then_xmp || (contains(html, "CALL X") && contains(html, "After.")),
+        "the rows after the region were lost: " + html);
+}
+
 void generic_region_ended_by_flow() {
   Builder builder(true);
   builder.line({sp(3), w("Lead.")});
@@ -757,18 +983,65 @@ void box_in_cz_pre_zone(bool after_closer) {
         "the definition list before the closer was lost: " + html);
 }
 
-// A closed box drawn in flowed CZ text -- after `cz FLOW P`, where the reader
-// has closed its `<pre>` -- has no proven reading and still declines.
-void box_in_cz_flow_declines() {
+// An empty display line after the rows of a `cz FLOW` ends the flowed block:
+// the reader prints `</pre><pre width="132">` there (rule 2), so a closed box
+// drawn after it, and the rows after the box up to the next directive, are
+// printed as stored.  SG24-5329-00 BACK_1 and b1bu1ab8 GLOSSARY record 423
+// draw their boxes after a `cz FLOW P` paragraph and empty lines; hosted
+// serves them inside `<pre width="132">`.  A box drawn directly under the
+// flowed rows -- where the reader's `<pre>` is closed -- has no proven
+// reading and still declines.
+void box_after_flowed_block(bool blank) {
   Builder builder(true);
   builder.line({sp(3), w("Lead.")});
-  builder.blank();
+  if (blank) builder.blank();
   note_box(builder, "Inside", 12, false);
   builder.blank();
+  builder.line({sp(3), w("Stored"), w("row.")});
+  builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  builder.line({sp(3), w("Flowed.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  if (!blank) {
+    check(!doc.has_value(), "a box directly under flowed CZ rows was typed");
+    return;
+  }
+  check(doc.has_value(), "a box after a flowed block declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(html, "<p class=\"geist-paragraph\">Lead.</p>") &&
+            contains(html, "<p class=\"geist-paragraph\">Flowed.</p>"),
+        "the flowed rows around the box are not paragraphs: " + html);
+  check(untagged(pre_body(html)) ==
+            "    ____________ \n   | Inside     |\n   |____________|",
+        "the box after the flowed block was not drawn: " + html);
+  check(contains(html, ">   Stored row.</pre>"),
+        "the row after the box is not printed as stored: " + html);
+}
+
+// A drawing with no closed frame before the first directive -- inside the
+// `<pre width="132">` the reader opens after the heading (rule 1) -- is drawn
+// as stored.  SC31-8778-01 2.11.3.49 record 1369 lines 11-24 draw the
+// `SECNET` syntax diagram before the topic's first directive; its rows close
+// no box but one of them (`|_|___________|________|`) is drawn from box
+// words alone, and hosted (DT 20001206) prints every row as stored.
+void open_drawing_in_cz_pre_zone() {
+  Builder builder(false);
+  builder.blank();
+  builder.line({sp(3), w("Yes"), sp(2), w("No")});
+  builder.line({sp(4), box({0x2502}), sp(4), box({0x2502})});
+  builder.blank();
+  builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
   builder.line({sp(3), w("After.")});
   std::string error;
-  check(!lower(builder, error).has_value(),
-        "a box in flowed CZ text was typed");
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "an open drawing in a CZ pre zone declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(untagged(pre_body(html)) == "   Yes   No\n    |     |",
+        "the open drawing was not drawn as stored: " + html);
+  check(contains(html, "<p class=\"geist-paragraph\">After.</p>"),
+        "the paragraph after the drawing is not typed: " + html);
 }
 
 // The broken bar U+00A6 is a row-margin revision mark like `|`: SC34-5559-00
@@ -823,6 +1096,8 @@ void glossary_letter_box(bool cz) {
                 attach(), box({0x2518})});
   builder.blank();
   builder.line({w("SRGLS"), w("access")});
+  // A CZ glossary flows each entry (b1bu1ab8 GLOSSARY record 423 line 26).
+  if (cz) builder.line({w("cz"), w("FLOW"), w("GD"), w("3"), w("3")});
   builder.line({sp(3), w("access."), sp(2), w("Entry.")});
   std::string error;
   const auto doc = lower(builder, error);
@@ -1082,7 +1357,10 @@ int main() {
   broken_bar_margin_mark();
   box_in_cz_pre_zone(false);
   box_in_cz_pre_zone(true);
-  box_in_cz_flow_declines();
+  box_after_flowed_block(false);
+  box_after_flowed_block(true);
+  open_drawing_in_cz_pre_zone();
+  glossary_letter_box(true);
   grid_inside_box();
   envelope_straddling_box(false);
   envelope_straddling_box(true);
@@ -1108,6 +1386,18 @@ int main() {
   styled_box_rows(false);
   styled_box_rows(true);
   generic_region_ended_by_flow();
+  nested_generic_opener();
+  cz_word_inside_a_row();
+  generic_region_unended(false);
+  generic_region_unended(true);
+  glossary_term_spelled_like_a_control();
+  pictureless_figure_opener(false);
+  pictureless_figure_opener(true);
+  step_diagram_with_anchor(false);
+  step_diagram_with_anchor(true);
+  step_diagram_with_anchor(false, true);
+  arrow_in_verbatim_region(true);
+  arrow_in_verbatim_region(false);
   unended_generic_region_declines();
   return 0;
 }

@@ -1165,6 +1165,9 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   const auto box_markup = box_markup_envelopes(records);
   const auto box_leaders = box_leading_anchors(records);
   const auto box_figure_openers = box_leading_figure_openers(records);
+  // Segments an earlier control read as its own operands (a glossary term
+  // the splitter opened as a control, `SRGLS SI`).
+  std::set<std::pair<std::size_t, std::size_t>> absorbed_segments;
   // Which dialect the topic is written in: a body that carries any `CZ`
   // control names every block boundary explicitly, a body that carries none
   // reconstructs its blocks from row geometry (doc/boo-spec/markup.adoc, "CZ layout
@@ -1489,12 +1492,22 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         // closes, so no segment owns it (DREICMST 1.5.5.4 record 162 token
         // 310, `U+2193` at 0x1B68D, the last cell of line 37).  The stream
         // carries it in source order; the line builder draws it inside a
-        // proven drawing region and declines it anywhere else.
-        if (title_seen && !menu_open && !cz_seen && !view.body.empty() &&
+        // proven drawing region and declines it anywhere else.  The CZ
+        // dialect stores the same words in the rows of its verbatim regions
+        // (SC41-4870-00 1.10.3.1 record 100 line 15 under `cz OFF
+        // CGRAPHIC`), where the line builder draws them as region cells; a
+        // token may join box words to the arrow (SC26-4721-01 16.3 record
+        // 827 token 12, `U+2514 U+2500 U+2192 U+2502`).
+        const auto arrow_word = [](std::uint16_t word) {
+          return word >= 0x2190 && word <= 0x2193;
+        };
+        if (title_seen && !menu_open && !view.body.empty() &&
             std::all_of(view.body.begin(), view.body.end(),
-                        [](const auto word) {
-                          return word >= 0x2190 && word <= 0x2193;
-                        })) {
+                        [&](const auto word) {
+                          return arrow_word(word) ||
+                                 box_word(word);
+                        }) &&
+            std::any_of(view.body.begin(), view.body.end(), arrow_word)) {
           const auto* line = display_line_of_token(record, token);
           if (line != nullptr && token != line->prefix_token) {
             Item item;
@@ -1526,6 +1539,8 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
       }
       for (const auto token : segment.source_tokens)
         if (token < claimed.size()) claimed[token] = true;
+      if (absorbed_segments.count({record_index, segment_index}) != 0)
+        continue;
       const auto lower_opcode = ascii_lower(segment.opcode);
       // The decoded-string splitter opens a segment wherever a word is
       // spelled like a control.  A word is only a control when the record
@@ -2378,6 +2393,35 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
               term += body_text(view);
             }
           }
+          // The rest of the control line can be a segment of its own when
+          // the term is spelled like a control: SY27-0327-05 ABBREVIATIONS
+          // record 1330 line 37 stores `SRGLS SI`, the splitter opened `SI`
+          // as a subject-index control, and hosted (DT 19961016091447)
+          // serves `<a name="GLS SI">`.  Its words are the term.
+          if (term.empty() && body_tokens.empty() &&
+              segment_index + 1 < record.control_segments.size()) {
+            const auto& next = record.control_segments[segment_index + 1];
+            if (!next.source_tokens.empty() &&
+                next.source_tokens.front() > control_line->prefix_token &&
+                next.source_tokens.back() < control_line->token_end) {
+              for (const auto token : next.source_tokens) {
+                const auto view = view_token(records, record_index, token);
+                if (is_padding(view) || is_separator(view)) {
+                  if (!ledger.assign(record_index, token,
+                                     ProseTokenRoleIR::padding, error))
+                    return false;
+                  continue;
+                }
+                if (!ledger.assign(record_index, token,
+                                   ProseTokenRoleIR::control, error))
+                  return false;
+                last = token;
+                if (!term.empty()) term.push_back(' ');
+                term += body_text(view);
+              }
+              absorbed_segments.insert({record_index, segment_index + 1});
+            }
+          }
           if (first == npos)
             return fail(error, "SRGLS control has no source token");
           if (term.empty()) {
@@ -2423,8 +2467,15 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             !segment.source_tokens.empty() &&
             inside_cz_verbatim(verbatim_regions, record_index,
                                segment.source_tokens.front());
+        // An `SRFIG<id>` that opens no figure is a bare anchor
+        // (`SpanPlan::anchor_figure_openers`, prose_topic_spans.cpp).
+        const auto figure_anchor =
+            build.plan != nullptr && !segment.source_tokens.empty() &&
+            build.plan->anchor_figure_openers.count(
+                {record_index, segment.source_tokens.front()}) != 0;
         if (segment.malformed || lower_opcode.rfind("sr", 0) != 0 ||
             (reserved_structural(lower_opcode) && !in_verbatim && !in_box &&
+             !figure_anchor &&
              !(!segment.source_tokens.empty() &&
                box_figure_openers.count(
                    {record_index, segment.source_tokens.front()}) != 0) &&
@@ -2540,6 +2591,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           Item item;
           item.kind = ItemKind::anchor;
           item.anchor_id = id;
+          item.figure_anchor = figure_anchor;
           item.source = token_slice(record, anchor_operands.front(),
                                     anchor_operands.back() + 1);
           build.items.push_back(std::move(item));
@@ -2593,6 +2645,7 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           Item item;
           item.kind = ItemKind::anchor;
           item.anchor_id = anchor.id;
+          item.figure_anchor = figure_anchor;
           item.source = anchor.source;
           build.items.push_back(std::move(item));
         }
