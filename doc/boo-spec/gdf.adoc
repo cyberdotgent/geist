@@ -477,11 +477,24 @@ color. Inside a figure, `0xc1`, `0xe1` and `0xc6` start a new contour;
 requested, strokes each closed contour in the boundary color and line type,
 then makes boundary lines visible again.
 
-Contours fill together by the non-zero winding rule. An edge and its exact
-reverse cancel: stroke-font areas carry out-and-back construction edges (in
-`packet.boo` resource `6` area 2, `(70.57216,89.05028) -> (80.720,96.337)`
-and its reverse in the `IPv6` title), and the hosted GIF shows no ink along
-them.
+Contours fill together by the even-odd rule: a pixel is inside when a ray
+from it crosses the figure's edges an odd number of times. Two consequences
+show in hosted GIFs:
+
+* an edge and its exact reverse cancel: stroke-font areas carry out-and-back
+  construction edges (in `packet.boo` resource `6` area 2,
+  `(70.57216,89.05028) -> (80.720,96.337)` and its reverse in the `IPv6`
+  title), and the hosted GIF shows no ink along them;
+* a face traced twice stays empty: `BLGR8MST.BOO` resource 10 draws its 3-D
+  bars as `68 c0` figures (the first at payload offset `0x658`) whose `c1`
+  runs round each face twice, `(48.1,49.1) (48.1,52.23) (50.08,54.93)
+  (50.08,51.84)` and again back to the start, under dot pattern `28 04`.
+  The hosted GIF shows only the boundary lines; a winding-number fill would
+  cover the faces with the pattern.
+
+Filling by the even-odd rule also leaves no stray pixels at the shared edges
+of `KAKHMST.BOO` resources 2, 3, 4 and 28 and `GC33-0805-00.boo` resources 1
+and 2, which a winding-number fill marks.
 
 `packet.boo` resource 2 (file offset `0x00000238`) shows the plain form: each
 filled packet-field rectangle is `26 02 00 06`, `68 80`, `26 02 00 08`, a

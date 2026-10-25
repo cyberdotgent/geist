@@ -328,9 +328,6 @@ void draw_marker(RgbaImage& image, const Marker& marker, int x, int y) {
   }
 }
 
-// Fills a figure: all its contours together, each implicitly closed.  An edge
-// and its exact reverse cancel (stroke-font construction edges run out and
-// back), and the rest fill by the non-zero winding rule.
 // The dot patterns, densities 1..7: four rows of eight pixels, most
 // significant bit leftmost, repeating every 4 rows and 8 columns of the
 // canvas.  Canvas row y uses row 3 - (y mod 4).
@@ -370,6 +367,9 @@ bool interior_inked(const FilledArea& area, int x, int y) {
   }
 }
 
+// Fills a figure: all its contours together, each implicitly closed, by the
+// even-odd rule, as the reference does: a face traced twice stays empty, and
+// stroke-font construction edges that run out and back cancel.
 void fill_area(RgbaImage& image,
                const std::vector<std::vector<std::pair<int, int>>>& contours,
                const FilledArea& area) {
@@ -396,53 +396,49 @@ void fill_area(RgbaImage& image,
       if (x0 == x1 && y0 == y1) {
         continue;
       }
-      const std::array<int, 4> reverse_key{x1, y1, x0, y0};
-      const auto reverse = pending_edges.find(reverse_key);
-      if (reverse != pending_edges.end() && !reverse->second.empty()) {
-        edges[reverse->second.back()] = {0, 0, 0, 0};
-        reverse->second.pop_back();
-        if (reverse->second.empty()) {
-          pending_edges.erase(reverse);
+      // Two copies of one edge, in either direction, cross every scan line
+      // at the same point and cancel under the even-odd rule; dropping both
+      // keeps them from leaving a one-pixel sliver.
+      const std::array<int, 4> key = x0 < x1 || (x0 == x1 && y0 < y1)
+                                         ? std::array<int, 4>{x0, y0, x1, y1}
+                                         : std::array<int, 4>{x1, y1, x0, y0};
+      const auto twin = pending_edges.find(key);
+      if (twin != pending_edges.end() && !twin->second.empty()) {
+        edges[twin->second.back()] = {0, 0, 0, 0};
+        twin->second.pop_back();
+        if (twin->second.empty()) {
+          pending_edges.erase(twin);
         }
         continue;
       }
 
       const auto index = edges.size();
       edges.push_back(Edge{x0, y0, x1, y1});
-      pending_edges[{x0, y0, x1, y1}].push_back(index);
+      pending_edges[key].push_back(index);
     }
   }
 
   min_y = std::max(0, min_y);
   max_y = std::min(static_cast<int>(image.height) - 1, max_y);
   for (int y = min_y; y <= max_y; ++y) {
-    std::vector<std::pair<int, int>> nodes;
+    std::vector<int> nodes;
     for (const auto& edge : edges) {
       if (edge.x0 == edge.x1 && edge.y0 == edge.y1) {
         continue;
       }
       if ((edge.y0 < y && edge.y1 >= y) ||
           (edge.y1 < y && edge.y0 >= y)) {
-        nodes.emplace_back(edge.x0 + (y - edge.y0) * (edge.x1 - edge.x0) /
-                                         (edge.y1 - edge.y0),
-                           edge.y1 > edge.y0 ? 1 : -1);
+        nodes.push_back(edge.x0 + (y - edge.y0) * (edge.x1 - edge.x0) /
+                                      (edge.y1 - edge.y0));
       }
     }
     std::sort(nodes.begin(), nodes.end());
-    int winding = 0;
-    int begin = 0;
-    for (const auto& [x, direction] : nodes) {
-      if (winding == 0) {
-        begin = x;
-      }
-      winding += direction;
-      if (winding == 0) {
-        const int fill_begin = std::max(0, begin);
-        const int fill_end = std::min(static_cast<int>(image.width) - 1, x);
-        for (int xx = fill_begin; xx <= fill_end; ++xx) {
-          if (interior_inked(area, xx, y)) {
-            set_pixel(image, xx, y, fill);
-          }
+    for (std::size_t i = 0; i + 1 < nodes.size(); i += 2) {
+      const int fill_begin = std::max(0, nodes[i]);
+      const int fill_end = std::min(static_cast<int>(image.width) - 1, nodes[i + 1]);
+      for (int xx = fill_begin; xx <= fill_end; ++xx) {
+        if (interior_inked(area, xx, y)) {
+          set_pixel(image, xx, y, fill);
         }
       }
     }

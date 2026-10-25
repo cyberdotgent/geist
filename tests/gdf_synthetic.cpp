@@ -480,6 +480,37 @@ void test_text_fails_closed() {
   require_rejected(spaced, "character spacing", "character spacing");
 }
 
+// --- fill rule ---------------------------------------------------------------
+
+// Figures fill by the even-odd rule: a face traced twice in the same
+// direction (BLGR8MST resource 10's 3-D bars) stays empty, and a contour
+// inside another, drawn the same way round, is a hole.
+void test_even_odd_fill() {
+  Bytes twice = header();
+  segment(twice);
+  normal(twice, 0x66, {0x00, 0x02});
+  short_order(twice, 0x68, 0x80);
+  normal(twice, 0xc1, points({20.0, 20.0, 80.0, 20.0, 80.0, 80.0, 20.0, 80.0,
+                              20.0, 20.0, 80.0, 20.0, 80.0, 80.0, 20.0, 80.0,
+                              20.0, 20.0}));
+  normal(twice, 0x60, {});
+  normal(twice, 0x66, {0xff, 0x07});
+  normal(twice, 0xc1, points({0.0, 95.0, 100.0, 95.0}));
+  const auto traced = geist::detail::decode_gdf_to_rgba(twice);
+  require_pixel(traced, 500, 368, white, "face traced twice");
+
+  Bytes ring = header();
+  segment(ring);
+  normal(ring, 0x66, {0x00, 0x02});
+  short_order(ring, 0x68, 0x80);
+  normal(ring, 0xc1, points({10.0, 10.0, 90.0, 10.0, 90.0, 90.0, 10.0, 90.0}));
+  normal(ring, 0xc1, points({40.0, 40.0, 60.0, 40.0, 60.0, 60.0, 40.0, 60.0}));
+  normal(ring, 0x60, {});
+  const auto holed = geist::detail::decode_gdf_to_rgba(ring);
+  require_pixel(holed, 500, 368, white, "inner contour is a hole");
+  require_pixel(holed, 200, 368, Rgb{255, 0, 0}, "ring interior");
+}
+
 // --- markers -----------------------------------------------------------------
 
 Bytes marker_picture(const std::function<void(Bytes&)>& add) {
@@ -671,6 +702,7 @@ int main() {
     test_text_quarter_turn();
     test_text_control_bytes();
     test_text_fails_closed();
+    test_even_odd_fill();
     test_markers();
     test_markers_fail_closed();
     test_unsupported_orders_fail_closed();
