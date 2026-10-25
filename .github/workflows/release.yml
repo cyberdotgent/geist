@@ -3,15 +3,18 @@
 
 # Release artefacts, built by independent jobs:
 #
-#   windows-dist    the Windows zip: the CLI tools, the shared library and the
-#                   Geist Hardcopy Reader, with the Qt runtime it needs to start
-#   linux-appimage  the reader as an AppImage, for amd64 and arm64
+#   windows-dist    the Windows zip: the CLI tools and the shared library
+#   win32-reader    the native Win32 Geist BOO Reader, one standalone .exe
+#                   (win32-reader.yml); it replaces the Qt reader on Windows
+#   macos-dist      the macOS DMG (macos-dmg.yml)
+#   linux-appimage  the Qt reader as an AppImage, for amd64 and arm64
 #   linux-spec      the BOO format specification as a PDF
 #
 # Pushing a tag publishes all of them to one GitHub Release, creating the
 # release first if it does not exist. A normal manual run builds run artifacts
 # without publishing. The explicit Windows recovery input instead rebuilds an
-# existing immutable tag and attaches only its missing Windows assets.
+# existing immutable tag and attaches only its missing Windows assets (the
+# zip and the Win32 reader).
 #
 # The jobs run concurrently and any of them may be first to the release, so
 # each treats "already created" as success rather than a collision.
@@ -33,10 +36,6 @@ on:
 permissions:
   contents: read
 
-env:
-  QT_VERSION: "6.8.1"
-  QT_ARCH: win64_msvc2022_64
-
 jobs:
   macos-dist:
     if: inputs.windows_release_tag == ''
@@ -44,9 +43,15 @@ jobs:
     permissions:
       contents: write
 
+  win32-reader:
+    uses: ./.github/workflows/win32-reader.yml
+    with:
+      release_tag: ${{ inputs.windows_release_tag }}
+    permissions:
+      contents: write
+
   windows-dist:
     name: Windows x64 distribution
-    # Keep the compiler aligned with the supplied Qt MSVC 2022 binaries.
     # windows-latest moved to VS 2026; select the supported compiler explicitly.
     runs-on: windows-2022
     permissions:
@@ -110,18 +115,6 @@ jobs:
           "name=geist-$version-windows-x64" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "Version $version (publish a release: $publish)"
 
-      # Qt is supplied here rather than by vcpkg: vcpkg's qtwebengine port is
-      # a from-source Chromium build measured in hours. qtwebengine does not
-      # pull qtwebchannel or qtpositioning in on its own, and omitting them
-      # surfaces late as a missing-target error at configure time.
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: ${{ env.QT_VERSION }}
-          arch: ${{ env.QT_ARCH }}
-          modules: qtwebengine qtwebchannel qtpositioning
-          cache: true
-
       # The root CMakeLists discovers the vcpkg toolchain from VCPKG_ROOT.
       # The runner image preinstalls it, but assert that rather than letting
       # a changed image surface as a confusing libpng/giflib failure.
@@ -148,8 +141,10 @@ jobs:
           Write-Host "vcpkg toolchain: $toolchain"
           "VCPKG_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      # GEIST_BUILD_GUI=ON, never AUTO: AUTO would quietly skip the reader if
-      # Qt were missing and ship a GUI-less zip that still looked successful.
+      # The Windows reader ships as its own standalone executable
+      # (win32-reader); this zip carries the CLI tools and the shared library
+      # only, so neither reader is built here. Both are pinned OFF rather
+      # than left at AUTO so the job cannot quietly change shape.
       - name: Configure
         shell: pwsh
         run: |
@@ -162,12 +157,12 @@ jobs:
           # standards-conforming processor without changing release sources.
           cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
             -DCMAKE_CXX_FLAGS="/Zc:lambda" `
-            -DGEIST_BUILD_GUI=ON `
-            -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" `
+            -DGEIST_BUILD_GUI=OFF `
+            -DGEIST_BUILD_WIN32_READER=OFF `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
 
       # MSVC generators are multi-config, so the configuration is chosen here
-      # and the binaries land in build/Release and build/gui/Release.
+      # and the binaries land in build/Release.
       - name: Build
         shell: pwsh
         run: cmake --build build --config Release --parallel
@@ -177,19 +172,13 @@ jobs:
         working-directory: build
         run: ctest --build-config Release --output-on-failure --parallel 4
 
-      # The reader's directory is copied first because windeployqt has already
-      # assembled the Qt runtime, QtWebEngineProcess.exe and its resource and
-      # locale trees there. The CLI tools and the shared library join it, so
-      # the zip is one flat directory a user can run from anywhere.
+      # The CLI tools and the shared library with its libpng/giflib DLLs, in
+      # one flat directory a user can run from anywhere.
       - name: Assemble distribution
         shell: pwsh
         run: |
           $dist = "dist/${{ steps.version.outputs.name }}"
           New-Item -ItemType Directory -Force -Path $dist | Out-Null
-
-          # The reader first: windeployqt has already assembled the Qt
-          # runtime, QtWebEngineProcess.exe and its resource trees there.
-          Copy-Item -Path "build/gui/Release/*" -Destination $dist -Recurse -Force
 
           # Name what ships. build/Release also holds every test executable
           # and the benchmark, and a glob over *.exe sweeps all of them into
@@ -205,9 +194,16 @@ jobs:
             Copy-Item -Destination $dist -Force
 
           # Apache-2.0 section 4 requires the licence to travel with the
-          # binaries. Third-party notices for the bundled Qt, Chromium,
-          # libpng and giflib are still outstanding.
+          # binaries, and the bundled libpng, zlib and giflib DLLs carry
+          # their own notices.
           Copy-Item -Path "LICENSE" -Destination $dist -Force
+          New-Item -ItemType Directory -Force -Path "$dist/ThirdPartyLicenses" | Out-Null
+          foreach ($port in 'libpng', 'zlib', 'giflib') {
+            $copyright = "build/vcpkg_installed/x64-windows/share/$port/copyright"
+            if (Test-Path $copyright) {
+              Copy-Item $copyright "$dist/ThirdPartyLicenses/$port.txt"
+            }
+          }
 
           # Build by-products that have no business in a distribution.
           Get-ChildItem -Path $dist -Recurse -File |
@@ -226,13 +222,12 @@ jobs:
           $dist = "dist/${{ steps.version.outputs.name }}"
           $missing = @()
 
-          # The CLI tools, the reader, and the WebEngine helper process the
-          # reader cannot render a topic without.
+          # The CLI tools and the third-party notices.
           $required = @(
             'booinfo.exe', 'bootoc.exe', 'boorsrc.exe',
             'boorender.exe', 'bootrace.exe', 'boo2git.exe',
-            'geist-hardcopy.exe', 'QtWebEngineProcess.exe',
-            'Qt6WebEngineWidgets.dll', 'Qt6Widgets.dll'
+            'ThirdPartyLicenses/libpng.txt', 'ThirdPartyLicenses/zlib.txt',
+            'ThirdPartyLicenses/giflib.txt'
           )
           foreach ($file in $required) {
             if (-not (Test-Path (Join-Path $dist $file))) { $missing += $file }
@@ -262,8 +257,13 @@ jobs:
             throw "Distribution is missing: $($missing -join ', ')"
           }
 
-          # The Apache module does not exist yet and must never be shipped
-          # here even once it does.
+          # No Qt reader on Windows any more: it was replaced by the
+          # standalone Win32 reader.
+          $qt = Get-ChildItem -Path $dist -Recurse -File |
+            Where-Object { $_.Name -like 'Qt6*' -or $_.Name -like 'geist-hardcopy*' }
+          if ($qt) { throw "Distribution contains Qt reader files: $($qt.Name -join ', ')" }
+
+          # The Apache module must never be shipped here.
           # Binaries only: a stray licence or notice file mentioning Apache
           # is not an Apache module and must not fail the build.
           $forbidden = Get-ChildItem -Path $dist -Recurse -File |

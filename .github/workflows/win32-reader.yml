@@ -1,0 +1,219 @@
+# Copyright 2026 Yvan Janssens
+# SPDX-License-Identifier: Apache-2.0
+
+# The native Win32 Geist BOO Reader: one standalone executable.
+#
+#   msvc   builds with MSVC on windows-2022 against static vcpkg libraries
+#          (x64-windows-static, /MT), runs the test suite, checks the
+#          executable imports only Windows DLLs and embeds its manifest and
+#          licence notices, and uploads it as a run artifact. On a tag, or
+#          for an explicit recovery tag, it attaches the .exe and its
+#          SHA-256 to the GitHub Release.
+#   mingw  cross-builds the same reader with MinGW-w64 on Linux, proving the
+#          second toolchain, and runs the same executable check.
+#
+# Runs on every push to main and on demand, so a build can be downloaded
+# from the Actions run; release.yml calls it for tags.
+name: Win32 reader
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: "Attach missing Win32 reader assets to this existing release tag (recovery)"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  msvc:
+    name: Win32 reader (MSVC)
+    runs-on: windows-2022
+    permissions:
+      contents: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
+
+      # A tag (or recovery tag) names and publishes the build; anything else
+      # is identified by its commit and only uploaded as a run artifact.
+      - name: Determine version
+        id: version
+        shell: pwsh
+        env:
+          RECOVERY_TAG: ${{ inputs.release_tag }}
+        run: |
+          if ($env:RECOVERY_TAG) {
+            $tag = $env:RECOVERY_TAG
+            if ($tag -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
+              throw "Invalid release tag: $tag"
+            }
+            $expected = git rev-parse --verify "refs/tags/$tag^{commit}"
+            if ($LASTEXITCODE -ne 0 -or (git rev-parse HEAD) -ne $expected) {
+              throw "Checkout does not match release tag $tag"
+            }
+            $version = $tag; $publish = 'true'
+          } elseif ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $version = $env:GITHUB_REF_NAME; $publish = 'true'
+          } else {
+            $version = $env:GITHUB_SHA.Substring(0, 7); $publish = 'false'
+          }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "publish=$publish" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "name=geist-boo-reader-$version-windows-x64" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Version $version (publish: $publish)"
+
+      - name: Locate vcpkg
+        shell: pwsh
+        run: |
+          $root = $env:VCPKG_ROOT
+          if (-not $root) { $root = $env:VCPKG_INSTALLATION_ROOT }
+          if (-not $root -and (Test-Path 'C:/vcpkg')) { $root = 'C:/vcpkg' }
+          if (-not $root -or -not (Test-Path "$root/scripts/buildsystems/vcpkg.cmake")) {
+            throw "No vcpkg on this runner; the reader needs static libpng/giflib from it."
+          }
+          "VCPKG_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # x64-windows-static gives static libpng, zlib and giflib built with the
+      # static C runtime; the project is built with the same (/MT) so that
+      # nothing but Windows itself is needed beside the executable. The CLI
+      # tools and the shared library built alongside are not shipped from here.
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows-static `
+            "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded`$<`$<CONFIG:Debug>:Debug>" `
+            -DGEIST_BUILD_GUI=OFF -DGEIST_BUILD_WIN32_READER=ON
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config Release --parallel
+
+      # Includes win32_reader_core_test, win32_reader_executable_test and the
+      # reader's --version in tool_versions_test.
+      - name: Run tests
+        shell: pwsh
+        working-directory: build
+        run: ctest --build-config Release --output-on-failure --parallel 4
+
+      - name: Verify the executable
+        shell: pwsh
+        run: |
+          $exe = 'build/win32/Release/geist-boo-reader.exe'
+          python win32/verify_exe.py $exe --require-notices --print
+          if ($LASTEXITCODE -ne 0) { throw "The reader is not standalone or lacks its manifest/notices" }
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $dumpbin = & $vswhere -latest -find 'VC\Tools\MSVC\**\bin\Hostx64\x64\dumpbin.exe' | Select-Object -First 1
+          if ($dumpbin) { & $dumpbin /nologo /dependents $exe }
+          $version = Start-Process -FilePath $exe -ArgumentList '--version' -Wait -NoNewWindow -PassThru `
+            -RedirectStandardOutput version.txt
+          Get-Content version.txt
+          if ($version.ExitCode -ne 0) { throw "--version failed" }
+
+      - name: Stage
+        shell: pwsh
+        run: |
+          $name = "${{ steps.version.outputs.name }}"
+          $dist = "dist/$name"
+          New-Item -ItemType Directory -Force -Path "$dist/ThirdPartyLicenses" | Out-Null
+          Copy-Item build/win32/Release/geist-boo-reader.exe "$dist/$name.exe"
+          Copy-Item LICENSE $dist
+          $share = 'build/vcpkg_installed/x64-windows-static/share'
+          foreach ($port in 'libpng', 'zlib', 'giflib') {
+            Copy-Item "$share/$port/copyright" "$dist/ThirdPartyLicenses/$port.txt"
+          }
+          $hash = (Get-FileHash "$dist/$name.exe" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $name.exe" | Out-File -FilePath "$dist/$name.exe.sha256" -Encoding ascii
+          Get-ChildItem -Recurse $dist | ForEach-Object { $_.FullName }
+
+      # The directory is uploaded (GitHub zips it): the executable, its
+      # checksum and the licence texts, which are also inside the executable
+      # (Help > Licences).
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.name }}
+          path: dist/${{ steps.version.outputs.name }}
+          if-no-files-found: error
+          retention-days: 30
+
+      # Attach the .exe and its checksum. Never replaces an existing asset;
+      # a recovery run only fills in what is missing.
+      - name: Attach to release
+        if: steps.version.outputs.publish == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RECOVERY_TAG: ${{ inputs.release_tag }}
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $PSNativeCommandUseErrorActionPreference = $false
+          $tag = "${{ steps.version.outputs.version }}"
+          $name = "${{ steps.version.outputs.name }}"
+          $dist = "dist/$name"
+          gh release view $tag 2>&1 | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            if ($env:RECOVERY_TAG) { throw "Recovery release $tag does not exist" }
+            gh release create $tag --title $tag --generate-notes
+            if ($LASTEXITCODE -ne 0) {
+              gh release view $tag 2>&1 | Out-Null
+              if ($LASTEXITCODE -ne 0) { throw "Could not create release $tag" }
+            }
+          }
+          $assets = @(gh release view $tag --json assets --jq '.assets[].name')
+          $files = @("$dist/$name.exe", "$dist/$name.exe.sha256") |
+            Where-Object { $assets -notcontains (Split-Path $_ -Leaf) }
+          if (-not $files) { Write-Host "Win32 reader assets already attached to $tag"; exit 0 }
+          gh release upload $tag @files
+          if ($LASTEXITCODE -ne 0) { throw "Could not attach the Win32 reader to $tag" }
+
+  mingw:
+    name: Win32 reader (MinGW-w64 cross build)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
+
+      - name: Install the toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake make g++-mingw-w64-x86-64 python3 curl xz-utils
+
+      - name: Build static dependencies
+        run: win32/build_mingw_dependencies.sh "$RUNNER_TEMP/mingw-deps"
+
+      - name: Configure and build
+        run: |
+          cmake -S . -B build-mingw -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$PWD/win32/toolchain-mingw-w64.cmake" \
+            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/mingw-deps" \
+            -DGEIST_BUILD_GUI=OFF -DGEIST_BUILD_WIN32_READER=ON
+          cmake --build build-mingw --target geist-boo-reader win32_reader_core_test --parallel "$(nproc)"
+
+      - name: Verify the executable
+        run: |
+          exe=build-mingw/win32/geist-boo-reader.exe
+          python3 win32/verify_exe.py "$exe" --require-notices
+          x86_64-w64-mingw32-objdump -p "$exe" | grep 'DLL Name'
+          sha256sum "$exe"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: geist-boo-reader-mingw-${{ github.sha }}
+          path: build-mingw/win32/geist-boo-reader.exe
+          if-no-files-found: error
+          retention-days: 14
