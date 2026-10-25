@@ -21,6 +21,7 @@
 // never opcode/operand material. The ledger additionally records any residual
 // disagreement as a typed conflict on the affected run only.
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/layout/layout_ir.hpp"
 #include "geist/detail/layout/ownership_ir.hpp"
 #include "test_failures.hpp"
@@ -263,11 +264,85 @@ void run_scoped_conflict_leaves_other_runs_owned() {
           "a ledger with missing conflicts passed verification");
 }
 
+// A display line whose length byte has an empty dictionary spelling.
+// dfhs4c00 1.2 logical record 48: line 15 is
+// `cfont 16 6 E 23 10 E 34 1 E 36 7 E 44 11 E`, and line 16 opens with
+// token 315, encoded value 17 (one byte `11` at 0x357F1) -- the row's length
+// byte, whose dictionary entry spells no word at all -- followed by the
+// table row `   |            Remote statistics - shipped definitions   |`.
+// The layout opens the row at that byte as its marker slot, but a token
+// with no words has no source cell to own, so the ledger can hold no marker
+// cell for the row.  228 topics of the book were rejected for it.
+void empty_length_byte_marker_owns_no_cell() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 48;
+  const auto add = [&](std::uint16_t value, TokenWords words) {
+    record.encoded_tokens.push_back({value, 1});
+    record.tokens.push_back(std::move(words));
+  };
+  add(4, {' '});
+  add(0x50, ascii("cfont"));
+  add(0x51, ascii("3"));
+  add(0x52, ascii("6"));
+  add(12, ascii("E"));
+  add(3, {});
+  add(0x54, ascii("   "));
+  add(0x55, ascii("Remote"));
+  add(0x56, ascii("statistics"));
+  record.assembled =
+      geist::detail::assemble_logical_record_with_sources(record.tokens);
+  record.ir.logical_record = record.logical_record;
+  std::uint32_t byte = 0;
+  for (std::size_t token = 0; token < record.tokens.size(); ++token) {
+    const auto encoded = record.encoded_tokens[token];
+    const auto spacing = !record.tokens[token].empty() &&
+                         record.tokens[token].front() < 4;
+    record.ir.tokens.push_back(
+        {token, encoded, record.tokens[token],
+         {byte, static_cast<std::uint32_t>(byte + encoded.width)}, spacing,
+         spacing ? record.tokens[token].front() : std::uint16_t{3}});
+    byte += encoded.width;
+  }
+  record.ir.payload_range = {0, byte};
+  geist::detail::assign_display_line_framing(record.ir);
+  require(record.ir.display_lines_parse,
+          "empty length byte: synthetic framing did not parse");
+  record.control_segments = geist::detail::decode_control_segments(
+      record.logical_record, record.assembled, record.encoded_tokens,
+      record.ir.display_lines);
+  // The layout's row, as the book's real one: it opens at the wordless
+  // length byte (token 5), which is its marker slot, and draws the row.
+  geist::detail::LayoutIR layout;
+  geist::detail::DisplayRunIR run;
+  run.id = 1;
+  geist::detail::PhysicalRowIR row;
+  row.run = 1;
+  row.logical_record = 48;
+  row.segment_index = 0;
+  row.token_begin = 5;
+  row.token_end = 9;
+  row.native_origin = 3;
+  row.start = geist::detail::PhysicalRowStartKind::explicit_marker_slot;
+  row.break_before = geist::detail::PhysicalBreakKind::hard_paragraph;
+  row.marker = geist::detail::MarkerSlotIR{48, 5, 3, 1,
+                                           record.ir.tokens[5].byte_range, ""};
+  row.visible_text = "Remote statistics";
+  run.rows.push_back(row);
+  layout.runs.push_back(run);
+  std::string error;
+  const auto ownership = geist::detail::build_ownership_ir({record}, layout);
+  const auto verified = geist::detail::verify_ownership_ir(
+      {record}, layout, ownership, &error);
+  if (!verified) std::cerr << "  " << error << '\n';
+  require(verified, "empty length byte: ownership failed verification");
+}
+
 } // namespace
 
 int main() {
   class1_sretbl_rule_absorbed_by_opcode();
   class2_cmitem_rail_absorbed_by_operand();
   run_scoped_conflict_leaves_other_runs_owned();
+  empty_length_byte_marker_owns_no_cell();
   return 0;
 }

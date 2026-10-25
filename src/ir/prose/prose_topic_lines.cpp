@@ -2048,6 +2048,17 @@ struct LineBuilder {
       return assign(view, ProseTokenRoleIR::index_keyword);
     }
 
+    // A length byte whose dictionary entry spells nothing at all -- no word
+    // and no attach control -- still opens its display line.  dfhs4c00
+    // spells most of its length bytes that way: record 41 line 28 opens
+    // with token 216 (value 18, `12` at 0x34C91, no words) in front of
+    // `       FUNCTION = ...`, right after the `cfont` line that styles it.
+    // Read as a bare spacing token, the byte left the row glued to the one
+    // above it (`@BANNER_END       FUNCTION = ...`).
+    if (is_bare(view) && !view.has_prefix && opens_display_line(view) &&
+        !blank_display_line(view))
+      return row_control_length_byte(index);
+
     if (is_bare(view)) {
       pending_space = false;
       if (blank_display_line(view)) ++trailing_bare;

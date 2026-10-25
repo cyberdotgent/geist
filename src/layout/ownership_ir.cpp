@@ -576,7 +576,19 @@ bool verify_ownership_ir_against(
       if (found == row_counts.end() || found->second.visible == 0)
         return fail("physical row owns no visible source cell");
       const auto& physical = run.rows[row];
-      if (physical.marker && found->second.markers == 0)
+      // A marker slot whose token spells no word has no source cell to own:
+      // dfhs4c00 1.2 record 48 opens line 16 with the length byte `11` at
+      // 0x357F1, whose dictionary entry is empty.
+      const auto wordless_marker = [&]() {
+        const auto source = std::find_if(
+            records.begin(), records.end(), [&](const auto& record) {
+              return record.logical_record == physical.marker->logical_record;
+            });
+        return source != records.end() &&
+               physical.marker->token_index < source->tokens.size() &&
+               source->tokens[physical.marker->token_index].empty();
+      };
+      if (physical.marker && found->second.markers == 0 && !wordless_marker())
         return fail("marker row owns no marker source cell");
     }
   }

@@ -370,6 +370,11 @@ line and hosted (DT 19930422134757) shows no bullet there; SC33-033 `4.5`
 record 176 spells the length bytes of its three `SI` lines as three- and
 six-cell space runs; SC31-711 `3.1` record 46 spells the length bytes of
 the `nettl` log example as `as`, `a` and `are`, and hosted (DT 19941010174546) keeps the example rows apart with none of those words;
+the spelling may even be empty -- `dfhs4c00.boo` gives most of its length
+bytes a dictionary entry with no word and no attach control (topic `1.2`,
+record 41: line 26 opens with `0D` at `0x34C5D`, line 27 with `25` at
+`0x34C6B`, line 28 with `12` at `0x34C91`), and each still opens its row;
+
 FA1PLMM0 `17.2.3.1` record 713 ends a line with the one-byte word `a`,
 which a geometry rule took for the slot -- hosted (DT 19910927114801)
 serves `available to a user; CEOS a subset ...`; DREICMST `1.1` ends a
