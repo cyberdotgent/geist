@@ -176,7 +176,21 @@ std::vector<LinkTarget> document_link_targets(const DocumentIR& document) {
               self(self, entry.definition_blocks);
           } else if constexpr (std::is_same_v<T, TableBlockIR>) {
             for (const auto& row : node.rows)
-              for (const auto& cell : row.cells) self(self, cell.blocks);
+              for (const auto& cell : row.cells) {
+                self(self, cell.blocks);
+                // An `SR<id>` a declared table opens inside a cell is a
+                // destination of the topic like any placed anchor.
+                for (const auto& placed : cell.line_anchors) {
+                  if (placed.anchor.id.empty() ||
+                      placed.anchor.role == AnchorRoleIR::local)
+                    continue;
+                  LinkTarget target;
+                  target.kind = LinkTargetKind::anchor;
+                  target.id = placed.anchor.id;
+                  target.fragment = placed.anchor.id;
+                  targets.push_back(std::move(target));
+                }
+              }
           } else if constexpr (std::is_same_v<T, PreformattedBlockIR>) {
             for (const auto& placed : node.line_anchors) {
               if (placed.anchor.id.empty() ||

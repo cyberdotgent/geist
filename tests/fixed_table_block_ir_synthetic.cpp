@@ -24,6 +24,8 @@
 #include "geist/detail/layout/layout_ir.hpp"
 #include "geist/detail/layout/ownership_ir.hpp"
 #include "geist/detail/layout/display_lines.hpp"
+#include "geist/detail/render/document_html_renderer.hpp"
+#include "geist/detail/render/document_markdown_renderer.hpp"
 #include "geist/document.hpp"
 #include "test_failures.hpp"
 
@@ -341,6 +343,61 @@ void test_declared_address_classes() {
               std::get<AnchorBlockIR>(with_spot[1].node).id == "SPTTQCOL1" &&
               lowered_table(with_spot) != nullptr,
           "declared table dropped the spot anchor before its grid");
+
+  // An `SR<id>` between the rows of a declared table opens in the first
+  // cell of its row, at its display line: SC31-8569-00 10.2 serves
+  // `SRSPTNEWRUS` as `<td ...><a name="SPTNEWRUS"> API INQPER </a></td>`,
+  // and SC26-8219-00 8.5.1 opens `SRSPTEDTITP`, which stands before its
+  // row's second display line, after the first cell's first `<br>` (57
+  // anchors in 14 books, every one in the first cell).  Placing them
+  // ahead of the table was degraded.
+  std::size_t d_line = block.preformatted_lines.size();
+  for (std::size_t index = 0; index < block.preformatted_lines.size(); ++index)
+    if (block.preformatted_lines[index].text.find("| D ") != std::string::npos)
+      d_line = index;
+  require(d_line + 1 < block.preformatted_lines.size(),
+          "2.4.4 has no row D display lines");
+  auto mid = block;
+  mid.spot_anchors.push_back({"SPTD2", d_line + 1, block.object_source});
+  mid.spot_anchors.push_back({"SPTD", d_line, block.object_source});
+  const auto with_mid = lower_fixed_table_block_to_document_ir(mid);
+  bool degraded = false;
+  for (const auto &candidate : with_mid)
+    degraded = degraded ||
+               candidate.origin.fidelity == DocumentFidelityIR::degraded ||
+               std::holds_alternative<AnchorBlockIR>(candidate.node) &&
+                   std::get<AnchorBlockIR>(candidate.node).id.rfind("SPTD",
+                                                                    0) == 0;
+  const auto *mid_table = lowered_table(with_mid);
+  require(!degraded && mid_table != nullptr && mid_table->rows.size() == 6,
+          "mid-table spot anchors still stand ahead of the table");
+  if (mid_table != nullptr && mid_table->rows.size() == 6) {
+    const auto &anchors = mid_table->rows[4].cells.front().line_anchors;
+    require(anchors.size() == 2 && anchors[0].anchor.id == "SPTD" &&
+                anchors[0].line == 0 && anchors[1].anchor.id == "SPTD2" &&
+                anchors[1].line == 1 &&
+                mid_table->rows[4].cells[1].line_anchors.empty(),
+            "mid-table spot anchors are not in row D's first cell");
+    DocumentIR document;
+    document.topic.id = "2.4.4";
+    document.topic.title = "2.4.4";
+    document.blocks = with_mid;
+    normalize_document_origin_slices(document);
+    std::string verify_error;
+    require(verify_document_ir(document, &verify_error),
+            "mid-table spot anchor document invalid: " + verify_error);
+    const auto html = render_document_html_fragment(document);
+    require(html.find("<td class=\"geist-table-cell\"><span class=\"geist-"
+                      "anchor geist-anchor--cross-reference\" id=\"SPTD\">"
+                      "</span>D<span class=\"geist-anchor geist-anchor--"
+                      "cross-reference\" id=\"SPTD2\"></span></td>") !=
+                std::string::npos,
+            "HTML does not open the anchors in the cell: " + html);
+    const auto md = render_document_markdown(document);
+    require(md.find("| <a id=\"SPTD\"></a>D<a id=\"SPTD2\"></a> |") !=
+                std::string::npos,
+            "Markdown does not open the anchors in the cell: " + md);
+  }
 
   // Row-range API: the exact span admits, a disjoint span ignores, and a
   // partial span declines without admitting anything.

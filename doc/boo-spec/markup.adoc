@@ -3367,6 +3367,25 @@ before the first ruled row of the parameter-record drawing.  The destination
 therefore belongs at that row; it is neither a cell nor grounds for converting
 the character drawing into a semantic table.
 
+In a declared table (`cz OFF TABLE`, served as an HTML `<table>`) the same
+line between two rows opens inside the grid.  `SC31-8569-00.boo` topic
+`10.2`, logical record 2612: `SRSPTNEWRUS` is the sole content token of a
+display line at BOO bytes `0xF6F6A`--`0xF6F6C`, after a row's bottom rule and
+before the line `   | API INQPER            | INQUIRE(PERSESS) macro  ... |`.
+Hosted BookServer (DT `19980126130303`) serves that row as
+`<tr><td ...><a name="SPTNEWRUS"> API INQPER </a></td>` -- the anchor opens
+in the *first* cell of the row, in front of the cell's text at the display
+line the anchor precedes.  When the anchor stands before a later line of a
+multi-line row, it opens there: `SC26-8219-00.boo` `8.5.1` `SRSPTEDTITP`
+precedes the second line of the `ECSINTYP` row and is served after the first
+cell's first `<br>`.  Blank padding lines (only rails and blanks) between
+the anchor and the row's text do not move it: `SD35-0238-00.boo` `1.1.3`
+`SRSPTSDLC1` stands before two such lines and opens at the start of the
+row's first cell.  In a 650-book sample, 57 such anchors in 14 books that
+hosted serves as a `<table>` all open in the first cell; the other 36 stand
+in declared tables hosted falls back to `<pre>` for, where they open the line
+as in any envelope.
+
 [cols="<45,<45,<45",options="header"]
 |===
 |Fixture, topic, region |Source display line |Hosted `<pre>` line

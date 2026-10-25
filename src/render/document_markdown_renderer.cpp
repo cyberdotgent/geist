@@ -250,9 +250,10 @@ private:
   RenderSink &sink_;
 };
 
-void append_flat_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
-                         InlineContext context,
-                         const DocumentMarkdownRendererOptions &options);
+void append_flat_inlines(
+    RenderSink &sink, const InlineSequenceIR &inlines, InlineContext context,
+    const DocumentMarkdownRendererOptions &options,
+    const std::vector<TableCellAnchorIR> *anchors = nullptr);
 
 // Markdown has no margin, so a revised run prints its children in place and
 // the mark is dropped (the HTML form keeps it).
@@ -284,9 +285,10 @@ InlineSequenceIR plain_label(const InlineSequenceIR &inlines) {
 
 void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
                     InlineContext context,
-                    const DocumentMarkdownRendererOptions &options) {
+                    const DocumentMarkdownRendererOptions &options,
+                    const std::vector<TableCellAnchorIR> *anchors = nullptr) {
   if (!has_revised_inline(inlines)) {
-    append_flat_inlines(sink, inlines, context, options);
+    append_flat_inlines(sink, inlines, context, options, anchors);
     return;
   }
   // A run the mark split in two prints as the one run it was: a revised
@@ -334,12 +336,28 @@ void append_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
     }
     boundary = revised != nullptr;
   }
-  append_flat_inlines(sink, flat, context, options);
+  append_flat_inlines(sink, flat, context, options, anchors);
 }
 
+// `anchors`: the anchors a table cell opens in front of its display lines
+// (`TableCellIR::line_anchors`), each written as an empty `<a id>` before
+// the line it opens.
 void append_flat_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
                          InlineContext context,
-                         const DocumentMarkdownRendererOptions &options) {
+                         const DocumentMarkdownRendererOptions &options,
+                         const std::vector<TableCellAnchorIR> *anchors) {
+  std::size_t line = 0;
+  std::size_t next_anchor = 0;
+  const auto anchors_up_to = [&](std::size_t through) {
+    while (anchors != nullptr && next_anchor < anchors->size() &&
+           (*anchors)[next_anchor].line <= through) {
+      const auto &placed = (*anchors)[next_anchor++];
+      sink.syntax("<a id=\"" + escape_html_attribute(placed.anchor.id) +
+                      "\"></a>",
+                  "table cell anchor", &placed.origin);
+    }
+  };
+  anchors_up_to(0);
   for (std::size_t index = 0; index < inlines.size(); ++index) {
     const PathScope step(sink, "inline", index);
     const auto &in = inlines[index];
@@ -465,7 +483,11 @@ void append_flat_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
           }
         },
         in.node);
+    if (std::holds_alternative<HardBreakInlineIR>(in.node))
+      anchors_up_to(++line);
   }
+  if (anchors != nullptr && !anchors->empty())
+    anchors_up_to(anchors->back().line);
 }
 
 
@@ -693,7 +715,8 @@ void append_table(RenderSink &sink, const TableBlockIR &table,
         sink.boundary("<br>", "table header join",
                     &table.rows[row].cells[cell].origin);
       append_inlines(sink, table.rows[row].cells[cell].content,
-                     InlineContext::table_cell, options);
+                     InlineContext::table_cell, options,
+                     &table.rows[row].cells[cell].line_anchors);
     }
     sink.boundary(" |", "table pipe", origin);
   }
@@ -711,7 +734,8 @@ void append_table(RenderSink &sink, const TableBlockIR &table,
       sink.boundary(" ", "table cell padding",
                   &table.rows[row].cells[cell].origin);
       append_inlines(sink, table.rows[row].cells[cell].content,
-                     InlineContext::table_cell, options);
+                     InlineContext::table_cell, options,
+                     &table.rows[row].cells[cell].line_anchors);
       sink.boundary(" |", "table pipe", &table.rows[row].cells[cell].origin);
     }
   }

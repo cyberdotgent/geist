@@ -294,12 +294,27 @@ struct DefinitionListBlockIR {
   std::vector<DefinitionEntryIR> entries;
 };
 
+// A zero-width named destination the source opens at one display line of a
+// table cell: `line` counts the cell's content lines (`HardBreakInlineIR`s
+// in `content`) before it, and equals that count when the anchor opens a
+// line the cell leaves blank after its last line.  Hosted BookServer opens
+// an `SR<id>` that stands between the rows of a declared table in the first
+// cell of its row, at its display line (SC31-8569-00 10.2
+// `<td ...><a name="SPTNEWRUS"> API INQPER </a></td>`).
+struct TableCellAnchorIR {
+  std::size_t line = 0;
+  AnchorBlockIR anchor;
+  DocumentNodeOriginIR origin;
+};
+
 struct TableCellIR {
   InlineSequenceIR content;
   DocumentNodeOriginIR origin;
   // A cell with compound source content uses blocks instead of `content`.
   // Both may be empty for a genuinely empty cell.
   BlockSequenceIR blocks = {};
+  // Ordered by line; only on a cell whose content is inline.
+  std::vector<TableCellAnchorIR> line_anchors = {};
 };
 
 struct TableRowIR {

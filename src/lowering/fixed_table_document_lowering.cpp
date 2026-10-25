@@ -253,6 +253,72 @@ TableRowIR lower_row(const FixedTableRowIR &row) {
   return lowered;
 }
 
+// Where a spot anchor that stands between the rows of a declared table
+// opens: the body row its display line belongs to, and the line of that
+// row's first cell it stands in front of (the number of the cell's lines
+// above it).  Hosted BookServer opens such an anchor in the first cell of its
+// row, at its display line: SC31-8569-00 10.2 serves `SRSPTNEWRUS` as
+// `<td ...><a name="SPTNEWRUS"> API INQPER </a></td>`, SC26-8219-00 8.5.1
+// `SRSPTEDTITP` (second display line of its row) after the first cell's
+// first `<br>`.  The display line is matched to its row by the source
+// tokens of the row's cells; anything that does not prove it -- a line no
+// cell draws from, a line two rows share, a first cell line without source
+// cells -- answers nothing.
+std::optional<std::pair<std::size_t, std::size_t>>
+spot_anchor_cell(const FixedTableBlockIR &block,
+                 const FixedTableSpotAnchorIR &spot) {
+  if (spot.line >= block.preformatted_lines.size())
+    return std::nullopt;
+  // A blank padding line (only rails and blanks) opens the row below it:
+  // SD35-0238-00 1.1.3 `SRSPTSDLC1` stands before two such lines, and hosted
+  // opens it in the first cell of the row they pad.
+  auto drawn = spot.line;
+  const auto padding = [](const std::string &text) {
+    return text.find_first_not_of(" |") == std::string::npos;
+  };
+  while (drawn + 1 < block.preformatted_lines.size() &&
+         padding(block.preformatted_lines[drawn].text))
+    ++drawn;
+  const auto &line = block.preformatted_lines[drawn];
+  const auto &opened = block.preformatted_lines[spot.line];
+  // A cell line whose words come from the display line's own tokens.
+  const auto on_line = [&](const FixedTableCellLineIR &cell_line) {
+    const auto &slice = cell_line.slice;
+    return slice.token_begin < slice.token_end &&
+           slice.logical_record == line.logical_record &&
+           slice.token_begin > line.prefix_token &&
+           slice.token_begin < line.token_end;
+  };
+  const auto holds = [&](const FixedTableRowIR &row) {
+    for (const auto &cell : row.cells)
+      if (std::any_of(cell.lines.begin(), cell.lines.end(), on_line))
+        return true;
+    return false;
+  };
+  if (block.caption && holds(*block.caption))
+    return std::nullopt;
+  std::optional<std::size_t> found;
+  for (std::size_t index = 0; index < block.body.size(); ++index) {
+    if (!holds(block.body[index]))
+      continue;
+    if (found)
+      return std::nullopt;
+    found = index;
+  }
+  if (!found || block.body[*found].cells.empty())
+    return std::nullopt;
+  const auto key = std::make_pair(opened.logical_record, opened.prefix_token);
+  std::size_t above = 0;
+  for (const auto &cell_line : block.body[*found].cells.front().lines) {
+    const auto &slice = cell_line.slice;
+    if (slice.token_begin >= slice.token_end)
+      return std::nullopt;
+    if (std::make_pair(slice.logical_record, slice.token_begin) < key)
+      ++above;
+  }
+  return std::make_pair(*found, above);
+}
+
 } // namespace
 
 std::vector<BlockIR>
@@ -392,9 +458,18 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
   // anchor, ahead of the `<table>`: SH24-5221-02 6.1.1 `SRTBLQCOL1`,
   // `SRSPTTQCOL1` is served as `<a name="TBLQCOL1"></a><a
   // name="SPTTQCOL1"></a>` (dfhla313 1.1.3.1 `SRSPTXAKUSER` has the same
-  // shape).  A grid has no row to open it on, so one that stands further
-  // down the region is placed there too and says so.
+  // shape).  One that stands between the rows opens in the first cell of
+  // its row (`spot_anchor_cell`); one whose row the display lines do not
+  // prove is placed ahead of the table too, and says so.
+  std::vector<std::pair<const FixedTableSpotAnchorIR *,
+                        std::pair<std::size_t, std::size_t>>>
+      in_cells;
   for (const auto &spot : block.spot_anchors) {
+    if (spot.line != 0)
+      if (const auto cell = spot_anchor_cell(block, spot)) {
+        in_cells.push_back({&spot, *cell});
+        continue;
+      }
     BlockIR anchor_block;
     anchor_block.node = AnchorBlockIR{spot.id};
     anchor_block.origin = origin_for("fixed table: spot anchor");
@@ -428,6 +503,19 @@ lower_fixed_table_block_to_document_ir(const FixedTableBlockIR &block) {
   table.header_rows = block.header_rows;
   for (const auto &row : block.body)
     table.rows.push_back(lower_row(row));
+  for (const auto &[spot, cell] : in_cells) {
+    TableCellAnchorIR placed;
+    placed.line = cell.second;
+    placed.anchor = AnchorBlockIR{spot->id};
+    placed.origin = origin_for("fixed table cell: spot anchor");
+    placed.origin.slices.push_back(spot->source);
+    auto &anchors = table.rows[cell.first].cells.front().line_anchors;
+    anchors.insert(std::upper_bound(anchors.begin(), anchors.end(), placed,
+                                    [](const auto &left, const auto &right) {
+                                      return left.line < right.line;
+                                    }),
+                   std::move(placed));
+  }
   table_block.origin = origin_for("fixed table");
   // Reached only when the source declared the region a `:table`, or when the
   // record's display-line model did not parse so no verbatim text exists.

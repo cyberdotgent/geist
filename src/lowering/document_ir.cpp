@@ -289,6 +289,8 @@ void collect_child_origins(const BlockNodeIR& node,
               out.push_back(&cell.origin);
               collect_inline_origins(cell.content, out);
               collect_block_origins(cell.blocks, out);
+              for (const auto& anchor : cell.line_anchors)
+                out.push_back(&anchor.origin);
             }
           }
         } else if constexpr (std::is_same_v<T, NoteBlockIR>) {
@@ -473,6 +475,28 @@ bool verify_block(const BlockIR& block, bool nested, std::string* error) {
               } else {
                 for (const auto& child : cell.blocks)
                   if (!verify_block(child, true, error)) return false;
+              }
+              if (!cell.line_anchors.empty()) {
+                if (!cell.blocks.empty())
+                  return fail(error, "table cell anchors need inline content");
+                const auto lines = static_cast<std::size_t>(std::count_if(
+                    cell.content.begin(), cell.content.end(),
+                    [](const auto& in) {
+                      return std::holds_alternative<HardBreakInlineIR>(
+                          in.node);
+                    }));
+                const auto end_line = cell.content.empty() ? 0 : lines + 1;
+                std::size_t previous = 0;
+                for (const auto& anchor : cell.line_anchors) {
+                  if (anchor.line > end_line || anchor.line < previous)
+                    return fail(error,
+                                "table cell anchor line is outside its cell "
+                                "or out of order");
+                  if (anchor.anchor.id.empty())
+                    return fail(error, "table cell anchor has no id");
+                  if (!verify_origin(anchor.origin, error)) return false;
+                  previous = anchor.line;
+                }
               }
             }
           }
@@ -903,6 +927,8 @@ void normalize_block(BlockIR& block) {
               lift_inlines(cell.origin, cell.content);
               std::vector<const DocumentNodeOriginIR*> children;
               collect_block_origins(cell.blocks, children);
+              for (const auto& anchor : cell.line_anchors)
+                children.push_back(&anchor.origin);
               lift_into(cell.origin, children);
             }
             std::vector<const DocumentNodeOriginIR*> cells;
@@ -1061,6 +1087,12 @@ std::string format_document_ir(const DocumentIR& document) {
                 if (!node.rows[row].cells[cell].blocks.empty()) {
                   out << " blocks=";
                   format_blocks(node.rows[row].cells[cell].blocks);
+                }
+                for (const auto& anchor :
+                     node.rows[row].cells[cell].line_anchors) {
+                  out << " anchor='" << anchor.anchor.id << "'@"
+                      << anchor.line;
+                  format_entry_origin(out, anchor.origin);
                 }
                 format_entry_origin(out,
                                     node.rows[row].cells[cell].origin);

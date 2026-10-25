@@ -665,6 +665,39 @@ void open_table_row(HtmlSink &sink, const TableRowIR &row) {
   sink.markup(">");
 }
 
+// A cell's content, with the anchors it opens (`TableCellIR::line_anchors`)
+// in front of their display line, as hosted BookServer opens them inside
+// the cell.
+void append_cell_content(HtmlSink &sink, const TableCellIR &cell) {
+  if (!cell.blocks.empty()) {
+    append_blocks(sink, cell.blocks);
+    return;
+  }
+  std::size_t line = 0;
+  std::size_t next_anchor = 0;
+  const auto anchors_up_to = [&](std::size_t through) {
+    while (next_anchor < cell.line_anchors.size() &&
+           cell.line_anchors[next_anchor].line <= through) {
+      const auto &placed = cell.line_anchors[next_anchor];
+      sink.markup("<span");
+      sink.attribute("class", std::string("geist-anchor geist-anchor--") +
+                                  anchor_role_name(placed.anchor.role));
+      sink.attribute("id", prefixed_id(placed.anchor.id, sink.options()));
+      append_degradation_attributes(sink, placed.origin);
+      sink.markup("></span>");
+      ++next_anchor;
+    }
+  };
+  anchors_up_to(0);
+  for (const auto &in : cell.content) {
+    append_inline(sink, in);
+    if (std::holds_alternative<HardBreakInlineIR>(in.node))
+      anchors_up_to(++line);
+  }
+  anchors_up_to(cell.line_anchors.empty() ? 0
+                                          : cell.line_anchors.back().line);
+}
+
 void append_table(HtmlSink &sink, const TableBlockIR &node,
                   const DocumentNodeOriginIR &origin) {
   open_block(sink, "table", "geist-table", origin);
@@ -676,10 +709,7 @@ void append_table(HtmlSink &sink, const TableBlockIR &node,
       open_table_row(sink, node.rows[index]);
       for (const auto &cell : node.rows[index].cells) {
         sink.markup("<th class=\"geist-table-header-cell\" scope=\"col\">");
-        if (cell.blocks.empty())
-          append_inlines(sink, cell.content);
-        else
-          append_blocks(sink, cell.blocks);
+        append_cell_content(sink, cell);
         sink.markup("</th>");
       }
       sink.markup("</tr>");
@@ -692,10 +722,7 @@ void append_table(HtmlSink &sink, const TableBlockIR &node,
       open_table_row(sink, node.rows[index]);
       for (const auto &cell : node.rows[index].cells) {
         sink.markup("<td class=\"geist-table-cell\">");
-        if (cell.blocks.empty())
-          append_inlines(sink, cell.content);
-        else
-          append_blocks(sink, cell.blocks);
+        append_cell_content(sink, cell);
         sink.markup("</td>");
       }
       sink.markup("</tr>");

@@ -253,6 +253,12 @@ kind of destination the source named:
 These are *destination* roles, not link kinds; a `geist-anchor--figure` is the
 place a `geist-link--anchor` points at.
 
+An anchor may also stand *inside* a `geist-table-cell`: a destination the
+book opens between the rows of a declared table is an empty
+`<span class="geist-anchor ...">` at the start of the row's first cell (or
+after the `<br>` of the cell line it precedes), as hosted BookServer opens
+it there.  Markdown writes it as `<a id="..."></a>` inside the pipe cell.
+
 ## IDs
 
 Anchor ids are emitted **verbatim from the source** (`FIGFIGUNIQ1`, `MSG0123`,
