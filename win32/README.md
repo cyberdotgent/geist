@@ -29,10 +29,10 @@ vcpkg DLLs beside it and fails `win32_reader_executable_test`.
 MinGW-w64, cross from Linux (Debian/Ubuntu: `g++-mingw-w64-x86-64`):
 
 ```
-win32/build_mingw_dependencies.sh /abs/deps
-cmake -S . -B build-mingw -DCMAKE_TOOLCHAIN_FILE=win32/toolchain-mingw-w64.cmake \
+win32/build_mingw_dependencies.sh /abs/deps   # both paths outside the checkout
+cmake -S . -B /abs/build-mingw -DCMAKE_TOOLCHAIN_FILE=win32/toolchain-mingw-w64.cmake \
   -DCMAKE_PREFIX_PATH=/abs/deps -DGEIST_BUILD_GUI=OFF
-cmake --build build-mingw --target geist-boo-reader
+cmake --build /abs/build-mingw --target geist-boo-reader
 ```
 
 The script downloads zlib, libpng and giflib release tarballs, verifies their

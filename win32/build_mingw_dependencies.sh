@@ -8,7 +8,7 @@ set -euo pipefail
 # outside the checkout from pinned, checksum-verified release tarballs:
 #
 #   win32/build_mingw_dependencies.sh /abs/prefix
-#   cmake -S . -B build-mingw \
+#   cmake -S . -B /abs/build-mingw \
 #     -DCMAKE_TOOLCHAIN_FILE=win32/toolchain-mingw-w64.cmake \
 #     -DCMAKE_PREFIX_PATH=/abs/prefix -DGEIST_BUILD_WIN32_READER=ON
 #
