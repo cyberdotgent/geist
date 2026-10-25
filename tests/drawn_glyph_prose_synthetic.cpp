@@ -89,18 +89,26 @@ Tok attach() { return b({1}, 0); }
 struct Builder {
   DecodedLogicalRecordSource record;
   std::uint16_t encoded = 0x4100;
+  std::size_t last_prefix = 0;
 
   // One display line: a one-byte length byte covering `content`.
   void line(std::vector<Tok> content) {
     std::uint16_t length = 0;
     for (const auto &token : content) length += token.width;
     record.encoded_tokens.push_back({length, 1});
+    last_prefix = record.tokens.size();
     record.tokens.push_back(TokenWords{0x25BA});
     for (auto &token : content) {
       record.encoded_tokens.push_back(
           {token.width == 2 ? encoded++ : token.value, token.width});
       record.tokens.push_back(std::move(token.words));
     }
+  }
+  // The last line's length byte decodes as a blank run, as a corpus length
+  // byte whose value is also a blank-run token does (dfhla313 record 791
+  // token 190, value 16, decodes as seven blanks).
+  void blank_prefix(std::size_t count) {
+    record.tokens[last_prefix] = TokenWords(count, ' ');
   }
   void blank() {
     record.encoded_tokens.push_back({0, 1});
@@ -418,9 +426,47 @@ void linked_generic_region_declines() {
         "a generic region with a cross-reference was typed without it");
 }
 
+// An anchor whose next display line is a body control line (`c.cp 6`) that
+// draws nothing precedes the next block that draws text.  dfhla313 1.2.3.1.3
+// record 791 stores `SRHDRDFHA314` (line 19), two empty lines, `c.cp 6`
+// (line 22), the index lines and then `   CICS task manager parameters: ...`
+// (line 28).
+void anchor_before_body_control_line(bool efig_closer) {
+  Builder builder(false);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({sp(1), b({'|'}, 0x7C), sp(1), w("2."), sp(2), w("Before"),
+                w("the")});
+  builder.line({sp(1), b({'|'}, 0x7C), sp(5), w("anchor.")});
+  builder.line({w("SRHDRANCHOR")});
+  builder.blank();
+  builder.line({w("c.cp"), w("6")});
+  builder.blank();
+  builder.line({w("SI"), w("task"), w("manager"), w("parameters")});
+  builder.blank_prefix(7);
+  builder.line({sp(3), w("Target"), w("text.")});
+  builder.blank();
+  builder.line({sp(3), w("Last.")});
+  if (efig_closer)
+    builder.line({w("cz"), w("OFF"), w("EFIG"), w("0"), w("0")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "anchor before a body control line declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto anchor = html.find("id=\"HDRANCHOR\"");
+  const auto target = html.find("Target text.");
+  const auto before = html.find("anchor.");
+  check(anchor != std::string::npos && target != std::string::npos &&
+            before < anchor && anchor < target,
+        std::string("anchor did not precede the next text block") +
+            (efig_closer ? " (EFIG closer)" : "") + ": " + html);
+}
+
 } // namespace
 
 int main() {
+  anchor_before_body_control_line(false);
   marked_box_rows();
   box_closed_by_unopened_closer(false);
   box_closed_by_unopened_closer(true);

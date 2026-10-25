@@ -944,6 +944,24 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
         break;
       }
     }
+    // An anchored line that draws nothing forms no block: the anchor
+    // precedes the first block after it.  A display line's length byte can
+    // decode as a blank run (dfhla313 1.2.3.1.3 record 791 token 190, value
+    // 16, seven blanks) that opens a line for an index control line
+    // (`SI ...`); `SRHDRDFHA314` (token 182) before it then belongs to the
+    // paragraph `CICS task manager parameters: ...` the record goes on to
+    // store, not to the end of the topic.
+    for (std::size_t line = 0; !placed.found && line < lines.size(); ++line) {
+      if (!lines[line].anchor_before || lines[line].anchor_index != anchor)
+        continue;
+      for (std::size_t block_index = 0; block_index < ranges.size();
+           ++block_index)
+        if (ranges[block_index].first > line) {
+          placed.position = block_index;
+          break;
+        }
+      placed.found = true;
+    }
     placements.push_back(placed);
   }
   // An anchor followed by another before any row opened marks no row of its
