@@ -186,9 +186,40 @@ void a_control_word_that_is_not_a_length_byte_declines(
               "' behind a separator that is not a length byte was admitted");
 }
 
+// A control opens its own display line, one token after the line's length
+// byte.  dfhqap4a 10.0 record 1678 opens on the drawn table row
+// `   |  SRL | Serbian (Latin) ... |`: token 0 is line 0's length byte
+// (value 17, spelled U+251C), then a three-blank origin, the rail U+2502, a
+// blank and the language code `SRL`.  The splitter opens the record's first
+// segment on `SRL` as an `SR` anchor; standing after the rail it is a table
+// cell, and the record's first segment is display text.
+void an_anchor_shaped_cell_after_the_line_origin_is_text() {
+  RecordBuilder builder;
+  builder.line({words("   "), TokenWords{0x2502}, words(" "), words("SRL"),
+                TokenWords{0x2502}, words("Serbian"), words("("),
+                TokenWords{1}, words("Latin"), TokenWords{1}, words(")"),
+                TokenWords(48, ' '), TokenWords{0x2502}},
+               TokenWords{0x251C});
+  builder.line({words("   "), TokenWords{0x2502}, TokenWords(6, 0x2500),
+                TokenWords{0x2502}, TokenWords(60, 0x2500),
+                TokenWords{0x2502}});
+  builder.line({words("   "), TokenWords{0x2502}, words(" "), words("SRB"),
+                TokenWords{0x2502}, words("Serbian"), words("(Cyrillic)"),
+                TokenWords(45, ' '), TokenWords{0x2502}});
+  const auto record = builder.build(1678);
+  require(record.ir.display_lines_parse,
+          "the drawn-row record's display lines did not parse");
+  for (const auto &segment : record.control_segments)
+    require(segment.kind == geist::detail::BookControlKind::text &&
+                segment.opcode.empty(),
+            "a table cell after the line's origin opened control '" +
+                segment.opcode + "'");
+}
+
 }  // namespace
 
 int main() {
+  an_anchor_shaped_cell_after_the_line_origin_is_text();
   a_length_byte_spelling_a_control_is_geometry("citerm");
   a_length_byte_spelling_a_control_is_geometry("ctoce");
   a_control_word_that_is_not_a_length_byte_declines("citerm");

@@ -668,9 +668,14 @@ void demote_display_line_owned_controls(DecodedLogicalRecordSource& record) {
         segment.kind != BookControlKind::title &&
         segment.kind != BookControlKind::text)
       continue;
+    // A line's length byte draws nothing whatever its spelling, so it is
+    // never the segment's first visible token: dfhqap4a 10.0 record 1678
+    // opens on line 0's byte (spelled U+251C) and the splitter's `SRL` is
+    // the language-code cell after the line's rail.
     std::size_t first = record.ir.tokens.size();
     for (const auto token : segment.source_tokens)
-      if (visible_display_token(record.ir.tokens[token])) {
+      if (visible_display_token(record.ir.tokens[token]) &&
+          !is_display_line_length_token(record, token)) {
         first = token;
         break;
       }
