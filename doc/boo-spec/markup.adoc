@@ -2660,10 +2660,47 @@ the row's text and hosted prints it there:
 The last row shows both readings on one line: the bar is the margin mark,
 the `-` behind it is text.  With the geometry of a bullet the glyph is a
 list bullet instead (<<markup_a_second_list_level>>).  A decoder placeholder
-run (a box glyph or unmapped word) carries no character and stays a marker
-wherever it stands, and the display line's own length byte is the
-row-control slot whatever word the dictionary spells for it and whatever is
-attached behind it.
+run of box glyphs carries no character and stays a marker wherever it
+stands, and the display line's own length byte is the row-control slot
+whatever word the dictionary spells for it and whatever is attached behind
+it.
+
+[[markup_unmapped_words_on_a_drawn_line]]
+==== Unmapped Words On A Drawn Line
+
+A dictionary word whose literal byte the book's text table does not map
+(<<encoding>>; the version 1.0/1.1 table leaves many bytes unmapped, among
+them the braces of C examples, and the version 1.2 table some bytes of the
+control range) is
+not a placeholder.  Inside a display line -- any token but the line's own
+length byte -- the reader prints it in place, as its substitution byte
+`0xff` (`ÿ`), with the same styling as the cells around it.  Only a line the
+reader does not draw (`SI`, the `C.` lines, the envelope controls) hides it.
+
+[cols="<34,<33,<33",options="header"]
+|===
+|Book / topic / record |Stored |Hosted
+
+|`EDCGV1R2.BOO` `4.1` record 84 token 57 (two-byte `aa 03` at `0xd682`) and
+token 317 (`ac 3d` at `0xd7d4`); version 1.0 |`while(miles !=0) <unmapped> 6`;
+a row of 8 blanks and one unmapped word |`<samp>while(miles</samp> <samp>!=0)</samp>
+<samp>\xff</samp> <B>6</B>`; `<samp>\xff</samp>` (DT `19891031000000`)
+|`EDCUSER.BOO` `5.4.2` record 514 token 119 (two-byte `c1 03` at
+`0x8b089`; version 1.1) under `CFONT 5 1 E` |5 blanks and one unmapped word
+|`<samp>\xff</samp>` (DT `19900523000000`)
+|`S85G-8678-00.boo` `6.1` record 576 token 4 (version 1.2) |9 blanks,
+unmapped, 4 blanks, unmapped + `[Transfer]` |`<samp>\xff</samp>    <samp>\xff[Transfer]</samp>`
+(DT `19950223205812`)
+|`HASA2MST.BOO` `5.25` record 539 (version 1.2), inside a drawn box
+|`\|       \|   <unmapped>      {a     } <unmapped>` |the same row with
+`\xff` at both places (DT `19920124000100`)
+|===
+
+A sample of 400 library books holds such words in 29 books; the 24 that the
+hosted catalog serves print `0xff` at every place checked, among them
+`SC09-1623-01` `APPENDIX1.7.1.2`, `SC23-0098-01` `E.3`, `SC33-1168-01`
+`2.10.3`, `SG24-4637-00` `4.2.4`, `GC28-1566-02` `4.3.2` and the generated
+`CONTENTS` of `GA19-5486-13` (`5763-RG1\xff Version 3 Release 6`).
 
 A dictionary word made only of `?` characters (`0x3F`) is not such a
 placeholder.  The decoder spells an unmapped word `U+FFFF`, never `?`.  The
@@ -4514,7 +4551,7 @@ hosted page an exact oracle for the grammar below (checked over SC31-711
 |Standalone punctuation glyph + fill/origin pair |Marker slot in both shapes. Attached punctuation (`conditions:`, `useful.`, bare spacing token before it) stays text. |SC31-711 LR41 `Getting` `/` + `cfont` + 4 spaces + 3 spaces + `Started`; hosted `Getting` / `Started`. LR58 `useful.` + 13 + 10 spaces keeps the period.
 |Bare spacing-prefix token (byte `00`, decoded prefix 1 alone) after the last visible token of a row |One `<p>` before the next row. Two bare tokens produce two `<p>`. A bare token followed by a visible token is attach glue (`Note` `:`, `AS` `/` `400`, `X'48'`). |SC31-711 LR88 `resource.` + bare + 18 + 3 spaces + `All traps` is a hosted `<p>`; LR58 tokens 52-55 `.` + bare + bare + `)` + 3 spaces give `<p><p>`; LR58 `useful.` + 13 + 10 spaces without a bare token stays inside the item.
 |`0x2666` glyph (`◆`, hosted `°`) as the first cell after the origin, then a 2-cell run |Unordered list item; continuation rows use a deeper origin. Items are not separated by `<p>` in SC31-711 `2.2.3` but are in `2.3.2`. |SC31-711 LR41 `cfont 11 5 2 21 4 2` + 10 + 3 spaces + `◆` + 2 spaces + `The ovwdb`; hosted pass:[<literal>°&#160;&#160;&#160;The &lt;B&gt;ovwdb&lt;/B&gt;</literal>].
-|Placeholder run (box-drawing `0x2500`-`0x25FF`, unmapped words) |Never text: a marker slot before an origin, trailing fill before a control, the slot glued between `ST` and the title, or a visual row marker (`\|`, `U+2502`) opening a row directly before its text. |GC23-046 LR151 `ST` + bare + `\|` + `CIDTABL`; ACPZMST1 LR78 `csourcefn ACPFWCMD` + `U+2510` + `ST` + bare + `U+2502` + `Querying`; hosted prints the `U+2502` rows as `\|`.
+|Placeholder run (box-drawing `0x2500`-`0x25FF`; an unmapped word is drawn instead, see <<markup_unmapped_words_on_a_drawn_line>>) |Never text: a marker slot before an origin, trailing fill before a control, the slot glued between `ST` and the title, or a visual row marker (`\|`, `U+2502`) opening a row directly before its text. |GC23-046 LR151 `ST` + bare + `\|` + `CIDTABL`; ACPZMST1 LR78 `csourcefn ACPFWCMD` + `U+2510` + `ST` + bare + `U+2502` + `Querying`; hosted prints the `U+2502` rows as `\|`.
 |`SI <term words>` up to the first row break |Hidden subject-index term; the row break after it starts body text. The term's last word can be the two-run marker word of that break. |SC31-711 LR88 `SI traps, working with` + 14 + 3 spaces + `LNM for AIX obtains`.
 |===
 

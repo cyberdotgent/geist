@@ -600,9 +600,9 @@ void a_styled_leading_bar_is_display_text() {
               body_text(*prose) + "'");
 }
 
-// A width-2 unmapped dictionary token projects as `?`.  Exact CFONT coverage
-// at the native row end proves that cell is displayed rather than a decoder
-// placeholder.
+// A width-2 unmapped dictionary token at the native row end is displayed
+// text, which the reader prints as its substitution byte 0xFF (`ÿ`):
+// EDCGV1R2 4.1 (DT 19891031000000) `<samp>\xff</samp>`.
 void styled_terminal_punctuation_is_display_text() {
   RecordBuilder builder;
   metadata(builder, "1.10", {"Styled", "Punctuation"});
@@ -617,7 +617,7 @@ void styled_terminal_punctuation_is_display_text() {
   require(prose.has_value(),
           "CFONT-covered terminal punctuation was rejected: " + error);
   if (!prose) return;
-  require(body_text(*prose).find("Question?") != std::string::npos,
+  require(body_text(*prose).find("Question\xC3\xBF") != std::string::npos,
           "the terminal punctuation cell was suppressed: '" +
               body_text(*prose) + "'");
 }

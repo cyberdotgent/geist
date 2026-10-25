@@ -355,9 +355,45 @@ void index_lines_before_title() {
           "SI before ST: the index terms are not kept");
 }
 
+void unmapped_words() {
+  using geist::detail::FontStyleIR;
+  // A dictionary word whose literal byte the text selector does not map is
+  // the word 0xFFFF, and the reader prints it as its substitution byte 0xFF
+  // (`ÿ`).  EDCGV1R2 4.1 record 84 stores the braces of a C example as
+  // token 0xAC3D (selector 351 maps neither `{` nor `}`): line 6
+  // `while(miles !=0) <0xFFFF> 6` and line 41 a lone `<0xFFFF>` row; hosted
+  // (DT 19891031000000) serves `<samp>while(miles</samp> <samp>!=0)</samp>
+  // <samp>\xff</samp>` and `<samp>\xff</samp>`.  EDCUSER 5.4.2 record 514
+  // token 119 (0xC103) is the same word under a `CFONT 5 1 E` span; hosted
+  // (DT 19900523000000) `<samp>\xff</samp>`.  A version 1.2 book does it
+  // too: S85G-8678-00 6.1 record 575 (DT 19950223205812) `<samp>\xff</samp>`.
+  const TokenWords unmapped = {0xFFFF};
+  const std::vector<Line> body = {
+      {words("   "), words("while(miles"), words("!=0)"), unmapped},
+      {words("   "), words("total"), words("+="), words("miles;")},
+      {words("CFONT"), words("5"), words("1"), words("X")},
+      {words("     "), unmapped},
+  };
+  auto extracted =
+      run(topic({summary_3_4_6}, body), "Transaction Processing Facility");
+  require(extracted.topic.has_value(),
+          "unmapped words: the topic was rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto text = topic_text(*extracted.topic);
+  require(text.find("while(miles !=0) \xC3\xBF") != std::string::npos,
+          "unmapped words: the brace after the condition is not `ÿ`: '" +
+              text + "'");
+  const auto example = styled(*extracted.topic, FontStyleIR::example_phrase);
+  require(example == "\xC3\xBF",
+          "unmapped words: the styled lone brace row is '" + example + "'");
+  require(text.find('?') == std::string::npos,
+          "unmapped words: an unmapped word is drawn as `?`: '" + text + "'");
+}
+
 }  // namespace
 
 int main() {
+  unmapped_words();
   summary_with_glued_length_byte();
   index_lines_before_title();
   dash_in_title();

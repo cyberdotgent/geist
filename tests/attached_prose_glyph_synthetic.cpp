@@ -145,6 +145,23 @@ void attached(bool styled, bool selector, bool embedded_prefix,
           "selector following glyph shifted: " + html);
   }
 }
+// An unmapped dictionary word (0xFFFF) inside a display line is printed by
+// the reader as its substitution byte 0xFF, attached or not: EDCGV1R2 4.1
+// (DT 19891031000000) `<samp>\xff</samp>`, S85G-8678-00 6.1
+// (DT 19950223205812) `\xff[Transfer]`.
+void unmapped_displayed(std::vector<TokenWords> content,
+                        const std::string &expected) {
+  Builder b;
+  b.line(std::move(content));
+  std::string error;
+  auto doc = lower(b, error);
+  check(doc.has_value(), "unmapped word rejected: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  check(html.find(expected) != std::string::npos,
+        "unmapped word not displayed as the substitution byte: " + html);
+}
 void rejected(std::vector<TokenWords> content) {
   Builder b;
   b.line(std::move(content));
@@ -1748,10 +1765,11 @@ int main() {
   inline_syntax_diagram_is_narrow();
   consecutive_syntax_diagrams();
   bullet();
-  rejected({w("   "), w("SNA"), {1}, {0xffff}, {1}, w("ps")});
+  unmapped_displayed({w("   "), w("SNA"), {1}, {0xffff}, {1}, w("ps")},
+                     "SNA\xC3\xBFps");
   rejected({w("   "), w("SNA"), {0x2666}, w("ps")});
   rejected({w("   "), w("SNA"), {1}, {0x2666}, w("ps")});
   rejected({w("   "), w("SNA "), {1}, {0x2666}, {1}, w("ps")});
-  rejected({w("   "), {'A', 0xffff, 'B'}});
+  unmapped_displayed({w("   "), {'A', 0xffff, 'B'}}, "A\xC3\xBF" "B");
   return 0;
 }

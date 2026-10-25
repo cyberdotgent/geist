@@ -96,8 +96,9 @@ std::string word_text(std::uint16_t word) {
 std::string body_text(const TokenView& view) {
   std::string text;
   for (const auto word : view.body)
-    text += word == bullet_glyph_word ? figure_display_glyph(word)
-                                      : token_words_to_ascii({word});
+    text += word == bullet_glyph_word || word == unmapped_word
+                ? figure_display_glyph(word)
+                : token_words_to_ascii({word});
   return text;
 }
 

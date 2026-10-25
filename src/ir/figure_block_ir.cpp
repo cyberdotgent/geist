@@ -1847,6 +1847,10 @@ std::string figure_display_glyph(std::uint16_t word) {
   // BIBLIOGRAPHY.1 rows (DT 19921218151459).  The word's own character is
   // emitted, one column per cell (doc/boo-spec/encoding.adoc).
   case 0x25A0: return "\xE2\x96\xA0";
+  // A dictionary word the book's text selector cannot map: the reader
+  // prints its substitution byte 0xFF (`ÿ`) in its place (EDCGV1R2 4.1,
+  // DT 19891031000000; S85G-8678-00 6.1, DT 19950223205812).
+  case 0xFFFF: return "\xC3\xBF";
   default: break;
   }
   return token_words_to_ascii({word});

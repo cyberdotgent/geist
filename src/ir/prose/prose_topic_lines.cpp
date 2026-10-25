@@ -2165,15 +2165,25 @@ struct LineBuilder {
         index + 1 < items.size() && items[index + 1].kind == ItemKind::token &&
         is_visible(items[index + 1].token) &&
         !is_placeholder_run(items[index + 1].token);
-    // An unmapped dictionary word is normally a decoder placeholder.  When
-    // the native row and a bound CFONT span both claim all of its cells, the
-    // source instead proves a literal displayed glyph: IEAC6MST 4.8.2 styles
-    // the width-2 `?` at column 70, and GG24-4302-00 4.3.3.2 defers the same
-    // shape to the next native row at column 86.  Keep fail-closed behavior
-    // for unstyled or only partially overlapped placeholders.
-    if (view.body.size() == 1 && view.body.front() == unmapped_word &&
-        covered_by_font_span(view) &&
-        display_line_of(view.record, view.token) != nullptr)
+    // A dictionary word whose literal byte the book's text selector does not
+    // map decodes to the word 0xFFFF, and the reader prints it wherever it
+    // stands on a drawn line, as its substitution byte 0xFF (`ÿ`):
+    // EDCGV1R2 4.1 record 84 tokens 57/309/317 (the braces of a C example,
+    // selector 351) are served as `<samp>\xff</samp>` (DT 19891031000000),
+    // EDCUSER 5.4.2 record 514 token 119 likewise (DT 19900523000000), and a
+    // version 1.2 book does the same: S85G-8678-00 6.1 record 576 token 4
+    // `<0xFFFF>[` is served `\xff[Transfer]` (DT 19950223205812).  Only a
+    // token inside a parsed display line qualifies -- the line's own length
+    // byte is structure, whatever its dictionary spelling -- so an unframed
+    // record keeps the fail-closed placeholder reading.  An `SI` index line
+    // is not drawn at all, so a word inside it stays the line's field
+    // structure (EDCUSER 6.3 record 684 line 22 `SI   °  3HI00STA<0xFFFF>,
+    // IMS considerations`).
+    if (!in_index &&
+        std::any_of(view.body.begin(), view.body.end(),
+                    [](const auto word) { return word == unmapped_word; }) &&
+        display_line_of(view.record, view.token) != nullptr &&
+        !opens_display_line(view))
       return append_visible(view, ProseTokenRoleIR::text);
     if (is_placeholder_run(view) && !line_start_marker &&
         !marker_at(index, origin_index)) {
