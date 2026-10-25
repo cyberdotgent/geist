@@ -135,10 +135,35 @@ recording them does not establish that they are correct.
 
 A schema 2 baseline remains valid: the gate checks it exactly as before,
 without requesting or comparing fingerprints, and says so. Captures are
-always schema 3. Migrating is an ordinary reviewed capture: run the gate
+schema 4 (see below). Migrating is an ordinary reviewed capture: run the gate
 against the schema 2 baseline, capture a schema 3 snapshot at the same
 revision, and confirm its route and conservation fields match the old one
 before replacing it.
+
+## Punctuation deficits
+
+Word conservation counts letters and digits only, so a lost comma, a colon
+dropped from `macroinstructions:` or a glossary term printed without its
+delimiter passes it. Baseline schema 4 adds, per topic, the punctuation units
+the HTML does not carry. A unit is a conservation word with the mark glued to
+its end (`, . ; : ! )`; `?` is left out because the drawn projection writes it
+for every unprintable glyph). The drawn side counts only units inside a
+display line, with the same forgiveness for a line's opening word as the word
+check; the emitted side is the HTML fragment's visible text, because the
+Markdown projection reads the `:` of a `**Note:**` label as syntax.
+
+The gate obtains them from the same pass as the fingerprints:
+`bootrace --conservation --rendered --punctuation` adds one
+`# punctuation` row per topic and unit (topic, unit, drawn, emitted,
+unaccounted). The snapshot stores `{topic: {unit: unaccounted}}` per book. As
+for words there is no aggregate allowance: an increase in any topic's
+unaccounted count for a unit is a **regression**, and a decrease is listed as
+an improvement. `bootrace --conservation --punctuation` alone still prints the
+standalone table with its evidence column for review.
+
+A schema 3 baseline remains valid: the gate measures punctuation but does not
+compare it, and says so in a `NOTE`. A schema 4 baseline without punctuation
+data is rejected. Captures are always schema 4.
 
 ## Reviewing a baseline change
 

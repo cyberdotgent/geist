@@ -37,6 +37,7 @@ void usage() {
                "       bootrace <book.boo> --links\n"
                "       bootrace <book.boo> --declines\n"
                "       bootrace <book.boo> --conservation [--rendered|--punctuation]\n"
+               "       bootrace <book.boo> --conservation --rendered --punctuation\n"
                "       bootrace <book.boo> --margin-marks\n"
                "       bootrace <book.boo> <topic-id> --explain-offset <n>\n";
 }
@@ -288,10 +289,17 @@ int main(int argc, char** argv) {
       return 1;
     }
   }
-  if ((argc == 3 || (argc == 4 && std::string(argv[3]) == "--rendered")) &&
+  // `--rendered --punctuation` is the corpus gate's single pass: the word
+  // report and the rendered rows, plus one `# punctuation` row per
+  // punctuation unit a topic does not carry (topic, unit, drawn, emitted,
+  // unaccounted).
+  const auto gate_rows = argc == 5 && std::string(argv[3]) == "--rendered" &&
+                         std::string(argv[4]) == "--punctuation";
+  if ((argc == 3 || (argc == 4 && std::string(argv[3]) == "--rendered") ||
+       gate_rows) &&
       std::string(argv[2]) == "--conservation") {
     try {
-      const auto rendered = argc == 4;
+      const auto rendered = argc >= 4;
       const auto document = geist::BooDocument::open(argv[1]);
       const auto report = document.drawn_word_conservation(rendered);
       std::cout << "topic\troute\tword\tdrawn_opening\tdrawn_inline"
@@ -309,6 +317,13 @@ int main(int argc, char** argv) {
           std::cout << "# rendered\t" << tsv_escape(topic.id) << "\t"
                     << tsv_escape(topic.markdown_visible_text) << "\t"
                     << tsv_escape(topic.html_fragment) << "\n";
+      if (gate_rows)
+        for (const auto& topic : report.topics)
+          for (const auto& deficit : topic.punctuation_deficits)
+            std::cout << "# punctuation\t" << tsv_escape(topic.id) << "\t"
+                      << tsv_escape(deficit.unit) << "\t" << deficit.drawn
+                      << "\t" << deficit.emitted << "\t"
+                      << deficit.unaccounted << "\n";
       for (const auto& topic : report.topics) {
         for (const auto& deficit : topic.deficits)
           std::cout << tsv_escape(topic.id) << "\t"

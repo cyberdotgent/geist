@@ -48,7 +48,9 @@ RENDERED = (
     "id=\"A1\"></span><p class=\"geist-paragraph\"><strong class=\"geist-strong\">"
     "K</strong> key\\n&lt;name&gt;</p>\n"
     "# rendered\t1.1\t\t\n")
-REPORTS = CONSERVATION.replace("# summary", RENDERED + "# summary")
+PUNCTUATION = "# punctuation\t1.0\tkey.\t3\t1\t2\n"
+REPORTS = CONSERVATION.replace("# summary", RENDERED + PUNCTUATION + "# summary")
+GATE_PASS = ("--conservation", "--rendered", "--punctuation")
 
 
 def sample():
@@ -224,7 +226,7 @@ class CorpusGateTest(unittest.TestCase):
                 return COVERAGE
             if args == ("--conservation",):
                 return CONSERVATION
-            if args == ("--conservation", "--rendered"):
+            if args == GATE_PASS:
                 return REPORTS
             return "Timestamp: 19930422134757\nDocument number: synthetic\nTitle: Test\nVersion: 1.2\n"
         with tempfile.TemporaryDirectory() as directory:
@@ -250,7 +252,7 @@ class CorpusGateTest(unittest.TestCase):
                 return COVERAGE
             if args == ("--conservation",):
                 return CONSERVATION
-            if args == ("--conservation", "--rendered"):
+            if args == GATE_PASS:
                 return REPORTS
             return "Timestamp: 19930422134757\nDocument number: synthetic\nTitle: Test\nVersion: 1.2\n"
         with tempfile.TemporaryDirectory() as directory:
@@ -340,7 +342,10 @@ class FingerprintTest(unittest.TestCase):
                 GATE.tsv_unescape(value)
 
     def test_split_rendered_keeps_report_and_unicode_separators(self):
-        report, rendered = GATE.split_rendered(REPORTS.replace("key", "key line"))
+        punctuation = {}
+        report, rendered = GATE.split_rendered(
+            REPORTS.replace("key", "key line"), punctuation)
+        self.assertEqual(punctuation, {"1.0": {"key line.": 2}})
         self.assertEqual(report, CONSERVATION)
         self.assertEqual(set(rendered), {"1.0", "1.1"})
         self.assertIn(" ", rendered["1.0"][1])
@@ -348,6 +353,27 @@ class FingerprintTest(unittest.TestCase):
         self.assertEqual(rendered["1.0"][0], r"alpha \<name\>")
         with self.assertRaises(ValueError):
             GATE.split_rendered(RENDERED + RENDERED)
+
+    def test_punctuation_rows_are_validated(self):
+        for row in ("# punctuation\t1.0\tkey.\t3\t1\t1\n",   # 1 + 1 != 3
+                    "# punctuation\t1.0\tkey.\t1\t1\t0\n",   # nothing lost
+                    "# punctuation\t1.0\tkey.\t3\t1\n",      # short row
+                    "# punctuation\t\tkey.\t3\t1\t2\n",      # no topic
+                    PUNCTUATION + PUNCTUATION):               # duplicate unit
+            with self.subTest(row=row), self.assertRaises(ValueError):
+                GATE.split_rendered(row, {})
+
+    def test_punctuation_is_ratchet_checked(self):
+        before = {"1.0": {"key.": 2}, "1.1": {"term.": 1}}
+        after = {"1.0": {"key.": 3}, "1.1": {}, "1.2": {"done,": 1}}
+        failures, improvements = GATE.compare_punctuation("s.boo", before, after)
+        self.assertEqual(failures, [
+            "s.boo: 1.0: unaccounted punctuation 'key.' increased 2 -> 3",
+            "s.boo: 1.2: unaccounted punctuation 'done,' increased 0 -> 1"])
+        self.assertEqual(improvements, [
+            "s.boo: 1.1: unaccounted punctuation 'term.' decreased 1 -> 0"])
+        self.assertEqual(GATE.compare_punctuation("s.boo", before, before),
+                         ([], []))
 
     def test_style_runs_and_nesting(self):
         _, detail = html_print(
@@ -506,14 +532,19 @@ class FingerprintTest(unittest.TestCase):
                 return COVERAGE
             if args == ("--conservation",):
                 return CONSERVATION
-            if args == ("--conservation", "--rendered"):
+            if args == GATE_PASS:
                 return REPORTS
             return "Timestamp: 1\nDocument number: s\nTitle: T\nVersion: 1\n"
         changed = REPORTS.replace('<strong class="geist-strong">K</strong>',
                                   '<em class="geist-emphasis">K</em>')
         def restyled(executable, book, *args):
-            if args == ("--conservation", "--rendered"):
+            if args == GATE_PASS:
                 return changed
+            return reports(executable, book, *args)
+        def unpunctuated(executable, book, *args):
+            if args == GATE_PASS:
+                return REPORTS.replace(
+                    "# summary", "# punctuation\t1.1\tterm.\t1\t0\t1\n# summary")
             return reports(executable, book, *args)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -529,7 +560,7 @@ class FingerprintTest(unittest.TestCase):
                         "--capture", str(capture), "--revision", "r",
                         "--raw-dir", str(raw)]), 0)
                     snapshot = json.loads(capture.read_text())
-                    self.assertEqual(snapshot["schema"], 3)
+                    self.assertEqual(snapshot["schema"], 4)
                     book = snapshot["books"]["s.boo"]
                     self.assertNotIn("details", book)
                     self.assertEqual(book["fingerprints"]["1.1"], {})
@@ -548,6 +579,31 @@ class FingerprintTest(unittest.TestCase):
                     self.assertIn("CHANGED TOPICS s.boo: style 1", out.getvalue())
                     self.assertEqual(GATE.main(common + [
                         "--baseline", str(capture), "--fail-on-review"]), 1)
+                self.assertEqual(book["punctuation"], {"1.0": {"key.": 2}})
+                # A lost punctuation unit is a regression of its own.
+                with patch.object(GATE, "run_tool", side_effect=unpunctuated):
+                    err = io.StringIO()
+                    with contextlib.redirect_stderr(err):
+                        self.assertEqual(GATE.main(common + [
+                            "--baseline", str(capture)]), 1)
+                    self.assertIn("REGRESSION s.boo: 1.1: unaccounted punctuation "
+                                  "'term.' increased 0 -> 1", err.getvalue())
+                # A schema 3 baseline is checked without punctuation, and a
+                # schema 4 one must carry it.
+                legacy = root / "legacy.json"
+                punctuation = book.pop("punctuation")
+                legacy.write_text(json.dumps({"schema": 3, "books": {"s.boo": book}}))
+                with patch.object(GATE, "run_tool", side_effect=unpunctuated):
+                    err = io.StringIO()
+                    with contextlib.redirect_stderr(err):
+                        self.assertEqual(GATE.main(common + [
+                            "--baseline", str(legacy)]), 0)
+                    self.assertIn("carries no punctuation deficits", err.getvalue())
+                    legacy.write_text(json.dumps({"schema": 4,
+                                                  "books": {"s.boo": book}}))
+                    with self.assertRaisesRegex(ValueError, "without punctuation"):
+                        GATE.main(common + ["--baseline", str(legacy)])
+                book["punctuation"] = punctuation
                 # A schema 2 baseline is checked without rendering fingerprints.
                 legacy = root / "legacy.json"
                 del book["fingerprints"]
@@ -556,7 +612,7 @@ class FingerprintTest(unittest.TestCase):
                 with patch.object(GATE, "run_tool", side_effect=reports):
                     self.assertEqual(GATE.main(common + ["--baseline", str(legacy)]), 0)
                     self.assertIn(("--conservation",), calls)
-                    self.assertNotIn(("--conservation", "--rendered"), calls)
+                    self.assertNotIn(GATE_PASS, calls)
                     # A schema 3 baseline must carry fingerprints.
                     legacy.write_text(json.dumps({"schema": 3,
                                                   "books": {"s.boo": book}}))

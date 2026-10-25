@@ -18,9 +18,11 @@ import sys
 
 SEVERITIES = {"failed": 0, "best-effort": 1, "typed-degraded": 2, "typed": 3}
 # Schema 2 pins routes and word conservation. Schema 3 adds per-topic rendered
-# fingerprints; a schema 2 baseline is still checked, without them.
-SCHEMA = 3
-SCHEMAS = (2, 3)
+# fingerprints; a schema 2 baseline is still checked, without them. Schema 4
+# adds per-topic punctuation deficits; a schema 3 baseline is still checked,
+# without them.
+SCHEMA = 4
+SCHEMAS = (2, 3, 4)
 
 
 def summary_fields(line):
@@ -403,13 +405,19 @@ def expand_fingerprint(summary):
     return full
 
 
-def split_rendered(output):
+def split_rendered(output, punctuation=None):
     """Separates `# rendered` rows from the conservation report proper.
+
+    With a `punctuation` dict, `# punctuation` rows are separated too and
+    collected into it as {topic: {unit: unaccounted}}.
 
     Splits on newline only: the escaped fields may hold other characters that
     `str.splitlines` would treat as line breaks."""
     report, rendered = [], {}
     for line in output.split("\n"):
+        if punctuation is not None and line.startswith("# punctuation\t"):
+            parse_punctuation_row(line, punctuation)
+            continue
         if not line.startswith("# rendered\t"):
             report.append(line)
             continue
@@ -418,6 +426,49 @@ def split_rendered(output):
             raise ValueError("invalid rendered row")
         rendered[fields[1]] = (tsv_unescape(fields[2]), tsv_unescape(fields[3]))
     return "\n".join(report), rendered
+
+
+# ---------------------------------------------------------------------------
+# Punctuation deficits (schema 4).
+#
+# Word conservation counts letters and digits, so it cannot see a lost comma
+# or a glossary term's delimiter. `bootrace --conservation --rendered
+# --punctuation` adds a `# punctuation` row per topic and punctuation unit
+# (a word with the mark glued to its end, `cc,`) that the HTML does not
+# carry: topic, unit, drawn, emitted, unaccounted.
+
+def parse_punctuation_row(line, punctuation):
+    fields = line.split("\t")
+    if len(fields) != 6 or not fields[1] or not fields[2] or not all(
+            value.isdecimal() for value in fields[3:6]):
+        raise ValueError("invalid punctuation row")
+    topic, unit = tsv_unescape(fields[1]), tsv_unescape(fields[2])
+    drawn, emitted, unaccounted = map(int, fields[3:6])
+    if unaccounted <= 0 or drawn != emitted + unaccounted:
+        raise ValueError("inconsistent punctuation counts")
+    units = punctuation.setdefault(topic, {})
+    if unit in units:
+        raise ValueError("duplicate punctuation unit")
+    units[unit] = unaccounted
+
+
+def compare_punctuation(name, baseline, current):
+    """Returns (failures, improvements): an increase in any topic's
+    unaccounted count for a unit is a regression, as for words."""
+    failures, improvements = [], []
+    for topic, units in sorted(current.items()):
+        for unit, count in sorted(units.items()):
+            previous = baseline.get(topic, {}).get(unit, 0)
+            if count > previous:
+                failures.append(f"{name}: {topic}: unaccounted punctuation "
+                                f"{unit!r} increased {previous} -> {count}")
+    for topic, units in sorted(baseline.items()):
+        for unit, count in sorted(units.items()):
+            after = current.get(topic, {}).get(unit, 0)
+            if after < count:
+                improvements.append(f"{name}: {topic}: unaccounted punctuation "
+                                    f"{unit!r} decreased {count} -> {after}")
+    return failures, improvements
 
 
 def fingerprint_topics(rendered):
@@ -579,9 +630,11 @@ def measure(book, bootrace, booinfo, raw_dir=None, fingerprints=True):
     are written to the raw directory, never to the baseline)."""
     before = identity(book)
     coverage = run_tool(bootrace, book, "--coverage")
+    punctuation = {}
     if fingerprints:
         conservation, rendered = split_rendered(
-            run_tool(bootrace, book, "--conservation", "--rendered"))
+            run_tool(bootrace, book, "--conservation", "--rendered",
+                     "--punctuation"), punctuation)
     else:
         conservation = run_tool(bootrace, book, "--conservation")
     metadata = run_tool(booinfo, book)
@@ -614,6 +667,9 @@ def measure(book, bootrace, booinfo, raw_dir=None, fingerprints=True):
     if fingerprints:
         if set(rendered) != set(topics):
             raise ValueError(book.name + ": rendered topic set differs from coverage")
+        if punctuation.keys() - topics.keys():
+            raise ValueError(book.name + ": punctuation names an unknown coverage topic")
+        result["punctuation"] = punctuation
         try:
             result["fingerprints"], result["details"] = fingerprint_topics(rendered)
         except ValueError as error:
@@ -739,6 +795,10 @@ def main(argv=None):
                 isinstance(book.get("fingerprints"), dict)
                 for book in baseline["books"].values()):
             raise ValueError("schema 3 baseline without fingerprints")
+        if baseline["schema"] >= 4 and not all(
+                isinstance(book.get("punctuation"), dict)
+                for book in baseline["books"].values()):
+            raise ValueError("schema 4 baseline without punctuation deficits")
         if set(books) != set(baseline["books"]):
             raise ValueError("corpus book set mismatch; missing=" +
                              repr(sorted(set(baseline["books"]) - set(books))) +
@@ -755,7 +815,11 @@ def main(argv=None):
     if not fingerprints:
         print("NOTE baseline schema 2 carries no rendered fingerprints; characters, "
               "style, structure, anchors and mid-word spans are not compared. "
-              "Capture a schema 3 baseline to enable them.", file=sys.stderr)
+              "Capture a schema 4 baseline to enable them.", file=sys.stderr)
+    elif baseline is not None and baseline["schema"] < 4:
+        print("NOTE baseline schema 3 carries no punctuation deficits; punctuation "
+              "is measured but not compared. Capture a schema 4 baseline to "
+              "enable it.", file=sys.stderr)
     measured = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         pending = {pool.submit(measure, book, args.bootrace.resolve(),
@@ -789,6 +853,12 @@ def main(argv=None):
         improvements.extend(improved)
         if not fingerprints or failed and "identity/edition" in failed[0]:
             continue
+        if baseline["schema"] >= 4:
+            failed, improved = compare_punctuation(
+                name, baseline["books"][name]["punctuation"],
+                measured[name]["punctuation"])
+            failures.extend(failed)
+            improvements.extend(improved)
         tally = {}
         failed, improved, review = compare_fingerprints(
             name, baseline["books"][name]["fingerprints"],
