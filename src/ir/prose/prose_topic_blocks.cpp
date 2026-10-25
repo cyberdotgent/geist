@@ -998,8 +998,14 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
         if (open_items.size() > 1)
           block.parent_block = open_items[open_items.size() - 2].block;
       } else if (!open_items.empty() &&
-                 open_items.back().text_column == origin &&
+                 open_items.back().text_column >= origin &&
                  open_items.back().origin < origin) {
+        // Right of the open item's bullet and not right of its text: an
+        // item one level down.  The text may start a column late after an
+        // extra blank -- ISTH1MST 2.3 `   °    VM   VSE/ESA  Integrated
+        // communication adapter` (text at column 8) owns the
+        // `       -   For nonswitched SDLC lines` rows (bullet at column
+        // 7), which hosted (DT 19970910145935) prints under it.
         opened.ordinal = ++list_ordinal;
         block.parent_block = open_items.back().block;
         open_items.push_back(opened);

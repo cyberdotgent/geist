@@ -3078,6 +3078,22 @@ in front of its row's origin run (column 1, after a one-cell blank), while a
 list glyph stands after an origin run of at least two cells.  No glyph other
 than `-` and `>` occurs in this geometry in the corpus.
 
+Two variations keep the same reading:
+
+* A bullet row behind a revision mark keeps the column of the unmarked rows:
+  the mark and the blanks around it are the three-column margin, so the
+  bullet still stands at column 3.  `SC33-0632-02.boo` `5.1` record 92
+  line 10 is ` #     -   In CICS/ESA, CICS reads ...` (the stored `#` mark,
+  then the `-` glyph at column 7) under a `°` item at column 3.
+* The parent's text may start one column late, after an extra blank:
+  `ISTH1MST.BOO` `2.3` record 168 stores `   °    VM   VSE/ESA  Integrated
+  communication adapter` (text at column 8, `VM` and `VSE/ESA` under
+  `cfont 8 2 R 13 7 R`) and then `       -   For nonswitched SDLC lines`,
+  whose `-` is the one-byte token `26` at `0x23AF5` after a seven-cell run
+  (`11`), at column 7.  Hosted (DT `19920131191555`) prints the `-` rows
+  under the item.  A glyph right of the parent's bullet and not right of its
+  text column opens the level below it.
+
 [[markup_a_span_holds_its_row_open]]
 ==== A span holds its row open
 

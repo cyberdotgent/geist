@@ -413,6 +413,9 @@ struct Line {
   bool anchor_before = false;
   std::size_t anchor_index = npos;
   bool bullet = false;
+  // A revision mark in the row margin opened the row (the reader's
+  // three-column margin; the mark draws in it).
+  bool margin_marked = false;
   // First text cell: the cells before it are the origin run, a bullet glyph
   // or slot, a change bar, and (CZ ordered items) the ordinal label.
   std::size_t text_begin = 0;

@@ -2658,6 +2658,7 @@ struct LineBuilder {
       for (std::size_t word = 0; word < view.body.size(); ++word)
         line().cells.push_back({npos, 0, " ", true});
       line().text_begin = line().cells.size();
+      line().margin_marked = true;
       pending_space = view.prefix != 2;
       return true;
     }
@@ -2682,6 +2683,13 @@ struct LineBuilder {
       // Figure 19 ...` with `cselect 53 12`.
       if (pending_space && view.prefix != 0 && view.prefix != 1)
         line().cells.push_back({npos, 0, " ", true});
+      // Behind a revision mark in the row margin the bullet stands where an
+      // unmarked row's bullet stands: the mark and its blanks are the
+      // three-column margin, not the item's origin.  dfhkp306 5.7 record
+      // 1066 line 26 is ` # °   Read the next data ...` between `   °   `
+      // rows of one list.
+      if (line().margin_marked && line().origin < line().cells.size())
+        line().origin = line().cells.size();
       line().bullet = true;
       if (!assign(view, ProseTokenRoleIR::bullet)) return false;
       line().cells.push_back({view.record, view.token, word_text(view.body[0]),

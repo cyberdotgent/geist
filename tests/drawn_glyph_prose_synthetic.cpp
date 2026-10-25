@@ -716,6 +716,61 @@ void glossary_term_spelled_like_a_control() {
         "the SRGLS SI term was not its anchor: " + html);
 }
 
+// A flattened bullet row behind a stored row-margin revision mark is an
+// item of the list the unmarked bullets around it open: dfhkp306 5.7
+// record 1066 line 26 is ` # °   Read the next data ...` between
+// `   °   ` rows, the `#` the line's stored margin mark.
+void marked_flattened_bullet(Tok mark) {
+  Builder builder(false);
+  builder.line({sp(3), w("Lead:")});
+  builder.blank();
+  builder.line({sp(3), bullet(), sp(3), w("First.")});
+  builder.blank();
+  builder.line({sp(1), mark, bullet(), sp(3), w("Second.")});
+  builder.blank();
+  builder.line({sp(3), bullet(), sp(3), w("Third.")});
+  builder.blank();
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "a marked flattened bullet declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(html, "Second.") &&
+            html.find("<ul") == html.rfind("<ul") &&
+            contains(html, "Third.</"),
+        "the marked bullet is not an item of the same list: " + html);
+}
+
+// A bullet row whose text starts one column further right than its
+// siblings' (an extra blank after the bullet) still owns the items indented
+// under it at the usual text column: ISTH1MST 2.3 stores
+// `   °    VM   VSE/ESA  Integrated communication adapter` (text at column
+// 8, `cfont 8 2 R 13 7 R`) and then `       -   For nonswitched SDLC lines`
+// (bullet at column 7); hosted (DT 19970910145935) prints the `-` rows
+// under it.
+void nested_item_under_wide_bullet() {
+  Builder builder(false);
+  builder.line({sp(3), w("Lead:")});
+  builder.blank();
+  builder.line({sp(3), bullet(), sp(3), w("First.")});
+  builder.line({sp(3), bullet(), sp(4), w("Parent:")});
+  builder.blank();
+  builder.line({sp(7), b({'-'}, 38), sp(2), w("Child.")});
+  builder.blank();
+  builder.line({sp(3), bullet(), sp(3), w("Last.")});
+  builder.blank();
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "an item under a wide bullet declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(html, "Parent:</p><ul") && contains(html, "Child.") &&
+            contains(html, "Last."),
+        "the nested item was lost: " + html);
+}
+
 // A generic region the topic never closes runs to the topic's end (the
 // reader's `<pre width="80">` stays open: SC41-5612-02 2.17.1.2 record 442
 // opens `cz OFF CGRAPHIC` on line 11 and has no later directive), and one
@@ -1388,6 +1443,10 @@ int main() {
   generic_region_ended_by_flow();
   nested_generic_opener();
   cz_word_inside_a_row();
+  marked_flattened_bullet(b({'#'}, 0x23));
+  marked_flattened_bullet(b({':'}, 0x3A));
+  marked_flattened_bullet(w("#"));
+  nested_item_under_wide_bullet();
   generic_region_unended(false);
   generic_region_unended(true);
   glossary_term_spelled_like_a_control();
