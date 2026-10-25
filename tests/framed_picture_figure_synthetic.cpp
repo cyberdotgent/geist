@@ -233,6 +233,39 @@ void frame_rows_stay_with_the_image_inline() {
         "figure verifier ignored a mutated inline image");
 }
 
+// The caption under a drawn frame is one more row of the drawing: hosted
+// serves `   Figure 1. Internal Memo` as a plain row of the same `<pre>`,
+// right after the bottom rule (G544-3305-00 2.3.1, DT 19910508143433; 109
+// caption rows in 66 sampled books, every one inside the `<pre>`).
+void caption_row_stays_in_the_frame() {
+  Builder b;
+  build_memo(b);
+  auto d = lower({b.finish(43)});
+  if (!d)
+    return;
+  std::string error;
+  check(verify_document_ir(*d, &error), "framed document invalid: " + error);
+  const auto html = render_document_html_fragment(*d);
+  const auto bottom = html.find("   |_______________|\n");
+  const auto caption = html.find("   Figure 1. Internal Memo");
+  const auto close = html.find("</pre>");
+  check(bottom != std::string::npos && caption == bottom + 21 &&
+            close != std::string::npos && caption < close,
+        "caption is not the row after the bottom rule in the pre: " + html);
+  const auto after = html.substr(close == std::string::npos ? 0 : close);
+  check(count(html, "<pre") == 1 && html.find("<em") == std::string::npos &&
+            after.find("Figure 1.") == std::string::npos &&
+            html.find("Figure 1.") == html.rfind("Figure 1."),
+        "caption still printed as its own paragraph: " + html);
+  const auto md = render_document_markdown(*d);
+  const auto md_bottom = md.find("   |_______________|\n");
+  check(md_bottom != std::string::npos &&
+            md.compare(md_bottom + 21, 26, "   Figure 1. Internal Memo") ==
+                0 &&
+            md.find("*Figure") == std::string::npos,
+        "markdown caption is not a row of the drawing: " + md);
+}
+
 // A styled label inside the frame keeps its CFONT style in the frame row.
 void styled_label_inside_the_frame() {
   Builder b;
@@ -371,6 +404,7 @@ int main() {
   rule_framed_picture();
   image_cells_keep_row_geometry();
   frame_rows_stay_with_the_image_inline();
+  caption_row_stays_in_the_frame();
   styled_label_inside_the_frame();
   table_envelope_picture_stands_in_its_row();
   return 0;

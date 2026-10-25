@@ -633,6 +633,26 @@ struct Reader {
     }
     if (first == npos || last == npos || last < first)
       return;
+    // The rows after the frame -- the caption -- are rows of the same
+    // drawing: hosted serves `   Figure 1. Internal Memo` as the line after
+    // the bottom rule, inside the `<pre>` (G544-3305-00 2.3.1; 109 caption
+    // rows in 66 sampled books, all of them there).  They join the frame
+    // when every one of them reproduces its native text; otherwise the
+    // frame ends at its last glyph row and the caption stands after it.
+    {
+      std::size_t tail = last;
+      bool usable = true;
+      for (auto k = last + 1; k < drawn.size(); ++k) {
+        if (drawn[k].control)
+          continue;
+        if (!drawn[k].usable || !drawn[k].spans.empty())
+          usable = false;
+        if (drawn[k].visible)
+          tail = k;
+      }
+      if (usable)
+        last = tail;
+    }
     for (std::size_t k = 0; k < drawn.size(); ++k) {
       const auto &d = drawn[k];
       if (!d.spans.empty() && (k < first || k > last))

@@ -358,9 +358,12 @@ struct FigureSourceBlockIR {
   // them verbatim inside its `<pre>` with the `<img>` at the selector column
   // (G544-3305-00 2.3.1, GC33-1789-01 1.3, GC28-1063-02 1.4.2; 85 of 85
   // sampled books).  These are those rows, from the frame's first row to
-  // its last, control/index/description lines left out; the content parts
-  // on them are `drawn`, and only the parts after the frame (the caption)
-  // stand on their own.
+  // the region's last visible row -- the caption after the bottom rule is a
+  // row of the same `<pre>` on hosted (109 caption rows in 66 books) --
+  // control/index/description lines left out; the content parts on them are
+  // `drawn`.  When a row after the frame cannot be drawn exactly, the rows
+  // stop at the frame's last glyph row and the parts after it stand on
+  // their own.
   std::vector<FigureDrawnLineIR> drawn_lines;
 };
 

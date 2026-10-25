@@ -1811,6 +1811,15 @@ order).  The selected columns may include the blank before the placeholder:
 `cselect 5 11 PIC23`, and hosted's `<img>` stands at column 5, the blank, with
 eleven blank columns after it.
 
+The caption is one more line of the same drawing.  Line 16 above,
+`   Figure 1. Internal Memo`, follows the bottom rule as a display line of the
+figure region like any other, and hosted serves it as the next line of the
+`<pre>`, with its three leading blanks and no markup of its own, not as a
+paragraph after the frame.  Every line from the frame's first line to the
+region's last visible line before `SREFIG` is a line of that `<pre>`: 109
+caption lines after a drawn frame in 66 of the sampled books, every one of
+them inside the `<pre>` and spelled exactly as stored.
+
 *A figure framed by full-width rules shows them as horizontal rules.*  A
 figure without corners draws its frame as a rule row above and below its
 body.  `SC26-4817-04.boo` topic `1.3.12.2`, logical record 261, opens
