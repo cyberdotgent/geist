@@ -990,7 +990,26 @@ struct CzBuilder {
       frame.body_owner = block_index;
       return true;
     }
-    if (groups.empty()) return fail(error, "cz FLOW PT has no text");
+    if (groups.empty()) {
+      // A term that owns no row, followed by nothing that draws (row-less
+      // breaks, then the list's closer, the next term or the topic's end),
+      // draws nothing: BookServer prints `<p>` and `<br>`.  GC31-8553-00
+      // `4.9` (DT 19970730115116) ends its parameter list with
+      // `cz FLOW PT 3 7`, `cz BREAK 3` and `cz OFF EPARML 0 0`, all
+      // row-less, and hosted serves nothing visible before `Examples`.
+      auto next = directive_index + 1;
+      while (next < build.directives.size() &&
+             build.directives[next].mode == "break" &&
+             ranges[next].first == npos)
+        ++next;
+      if (next >= build.directives.size() ||
+          (build.directives[next].mode == "off" &&
+           build.directives[next].tag == "eparml") ||
+          (build.directives[next].mode == "flow" &&
+           build.directives[next].tag == "pt"))
+        return true;
+      return fail(error, "cz FLOW PT has no text");
+    }
     // A term split over source paragraphs needs compound definition content;
     // flattening the groups here would erase a source-declared boundary.
     if (groups.size() != 1)

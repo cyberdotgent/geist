@@ -565,6 +565,32 @@ void list_parts_outside_definition_lists() {
           "the H7 rows do not flow:\n" + topic_text(*extracted.topic));
 }
 
+// A term with no row before the list's end draws nothing: GC31-8553-00
+// `4.9` (DT 19970730115116) ends its parameter list with a row-less
+// `cz FLOW PT 3 7`, a row-less `cz BREAK 3` and `cz OFF EPARML 0 0`, and
+// hosted serves only `<p>` and `<br>` there.
+void a_trailing_rowless_parameter_term_draws_nothing() {
+  RecordBuilder builder;
+  builder.heading("4.9", "Parameters");
+  builder.cz({"cz", "FLOW", "PARML", "3", "3"});
+  builder.cz({"cz", "FLOW", "PT", "3", "7"});
+  builder.row("   ", {"RECONFIG"});
+  builder.cz({"cz", "BREAK", "7"});
+  builder.row("       ", {"Performs", "reconfiguration."});
+  builder.cz({"cz", "FLOW", "PT", "3", "7"});
+  builder.cz({"cz", "BREAK", "3"});
+  builder.cz({"cz", "OFF", "EPARML", "0", "0"});
+  builder.cz({"cz", "FLOW", "H3", "3", "3"});
+  builder.row("   ", {"Examples"});
+  auto extracted = run(builder.build(447), "Parameters");
+  require(extracted.topic.has_value(),
+          "a trailing row-less PT was rejected: " + extracted.error);
+  if (extracted.topic)
+    require(count_kind(*extracted.topic, ProseBlockKindIR::definition_entry) ==
+                1,
+            "the row-less PT drew an entry:\n" + topic_text(*extracted.topic));
+}
+
 // A parameter whose term is the syntax diagram after it.  GC24-5837-01
 // `5.2.8.3` (DT 19990503161545) stores a row-less `cz FLOW PT 7 11`,
 // `cz OFF SYNTAX`, the `MODENUM` diagram, `cz OFF ESYNTAX 4 4`, then
@@ -959,6 +985,7 @@ int main() {
   verbatim_rows_keep_highlighting_and_links();
   nested_openers_and_foreign_closers();
   list_parts_outside_definition_lists();
+  a_trailing_rowless_parameter_term_draws_nothing();
   an_empty_region_draws_nothing();
   rows_after_an_empty_region_are_verbatim();
   return 0;

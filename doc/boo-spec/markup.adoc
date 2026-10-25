@@ -6670,6 +6670,14 @@ parameter list the part stands after the entry before it, outside it:
 `SC24-5760-00` `1.2.20.6` serves its two `cz FLOW LP 3 3` parts after the
 `SXORGCTA` entry as `<br>` and flowing rows.
 
+*A term with no row at the end of a parameter list.*  `CZ FLOW PT` and
+`CZ BREAK` print only `<p>` and `<br>` when no row follows them.
+`GC31-8553-00.boo` `4.9`, logical record 447, ends its parameter list with
+`05 47 8B 9B BF D0` at `0x62EEB` (`cz FLOW PT 3 7`), `03 47 83 BF`
+(`cz BREAK 3`) and `06 47 98 DA ED A9 A9` (`cz OFF EPARML 0 0`), none of them
+owning a row; hosted (DT `19970730115116`) serves nothing visible between
+the last description and the `Examples` heading.
+
 *A heading level the dialect does not use.*  `CZ FLOW H` draws nothing of
 its own, so a `cz FLOW H7` line only closes the `<pre>` and its rows flow:
 `SC24-5760-00.boo` `4.9.1.1`, logical record 2207, stores
