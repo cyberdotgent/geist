@@ -104,7 +104,8 @@ const char *const topic_title = "Exits";
 // A CZ paragraph whose second row starts with a phrase selected by an
 // `<SPT>` link: `cselect 3 13 LNK <SPT> <XDLIPRE> <> <SC33-1165> <00>
 // <DFHA300>` over `Customization` .. `Guide`.
-DecodedLogicalRecordSource spot_topic(const std::vector<std::string> &tuple) {
+DecodedLogicalRecordSource spot_topic(const std::vector<std::string> &tuple,
+                                      bool latin1_text = false) {
   RecordBuilder builder;
   builder.line({words("sh1.6.9.1")});
   builder.line({words("ctopicn"), words("7")});
@@ -119,6 +120,11 @@ DecodedLogicalRecordSource spot_topic(const std::vector<std::string> &tuple) {
                 words("3")});
   builder.line({words("   "), words("Programming"), words("information"),
                 words("is"), words("in"), words("the")});
+  // A Latin-1 word decodes to two bytes but stays one word: the control
+  // ranges after it are byte ranges, the token map is in words.
+  if (latin1_text)
+    builder.line({words("   "), TokenWords{'f', 0xFC, 'r'},
+                  TokenWords{'H', 0xE4, 'n', 'd', 'e'}, words("und")});
   std::vector<TokenWords> selector{words("cselect"), words("3"),
                                    words("19"), words("LNK")};
   for (const auto &alternative : tuple) selector.push_back(words(alternative));
@@ -137,9 +143,10 @@ struct Extracted {
   std::string error;
 };
 
-Extracted extract(const std::vector<std::string> &tuple) {
+Extracted extract(const std::vector<std::string> &tuple,
+                  bool latin1_text = false) {
   Extracted out;
-  out.sources.push_back(spot_topic(tuple));
+  out.sources.push_back(spot_topic(tuple, latin1_text));
   const auto layout = geist::detail::extract_layout_ir(out.sources);
   const auto ownership = geist::detail::build_verified_ownership_ir(
       out.sources, layout, &out.error);
@@ -239,9 +246,35 @@ void a_spot_selector_links_its_phrase_to_the_other_book() {
               markdown);
 }
 
+// SH12-2230-00-de 1.2.1 record 32: German text with umlauts precedes
+// `cselect 70 3 LNK <BOOK> <> <> <SH12-2227> <> <0695>`.  Each umlaut is one
+// word but two decoded bytes, and reading the selector's byte range as a word
+// range swallowed `<BOOK>` into the operands, leaving five alternatives.
+void latin1_text_before_the_selector_keeps_all_alternatives() {
+  const auto record = spot_topic(spot_tuple, true);
+  const geist::detail::ControlSegmentIR *selector = nullptr;
+  for (const auto &segment : record.control_segments)
+    if (segment.kind == geist::detail::BookControlKind::select)
+      selector = &segment;
+  require(selector != nullptr, "the synthetic selector was not decoded");
+  if (selector == nullptr) return;
+  std::vector<std::string> alternatives;
+  const auto tokens = geist::detail::selector_link_alternative_tokens(
+      record, *selector, &alternatives);
+  require(alternatives == spot_tuple,
+          "the alternatives after Latin-1 text are " +
+              std::to_string(alternatives.size()) + ", not the six stored");
+  require(tokens.size() == spot_tuple.size(),
+          "the alternatives claimed the wrong tokens");
+  const auto extracted = extract(spot_tuple, true);
+  require(extracted.prose.has_value(),
+          "the selector after Latin-1 text was rejected: " + extracted.error);
+}
+
 } // namespace
 
 int main() {
+  latin1_text_before_the_selector_keeps_all_alternatives();
   the_tuple_parses_to_a_book_spot();
   a_spot_tuple_without_its_anchor_or_book_fails_closed();
   a_spot_selector_links_its_phrase_to_the_other_book();

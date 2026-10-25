@@ -137,8 +137,16 @@ std::vector<std::size_t> selector_link_alternative_tokens(
   // token that opens no group -- or at a display line's length byte, which
   // the dictionary spells as an arbitrary word and which in this very record
   // spells `<OTHER>`: bracketed, and emphatically not an alternative.
-  const auto owned = source_tokens_intersecting_output(
-      record.assembled, segment.opcode_range.begin, segment.operand_range.end);
+  //
+  // The control ranges are decoded byte ranges and the token map is in
+  // words; a Latin-1 word before the control decodes to two bytes, so the
+  // range must be converted or it reaches past the operands into the list
+  // (SH12-2230-00-de 1.2.1 record 32 lost `<BOOK>` that way).
+  const auto words = decoded_byte_range_to_word_range(
+      record.assembled, {segment.opcode_range.begin, segment.operand_range.end});
+  const auto owned =
+      source_tokens_intersecting_output(record.assembled, words.begin,
+                                        words.end);
   std::vector<std::size_t> pending_tokens;
   std::string pending;
   std::size_t groups = 0;
