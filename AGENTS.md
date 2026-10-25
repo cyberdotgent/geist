@@ -184,21 +184,38 @@ link map, and `html_fragment()` is for a consumer that owns the page.
   ```
 
   New source files must carry it too. Use `#` comments for CMake, Python and
-  YAML, and keep a shebang on the first line.
+  YAML, and keep a shebang on the first line. A file that also carries
+  third-party material says so in its SPDX expression:
+  `src/img/gdf_font.cpp` holds Hershey glyph data and is
+  `Apache-2.0 AND LicenseRef-Hershey`.
 - Do not add a `NOTICE` file without a concrete reason. Apache-2.0 makes it
   sticky: every downstream redistributor must carry it forward forever.
   Copyright belongs in the per-file header and in `LICENSE`.
+- `THIRD-PARTY-NOTICES` is not such a file. It carries other parties'
+  licences, not ours: the Hershey fonts acknowledgement, which must be
+  distributed with the glyph data compiled into libgeist, and the libpng,
+  zlib and giflib licence texts, with a table of which artefact contains
+  what. Every binary distribution ships it: the Windows zip beside
+  `LICENSE`, the Win32 reader embedded in the executable and in its CI
+  artifact, the macOS app in `Contents/Resources`, the AppImage in
+  `usr/share/doc/geist-hardcopy`, and `cmake --install` in the doc
+  directory. The Debian packages carry the same terms in `debian/copyright`,
+  as Debian policy asks. Third-party material added to a binary goes into
+  both files.
 - Apache-2.0 is compatible with GPLv3 and LGPLv3 but **not** with GPLv2-only.
   Keep that in mind before taking on a dependency or courting a consumer that
   is GPLv2-only.
 - The Windows zip ships `LICENSE` beside the binaries, which is what
-  Apache-2.0 section 4 requires for our own code, and the libpng, zlib and
-  giflib notices for the DLLs it bundles. The Win32 reader links those
-  libraries statically, so it embeds their licence texts (Help > Licences)
-  and its CI artifact carries them as files too. Qt is no longer shipped on
+  Apache-2.0 section 4 requires for our own code, `THIRD-PARTY-NOTICES`, and
+  the libpng, zlib and giflib notices of the exact vcpkg builds it bundles.
+  The Win32 reader links those libraries statically, so it embeds their
+  licence texts (Help > About) and its CI artifact carries them as files
+  too. Qt is no longer shipped on
   Windows; where Qt is shipped (the Linux AppImage) it is conveyed under
   LGPLv3, so it must stay dynamically linked and its corresponding source
-  must be offered.
+  must be offered. Whether the AppImage carries the Qt and Chromium notices
+  is unverified (linuxdeploy copies Ubuntu's copyright files for the
+  libraries it deploys when it finds them); treat it as open until checked.
 
 ## Documentation Style
 
