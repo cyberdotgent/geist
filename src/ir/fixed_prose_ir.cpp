@@ -4,6 +4,7 @@
 #include "geist/detail/ir/fixed_prose_ir.hpp"
 
 #include "geist/detail/core/internal.hpp"
+#include "geist/detail/layout/display_lines.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -179,11 +180,17 @@ std::optional<FixedProseIR> extract_fixed_prose_ir(
   result.segment_index = title_segment->segment_index;
   result.segment_range = title_segment->complete;
   result.payload_range = title_segment->payload_range;
+  const auto framed = record_framing_is_decided(source->ir);
   auto first_marker = source->tokens.size();
   for (std::size_t at = 0; at + 2 < owned.size(); ++at) {
     const auto marker = owned[at];
     const auto origin = owned[at + 1];
     const auto following = owned[at + 2];
+    // In a framed record a row is a display line, and its marker is that
+    // line's length byte: a word that merely stands before a three-blank
+    // token is row text (dasa3i00 C.6.1 record 803 line 16, `SAVE AS` and
+    // then `   Saves the current model ...`).
+    if (framed && !is_display_line_length_token(*source, marker)) continue;
     if (origin != marker + 1 || following != origin + 1 ||
         source->encoded_tokens[marker].width != 1 ||
         source->encoded_tokens[origin].width != 1 ||
@@ -231,6 +238,7 @@ std::optional<FixedProseIR> extract_fixed_prose_ir(
     return fail("ST payload lacks repeated source-proven prose rows");
 
   std::vector<OutputRangeIR> body_gaps;
+  std::vector<std::size_t> body_gap_tokens;
   for (std::size_t at = 0; at < owned.size(); ++at) {
     const auto token = owned[at];
     if (token >= first_marker || source->encoded_tokens[token].width != 1 ||
@@ -241,6 +249,7 @@ std::optional<FixedProseIR> extract_fixed_prose_ir(
     while (end_at < owned.size() && owned[end_at] < first_marker &&
            all_space_words(source->tokens[owned[end_at]]))
       ++end_at;
+    body_gap_tokens.push_back(token);
     body_gaps.push_back(decoded_word_range_to_byte_range(
         source->assembled,
         {source->assembled.tokens[token].output_begin,
@@ -249,6 +258,31 @@ std::optional<FixedProseIR> extract_fixed_prose_ir(
   if (body_gaps.size() != 1 ||
       body_gaps.front().end - body_gaps.front().begin < 9)
     return fail("ST title/body boundary is absent or ambiguous");
+  // In a framed record the title is the ST display line, so the boundary is
+  // the length byte of the first line with content after it.  Anything else
+  // folds display rows into the title: dasa3i00 C.6.1 record 803 draws the
+  // command rows `   SELECT     Selects a model` ... on lines 10-16, and the
+  // eleven-blank length byte of line 16 is no title boundary.
+  if (framed) {
+    const auto title_words = decoded_byte_range_to_word_range(
+        source->assembled, title_segment->opcode_range);
+    const auto title_tokens = source_tokens_intersecting_output(
+        source->assembled, title_words.begin, title_words.end);
+    const auto* lines = record_display_lines(*source);
+    const auto* title_line =
+        title_tokens.empty()
+            ? nullptr
+            : display_line_of_token(*source, title_tokens.front());
+    if (lines == nullptr || title_line == nullptr)
+      return fail("framed ST title has no display line");
+    auto next = static_cast<std::size_t>(title_line - lines->data()) + 1;
+    while (next < lines->size() &&
+           (*lines)[next].token_end == (*lines)[next].prefix_token + 1)
+      ++next;
+    if (next >= lines->size() ||
+        (*lines)[next].prefix_token != body_gap_tokens.front())
+      return fail("ST title/body boundary is not the line after the title");
+  }
   result.title_body_boundary = body_gaps.front();
   result.title_range = {title_segment->payload_range.begin,
                         result.title_body_boundary.begin};

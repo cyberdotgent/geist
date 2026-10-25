@@ -103,9 +103,63 @@ geist::detail::DecodedLogicalRecordSource st_record() {
   return record;
 }
 
+// dasa3i00 C.6.1 record 803, reduced: a framed record whose ST line is
+// followed by two-column command rows, a blank line and a paragraph.  Each
+// display line opens with its length byte; the bytes of lines 19-20 spell
+// `*` and `x`, the byte of line 16 spells eleven blanks, and the second
+// column of line 16 is `SAVE AS` followed by a three-blank token.
+geist::detail::DecodedLogicalRecordSource framed_command_rows_record() {
+  geist::detail::DecodedLogicalRecordSource record;
+  record.logical_record = 803;
+  std::uint16_t next = 0x200;
+  const auto line = [&](geist::detail::TokenWords length,
+                        std::vector<geist::detail::TokenWords> content) {
+    append(record, static_cast<std::uint16_t>(content.size()), 1,
+           std::move(length));
+    for (auto& words : content) append(record, next++, 1, std::move(words));
+  };
+  using W = geist::detail::TokenWords;
+  const auto w = [](const std::string& text) { return W(text.begin(), text.end()); };
+  line(w("?"), {w("ST"), w("  "), w("Models"), w("commands")});
+  line(W{1}, {});
+  line(w("  "), {w("   "), w("SELECT"), w("    "), w("Selects"), w("a"),
+                 w("model")});
+  line(W{1}, {});
+  line(W(11, ' '), {w("   "), w("SAVE"), w("AS"), w("   "), w("Saves"),
+                    w("the"), w("model.")});
+  line(W{1}, {});
+  line(w("*"), {w("   "), w("If"), w("you"), w("enter"), w("PURGE,")});
+  line(w("x"), {w("   "), w("it"), w("fails.")});
+  refresh_typed_source(record);
+  return record;
+}
+
 } // namespace
 
 int main() {
+  // In a framed record the title is the ST line and a row is a display
+  // line: a word that merely precedes a three-blank token (`AS` of
+  // `SAVE AS`) is no row marker, and the length byte of a later line is no
+  // title/body boundary.  Fixed prose does not admit the record rather than
+  // fold the command rows into the title and drop `AS`.
+  {
+    const auto framed = framed_command_rows_record();
+    require(framed.ir.display_lines_parse,
+            "framed command-row synthetic must have decided framing");
+    const std::vector<geist::detail::DecodedLogicalRecordSource> sources{framed};
+    const auto layout = geist::detail::extract_layout_ir(sources);
+    const auto ownership =
+        geist::detail::build_verified_ownership_ir(sources, layout);
+    std::string error;
+    const auto prose = ownership ? geist::detail::extract_fixed_prose_ir(
+                                       sources, layout, *ownership, &error)
+                                 : std::nullopt;
+    require(!prose || (prose->title == "Models commands" &&
+                       prose->paragraph.find("SAVE AS") != std::string::npos),
+            "fixed prose folded framed command rows into the title or "
+            "dropped a word");
+  }
+
   const std::vector<geist::detail::DecodedLogicalRecordSource> records =
       {first_record(), second_record()};
   const auto rows = geist::detail::slice_fixed_source_rows(records, 3, {5});
