@@ -156,6 +156,24 @@ bool same_block(const FigureSourceBlockIR &left,
   for (std::size_t index = 0; index < left.cells.size(); ++index)
     if (!same_cell(left.cells[index], right.cells[index]))
       return false;
+  const auto same_rule = [](const std::optional<FigurePreformattedLineIR> &a,
+                            const std::optional<FigurePreformattedLineIR> &b) {
+    if (a.has_value() != b.has_value())
+      return false;
+    if (!a)
+      return true;
+    if (a->logical_record != b->logical_record ||
+        a->prefix_token != b->prefix_token || a->token_end != b->token_end ||
+        a->text != b->text || a->rows.size() != b->rows.size())
+      return false;
+    for (std::size_t row = 0; row < a->rows.size(); ++row)
+      if (!same_row(a->rows[row], b->rows[row]))
+        return false;
+    return true;
+  };
+  if (!same_rule(left.rule_above, right.rule_above) ||
+      !same_rule(left.rule_below, right.rule_below))
+    return false;
   if (left.drawn_lines.size() != right.drawn_lines.size())
     return false;
   for (std::size_t index = 0; index < left.drawn_lines.size(); ++index) {
@@ -423,6 +441,22 @@ bool frame_rule_line(const DecodedLogicalRecordSource &record,
   return !trimmed.empty() &&
          std::all_of(trimmed.begin(), trimmed.end(),
                      [](const auto ch) { return ch == '_'; });
+}
+
+// A full-width rule: more than 71 consecutive `U+2500` cells from display
+// column 3.  The reader empties such a line everywhere but in a `cz OFF
+// TABLE` region, and the page shows `<hr>` in its place; a `frame=rule`
+// figure's top and bottom rules are such lines in 51 of 52 sampled books
+// (SC26-4817-04 1.3.12.2, DT 19950325182347:
+// `<a name="FIGFIGUNIQ22"><hr>` ... `<hr>`).
+bool full_width_rule_line(const DecodedLogicalRecordSource &record,
+                          const DisplayLineIR &line) {
+  const auto columns = display_line_columns(record, line);
+  std::size_t run = 0;
+  for (auto column = std::size_t{3};
+       column < columns.size() && columns[column] == 0x2500; ++column)
+    ++run;
+  return run > 71;
 }
 
 // "Figure N. Title" possibly behind a change bar ("| Figure  1-4. ...").
@@ -1048,8 +1082,20 @@ struct Extractor {
       }
     if (body_begin == lines.size())
       return decline(region, "drawn figure has no body lines");
+    const auto rule_line = [&](std::size_t index) {
+      FigurePreformattedLineIR out;
+      out.logical_record = lines[index].record->logical_record;
+      out.prefix_token = lines[index].line.prefix_token;
+      out.token_end = lines[index].line.token_end;
+      out.text = classes[index].text;
+      out.rows = rows_in(*lines[index].record, lines[index].line);
+      return out;
+    };
     if (frame_rule_line(*lines[body_begin].record, lines[body_begin].line,
                         classes[body_begin].text)) {
+      if (full_width_rule_line(*lines[body_begin].record,
+                               lines[body_begin].line))
+        block.rule_above = rule_line(body_begin);
       classes[body_begin].kind = LineKind::spacing;
       while (body_begin < body_end && classes[body_begin].kind != LineKind::body)
         ++body_begin;
@@ -1057,6 +1103,9 @@ struct Extractor {
     if (body_end > body_begin &&
         frame_rule_line(*lines[body_end - 1].record, lines[body_end - 1].line,
                         classes[body_end - 1].text)) {
+      if (full_width_rule_line(*lines[body_end - 1].record,
+                               lines[body_end - 1].line))
+        block.rule_below = rule_line(body_end - 1);
       classes[body_end - 1].kind = LineKind::spacing;
       while (body_end > body_begin && classes[body_end - 1].kind != LineKind::body)
         --body_end;
@@ -1943,6 +1992,10 @@ std::string format_figure_blocks_ir(const FigureBlocksIR &blocks) {
       out << " caption='" << block.caption->text << "'";
     if (!block.drawn_lines.empty())
       out << " drawn-lines=" << block.drawn_lines.size();
+    if (block.rule_above)
+      out << " rule-above";
+    if (block.rule_below)
+      out << " rule-below";
     for (const auto &spot : block.spot_anchors) {
       out << " spot='" << spot.id << "'@" << spot.logical_record << ':'
           << spot.segment_index;

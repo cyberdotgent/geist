@@ -893,7 +893,52 @@ void rows_after_named_closer(bool list) {
         "the rows after the named closer are not drawn as stored: " + html);
 }
 
+// A `frame=rule` drawn figure: its top and bottom frame rows are full-width
+// rules, which the reader empties and the page shows as `<hr>`.
+// SC26-4817-04 1.3.12.2 (DT 19950325182347) opens `SRFIGFIGUNIQ22` with a
+// 92-cell rule from column 3 and serves `<a name="FIGFIGUNIQ22"><hr>`, the
+// numbered steps, then `<hr>` before the following prose; 51 of 52 sampled
+// books serve one `<hr>` per such rule.  A shorter rule stays spacing.
+void figure_frame_rules(bool full) {
+  Builder builder(false);
+  builder.line({sp(3), w("Lead.")});
+  builder.line({w("SRFIGRULED")});
+  const std::size_t cells = full ? 74 : 60;
+  builder.line({sp(3), box(TokenWords(cells, 0x2500))});
+  builder.blank();
+  builder.line({sp(3), w("first"), w("drawn"), w("row")});
+  builder.line({sp(3), w("second"), w("drawn"), w("row")});
+  builder.blank();
+  builder.line({sp(3), box(TokenWords(cells, 0x2500))});
+  builder.line({sp(3), w("Figure"), w("1."), w("Ruled")});
+  builder.line({w("SREFIG")});
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "rule-framed figure declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto anchor = html.find("id=\"FIGRULED\"");
+  const auto top = html.find("<hr", anchor);
+  const auto body = html.find("first drawn row");
+  const auto bottom = html.find("<hr", body);
+  const auto caption = html.find("Figure 1. Ruled");
+  if (full)
+    check(anchor != std::string::npos && top != std::string::npos &&
+              body != std::string::npos && bottom != std::string::npos &&
+              caption != std::string::npos && anchor < top && top < body &&
+              body < bottom && bottom < caption &&
+              !contains(html, "_____"),
+          "the full-width frame rules are not the page's rules: " + html);
+  else
+    check(!contains(html, "<hr") && !contains(html, "_____") &&
+              body != std::string::npos,
+          "a short frame rule became a page rule: " + html);
+}
+
 int main() {
+  figure_frame_rules(true);
+  figure_frame_rules(false);
   rows_after_named_closer(false);
   rows_after_named_closer(true);
   full_width_rule_in_verbatim_region();

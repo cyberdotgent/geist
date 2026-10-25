@@ -1811,6 +1811,21 @@ order).  The selected columns may include the blank before the placeholder:
 `cselect 5 11 PIC23`, and hosted's `<img>` stands at column 5, the blank, with
 eleven blank columns after it.
 
+*A figure framed by full-width rules shows them as horizontal rules.*  A
+figure without corners draws its frame as a rule row above and below its
+body.  `SC26-4817-04.boo` topic `1.3.12.2`, logical record 261, opens
+`SRFIGFIGUNIQ22` and `cz OFF FIG`, then display line 37 at BOO byte
+`0x21ac5`: length byte `04`, `1f` (three blanks), `18` (63 `U+2500` words),
+attach `00`, `16` (32 `U+2500` words) -- 95 rule cells from column 3.  Record
+262 line 22 closes the body with a second such rule before `SREFIG`.  Like
+any row of more than 71 consecutive `U+2500` cells from column 3 outside
+`cz OFF TABLE` (see "Open drawings in prose"), the reader empties both lines;
+hosted BookServer (DT `19950325182347`) serves `<a name="FIGFIGUNIQ22"><hr>`,
+the figure's rows, and `<hr>` again.  Across a 650-book sample, 51 of 52
+books with such a figure (one topic each) serve exactly one `<hr>` per rule
+row; the 52nd serves one more `<hr>` from another source.  The caption line,
+when present, follows the bottom rule and is shown after its `<hr>`.
+
 *A numbered figure caption is a run of display lines, and its continuations are
 indented to the title column.* The caption line is `Figure <n>. <title>`;
 every line that continues it starts at exactly the column where `<title>`

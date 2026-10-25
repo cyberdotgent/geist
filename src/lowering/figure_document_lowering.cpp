@@ -311,9 +311,27 @@ bool append_spot_anchors(const FigureSourceBlockIR &figure,
   return true;
 }
 
+// The page's horizontal rule in place of a full-width frame rule
+// (`FigureSourceBlockIR::rule_above`/`rule_below`).
+BlockIR frame_rule_block(const FigureSourceBlockIR &figure,
+                         const FigurePreformattedLineIR &rule) {
+  BlockIR block;
+  block.node = ThematicBreakBlockIR{};
+  block.origin.derivation = DocumentDerivationIR::semantic_lowering;
+  block.origin.detail = "figure frame rule";
+  add_cell_slices(block.origin, figure.cells, [&](const auto &cell) {
+    return cell.logical_record == rule.logical_record &&
+           cell.token_index > rule.prefix_token &&
+           cell.token_index < rule.token_end;
+  });
+  add_sorted_rows(block.origin, rule.rows);
+  return block;
+}
+
 // Anchor + preformatted body + emphasised caption paragraph for a drawn
 // figure.  The body lines are the hosted display lines; the caption keeps
-// the presentation of a picture figure's caption.
+// the presentation of a picture figure's caption.  A full-width frame rule
+// above or below the body is the page's horizontal rule there.
 std::optional<std::vector<BlockIR>>
 lower_preformatted_figure(const FigureSourceBlockIR &figure,
                           std::string *error) {
@@ -339,6 +357,8 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
 
   if (!append_spot_anchors(figure, blocks, error, nullptr, true))
     return std::nullopt;
+  if (figure.rule_above)
+    blocks.push_back(frame_rule_block(figure, *figure.rule_above));
 
   PreformattedBlockIR body;
   std::vector<DocumentSourceRowIR> body_rows;
@@ -546,6 +566,8 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
               });
   }
   blocks.push_back(std::move(block));
+  if (figure.rule_below)
+    blocks.push_back(frame_rule_block(figure, *figure.rule_below));
 
   if (figure.caption) {
     if (figure.caption->text.empty()) {
@@ -758,6 +780,8 @@ bool verify_figure_document_blocks(const FigureSourceBlockIR &figure,
         if (!same_origin(node->line_origins[line],
                          actual_node.line_origins[line]))
           return fail(error, "figure frame rows differ from canonical");
+    } else if (std::holds_alternative<ThematicBreakBlockIR>(expected.node)) {
+      // Kind and origin are compared above; a rule carries nothing else.
     } else if (const auto *node =
                    std::get_if<ParagraphBlockIR>(&expected.node)) {
       if (!same_inlines(node->content,

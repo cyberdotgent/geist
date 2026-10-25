@@ -307,6 +307,13 @@ struct FigureSourceBlockIR {
   // Preformatted figures only: the body lines in display order (interior
   // blank lines included, surrounding spacing excluded).
   std::vector<FigurePreformattedLineIR> lines;
+  // Preformatted figures only: the `frame=rule` frame's top and bottom rule
+  // when it is a full-width rule (more than 71 `U+2500` cells from display
+  // column 3), which the reader empties and the page shows as `<hr>`
+  // (SC26-4817-04 1.3.12.2, DT 19950325182347: `<a name="FIGFIGUNIQ22"><hr>`
+  // ... `<hr>`).  A shorter frame rule stays spacing.
+  std::optional<FigurePreformattedLineIR> rule_above;
+  std::optional<FigurePreformattedLineIR> rule_below;
   // Pictures after the first, in source order.
   std::vector<FigurePictureIR> additional_pictures;
   // Decoder placeholder text for the picture cell when present ("PICTURE 9").
