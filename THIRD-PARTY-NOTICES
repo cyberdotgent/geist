@@ -1,0 +1,265 @@
+THIRD-PARTY NOTICES
+===================
+
+Geist (libgeist, its command-line tools, the Geist BOO Reader for Windows and
+macOS, the Geist Hardcopy Reader and mod_geist) is licensed under the Apache
+License, Version 2.0; see LICENSE. Binary distributions of Geist also contain
+the third-party material listed below, each under its own licence. This file
+is shipped with every binary distribution so that those licences and
+acknowledgements travel with the material they cover.
+
+Which artefact contains what:
+
+  Artefact                               Hershey  libpng   zlib     giflib
+  -------------------------------------  -------  -------  -------  -------
+  Windows zip (CLI tools and geist.dll)  yes      DLL      DLL      DLL
+  Windows Geist BOO Reader (.exe)        yes      static   static   static
+  macOS Geist BOO Reader (DMG)           yes      static   system   static
+  Linux Geist Hardcopy Reader AppImage   yes      bundled  system   bundled
+  Debian and Ubuntu packages             yes      system   system   system
+
+  yes      compiled into libgeist, and so into every binary built from it.
+  DLL      shipped as a separate library beside the executables.
+  static   linked into the executable.
+  bundled  copied into the AppImage from the build system's distribution
+           packages.
+  system   not distributed with Geist: the operating system's own copy is
+           used at run time and comes with its own licence.
+
+The Debian and Ubuntu packages carry the same information in
+/usr/share/doc/<package>/copyright, as Debian policy asks.
+
+The licence texts reproduced below are those of libpng 1.6.59, zlib 1.3.1
+and giflib 5.2.2, the versions the standalone Windows and macOS readers are
+built from. Distributions that carry a library built elsewhere (the Windows
+zip, from vcpkg) also include that build's own licence file in
+ThirdPartyLicenses/, and the Windows reader embeds the texts of the exact
+builds it links (Help > Licences).
+
+
+==============================================================================
+Hershey fonts (LicenseRef-Hershey)
+==============================================================================
+
+libgeist sets the text of GDF pictures in the Roman simplex face of the
+Hershey fonts. The glyph data is compiled into libgeist from
+src/img/gdf_font.cpp, whose SPDX licence expression is
+"Apache-2.0 AND LicenseRef-Hershey": the code is Apache-2.0, and the glyph
+data is covered by the Hershey fonts licence below. LicenseRef-Hershey is
+this project's name for that licence, which has no identifier on the SPDX
+licence list.
+
+  Source:  https://raw.githubusercontent.com/kamalmostafa/hershey-fonts/
+           1356bf2f83d380fcef68c887e88675eb9d445d86/hershey-fonts/futural.jhf
+  SHA-256: 4958a1d06ea04709feb530deaab53d1efa1285d0d3e92a4a3edd74d279871ced
+
+  This distribution of the Hershey Fonts may be used by anyone for any
+  purpose, commercial or otherwise, providing that:
+    1. The following acknowledgements must be distributed with the font
+       data:
+       - The Hershey Fonts were originally created by Dr. A. V. Hershey
+         while working at the U. S. National Bureau of Standards.
+       - The format of the Font data in this distribution was originally
+         created by
+           James Hurt
+           Cognition, Inc.
+           900 Technology Park Drive
+           Billerica, MA 01821
+           (mit-eddie!ci-dandelion!hurt)
+    2. The font data in this distribution may be converted into any other
+       format *EXCEPT* the format distributed by the U.S. NTIS (which
+       organization holds the rights to the distribution and use of the
+       font data in that particular format). Not that anybody would really
+       *want* to use their format... each point is described in eight
+       bytes as "xxx yyy:", where xxx and yyy are the coordinate values as
+       ASCII numbers.
+
+==============================================================================
+libpng (Libpng-2.0)
+==============================================================================
+
+COPYRIGHT NOTICE, DISCLAIMER, and LICENSE
+=========================================
+
+PNG Reference Library License version 2
+---------------------------------------
+
+ * Copyright (c) 1995-2026 The PNG Reference Library Authors.
+ * Copyright (c) 2018-2026 Cosmin Truta.
+ * Copyright (c) 2000-2002, 2004, 2006-2018 Glenn Randers-Pehrson.
+ * Copyright (c) 1996-1997 Andreas Dilger.
+ * Copyright (c) 1995-1996 Guy Eric Schalnat, Group 42, Inc.
+
+The software is supplied "as is", without warranty of any kind,
+express or implied, including, without limitation, the warranties
+of merchantability, fitness for a particular purpose, title, and
+non-infringement.  In no event shall the Copyright owners, or
+anyone distributing the software, be liable for any damages or
+other liability, whether in contract, tort or otherwise, arising
+from, out of, or in connection with the software, or the use or
+other dealings in the software, even if advised of the possibility
+of such damage.
+
+Permission is hereby granted to use, copy, modify, and distribute
+this software, or portions hereof, for any purpose, without fee,
+subject to the following restrictions:
+
+ 1. The origin of this software must not be misrepresented; you
+    must not claim that you wrote the original software.  If you
+    use this software in a product, an acknowledgment in the product
+    documentation would be appreciated, but is not required.
+
+ 2. Altered source versions must be plainly marked as such, and must
+    not be misrepresented as being the original software.
+
+ 3. This Copyright notice may not be removed or altered from any
+    source or altered source distribution.
+
+
+PNG Reference Library License version 1 (for libpng 0.5 through 1.6.35)
+-----------------------------------------------------------------------
+
+libpng versions 1.0.7, July 1, 2000, through 1.6.35, July 15, 2018 are
+Copyright (c) 2000-2002, 2004, 2006-2018 Glenn Randers-Pehrson, are
+derived from libpng-1.0.6, and are distributed according to the same
+disclaimer and license as libpng-1.0.6 with the following individuals
+added to the list of Contributing Authors:
+
+    Simon-Pierre Cadieux
+    Eric S. Raymond
+    Mans Rullgard
+    Cosmin Truta
+    Gilles Vollant
+    James Yu
+    Mandar Sahastrabuddhe
+    Google Inc.
+    Vadim Barkov
+
+and with the following additions to the disclaimer:
+
+    There is no warranty against interference with your enjoyment of
+    the library or against infringement.  There is no warranty that our
+    efforts or the library will fulfill any of your particular purposes
+    or needs.  This library is provided with all faults, and the entire
+    risk of satisfactory quality, performance, accuracy, and effort is
+    with the user.
+
+Some files in the "contrib" directory and some configure-generated
+files that are distributed with libpng have other copyright owners, and
+are released under other open source licenses.
+
+libpng versions 0.97, January 1998, through 1.0.6, March 20, 2000, are
+Copyright (c) 1998-2000 Glenn Randers-Pehrson, are derived from
+libpng-0.96, and are distributed according to the same disclaimer and
+license as libpng-0.96, with the following individuals added to the
+list of Contributing Authors:
+
+    Tom Lane
+    Glenn Randers-Pehrson
+    Willem van Schaik
+
+libpng versions 0.89, June 1996, through 0.96, May 1997, are
+Copyright (c) 1996-1997 Andreas Dilger, are derived from libpng-0.88,
+and are distributed according to the same disclaimer and license as
+libpng-0.88, with the following individuals added to the list of
+Contributing Authors:
+
+    John Bowler
+    Kevin Bracey
+    Sam Bushell
+    Magnus Holmgren
+    Greg Roelofs
+    Tom Tanner
+
+Some files in the "scripts" directory have other copyright owners,
+but are released under this license.
+
+libpng versions 0.5, May 1995, through 0.88, January 1996, are
+Copyright (c) 1995-1996 Guy Eric Schalnat, Group 42, Inc.
+
+For the purposes of this copyright and license, "Contributing Authors"
+is defined as the following set of individuals:
+
+    Andreas Dilger
+    Dave Martindale
+    Guy Eric Schalnat
+    Paul Schmidt
+    Tim Wegner
+
+The PNG Reference Library is supplied "AS IS".  The Contributing
+Authors and Group 42, Inc. disclaim all warranties, expressed or
+implied, including, without limitation, the warranties of
+merchantability and of fitness for any purpose.  The Contributing
+Authors and Group 42, Inc. assume no liability for direct, indirect,
+incidental, special, exemplary, or consequential damages, which may
+result from the use of the PNG Reference Library, even if advised of
+the possibility of such damage.
+
+Permission is hereby granted to use, copy, modify, and distribute this
+source code, or portions hereof, for any purpose, without fee, subject
+to the following restrictions:
+
+ 1. The origin of this source code must not be misrepresented.
+
+ 2. Altered versions must be plainly marked as such and must not
+    be misrepresented as being the original source.
+
+ 3. This Copyright notice may not be removed or altered from any
+    source or altered source distribution.
+
+The Contributing Authors and Group 42, Inc. specifically permit,
+without fee, and encourage the use of this source code as a component
+to supporting the PNG file format in commercial products.  If you use
+this source code in a product, acknowledgment is not required but would
+be appreciated.
+
+==============================================================================
+zlib (Zlib)
+==============================================================================
+
+Copyright notice:
+
+ (C) 1995-2022 Jean-loup Gailly and Mark Adler
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+
+  Jean-loup Gailly        Mark Adler
+  jloup@gzip.org          madler@alumni.caltech.edu
+
+==============================================================================
+giflib (MIT)
+==============================================================================
+
+The GIFLIB distribution is Copyright (c) 1997  Eric S. Raymond
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.

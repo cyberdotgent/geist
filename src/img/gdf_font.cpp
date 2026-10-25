@@ -1,5 +1,5 @@
 // Copyright 2026 Yvan Janssens
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Hershey
 //
 // The glyph data in this file is the Roman simplex face of the Hershey
 // fonts, converted from the .jhf distribution by a script that is not part
