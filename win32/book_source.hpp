@@ -94,9 +94,6 @@ public:
   const BookInformation& information() const { return information_; }
   const std::filesystem::path& path() const { return information_.file; }
 
-  // Print mode drops the reader's topic header, makes links plain text and
-  // hides the repeated heading on the cover and title topics.
-  void set_print_mode(bool value) { print_mode_ = value; }
   // The consumer stylesheet inlined into every topic page.
   void set_stylesheet(std::string css) { stylesheet_ = std::move(css); }
   // Extra markup placed at the end of <head> (scripts, meta tags).
@@ -133,7 +130,6 @@ private:
   BookInformation information_;
   std::string stylesheet_;
   std::string head_extra_;
-  bool print_mode_ = false;
 };
 
 } // namespace geist_reader

@@ -296,24 +296,16 @@ std::optional<std::string> BookSource::topic_page(const std::string& topic_id) c
     return topic_url(dest.topic, dest.fragment);
   };
   const std::string title = escaped(trim(entry->title));
-  std::string header;
-  std::string print_style;
-  if (!print_mode_) {
-    header = "<div class='reader-topic-header'><span class='reader-topic-id'>" +
-             escaped(topic_id) + "</span> <span class='reader-topic-title'>" + title +
-             "</span></div>";
-  } else {
-    print_style = "a{color:inherit;text-decoration:none;}";
-    if (equals_ignoring_case(topic_id, "COVER") || equals_ignoring_case(topic_id, "TITLE"))
-      print_style += ".geist-topic>.geist-heading:first-child{display:none;}";
-  }
+  const std::string header = "<div class='reader-topic-header'><span class='reader-topic-id'>" +
+                             escaped(topic_id) + "</span> <span class='reader-topic-title'>" + title +
+                             "</span></div>";
   // X-UA-Compatible must precede every element but <title> and <meta>.
   return "<!doctype html><html lang='en'><head>"
          "<meta http-equiv='X-UA-Compatible' content='IE=edge'>"
          "<meta charset='utf-8'><title>" + title + "</title><style>" + stylesheet_ +
          "\n.reader-topic-header{margin:0 0 1rem 0;padding:0 0 .35rem 0;}"
          ".reader-topic-id{font-style:italic;margin-right:.5rem;}"
-         ".reader-topic-title{font-weight:700;}" + print_style + "</style>" +
+         ".reader-topic-title{font-weight:700;}</style>" +
          head_extra_ + "</head><body class='geist-book'>" + header +
          entry->html_fragment(render) + "</body></html>";
 }

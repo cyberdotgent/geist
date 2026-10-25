@@ -2,14 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // The portable half of the Win32 reader: its URL space, link map, topic
-// pages, search and Print Book page plan. Built and run on every platform.
+// pages and search. Built and run on every platform.
 
 #include "book_source.hpp"
-#include "print_plan.hpp"
 
 #include <cassert>
 #include <iostream>
-#include <map>
 #include <string>
 #include <vector>
 
@@ -92,11 +90,6 @@ void packet_book() {
     std::cout << "served objects: " << served << '\n';
   }
 
-  source.set_print_mode(true);
-  const auto printed = source.topic_page(first.id);
-  assert(printed && !contains(*printed, "class='reader-topic-header'"));
-  assert(contains(*printed, "a{color:inherit;text-decoration:none;}"));
-
   const auto hits = source.search(first.title.substr(0, 4));
   assert(!hits.empty());
   assert(source.search("zzzqqq-no-such-text").empty());
@@ -107,62 +100,11 @@ void packet_book() {
   assert(!source.serve(source.topic_url(first.id)));
 }
 
-void plans() {
-  auto contents_pages = [](const std::vector<ContentsRow>& rows) {
-    return (rows.size() + 2) / 3;
-  };
-  const std::vector<ContentsRow> book = {
-      {"COVER", "Cover", 0},   {"NOTICES", "Notices", 0}, {"CONTENTS", "Contents", 0},
-      {"TITLE", "Title", 0},   {"CH1", "One", 0},         {"CH1.1", "One.one", 1},
-      {"CH2", "Two", 0}};
-  const std::map<std::string, std::size_t> pages = {
-      {"COVER", 1}, {"TITLE", 2}, {"NOTICES", 1}, {"CH1", 3}, {"CH1.1", 1}, {"CH2", 2}};
-  const auto plan = plan_book(book, pages, contents_pages);
-  // Listing: NOTICES CH1 CH1.1 CH2 -> two contents pages.
-  assert(plan.listing.size() == 4 && plan.listing[0].id == "NOTICES");
-  assert(plan.page_numbers.at("NOTICES") == 1);
-  assert(plan.page_numbers.at("CH1") == 4);
-  assert(plan.page_numbers.at("CH1.1") == 7);
-  assert(plan.page_numbers.at("CH2") == 8);
-  assert(plan.pages.size() == 1 + 2 + 1 + 2 + 3 + 1 + 2);
-  assert(plan.pages[0].kind == PrintPage::Kind::topic && plan.pages[0].topic == "COVER" &&
-         plan.pages[0].number == 0);
-  assert(plan.pages[1].topic == "TITLE" && plan.pages[2].topic == "TITLE" &&
-         plan.pages[2].number == 0);
-  assert(plan.pages[3].topic == "NOTICES" && plan.pages[3].number == 1);
-  assert(plan.pages[4].kind == PrintPage::Kind::contents && plan.pages[4].number == 2);
-  assert(plan.pages[5].kind == PrintPage::Kind::contents && plan.pages[5].index == 1);
-  assert(plan.pages[6].topic == "CH1" && plan.pages[6].number == 4);
-  assert(plan.pages.back().topic == "CH2" && plan.pages.back().number == 9);
-
-  // No cover, title or CONTENTS: a generated title page, then the contents
-  // after the leading front matter.
-  const std::vector<ContentsRow> bare = {
-      {"EDITION", "Edition", 0}, {"PREFACE", "Preface", 0}, {"A", "A", 0}};
-  const auto second = plan_book(bare, {{"EDITION", 1}, {"PREFACE", 1}, {"A", 1}}, contents_pages);
-  assert(second.pages.size() == 5);
-  assert(second.pages[0].kind == PrintPage::Kind::title && second.pages[0].number == 0);
-  assert(second.pages[1].topic == "EDITION" && second.pages[1].number == 1);
-  assert(second.pages[3].kind == PrintPage::Kind::contents && second.pages[3].number == 3);
-  assert(second.page_numbers.at("A") == 4);
-  assert(!printable_topic({"contents", "", 0}) && printable_topic({"A", "", 0}));
-
-  // Pagination prefers block starts, then line starts, then the full height.
-  auto slices = paginate(250, 100, {90, 175}, {});
-  assert(slices.size() == 3 && slices[0].bottom == 90 && slices[1].bottom == 175);
-  slices = paginate(250, 100, {}, {70});
-  assert(slices[0].bottom == 70);
-  slices = paginate(250, 100, {}, {});
-  assert(slices.size() == 3 && slices[0].bottom == 100 && slices[2].bottom == 250);
-  assert(paginate(0, 100, {}, {}).size() == 1);
-}
-
 } // namespace
 
 int main() {
   url_space();
   packet_book();
-  plans();
   std::cout << "win32 reader core: ok\n";
   return 0;
 }

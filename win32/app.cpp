@@ -4,7 +4,6 @@
 #include "app.hpp"
 
 #include "dialogs.hpp"
-#include "print_job.hpp"
 #include "protocol.hpp"
 #include "reader_window.hpp"
 #include "resource.h"
@@ -28,7 +27,6 @@ HACCEL build_accelerators() {
       {FVIRTKEY | FCONTROL, 'N', ID_FILE_NEW_WINDOW},
       {FVIRTKEY | FCONTROL, 'O', ID_FILE_OPEN},
       {FVIRTKEY | FCONTROL, 'W', ID_FILE_CLOSE_WINDOW},
-      {FVIRTKEY | FCONTROL, 'P', ID_FILE_PRINT_TOPIC},
       {FVIRTKEY | FCONTROL, 'C', ID_EDIT_COPY},
       {FVIRTKEY | FCONTROL, 'A', ID_EDIT_SELECT_ALL},
       {FVIRTKEY | FCONTROL, VK_OEM_COMMA, ID_EDIT_SETTINGS},
@@ -62,7 +60,7 @@ bool App::initialise(HINSTANCE instance) {
     show_error(nullptr, L"Geist BOO Reader", L"The geist: URL handler could not be registered.");
     return false;
   }
-  return ReaderWindow::register_class(instance) && BookPrintJob::register_class(instance);
+  return ReaderWindow::register_class(instance);
 }
 
 HICON App::icon(int size) const {

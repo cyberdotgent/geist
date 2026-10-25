@@ -49,7 +49,7 @@ present. CTest runs it as `win32_reader_executable_test`.
 
 Each open book has its own window: a contents tree, the topic view, and a
 flat toolbar with sidebar, back, forward, previous and next topic, table of
-contents, the book search, book information and print. The search scans the
+contents, the book search and book information. The search scans the
 title and text of every topic on a worker thread; results show a snippet,
 and clearing the field (or Escape) restores the contents. Links inside the
 book navigate in the window; links out of it (http, ftp, mailto) open with
@@ -69,14 +69,7 @@ registers the executable at its current location for the current user under
 made earlier in *Open with*; pick the reader there once if it does not take
 over. `--version` prints the reader and library versions.
 
-File > Print Topic prints the current topic through MSHTML's own print
-dialog. File > Print Book asks for a printer, then composes the book as the
-macOS reader does: the cover and title topics first and unnumbered (a plain
-title page when the book has neither), a generated table of contents with the
-printed page numbers in place of the book's CONTENTS topic, every later page
-numbered, and topics too wide for a portrait page printed on landscape pages
-(scaled down if still too wide). Large books take a while; the progress window
-can cancel.
+The reader does not print.
 
 ## Design notes
 
@@ -93,16 +86,6 @@ can cancel.
   properties, so `ie11-compat.css` restates the shared stylesheet's
   margin-block/padding-inline/border-inline rules as physical ones; the
   library's HTML is unchanged.
-- **Print Book** lays every topic out in a hidden WebBrowser at the
-  printable width (1 CSS pixel = 1/96 inch, 2x optical zoom for resolution),
-  measures block and line starts with a small script, splits it into pages
-  with the same rule as the macOS reader (`print_plan.cpp`, tested on every
-  platform) and draws each page into the printer DC through
-  `IViewObject::Draw` and GDI, so the numbering and the contents' page numbers
-  are exact and landscape pages can be mixed in. Topic pages are therefore
-  raster images (about 192 dpi), unlike Print Topic. With
-  `GEIST_PRINT_TO_DIRECTORY` set the pages are written as bitmaps to that
-  directory instead of a printer, for testing.
 - **High DPI and look.** The manifest declares PerMonitorV2 awareness and
   Common Controls 6; fonts come from the system message font for each DPI,
   the toolbar uses Segoe Fluent Icons or Segoe MDL2 Assets glyphs (words on

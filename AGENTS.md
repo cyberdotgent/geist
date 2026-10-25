@@ -31,8 +31,8 @@ closing correctness gaps against real books.
   public API with its own `geist:` URL space (an asynchronous pluggable
   protocol) and chrome. It must build with both MinGW-w64 and MSVC, so no
   ATL, MFC or WebView2, and it ships as one statically linked executable that
-  imports only Windows DLLs. `book_source.*` and `print_plan.*` are portable
-  C++ and are tested on every platform.
+  imports only Windows DLLs. `book_source.*` is portable C++ and is tested
+  on every platform.
 - `gui/` — the **Geist Hardcopy Reader**, an optional Qt6 desktop reader
   modelled on IBM's BookManager SoftCopy Reader. It is a pure consumer of the
   public API: no parsing or rendering logic lives here, and Qt appears in no

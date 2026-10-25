@@ -19,8 +19,6 @@
 
 namespace geist_reader {
 
-class BookPrintJob;
-
 class ReaderWindow final : public BrowserListener {
 public:
   static bool register_class(HINSTANCE instance);
@@ -38,8 +36,6 @@ public:
   void navigate_complete(const std::wstring& url) override;
   void document_complete(const std::wstring& url) override;
   void history_changed() override { update_controls(); }
-
-  void print_job_finished();
 
 private:
   struct Node {
@@ -81,8 +77,6 @@ private:
   void select_current_in_tree();
   void apply_topic_font();
   void step_topic_size(int delta);
-  void print_topic();
-  void print_book();
   void show_information();
   void drop_files(HDROP drop);
   void tree_custom_draw(NMTVCUSTOMDRAW* draw, LRESULT& result);
@@ -98,7 +92,6 @@ private:
   std::vector<std::wstring> glyph_text_;
   BrowserHost* browser_ = nullptr;
   std::shared_ptr<BookSource> source_;
-  std::unique_ptr<BookPrintJob> print_job_;
 
   HFONT ui_font_ = nullptr;
   HFONT glyph_font_ = nullptr;

@@ -63,7 +63,7 @@ and universal builds.
 
 A native Win32 reader around the system MSHTML WebBrowser control, with the
 macOS reader's features: one window per book, contents tree, book-wide
-search, settings, book information and Print Book. It builds with MSVC and
+search, settings and book information. It builds with MSVC and
 with MinGW-w64, and is one statically linked `geist-boo-reader.exe` that
 needs nothing installed; tagged releases attach it, and every push to `main`
 leaves one in the Actions run. See [win32/README.md](win32/README.md).

@@ -689,10 +689,10 @@ foreach(fixture_test
   geist_add_test(${fixture_test} FIXTURE)
 endforeach()
 
-# The Win32 reader's URL space, link map, search and Print Book page plan are
-# plain C++ over the public API, so they are tested on every platform.
+# The Win32 reader's URL space, link map and search are plain C++ over the
+# public API, so they are tested on every platform.
 geist_add_test(win32_reader_core FIXTURE
-  SOURCES win32/book_source.cpp win32/print_plan.cpp)
+  SOURCES win32/book_source.cpp)
 target_include_directories(win32_reader_core_test PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/win32")
 

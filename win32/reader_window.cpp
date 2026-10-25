@@ -5,7 +5,6 @@
 
 #include "app.hpp"
 #include "dialogs.hpp"
-#include "print_job.hpp"
 #include "protocol.hpp"
 #include "resource.h"
 
@@ -27,7 +26,6 @@ namespace {
 const wchar_t kEmptyClass[] = L"GeistBOOReaderEmpty";
 const wchar_t kAppTitle[] = L"Geist BOO Reader";
 constexpr UINT kSearchResults = WM_APP + 1;
-constexpr UINT kPrintFinished = WM_APP + 2;
 constexpr UINT kOpenLater = WM_APP + 4;
 constexpr int kToolbarHeight = 40;
 constexpr int kSplitterWidth = 5;
@@ -97,9 +95,6 @@ HMENU build_menu() {
   AppendMenuW(file, MF_STRING, ID_FILE_OPEN, L"&Open Book…\tCtrl+O");
   AppendMenuW(file, MF_STRING, ID_FILE_CLOSE_BOOK, L"Close &Book");
   AppendMenuW(file, MF_STRING, ID_FILE_CLOSE_WINDOW, L"&Close Window\tCtrl+W");
-  AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
-  AppendMenuW(file, MF_STRING, ID_FILE_PRINT_TOPIC, L"&Print Topic…\tCtrl+P");
-  AppendMenuW(file, MF_STRING, ID_FILE_PRINT_BOOK, L"Print Boo&k…");
   AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
   AppendMenuW(file, MF_STRING, ID_FILE_EXIT, L"E&xit");
   HMENU edit = popup(L"&Edit");
@@ -236,8 +231,8 @@ void ReaderWindow::build() {
   build_fonts();
   HINSTANCE instance = App::get().instance();
 
-  // Two flat, themed toolbars (navigation on the left; information and
-  // printing on the right, after the search field). Their buttons carry
+  // Two flat, themed toolbars (navigation on the left; book information on
+  // the right, after the search field). Their buttons carry
   // Segoe Fluent Icons / MDL2 Assets glyphs, crisp at every DPI, or words
   // where neither font exists.
   buttons_ = {
@@ -248,7 +243,6 @@ void ReaderWindow::build() {
       {ID_NAV_NEXT, L"Next Topic", 0xE74B, false},
       {ID_NAV_CONTENTS, L"Table of Contents", 0xE8FD, false},
       {ID_HELP_INFORMATION, L"Book Information", 0xE946, true},
-      {ID_FILE_PRINT_TOPIC, L"Print Topic", 0xE749, true},
   };
   for (HWND* bar : {&lead_bar_, &trail_bar_}) {
     *bar = CreateWindowExW(0, TOOLBARCLASSNAMEW, nullptr,
@@ -353,7 +347,7 @@ void ReaderWindow::layout() {
   SelectObject(dc, previous_font);
   ReleaseDC(hwnd_, dc);
   const int height = std::min(bar - 2 * pad, static_cast<int>(metrics.tmHeight) + scale(10, dpi_));
-  // Leading: sidebar and navigation; trailing: search, information, print.
+  // Leading: sidebar and navigation; trailing: search, information.
   SIZE lead{}, trail{};
   SendMessageW(lead_bar_, TB_GETMAXSIZE, 0, reinterpret_cast<LPARAM>(&lead));
   SendMessageW(trail_bar_, TB_GETMAXSIZE, 0, reinterpret_cast<LPARAM>(&trail));
@@ -516,19 +510,13 @@ LRESULT ReaderWindow::handle(UINT message, WPARAM wparam, LPARAM lparam) {
     show_search_results(payload->generation, std::move(payload->hits));
     return 0;
   }
-  case kPrintFinished:
-    print_job_.reset();
-    update_controls();
-    return 0;
   case WM_INITMENUPOPUP:
     update_controls();
     return 0;
   case WM_CLOSE:
-    if (print_job_) print_job_->cancel();
     DestroyWindow(hwnd_);
     return 0;
   case WM_DESTROY:
-    print_job_.reset();
     ++search_generation_;
     if (browser_) {
       browser_->destroy();
@@ -550,8 +538,6 @@ void ReaderWindow::command(int id) {
   case ID_FILE_OPEN: choose_book(); break;
   case ID_FILE_CLOSE_WINDOW: PostMessageW(hwnd_, WM_CLOSE, 0, 0); break;
   case ID_FILE_CLOSE_BOOK: close_book(); break;
-  case ID_FILE_PRINT_TOPIC: print_topic(); break;
-  case ID_FILE_PRINT_BOOK: print_book(); break;
   case ID_FILE_EXIT: PostQuitMessage(0); break;
   case ID_EDIT_COPY:
     if (GetFocus() == search_) SendMessageW(search_, WM_COPY, 0, 0);
@@ -617,9 +603,8 @@ void ReaderWindow::update_controls() {
   enable(ID_NAV_FORWARD, forward);
   enable(ID_NAV_PREVIOUS, previous);
   enable(ID_NAV_NEXT, next);
-  for (int command : {ID_NAV_CONTENTS, ID_FILE_PRINT_TOPIC, ID_HELP_INFORMATION, ID_SEARCH_BOOK, ID_FILE_CLOSE_BOOK})
+  for (int command : {ID_NAV_CONTENTS, ID_HELP_INFORMATION, ID_SEARCH_BOOK, ID_FILE_CLOSE_BOOK})
     enable(command, loaded);
-  enable(ID_FILE_PRINT_BOOK, loaded && !print_job_);
   EnableWindow(search_, loaded);
 }
 
@@ -673,7 +658,6 @@ void ReaderWindow::open_book(const std::wstring& path) {
     show_error(hwnd_, L"Cannot Open Book", path + L"\n\n" + widen(error));
     return;
   }
-  if (print_job_) print_job_->cancel();
   // A fresh view per book, so Back never leads into the previous book.
   if (browser_) browser_->destroy();
   browser_ = BrowserHost::create(hwnd_, this, {});
@@ -713,7 +697,6 @@ void ReaderWindow::open_book(const std::wstring& path) {
 }
 
 void ReaderWindow::close_book() {
-  if (print_job_) print_job_->cancel();
   if (browser_) browser_->navigate(L"about:blank");
   if (source_) detach_source(source_.get());
   source_.reset();
@@ -950,22 +933,6 @@ void ReaderWindow::settings_changed() {
   InvalidateRect(tree_, nullptr, TRUE);
   apply_topic_font();
   layout();
-}
-
-void ReaderWindow::print_topic() {
-  if (has_book() && browser_) browser_->exec(OLECMDID_PRINT, OLECMDEXECOPT_PROMPTUSER);
-}
-
-void ReaderWindow::print_book() {
-  if (!has_book() || print_job_) return;
-  HWND target = hwnd_;
-  print_job_ = BookPrintJob::start(hwnd_, source_->path(), App::get().stylesheet(), App::get().next_host(),
-                                   [target] { PostMessageW(target, kPrintFinished, 0, 0); });
-  update_controls();
-}
-
-void ReaderWindow::print_job_finished() {
-  PostMessageW(hwnd_, kPrintFinished, 0, 0);
 }
 
 void ReaderWindow::show_information() {

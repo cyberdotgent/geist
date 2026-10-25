@@ -93,7 +93,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE, LPSTR, int) {
   if (!new_instance && forward_to_running(paths)) return 0;
 
   INITCOMMONCONTROLSEX controls{sizeof controls, ICC_STANDARD_CLASSES | ICC_TREEVIEW_CLASSES | ICC_BAR_CLASSES |
-                                                     ICC_PROGRESS_CLASS | ICC_WIN95_CLASSES};
+                                                     ICC_WIN95_CLASSES};
   InitCommonControlsEx(&controls);
   if (FAILED(OleInitialize(nullptr))) return 1;
   App& app = App::get();

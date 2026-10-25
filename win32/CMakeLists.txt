@@ -64,10 +64,8 @@ add_executable(geist-boo-reader WIN32
   protocol.cpp protocol.hpp
   settings.cpp settings.hpp
   dialogs.cpp dialogs.hpp
-  print_job.cpp print_job.hpp
   win32_util.cpp win32_util.hpp
   book_source.cpp book_source.hpp
-  print_plan.cpp print_plan.hpp
   resource.h
   "${CMAKE_CURRENT_BINARY_DIR}/geist-boo-reader.rc"
 )
