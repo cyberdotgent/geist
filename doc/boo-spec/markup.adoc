@@ -1549,6 +1549,16 @@ the visible title, index identity and message fields.  `:MSGNO` is therefore a
 topic heading form, not a displayed body token; the topic is headed at level 6
 (see "Message topics are headed at level 6").
 
+A message-section heading topic carries a bare `SRMSG` in the same envelope
+position, and the next display line's length byte belongs to that next line
+whatever the dictionary spells for it.  `dfhg4a02.boo` topic `1.6`, logical
+record 67: line 6 is `01 4B` at `0x225C9` (length byte, `SRMSG`), and line 7
+opens with the length byte `04` at `0x225CB`, which this book's dictionary
+spells as a run of box-drawing glyphs, followed by `chdlevel :H2`.  No
+boundary byte separates the two lines, so a flattened reading runs the
+`SRMSG` on into the glyph run; the framing shows that the `SRMSG` line holds
+the opcode alone.  The same shape opens 146 topics of the book.
+
 An individually indexed message can also carry a second, bare `SRMSG` after
 its visible message fields.  This is a local `MSG` destination rather than a
 new message envelope, and it does not consume the following prose row.

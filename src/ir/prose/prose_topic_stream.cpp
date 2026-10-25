@@ -794,7 +794,29 @@ bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
       if (at_end())
         return fail(error, "topic metadata controls are incomplete");
       if (message.operand_range.begin == message.operand_range.end) {
-        if (message.payload_range.begin != message.payload_range.end)
+        // The payload may be nothing but the next display line's length
+        // byte, which the flattened segment runs on into when no boundary
+        // byte separates them: dfhg4a02 1.6 record 67 line 6 is `SRMSG`
+        // alone and line 7 opens with the length byte `04` at 0x225CB,
+        // spelled as a box-glyph run, before `chdlevel :H2`.  A length byte
+        // is the row-control slot, never display text.
+        const auto opcode_words = decoded_byte_range_to_word_range(
+            records[message_record].assembled,
+            {message.opcode_range.begin, message.opcode_range.end});
+        const auto opcode_tokens = source_tokens_intersecting_output(
+            records[message_record].assembled, opcode_words.begin,
+            opcode_words.end);
+        const auto only_length_bytes = std::all_of(
+            message.source_tokens.begin(), message.source_tokens.end(),
+            [&](const auto token) {
+              return std::binary_search(opcode_tokens.begin(),
+                                        opcode_tokens.end(), token) ||
+                     is_display_line_length_token(records[message_record],
+                                                  token) ||
+                     is_padding(view_token(records, message_record, token));
+            });
+        if (message.payload_range.begin != message.payload_range.end &&
+            !only_length_bytes)
           return fail(error, "bare SRMSG inside the envelope carries payload");
         if (!assign_segment_tokens(records, ledger, message_record, message,
                                    ProseTokenRoleIR::envelope, false, error))
