@@ -2696,6 +2696,26 @@ rows of a box table alike -- and in front of the topic number for a title
 whose number the reader suppresses).  `U+2502` is printed `|`.  No hosted page
 of the sample prints a stored mark anywhere else or drops it.
 
+The mark's token has no fixed width.  The book compiler stores it as a
+one-byte token or as a two-byte dictionary word, and the margin shape -- not
+the width -- makes it the mark.  `GC24-5841-01.boo` `PREFACE.5`, logical
+record 32 display line 18, is `12 06 C3 E4 45 03 07 BB E4 ...` at `0x279E0`:
+length byte `12`, `06` (one blank), `C3 E4` (`|`, two bytes), `45 03` (the
+bullet `U+2666`, two bytes), `07` (a two-cell blank run) and `BB E4`
+(`Visit`), under `cz FLOW LI 3 7`.  Hosted (DT `19990525154647`) serves
+pass:[<literal>&lt;li&gt; &lt;br&gt; |&#160;&#160;&#160;&#160; Visit our home page at:</literal>]: the bar in the margin, the
+bullet replaced by the item.  `SC41-5401-00.boo` `2.1.2.21`, record 269
+line 23, stores the definition term the same way (`0C` one blank, `E4 E7`
+`|`, `26` `*`, an attach prefix, `9E` `YES`), served
+pass:[<literal>&lt;dt&gt;&lt;br&gt; | &lt;B&gt;*YES&lt;/B&gt;</literal>] (DT `19970421115044`).  The CZ dialect uses
+the one-byte `+` and `#` the same way in front of its list bullets.
+
+Inside a `cz OFF` verbatim region the mark is one of the region's stored
+cells and is printed where it stands: the same topic's `cz OFF XMP` row
+(record 32 line 22, ` ` + the two-byte `|` + a seven-cell run +
+`http://www.ibm.com/s390/vm`) is served ` |       <samp>http:</samp>...`
+inside `<pre width="80">`.
+
 [[markup_the_list_bullet_is_display_structure_between_controls]]
 ==== The list bullet is display structure between controls
 
@@ -4433,6 +4453,21 @@ Hosted keeps the `CFONT` highlighting of words inside a box (`<B>In</B>`) and
 resolves a `CSELECT` inside one into an `<a href=...>`; a preformatted
 lowering carries neither, which is the only observed difference.
 
+The change bar in front of column L may also be the box word `U+2502`, the
+body row's revision mark (<<markup_revision_marks_as_stored>>) drawn with
+the same word as the rails.  It stands in the row's margin, at cell 1, and
+the region's rails stand after it.  `SH45-5547-00.boo` `2.6`, logical record
+321 display line 11, is `0E 05 5D C2 3E 00 C2 59 D9 EF C2 87 00 C2 3D` at
+`0x25ACA`: length byte `0E`, `05` (one blank), `5D` (`U+2502`, the mark, cell
+1), `C2 3E` (`U+250C`, column 3), an attach prefix, `C2 59` (three
+`U+2500`), `D9 EF` (`Note`), `C2 87` (63 `U+2500`), an attach prefix and
+`C2 3D` (`U+2510`, column 76).  Its two text rows (lines 13-14) carry the
+same mark before their left rail at column 3; the empty rows and the bottom
+rule carry none.  Hosted (DT `19950203080455`) prints every row verbatim,
+pass:[<literal>&#160;|&#160;&#160;___ &lt;B&gt;Note&lt;/B&gt; ___...</literal>] and pass:[<literal>&#160;| | If your installation ...</literal>]: the mark in the
+margin, the box at its own columns.  The same book draws the same revised box
+in topics `2.7`-`2.9` and `3.1`-`3.4`.
+
 [[markup_the_regions_left_margin_is_content]]
 ===== The region's left margin is content
 
@@ -5009,6 +5044,27 @@ geometry: the frame words occupy their own display columns and hosted prints
 their display glyphs.  Drawn box _regions_ are a flattened-dialect shape and
 are not planned inside the `CZ` dialect, which names its verbatim blocks
 itself.
+
+The bullet word `U+2666` inside a verbatim region is a drawn cell too, not a
+list marker: hosted prints its display glyph at its column.
+`SC33-1697-02.boo` `1.3` opens `cz OFF LBLBOX` at record 123 line 16 around
+the `Examples in this section` box (closed by `cz OFF ELBLBOX 0 0`, record
+125 line 22).  Line 25 is `1A 14 7E 03 13 A3 ...` at `0x2CEFB`: length byte
+`1A`, `14` (three blanks), `7E` (`U+2502`, the left rail), `03` (`U+2666`),
+`13` (a two-cell blank run) and `A3` (`The`), the right rail at the end.
+Hosted (DT `19990308125631`) serves
+pass:[<literal>&#160;&#160;&#160;| °&#160;&#160;&#160;The examples do not show complete CEDA screens, but only options&#160;&#160;&#160;|</literal>] inside `<pre width="132"><!-- lblbox -->`.
+
+A region the dialect gives no structure of its own -- any `cz OFF <tag>`
+other than the figure, table, footnote, message-list and title-page tags --
+is the generic region of the table below, and its box words are drawn the
+same way.  `SY27-0327-05.boo` `4.5`, record 691, opens `cz OFF DANGER` at
+line 25 (`04 4A 8D C6 48` at `0x11A652`); line 26, `09 13 06 00 0E 00 BD 44
+00 05` at `0x11A657`, is the top rule of the notice box (three blanks,
+`U+250C`, two rule runs, `U+2510`); record 692 line 4 closes the region with
+`cz OFF EDANGER 0 0`.  Hosted (DT `19961016091447`) prints the box inside
+`<pre width="80"><!-- * -->` row for row, its words in `<strong>`.  Topics
+`5.1`, `A.1.1`, `A.1.39` and `E.1.2` of the same book draw the same notice.
 
 A verbatim region's rows also keep their *left margin*, exactly as a drawn
 box region does: hosted serves the block at the display columns the rows
@@ -6018,6 +6074,27 @@ the leading rows inside it is served for `GC30-3820-03` `2.4.1`,
 `PREFACE.2.7`, `SC31-8571-01` `1.1.8`, `SC31-8576-01` `1.4.1`,
 `SC33-1661-01` `1.1.1`, `SC41-3512-05` `1.1.5`, `SC41-5611-02` `1.1.2`,
 `SC41-5853-02` `1.2.3` and `SV40-0093-03` `4.4.2`.
+
+*A topic whose only directives are closers.*  A `cz OFF E<tag>` line
+closes a region only when the topic opened it; a closer of a region the
+topic never opened prints nothing beyond the generic closer's output.  A
+topic whose every directive is such a closer is therefore printed, from its
+heading on, exactly as a topic with no `CZ` at all.  `SC41-3512-05.boo`
+`1.3.3.2` draws a closed box -- record 106 line 26 at `0x5587E4`,
+`0B 10 06 00 C4 3E D1 D9 C4 65 00 05` (three blanks, `U+250C`, an attach
+prefix, three `U+2500`, `Important`, the rule, an attach prefix, `U+2510`),
+side rows, and the bottom rule at record 107 line 2, `09 10 07 00 0B 00 C4
+41 00 08` at `0x558879` (three blanks, `U+2514`, two rule runs, `U+2518`) --
+and closes it with record 107 line 3, `06 4B 8D CD 63 A5 A5` at `0x558883`
+(`cz OFF ELBLBOX 0 0`).  No `cz OFF LBLBOX` and no other directive appears in
+the topic.  Hosted (DT `19980528085436`) prints every row of the box at its
+stored columns inside the post-heading `<pre width="132">`, with no
+`<!-- lblbox -->` block.  Topic `1.3.4` of the same book closes its `Tip`
+box with `cz OFF ELBLBOX 7 7` and goes on with the list item
+`__ 5.  Type a 1 next to each ...`: hosted ends the `<pre>` after the box
+(`</pre>`), opens `<pre width="132"><!-- * -->` and prints the following
+rows as stored.  Every box row of fourteen such topics of `SC41-3512-05`
+matches hosted exactly.
 
 *A length byte spelled `cz` is no directive.*  The dictionary of a book
 can give the one-byte token value that is also a row's length the spelling
