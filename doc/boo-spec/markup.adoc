@@ -2841,6 +2841,32 @@ row's columns are right.  A `CFONT` triple of this shape has not been
 observed, and neither has a label torn at both ends.  Both remain
 unverified.
 
+The compiler glues the label's *end* the same way: the running word after
+the label follows it with no blank, and one dictionary word spells both.
+The selector's columns then end inside that stored word, and hosted
+BookServer closes the link mid-word:
+
+[cols="<17,<37,<46",options="header"]
+|===
+|Book / topic |Bytes and operand |Hosted
+
+|SC33-6705-01 `6.12.2.1` |record 605, token at `0x5FD24` is `CE A2`, the word `Guideprovides`; `cselect 3 16 LNK <BOOK> <> <> <SH12-5336> <> <BACLRZ>` over `   Operations Guideprovides details ...` |`<a href="../../DOCNUM/SH12-5336/CCONTENTS"><cite>Operations</cite> <cite>Guide</cite></a>provides` (DT `19991011131428`)
+|SC33-1169-00 `6.3.3.7` |record 1554, token at `0x1183ED` is `EF 27`, the word `7575`; `cselect 17 9 FIGASEXRE` and `cselect 26 2 FIGASEXRE` over `   Figures 72 to Figure 7575 show how ...` |`<a ...>Figure 75</a><a ...>75</a> show how` (DT `19990319122050`)
+|SH09-8107-00 `1.2.6.4` |record 96, token at `0xAC45A` is `EE EE`, the word `6and`; `cselect 19 7 TBLDIRECT` (token `0xAC44C`) over `   DASD, listed in Table 6and round up ...` |`listed in <a href="...#TBLDIRECT">Table 6</a>and round up` (DT `19920529121056`)
+|===
+
+The same proof applies with the edges exchanged: the label starts on a word
+boundary and ends between two cells of one stored token.
+
+A row can also be proven by its own display line, which matters for a row
+that carries only the one selector (`SH09-8107-00` above).  The operand's
+columns are the display columns of the stored line, so when every word of
+the row stands at the column the stored line puts it in -- the length byte,
+the origin run and every token in stored order -- the row's columns are
+the stored ones, and a label edge inside a stored token is exactly where the
+operand puts it.  A reader that has displaced the row's margin does not
+match the stored line, so this proof never admits a displaced row.
+
 [[markup_the_three_column_left_margin]]
 ==== The three-column left margin
 
@@ -6916,6 +6942,25 @@ title is the whole `ST` display line, never a leading body row.
 |`FLOW H2`..`H6` with rows |in-topic heading of that level |`SC09-2417-00` `2.2`; `DFHP7A00` `2.3.4.5.2` uses `FLOW H6` for the command-family subheadings
 |===
 
+A parameter list can lack its `FLOW PARML` opener.  The `PT` terms, the
+`BREAK` bodies and the closing `OFF EPARML` are all stored, but no opener
+precedes the first term: after a syntax diagram (`DFHP7A00` `2.5.3`;
+`SC31-8778-01` `4.1.4.51`, DT 20010606144047), after a table, a paragraph or
+a note, and inside a list item (`SC31-8513-00` `2.12.1.5`, DT
+19980219192539).  `SC41-5605-00` `3.3.7.24`, logical record 862, stores
+`06 4A 92 CF 6F B4 B4` at `0x82CA5` (`cz OFF ETABLE 4 4`), directly
+`06 4A 8F D8 F4 AE C1` at `0x82CAC` (`cz FLOW PT 3 7`) and the term row
+`   DATA`, then `cz BREAK 7` with the body, and `06 4A 92 CF 4B 9C 9C` at
+`0x82CE7` (`cz OFF EPARML 0 0`).  Hosted BookServer (DT 19980512102401)
+serves `<kbd>DATA</kbd>`, `<br>` and the indented body -- exactly what it
+serves for a term of an opened list, because the reader has no
+parameter-list rule at all: `CZ FLOW PT` is the generic `CZ FLOW` and
+`CZ BREAK` prints `<br>`.  The terms between such a `PT` and the first
+`EPARML` that closes no list opened after it therefore form one parameter
+list, entries and the paragraphs, lists and regions between them alike.  A
+`PT` with no such closer is not observed to be framed by anything and stays
+uninterpreted.
+
 The `DT` row stores the term in the columns from `left` up to `indent` and the
 definition in the remainder of the same row; a word that straddles the
 `indent` column belongs to the term, and the term ends with that word.
@@ -7195,6 +7240,19 @@ nested level stores a plain hyphen-minus in a one-byte token instead, alone
 at the item's `left` column, with the item's text resuming exactly at its
 `indent`.  Hosted BookServer prints neither: both become `<li>` with blank
 columns where the head stood.
+
+The bullet can also be a two-byte dictionary word, and it stays the head
+when its row is the first display line of a record.  `SC24-5780-01` `3.123`
+ends logical record 1118 with `cz FLOW LI 7 11` and `cfont 11 3 V`; record
+1119 opens at `0xB3005` with `16` (the length byte), `16` (a seven-space
+run), `C7 03` (the word `U+2666`), `11` (a two-space run) and `E0 89`
+(`shn`), so the bullet stands at column 7 and `shn` at column 11, where the
+`CFONT` triple puts it.  Hosted (DT 19961023165238) serves
+pass:[<literal>&lt;li&gt;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&lt;var&gt;shn&lt;/var&gt; is the line number ...</literal>],
+exactly as it serves the sibling items stored inside record 1118.  The
+record boundary changes nothing about the row: the bullet is not a
+separator between two stored segments, and a reader that takes it for one
+loses the row's origin and bullet columns.
 
 * `SC21-8295-03` `3.1.3.2`, logical record 405: `06 4D 9C EB C3 D4 D4` at
 `0x45A4E` (`cz FLOW UL 7 7`), `05 4D 9C A2 D4 C0` at `0x45A55`
