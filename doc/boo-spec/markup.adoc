@@ -1820,6 +1820,23 @@ region's last visible line before `SREFIG` is a line of that `<pre>`: 109
 caption lines after a drawn frame in 66 of the sampled books, every one of
 them inside the `<pre>` and spelled exactly as stored.
 
+A picture selector needs no figure envelope to stand inside a box.
+`SG24-4478-00.boo` topic `12.1.4`, logical record 1203, draws a closed box
+on display lines 15--22 with no `SRFIG`, `SRTBL` or other control around
+it.  Line 18 at BOO byte `0x961ad` is `06` + `d064` `b4` `98` `dbab`
+(`cselect 35 10 PIC13`), alone on its line; line 19 at `0x961b4` is `09` +
+`ca7b` (14 blanks) `75` (`U+2502`) `1b` (19 blanks) `dba0` `9b`
+(`PICTURE 13`) `1b` `75` -- `PICTURE 13` at columns 35--44, between the
+rails.  Hosted BookServer (DT `19951114165715`) serves lines 15--22 inside
+its `<pre>` exactly as it serves a framed figure: the rails and rules as
+stored, the `<img>` at column 35 and the ten selected columns blank.  The
+same holds for every bare picture selector between the rails of a closed box
+in a 650-book sample (25 topics in 4 books: SG24-4478-00, SG24-2570-00,
+GH45-5536-01, SH19-4369-00), including a picture standing inside a text
+line of a labelled box (`SH19-4369-00` `4.0`,
+`| select the<img ...>            icon in ...|`, where the selector's eleven
+columns include the blank before `PICTURE 12`).
+
 *A figure framed by full-width rules shows them as horizontal rules.*  A
 figure without corners draws its frame as a rule row above and below its
 body.  `SC26-4817-04.boo` topic `1.3.12.2`, logical record 261, opens

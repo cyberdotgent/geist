@@ -34,6 +34,7 @@
 #include <cstdint>
 #include <iostream>
 #include <optional>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -946,7 +947,48 @@ void figure_frame_rules(bool full) {
   }
 }
 
+// SG24-4478-00 12.1.4 record 1203: a foil's closed box holds nothing but a
+// bare `cselect 35 10 PIC13` (no SRFIG, no SRTBL) over `PICTURE 13` between
+// its rails.  Hosted (DT 19951114165715) serves the box verbatim in its
+// `<pre>`, the `<img>` at the selector column and the selected columns
+// blank, exactly as a framed figure.  The anchorless picture used to claim
+// the placement row out of the box and the topic fell to best-effort.
+void bare_picture_in_closed_box() {
+  Builder builder(false);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({sp(3), box(run(0x250C, 0x2500, 14, 0x2510))});
+  builder.line({sp(3), box({0x2502}), sp(13), box({0x2502})});
+  builder.line({w("cselect"), w("5"), w("9"), w("PIC1")});
+  builder.line({sp(3), box({0x2502}), w("PICTURE"), w("1"), sp(3),
+                box({0x2502})});
+  builder.line({sp(3), box(run(0x2514, 0x2500, 14, 0x2518))});
+  builder.blank();
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const std::set<std::string> resources{"1"};
+  const auto doc = try_lower_topic_to_document_ir(
+      {"1.1", "Example", ":H2", 10, 20, 21}, {builder.finish()}, nullptr,
+      &error, nullptr, &resources);
+  check(doc.has_value(), "bare picture in a closed box declined: " + error);
+  if (!doc) return;
+  std::string verify_error;
+  check(verify_document_ir(*doc, &verify_error),
+        "bare picture box document invalid: " + verify_error);
+  const auto html = render_document_html_fragment(*doc);
+  check(!contains(html, "data-geist-degraded"),
+        "bare picture box is degraded: " + html);
+  const auto body = pre_body(html);
+  check(contains(body, "   |              |\n   | <img") &&
+            contains(body,
+                     "alt=\"PICTURE 1\">             |\n   |______________|"),
+        "the box was not drawn around its picture: " + html);
+  check(!contains(html, "<figure"),
+        "bare picture in a box still served as a figure: " + html);
+}
+
 int main() {
+  bare_picture_in_closed_box();
   figure_frame_rules(true);
   figure_frame_rules(false);
   rows_after_named_closer(false);

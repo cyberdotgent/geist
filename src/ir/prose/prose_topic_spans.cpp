@@ -1044,6 +1044,45 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
                               : "figure '" + decline.anchor + "'") +
                              " declined: " + decline.reason);
     }
+    // A bare picture selector (no SRFIG, no SRTBL) inside a closed drawn
+    // box is a selector of the box's own rows: the box is drawn verbatim
+    // and the picture stands in its row, at the selector's columns
+    // (SG24-4478-00 12.1.4 record 1203 `cselect 35 10 PIC13` between the
+    // rails of a foil's box; hosted DT 19951114165715 serves the box rows in
+    // its `<pre>` with the `<img>` there).  Reading it as a figure split the
+    // box around the placement row.
+    {
+      const auto boxes = plan_boxes(records);
+      auto& blocks = topic.figures.blocks;
+      blocks.erase(
+          std::remove_if(
+              blocks.begin(), blocks.end(),
+              [&](const FigureSourceBlockIR& block) {
+                if (!block.anchor.empty() || !block.additional_pictures.empty())
+                  return false;
+                const auto record =
+                    record_index_of(records, block.selector.logical_record);
+                if (!record ||
+                    block.selector.segment_index >=
+                        records[*record].control_segments.size())
+                  return false;
+                const auto& segment =
+                    records[*record].control_segments[block.selector
+                                                          .segment_index];
+                if (segment.source_tokens.empty()) return false;
+                const std::pair<std::size_t, std::size_t> at{
+                    *record, segment.source_tokens.front()};
+                return std::any_of(
+                    boxes.begin(), boxes.end(), [&](const BoxRegion& box) {
+                      return box.closed && !box.grid &&
+                             std::make_pair(box.begin_record,
+                                            box.begin_token) < at &&
+                             at < std::make_pair(box.end_record,
+                                                 box.end_token);
+                    });
+              }),
+          blocks.end());
+    }
     for (std::size_t index = 0; index < topic.figures.blocks.size(); ++index) {
       Region region;
       region.kind = ProseSpanKindIR::figure;
