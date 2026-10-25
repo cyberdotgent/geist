@@ -1518,14 +1518,22 @@ struct LineBuilder {
   }
 
   // True when every directive of the topic is a `cz OFF E<tag>` verbatim
-  // region closer.  With no other directive there is no opener either, so
-  // each of them closes a region the topic never opened.
+  // region closer or the figure closer `cz OFF EFIG`.  With no other
+  // directive there is no opener either, so each of them closes a region the
+  // topic never opened.  The figure closer is the generic `CZ OFF E` closer
+  // to the reader like every other: SC41-3512-05 2.2.2 draws its
+  // `HARDWARE` screen box inside `SRFIGHDWR1` .. `SREFIG` (record 132 lines
+  // 17-42) and closes it with `cz OFF EFIG 7 7` (line 44, `05 4B 8D 80 C0 C0`
+  // at 0x55AAB4), with no `cz OFF FIG` in the topic; hosted BookServer (DT
+  // 19980528085436) prints every box row in the topic's own
+  // `<pre width="132">`, exactly as for the `ELBLBOX` closers below.
   bool only_unopened_region_closers() const {
     bool any = false;
     for (const auto& item : items) {
       if (item.kind != ItemKind::layout) continue;
       if (item.directive.mode != "off" ||
-          !cz_verbatim_region_closer(item.directive.tag))
+          (!cz_verbatim_region_closer(item.directive.tag) &&
+           item.directive.tag != "efig"))
         return false;
       any = true;
     }

@@ -463,10 +463,34 @@ void anchor_before_body_control_line(bool efig_closer) {
             (efig_closer ? " (EFIG closer)" : "") + ": " + html);
 }
 
+// SC41-3512-05 2.2.2: a topic whose only directives are unopened
+// `cz OFF EFIG` closers is read like one closed by `cz OFF ELBLBOX`: its box
+// is drawn verbatim (hosted DT 19980528085436 prints every row in the topic's
+// own `<pre width="132">`).
+void box_closed_by_unopened_figure_closer() {
+  Builder builder(false);
+  builder.line({sp(3), w("Before.")});
+  builder.blank();
+  note_box(builder, "Inside", 12, false);
+  builder.line({w("cz"), w("OFF"), w("EFIG"), w("0"), w("0")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(),
+        "box closed by an unopened figure closer declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(pre_body(html),
+                 "    ____________ \n   | Inside     |\n   |____________|"),
+        "box closed by an unopened figure closer was not drawn: " + html);
+  check(!contains(html, "EFIG"), "the figure closer leaked as text: " + html);
+}
+
 } // namespace
 
 int main() {
   anchor_before_body_control_line(false);
+  anchor_before_body_control_line(true);
+  box_closed_by_unopened_figure_closer();
   marked_box_rows();
   box_closed_by_unopened_closer(false);
   box_closed_by_unopened_closer(true);

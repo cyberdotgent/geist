@@ -6146,6 +6146,16 @@ box with `cz OFF ELBLBOX 7 7` and goes on with the list item
 rows as stored.  Every box row of fourteen such topics of `SC41-3512-05`
 matches hosted exactly.
 
+The figure closer `cz OFF EFIG` is such a closer too when the topic has no
+`cz OFF FIG`.  `SC41-3512-05.boo` `2.2.2` draws its `HARDWARE` screen box
+between the envelope lines `SRFIGHDWR1` and `SREFIG` (record 132 lines 17
+and 42) and closes it with line 44, `05 4B 8D 80 C0 C0` at `0x55AAB4`
+(length byte `05`, `cz`, `OFF`, `EFIG`, `7`, `7`); the topic's 22 other
+directives are unopened `cz OFF EFIG` and `cz OFF ELBLBOX` closers.  Hosted (DT `19980528085436`)
+prints all 362 box rows of the topic at their stored columns, and the same
+holds for `2.3.1`, `2.6.2`, `3.5.1`, `6.1.1` and `6.4.1.1` of that book and
+`SC33-1685-01.boo` `2.7.12`.
+
 *A length byte spelled `cz` is no directive.*  The dictionary of a book
 can give the one-byte token value that is also a row's length the spelling
 `cz`; position decides, exactly as for the metadata spellings in
