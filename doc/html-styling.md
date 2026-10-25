@@ -233,6 +233,15 @@ gets every stored pixel. A stylesheet that limits images should keep the
 aspect ratio, as the example one does:
 `max-width: 100%; height: auto;`.
 
+A picture the book draws inside a frame or a character-art table is an
+`<img class="geist-image">` *inside* the `geist-preformatted` `<pre>`, at the
+column its selector names, followed by one blank per column the picture's
+placeholder occupied, so the rest of the row (the frame's right rail) keeps
+its columns, as hosted BookServer serves it. The example stylesheet hangs such
+an image from the top of its row (`.geist-preformatted .geist-image`).
+Markdown has no image inside a code block: there the drawing is split at the
+picture row, with the image as a block of its own between the two halves.
+
 ### Anchor roles
 
 An `AnchorBlockIR` carries `geist-anchor` plus one role modifier saying what
