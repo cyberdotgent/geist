@@ -1312,13 +1312,27 @@ void unproven_list_parts_still_decline() {
   const std::vector<std::string> entry_dt = {"cz", "FLOW", "DT", "3", "20"};
   const std::vector<std::string> entry_row = {"   ", "SET",
                                               "              ", "Control"};
-  // A list part of any other list has no hosted reference.
-  list_part_declines({{"cz", "FLOW", "UL", "3", "3"},
-                      {"cz", "FLOW", "LP", "3", "3"},
-                      {"   ", "Operations:"},
-                      {"cz", "OFF", "EUL", "0", "0"}},
-                     "cz flow lp inside a ul needs mixed list block content",
-                     "an LP inside a UL");
+  // A list part before the first item of an item list is the list's
+  // lead-in: SC33-6717-00 `3.1.2.1` serves `<ul><br>       User action:`
+  // ahead of the first `<li>`.  It is admitted now.
+  {
+    RecordBuilder builder;
+    metadata(builder);
+    const std::vector<std::vector<std::string>> rows = {
+        {"cz", "FLOW", "UL", "3", "3"},
+        {"cz", "FLOW", "LP", "3", "3"},
+        {"   ", "Operations:"},
+        {"cz", "OFF", "EUL", "0", "0"}};
+    for (const auto &row : rows) {
+      std::vector<TokenWords> line;
+      for (const auto &word : row) line.push_back(words(word));
+      builder.line(std::move(line));
+    }
+    const auto extracted = extract_record(std::move(builder), 30);
+    require(extracted.prose.has_value(),
+            "an LP before the first item of a UL was rejected: " +
+                extracted.error);
+  }
   // No text of its own, and no paragraph at its margin to supply one.
   list_part_declines({{"cz", "FLOW", "DL", "3", "3"},
                       {"cz", "FLOW", "LP", "3", "3"},

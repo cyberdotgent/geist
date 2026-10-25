@@ -464,6 +464,107 @@ void verbatim_rows_keep_highlighting_and_links() {
               topic_text(*extracted.topic));
 }
 
+// Region depth inside a verbatim region.  A generic region opened inside it
+// only counts the reader's depth and prints nothing: SC24-5718-00 `B.10.5`
+// (DT 19951023144552) opens `cz OFF XMP`, then `cz OFF CGRAPHIC` with the
+// OS/2 `DIR` screen and closes with `cz OFF EXMP 2 2` alone -- one
+// `<pre width="80">` on hosted.  A foreign closer may be followed by a new
+// opener of the same region: SC24-5760-00 `1.2.27.1` (DT 19950909201627)
+// ends its first `SYNTAX` with `cz OFF EHP1 0 0` and opens the second at
+// once, closing that one with `cz OFF ESYNTAX`.
+void nested_openers_and_foreign_closers() {
+  {
+    RecordBuilder builder;
+    builder.heading("B.10.5", "PIPE");
+    builder.cz({"cz", "FLOW", "P", "3", "3"});
+    builder.row("   ", {"The", "example:"});
+    builder.cz({"cz", "OFF", "XMP"});
+    builder.cz({"cz", "OFF", "CGRAPHIC"});
+    builder.row("       ", {"'PIPE',"});
+    builder.row("       ", {"'os/2", "|',"});
+    builder.cz({"cz", "OFF", "EXMP", "2", "2"});
+    builder.cz({"cz", "FLOW", "H4", "3", "3"});
+    auto extracted = run(builder.build(1471), "PIPE");
+    require(extracted.topic.has_value(),
+            "a CGRAPHIC opened inside an XMP was rejected: " +
+                extracted.error);
+    if (extracted.topic)
+      require(count_kind(*extracted.topic, ProseBlockKindIR::preformatted) ==
+                      1 &&
+                  extracted.topic->blocks.back().preformatted_lines.size() == 2,
+              "the nested region is not one two-row block:\n" +
+                  topic_text(*extracted.topic));
+  }
+  {
+    RecordBuilder builder;
+    builder.heading("1.2.27.1", "DIAG");
+    builder.cz({"cz", "OFF", "SYNTAX"});
+    builder.row("   ", {">>__DIAG__><"});
+    builder.cz({"cz", "OFF", "EHP1", "0", "0"});
+    builder.cz({"cz", "OFF", "SYNTAX"});
+    builder.row("   ", {">>__MORE__><"});
+    builder.cz({"cz", "OFF", "ESYNTAX", "0", "0"});
+    builder.cz({"cz", "FLOW", "H4", "3", "3"});
+    auto extracted = run(builder.build(526), "DIAG");
+    require(extracted.topic.has_value(),
+            "a SYNTAX ended by EHP1 before a second SYNTAX was rejected: " +
+                extracted.error);
+    if (extracted.topic)
+      require(count_kind(*extracted.topic, ProseBlockKindIR::preformatted) ==
+                  2,
+              "expected two syntax blocks:\n" + topic_text(*extracted.topic));
+  }
+}
+
+// `cz FLOW LP` outside a definition list.  Before the first item of an item
+// list the part is the list's lead-in (SC26-9920-00 `1.1.1.6.1`, DT
+// 20000114153724: `<ol type=1 start=1><br>   Capturing data ...` before the
+// first `<li>`); in a parameter list it is a block after the entry before
+// it (SC24-5760-00 `1.2.20.6`).  A heading tag past the dialect's levels
+// flows (SC24-5760-00 `4.9.1.1`, `cz FLOW H7 3 5`).
+void list_parts_outside_definition_lists() {
+  RecordBuilder builder;
+  builder.heading("1.1.1.6.1", "Process");
+  builder.cz({"cz", "FLOW", "OL", "3", "3"});
+  builder.cz({"cz", "FLOW", "LP", "3", "3"});
+  builder.row("   ", {"Capturing", "data"});
+  builder.cz({"cz", "FLOW", "LI", "3", "7"});
+  builder.row("   ", {"1.", "The", "Capture", "program", "reads."});
+  builder.cz({"cz", "OFF", "EOL", "0", "0"});
+  builder.cz({"cz", "FLOW", "PARML", "3", "3"});
+  builder.cz({"cz", "FLOW", "PT", "3", "7"});
+  builder.row("   ", {"SXORGCTA"});
+  builder.cz({"cz", "BREAK", "7"});
+  builder.row("       ", {"A", "fullword", "field."});
+  builder.cz({"cz", "FLOW", "LP", "3", "3"});
+  builder.row("   ", {"The", "start", "of", "a", "table."});
+  builder.cz({"cz", "OFF", "EPARML", "0", "0"});
+  builder.cz({"cz", "FLOW", "H7", "3", "5"});
+  builder.row("     ", {"Example:", "a", "prtid."});
+  auto extracted = run(builder.build(78), "Process");
+  require(extracted.topic.has_value(),
+          "list parts outside a definition list were rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  const auto &blocks = extracted.topic->blocks;
+  require(!blocks.empty() && blocks.front().kind == ProseBlockKindIR::paragraph &&
+              block_text(blocks.front()) == "Capturing data",
+          "the OL lead-in is not a paragraph before the items:\n" +
+              topic_text(*extracted.topic));
+  const auto part = std::find_if(blocks.begin(), blocks.end(),
+                                 [](const auto &block) {
+                                   return block_text(block) ==
+                                          "The start of a table.";
+                                 });
+  require(part != blocks.end() && part->kind == ProseBlockKindIR::paragraph &&
+              part->parent_block == static_cast<std::size_t>(-1),
+          "the parameter-list part is not a block of its own:\n" +
+              topic_text(*extracted.topic));
+  require(block_text(blocks.back()) == "Example: a prtid." &&
+              blocks.back().kind == ProseBlockKindIR::paragraph,
+          "the H7 rows do not flow:\n" + topic_text(*extracted.topic));
+}
+
 // A parameter whose term is the syntax diagram after it.  GC24-5837-01
 // `5.2.8.3` (DT 19990503161545) stores a row-less `cz FLOW PT 7 11`,
 // `cz OFF SYNTAX`, the `MODENUM` diagram, `cz OFF ESYNTAX 4 4`, then
@@ -856,6 +957,8 @@ int main() {
   an_anchor_before_a_parameter_body_stays_at_its_entry();
   a_parameter_term_that_is_a_syntax_diagram();
   verbatim_rows_keep_highlighting_and_links();
+  nested_openers_and_foreign_closers();
+  list_parts_outside_definition_lists();
   an_empty_region_draws_nothing();
   rows_after_an_empty_region_are_verbatim();
   return 0;

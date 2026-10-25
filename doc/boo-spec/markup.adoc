@@ -6644,6 +6644,39 @@ the whole diagram, with its `<kbd>` and `<var>` words, in one
 `<pre width="80">` ended by the heading directive's `</pre>`.  The same shape
 closes all eighteen syntax topics of chapter 2 of that book.
 
+*A region opened inside a verbatim region.*  Inside a region a generic
+`CZ OFF` only counts the depth, and any `CZ OFF E...` resets it, so a
+generic region nested in a verbatim one adds nothing but its rows, whether
+or not its own closer follows.  `SC24-5718-00.boo` `B.10.5`, logical record
+1471, stores `04 43 80 E8 D9` at `0xAE173` (`cz OFF XMP`) and directly
+`04 43 80 C8 9E` (`cz OFF CGRAPHIC`), the boxed `PIPE` example, and at
+record 1473 `06 43 80 CE F8 A1 A1` at `0xAE53D` (`cz OFF EXMP 2 2`) with no
+`cz OFF ECGRAPHIC` anywhere; hosted (DT `19951023144552`) serves one
+`<pre width="80">` holding the whole box.  After a closer of another region
+(the shape above) a new opener of the same region starts a new `<pre>`:
+`SC24-5760-00` `1.2.27.1` (DT `19950909201627`) ends its first syntax
+diagram with `cz OFF EHP1 0 0`, opens the second with `cz OFF SYNTAX` at once
+and closes that one with `cz OFF ESYNTAX 0 0`.
+
+*A list part outside a definition list.*  `CZ FLOW LP` prints `<br>` and
+its rows wherever it stands.  Before the first item of an item list that is
+the list's lead-in: `SC33-6717-00.boo` `3.1.2.1`, logical record 360,
+stores `05 42 8B A0 D0 D0` at `0x26127` (`cz FLOW UL 7 7`) and
+`06 42 8B DF 92 D0 D0` (`cz FLOW LP 7 7`) followed by the paragraph
+`       User action:`; hosted (DT `19990424145824`) serves
+`<ul><br>       User action:` ahead of the first `<li>`.  `SC26-9920-00`
+`1.1.1.6.1` (DT `20000114153724`) opens an `OL` the same way.  In a
+parameter list the part stands after the entry before it, outside it:
+`SC24-5760-00` `1.2.20.6` serves its two `cz FLOW LP 3 3` parts after the
+`SXORGCTA` entry as `<br>` and flowing rows.
+
+*A heading level the dialect does not use.*  `CZ FLOW H` draws nothing of
+its own, so a `cz FLOW H7` line only closes the `<pre>` and its rows flow:
+`SC24-5760-00.boo` `4.9.1.1`, logical record 2207, stores
+`06 46 85 C2 28 A6 A8` at `0xCAA3D` (`cz FLOW H7 3 5`) and the row
+`     Example:  It is recommended that a prtid name should not:`, which hosted
+serves as flowing text after `</pre>`.
+
 *An item with no row.*  `CZ FLOW LI` prints `<li>` whether or not rows
 follow, so a row-less item is an empty item even at the end of a list.
 `SC31-8569-00.boo` `D.2.1.1`, logical record 2825, stores

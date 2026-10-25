@@ -1851,7 +1851,7 @@ struct CzBuilder {
     // region wherever it stands (doc/boo-spec/markup.adoc, "Drawn box regions
     // in prose"), so in flowed rows too: SC31-6222-04 `2.1` (DT
     // 19961011013500) opens its code list's first message with `SRMSG 0801
-    // 0000` and a 67-cell rule, served `<a name="MSG 0801 0000"><hr>`,
+    // 0000` and a 74-cell rule, served `<a name="MSG 0801 0000"><hr>`,
     // outside any message list.
     full_rules.assign(lines.size(), false);
     for (std::size_t line = 0; line < lines.size(); ++line)
@@ -1861,6 +1861,16 @@ struct CzBuilder {
     for (std::size_t index = 0; index < directives.size(); ++index) {
       const auto& directive = directives[index];
       auto range = ranges[index];
+      if (!directive_rows(index, directive, range)) return false;
+    }
+    return finish();
+  }
+
+  // One directive with the display rows it owns.
+  bool directive_rows(std::size_t& index, const LayoutDirective& directive,
+                      std::pair<std::size_t, std::size_t> range) {
+    const auto& directives = build.directives;
+    {
       // A drawn box after a named region closer (`cz_pre_zone_box`): the
       // closer reads the rows before it, and the box and the rows after it
       // are the closer's verbatim stretch.
@@ -1900,7 +1910,7 @@ struct CzBuilder {
                                      0);
                                }))
           return false;
-        continue;
+        return true;
       }
       const auto groups =
           range.first == npos
@@ -1929,20 +1939,24 @@ struct CzBuilder {
               frame.body_owner = frame.pending_definition;
               frame.pending_definition = npos;
             }
-            continue;
+            return true;
           }
-          if (!parameter_body(groups)) return false;
-          continue;
+          return parameter_body(groups);
         }
-        if (!paragraphs(groups, 0)) return false;
-        continue;
+        return paragraphs(groups, 0);
       }
       if (!handle(index, directive, range, groups, name, tag)) {
         if (error != nullptr && error->rfind("cz ", 0) != 0)
           *error = name + ": " + *error;
         return false;
       }
+      return true;
     }
+  }
+
+  // After the last directive: the lists the topic leaves open, then the
+  // anchors and object spans.
+  bool finish() {
     // A message list announced at the very end of a topic holds the messages
     // of the topics that follow: GC35-0271-02 6.0 ends its menu of the
     // seventy-three message topics 6.1 .. 6.73 with `cemenu`, `cz BREAK 3`,
@@ -2166,6 +2180,15 @@ struct CzBuilder {
         std::vector<std::size_t> breaks;
         auto ended_by_flow = false;
         auto foreign_closed = false;
+        // Closers of the generic regions opened inside this one.
+        std::vector<std::string> nested_openers;
+        const auto nested_generic_opener = [&](const std::string& other) {
+          return !other.empty() && other.front() != 'e' &&
+                 other != "table" && other != "fig" && other != "fn" &&
+                 other != "msgl" && !cz_verbatim_region_tag(other) &&
+                 !cz_title_page_tag(other) && !cz_tabdata_region_tag(other) &&
+                 !list_tag(other);
+        };
         const auto foreign_closer = [&](const std::string& other,
                                         const std::string& own) {
           if (other.size() < 2 || other.front() != 'e' || other == own)
@@ -2230,6 +2253,24 @@ struct CzBuilder {
               region_end = nested_closer_rows.second;
             }
             closer_index = nested_closer;
+          } else if (nested_generic_opener(inner.tag) ||
+                     std::find(nested_openers.begin(), nested_openers.end(),
+                               inner.tag) != nested_openers.end()) {
+            // A generic region opened inside the verbatim region only
+            // counts the reader's region depth: it prints nothing and its
+            // rows are rows of the open `<pre>`, as are those of its own
+            // closer.  The outer closer then resets the depth.  SC24-5718-00
+            // `B.10.5` (DT 19951023144552) opens `cz OFF XMP`, then
+            // `cz OFF CGRAPHIC` with the OS/2 `DIR` screen and closes with
+            // `cz OFF EXMP 2 2` alone; SC23-0448-01 `1.5` nests a
+            // `CGRAPHIC` in its `SCREEN` the same way.  Hosted serves each
+            // as one `<pre width="80">`.
+            if (inner.tag.front() != 'e')
+              nested_openers.push_back("e" + inner.tag);
+            if (inner_rows.first != npos) {
+              if (region_begin == npos) region_begin = inner_rows.first;
+              region_end = inner_rows.second;
+            }
           } else if (foreign_closer(inner.tag, closer_tag) &&
                      inner_rows.first == npos) {
             // Another region's closer, its own region never opened.  The
@@ -2255,15 +2296,28 @@ struct CzBuilder {
           // Admitted only where nothing else can still claim the region: the
           // next directive is a `cz FLOW` (or the topic ends), and the
           // region's own closer never comes.
-          if ((closer_index < build.directives.size() &&
-               build.directives[closer_index].mode != "flow") ||
-              std::any_of(build.directives.begin() +
-                              static_cast<std::ptrdiff_t>(closer_index),
-                          build.directives.end(),
-                          [&closer_tag](const LayoutDirective& later) {
-                            return later.mode == "off" &&
-                                   later.tag == closer_tag;
-                          }))
+          // A new region opener may follow as well: it opens its own
+          // `<pre>`.  SC24-5760-00 `1.2.27.1` (DT 19950909201627) ends its
+          // first `cz OFF SYNTAX` diagram with `cz OFF EHP1 0 0` and opens
+          // the second with `cz OFF SYNTAX` at once.
+          const auto next_ok =
+              closer_index >= build.directives.size() ||
+              build.directives[closer_index].mode == "flow" ||
+              (build.directives[closer_index].mode == "off" &&
+               !build.directives[closer_index].tag.empty() &&
+               build.directives[closer_index].tag.front() != 'e');
+          auto own_closer_follows = false;
+          for (auto later = closer_index; later < build.directives.size();
+               ++later) {
+            const auto& next = build.directives[later];
+            if (next.mode != "off") continue;
+            if (next.tag == tag) break;
+            if (next.tag == closer_tag) {
+              own_closer_follows = true;
+              break;
+            }
+          }
+          if (!next_ok || own_closer_follows)
             return fail(error, "cz OFF " + opener +
                                    " is not closed by cz OFF E" + opener);
           index = closer_index - 1;
@@ -2578,6 +2632,24 @@ struct CzBuilder {
              stack.back().tag == "sl") &&
             stack.back().body_owner != npos)
           return paragraphs(groups, 0);
+        // Before the first item the part is the list's lead-in, like rows
+        // its opener carries: SC26-9920-00 `1.1.1.6.1` (DT 20000114153724)
+        // opens `cz FLOW OL 3 3` with `cz FLOW LP 3 3` `Capturing data from
+        // a source database`, served `<ol type=1 start=1><br>` and the
+        // heading ahead of the first `<li>`.  In a parameter list or a
+        // numbered-note list the part stands after the entry before it, a
+        // block of its own: SC24-5760-00 `1.2.20.6` (DT 19950909201627)
+        // serves its two `cz FLOW LP 3 3` parts after the `SXORGCTA` entry
+        // as `<br>` and flowing rows outside any definition.
+        if ((stack.back().tag == "ul" || stack.back().tag == "ol" ||
+             stack.back().tag == "sl") &&
+            stack.back().items == 0)
+          return paragraphs(groups, 0);
+        if (stack.back().tag == "parml" || stack.back().tag == "notel") {
+          term_alone(stack.back());
+          stack.back().body_owner = npos;
+          return paragraphs(groups, 0);
+        }
         if (stack.back().tag != "dl")
           return fail(error, name + " inside a " + stack.back().tag +
                                  " needs mixed list block content");
@@ -2686,6 +2758,14 @@ struct CzBuilder {
         if (!paragraphs(groups, 1)) return false;
         return true;
       }
+      // A heading tag past the dialect's levels (`H7`) is only the
+      // reader's `CZ FLOW H` prefix, which draws nothing of its own: the rows
+      // flow.  SC24-5760-00 `4.9.1.1` (DT 19950909201627) stores
+      // `cz FLOW H7 3 5` and `     Example:  It is recommended that ...`,
+      // served as a flowing row after `</pre>`.
+      if (tag.front() == 'h' && tag.size() == 2 &&
+          std::isdigit(static_cast<unsigned char>(tag.back())) != 0)
+        return paragraphs(groups, 0);
       // Any other tag is the generic `CZ FLOW` (see `generic_flow_tag`):
       // the reader closes its open `<pre>` and the rows flow.
       // A row-less `P..` tag draws nothing under either rule (SY27-0327-05
