@@ -12,6 +12,7 @@
 // dropped: HTML keeps the rows with the image inline, Markdown splits the
 // drawing around an image block at that row.
 
+#include "geist/detail/api/topic_link_targets.hpp"
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/lowering/topic_document_lowering.hpp"
@@ -108,6 +109,16 @@ std::optional<DocumentIR> lower(std::vector<DecodedLogicalRecordSource> records,
   return doc;
 }
 
+// The book-wide link map still names a framed figure's stored picture, as
+// it does for a figure block: the image after the anchor is the figure's.
+bool figure_names_resource(const DocumentIR &doc, const std::string &id,
+                           const std::string &resource) {
+  for (const auto &target : document_link_targets(doc))
+    if (target.kind == geist::LinkTargetKind::figure && target.id == id)
+      return target.resource == resource;
+  return false;
+}
+
 std::size_t count(const std::string &text, const std::string &needle) {
   std::size_t n = 0;
   for (auto at = text.find(needle); at != std::string::npos;
@@ -146,6 +157,8 @@ void frame_rows_stay_with_the_image_inline() {
     return;
   std::string error;
   check(verify_document_ir(*d, &error), "framed document invalid: " + error);
+  check(figure_names_resource(*d, "MEM1", "resource:1"),
+        "link map lost the framed figure's picture");
   const auto html = render_document_html_fragment(*d);
   // The rails are the source's own rows, inside one `<pre>`.
   check(html.find("    _______________\n") != std::string::npos,
@@ -349,6 +362,8 @@ void rule_framed_picture() {
         "the full-width rules around the picture are not page rules: " + html);
   check(html.find("<pre") == std::string::npos,
         "a rule-framed picture became a drawn frame: " + html);
+  check(figure_names_resource(*d, "RULED", "resource:1"),
+        "link map lost the rule-framed figure's picture");
 }
 } // namespace
 

@@ -24,6 +24,7 @@
 #include "geist/detail/lowering/topic_lowering_outcome.hpp"
 #include "geist/toc.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <cstddef>
 #include <memory>
@@ -140,6 +141,30 @@ std::vector<LinkTarget> document_link_targets(const DocumentIR& document) {
         targets[pending_figure].resource = figure->resource;
       pending_figure = std::string::npos;
       continue;
+    }
+    // A full-width frame rule stands between a figure's anchor and its
+    // picture (`<a name="FIG..."><hr>`, the image): the picture still
+    // follows its anchor.
+    if (std::holds_alternative<ThematicBreakBlockIR>(block.node) &&
+        pending_figure != std::string::npos)
+      continue;
+    // A picture inside a drawn frame is an image standing in the frame's
+    // rows, the block after the figure's anchor: it is the figure's stored
+    // object just as a figure block is.
+    if (const auto* drawn = std::get_if<PreformattedBlockIR>(&block.node);
+        drawn != nullptr && pending_figure != std::string::npos) {
+      for (const auto& row : drawn->styled_lines) {
+        const auto image = std::find_if(row.begin(), row.end(),
+                                        [](const InlineIR& in) {
+          return std::holds_alternative<ImageInlineIR>(in.node);
+        });
+        if (image == row.end())
+          continue;
+        const auto& resource = std::get<ImageInlineIR>(image->node).resource;
+        if (ascii_starts_with_case_insensitive(resource, "resource:"))
+          targets[pending_figure].resource = resource;
+        break;
+      }
     }
     std::visit(
         [&](const auto& node) {
