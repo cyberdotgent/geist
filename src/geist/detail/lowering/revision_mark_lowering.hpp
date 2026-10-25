@@ -36,4 +36,13 @@ void carry_row_revision_marks(
     DocumentIR &document,
     const std::vector<DecodedLogicalRecordSource> &sources);
 
+// The same reading for the figure and table captions of a family that
+// carries its body marks itself (prose): a figure's caption inlines and the
+// caption paragraph a figure or fixed table lowers to.  A revised caption
+// row (` | Figure 41. Predicate Hierarchy`, ARIP1VM 6.1.6; CNMYB0MS 1.1.4)
+// is printed with its mark by hosted BookServer.
+void carry_caption_revision_marks(
+    DocumentIR &document,
+    const std::vector<DecodedLogicalRecordSource> &sources);
+
 }  // namespace geist::detail

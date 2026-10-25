@@ -987,7 +987,47 @@ void bare_picture_in_closed_box() {
         "bare picture in a box still served as a figure: " + html);
 }
 
+// A revised figure caption keeps its stored mark.  CNMYB0MS 1.1.4 stores
+// ` | Figure 1. Primary Components ...` under a picture (hosted DT
+// 19911015181502 prints ` | Figure 1. ...`), ARIP1VM 6.1.6 ` | Figure 41.
+// Predicate Hierarchy` under a drawn figure (DT 19911002123224); 419 such
+// caption rows in 38 of 94 sampled books.  The caption lost the mark.
+void marked_figure_caption(bool picture) {
+  Builder builder(false);
+  builder.line({sp(3), w("Lead.")});
+  builder.line({w("SRFIGMARKED")});
+  if (picture) {
+    builder.line({w("cselect"), w("3"), w("9"), w("PIC1")});
+    builder.line({sp(3), w("PICTURE"), w("1")});
+  } else {
+    builder.line({sp(3), box(run(0x250C, 0x2500, 12, 0x2510))});
+    builder.line({sp(3), box({0x2502}), w("Inside"), sp(4), box({0x2502})});
+    builder.line({sp(3), box(run(0x2514, 0x2500, 12, 0x2518))});
+  }
+  builder.blank();
+  builder.line({sp(1), w("|"), w("Figure"), w("1."), w("Marked")});
+  builder.line({w("SREFIG")});
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const std::set<std::string> resources{"1"};
+  const auto doc = try_lower_topic_to_document_ir(
+      {"1.1", "Example", ":H2", 10, 20, 21}, {builder.finish()}, nullptr,
+      &error, nullptr, &resources);
+  check(doc.has_value(), "figure with a marked caption declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto caption = html.find("Figure 1. Marked");
+  const auto revised = html.rfind("data-geist-revision-mark=\"|\"", caption);
+  check(caption != std::string::npos && revised != std::string::npos &&
+            html.find('>', revised) < caption &&
+            html.find("</span>", revised) > caption,
+        std::string(picture ? "picture" : "drawn") +
+            " figure caption lost its revision mark: " + html);
+}
+
 int main() {
+  marked_figure_caption(true);
+  marked_figure_caption(false);
   bare_picture_in_closed_box();
   figure_frame_rules(true);
   figure_frame_rules(false);

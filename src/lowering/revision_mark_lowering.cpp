@@ -233,6 +233,10 @@ void carry_blocks(BlockSequenceIR &blocks, RowMarkReader &reader) {
             }
           } else if constexpr (std::is_same_v<T, FootnoteBlockIR>) {
             carry_sequence(node.content, reader);
+          } else if constexpr (std::is_same_v<T, FigureBlockIR>) {
+            // A figure's caption is a row of the body like any other:
+            // CNMYB0MS 1.1.4 ` | Figure 1. ...` (hosted prints the mark).
+            carry_sequence(node.caption, reader);
           }
         },
         block.node);
@@ -245,6 +249,24 @@ void carry_row_revision_marks(
     const std::vector<DecodedLogicalRecordSource> &sources) {
   RowMarkReader reader(sources);
   carry_blocks(document.blocks, reader);
+}
+
+void carry_caption_revision_marks(
+    DocumentIR &document,
+    const std::vector<DecodedLogicalRecordSource> &sources) {
+  RowMarkReader reader(sources);
+  for (auto &block : document.blocks) {
+    if (auto *figure = std::get_if<FigureBlockIR>(&block.node)) {
+      carry_sequence(figure->caption, reader);
+      continue;
+    }
+    auto *paragraph = std::get_if<ParagraphBlockIR>(&block.node);
+    if (paragraph == nullptr) continue;
+    const auto &detail = block.origin.detail;
+    if (detail == "figure caption" || detail == "ordered figure caption" ||
+        detail == "fixed table caption")
+      carry_sequence(paragraph->content, reader);
+  }
 }
 
 }  // namespace geist::detail

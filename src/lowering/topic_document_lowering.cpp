@@ -367,6 +367,10 @@ std::optional<DocumentIR> try_lower_topic_to_document_ir(
       reject(typed_rejection, "prose document rejected: " + error);
       return std::nullopt;
     }
+    // Prose carries its body rows' marks itself; its figure and table
+    // captions are lowered by the shared figure/table lowering, which does
+    // not.
+    carry_caption_revision_marks(*document, sources);
     prepend_topic_id_to_heading(*document, sources);
     if (!verify_document_ir(*document, &error)) {
       reject(typed_rejection, "prose identity policy rejected: " + error);

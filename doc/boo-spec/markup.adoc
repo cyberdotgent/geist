@@ -2954,7 +2954,12 @@ pass:[<literal> | &lt;B&gt;SQL0133&lt;/B&gt;        &lt;B&gt;SQLCODE&lt;/B&gt; &
 A menu topic's introduction rows (`CNMYB0MS.BOO` `APPENDIX1.1`, record 435
 lines 10-15, ` | This appendix documents ...`, DT `19911015181502`) and the rows of a figure or
 table envelope drawn inside a catalog entry (`N2AH1MST.BOO` `10.0`, DT `19910329000100`,
-` |          <B>ACTIVE</B> ...`) are printed with their marks too.  The one
+` |          <B>ACTIVE</B> ...`) are printed with their marks too, and so is a
+figure's caption row: `ARIP1VM.BOO` `6.1.6`, logical record 458 line 14 at
+`0x310e9`, is `0A` (length byte), `10` (one blank), `88` (`|`), `94`
+(`Figure`), `ED DF` (`41`) ..., served ` | Figure 41. Predicate Hierarchy`
+(DT `19911002123224`); `CNMYB0MS.BOO` `1.1.4` serves
+` | Figure 1. Primary Components ...` under its picture.  The one
 exception is a generated list in a CZ envelope; see
 <<markup_fixed_selection_rows_in_generated_lists>>.
 
