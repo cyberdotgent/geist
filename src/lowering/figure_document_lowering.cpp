@@ -102,7 +102,9 @@ bool same_inlines(const InlineSequenceIR &left, const InlineSequenceIR &right) {
             a.alternatives != b.alternatives ||
             a.document_number != b.document_number ||
             a.document_level != b.document_level ||
-            a.heading_anchor != b.heading_anchor || a.url != b.url)
+            a.heading_anchor != b.heading_anchor ||
+            a.spot_anchor != b.spot_anchor ||
+            a.book_anchor != b.book_anchor || a.url != b.url)
           return false;
       }
     } else if (const auto *image =
@@ -125,7 +127,9 @@ bool same_verbatim_link(const VerbatimLinkIR &left,
          left.alternatives == right.alternatives &&
          left.document_number == right.document_number &&
          left.document_level == right.document_level &&
-         left.heading_anchor == right.heading_anchor && left.url == right.url;
+         left.heading_anchor == right.heading_anchor &&
+         left.spot_anchor == right.spot_anchor &&
+         left.book_anchor == right.book_anchor && left.url == right.url;
 }
 
 CrossReferenceTargetIR cross_reference_target(const FigureLinkIR& link) {
@@ -140,6 +144,12 @@ CrossReferenceTargetIR cross_reference_target(const FigureLinkIR& link) {
   case FigureLinkKindIR::book_heading:
     target.kind = CrossReferenceTargetKindIR::book_heading;
     break;
+  case FigureLinkKindIR::book_spot:
+    target.kind = CrossReferenceTargetKindIR::book_spot;
+    break;
+  case FigureLinkKindIR::book_anchor:
+    target.kind = CrossReferenceTargetKindIR::book_anchor;
+    break;
   case FigureLinkKindIR::external_url:
     target.kind = CrossReferenceTargetKindIR::external;
     break;
@@ -149,6 +159,8 @@ CrossReferenceTargetIR cross_reference_target(const FigureLinkIR& link) {
   target.document_number = link.document_number;
   target.document_level = link.document_level;
   target.heading_anchor = link.heading_anchor;
+  target.spot_anchor = link.spot_anchor;
+  target.book_anchor = link.book_anchor;
   target.url = link.url;
   return target;
 }
@@ -464,6 +476,12 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
     case FigureLinkKindIR::book_heading:
       placed.kind = VerbatimLinkKindIR::book_heading;
       break;
+    case FigureLinkKindIR::book_spot:
+      placed.kind = VerbatimLinkKindIR::book_spot;
+      break;
+    case FigureLinkKindIR::book_anchor:
+      placed.kind = VerbatimLinkKindIR::book_anchor;
+      break;
     case FigureLinkKindIR::external_url:
       placed.kind = VerbatimLinkKindIR::external_url;
       break;
@@ -473,6 +491,8 @@ lower_preformatted_figure(const FigureSourceBlockIR &figure,
     placed.document_number = link.document_number;
     placed.document_level = link.document_level;
     placed.heading_anchor = link.heading_anchor;
+    placed.spot_anchor = link.spot_anchor;
+    placed.book_anchor = link.book_anchor;
     placed.url = link.url;
     candidates.push_back({covered, std::move(placed), &link});
   }

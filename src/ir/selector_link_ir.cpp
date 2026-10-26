@@ -31,6 +31,13 @@ bool url_like(const std::string& value) {
 
 } // namespace
 
+std::string cross_book_anchor(const std::vector<std::string>& alternatives) {
+  if (alternatives.size() < 2) return {};
+  const auto kind = ascii_lower(alternatives[0]);
+  if (kind != "fig" && kind != "tbl") return {};
+  return (kind == "fig" ? "FIG" : "TBL") + alternatives[1];
+}
+
 std::string selector_link_image(const std::vector<std::string>& alternatives) {
   if (alternatives.size() < 6 || ascii_lower(alternatives[0]) != "image")
     return {};

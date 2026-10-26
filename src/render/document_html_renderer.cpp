@@ -260,6 +260,10 @@ geist::HtmlLinkKind verbatim_link_kind(VerbatimLinkKindIR kind) {
     return geist::HtmlLinkKind::book_contents;
   case VerbatimLinkKindIR::book_heading:
     return geist::HtmlLinkKind::book_heading;
+  case VerbatimLinkKindIR::book_spot:
+    return geist::HtmlLinkKind::book_spot;
+  case VerbatimLinkKindIR::book_anchor:
+    return geist::HtmlLinkKind::book_anchor;
   case VerbatimLinkKindIR::external_url:
     return geist::HtmlLinkKind::external_url;
   }
@@ -280,6 +284,8 @@ HrefIR verbatim_link_href(const VerbatimLinkIR &link,
     return external_href(link.url, options);
   case VerbatimLinkKindIR::book_contents:
   case VerbatimLinkKindIR::book_heading:
+  case VerbatimLinkKindIR::book_spot:
+  case VerbatimLinkKindIR::book_anchor:
     break;
   }
   if (options.resolve_cross_book) {
@@ -287,6 +293,8 @@ HrefIR verbatim_link_href(const VerbatimLinkIR &link,
     reference.document_number = link.document_number;
     reference.document_level = link.document_level;
     reference.heading_anchor = link.heading_anchor;
+    reference.spot_anchor = link.spot_anchor;
+    reference.anchor = link.book_anchor;
     reference.target = link.target;
     reference.alternatives = link.alternatives;
     if (const auto resolved = options.resolve_cross_book(reference))

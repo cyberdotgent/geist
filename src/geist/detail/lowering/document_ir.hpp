@@ -348,6 +348,8 @@ enum class VerbatimLinkKindIR {
   in_book,       // an `SR<id>` anchor somewhere in this book
   book_contents, // another book's contents page
   book_heading,  // a heading inside another book
+  book_spot,     // a spot (`SRSPT<id>`) inside another book
+  book_anchor,   // a figure or table (`SRFIG<id>`, `SRTBL<id>`) of another book
   external_url,  // a URL the reader opens
 };
 
@@ -376,6 +378,12 @@ struct VerbatimLinkIR {
   // Alternative 2: the heading anchor of a `<HDR>` reference, which the
   // reader prefixes with `HDR`.
   std::string heading_anchor;
+  // Alternative 2: the spot anchor of an `<SPT>` reference, which the reader
+  // prefixes with `SPT`.
+  std::string spot_anchor;
+  // A `<FIG>`/`<TBL>` reference's destination in the other book: the kind
+  // followed by alternative 2 (`FIGLSA1`, `TBLDFHE503`).
+  std::string book_anchor;
   // The absolute URL of an external reference; empty otherwise.  This is the
   // only cross-book destination a single-book Markdown export can prove.
   std::string url;

@@ -392,6 +392,124 @@ void test_positioned_spot_anchor_and_lnk() {
           "mutated positioned anchor line was accepted");
 }
 
+// A drawn figure's `LNK <SPT>` selector links a spot in another book.
+// SC31-6209-00 1.2.1.1 record 165 draws the `OPTIONS FASTRUN` box between
+// `SRFIGFIGUNIQ12` and `SREFIG` and selects `FASTRUN` with
+// `cselect 15 7 LNK <SPT> <OFASTRU> <> <SC31-6210-00> <> <RDR>`; hosted
+// (DT 19920811184856) serves it inside the figure's `<pre>` as
+// `<a href="../../DOCNUM/SC31-6210-00/SPTOFASTRU?ScrollTOP=SPTOFASTRU#SPTOFASTRU">FASTRUN</a>`.
+// The verbatim link keeps the spot anchor for the consumer's resolver.
+// `figure_kind` selects the cross-book kind: the `<SPT>` link of the source,
+// or the same box selecting a figure of the other book with `<FIG>`, which
+// shares the plumbing and hands `FIG<anchor>` to the consumer.
+void test_drawn_figure_spot_link(bool figure_kind = false) {
+  using namespace geist::detail;
+  FigureSourceBlockIR figure;
+  figure.span = {{165, 0}, {165, 2}, true};
+  figure.anchor = "FIGFIGUNIQ12";
+  figure.body_kind = FigureBodyKindIR::preformatted;
+
+  FigurePreformattedLineIR row;
+  row.logical_record = 165;
+  row.prefix_token = 1;
+  row.token_end = 4;
+  row.text = "   | OPTIONS   FASTRUN |";
+  row.rows.push_back({1, 0});
+  for (std::size_t offset = 0; offset <= row.text.size(); ++offset)
+    row.column_offsets.push_back(offset);
+  figure.lines.push_back(row);
+
+  FigureLinkIR link;
+  link.selector = {165, 1, 0};
+  link.target = "RDR";
+  link.kind = figure_kind ? FigureLinkKindIR::book_anchor
+                          : FigureLinkKindIR::book_spot;
+  link.alternatives = {figure_kind ? "FIG" : "SPT", "OFASTRU", "",
+                       "SC31-6210-00", "", "RDR"};
+  link.document_number = "SC31-6210-00";
+  if (figure_kind)
+    link.book_anchor = "FIGOFASTRU";
+  else
+    link.spot_anchor = "OFASTRU";
+  link.logical_record = 165;
+  link.line_prefix_token = 1;
+  link.column = 15;
+  link.length = 7;
+  link.label = "FASTRUN";
+  link.source = {165, 1, 5, 6, 10, 12};
+  figure.body_links.push_back(link);
+
+  const auto cell = [](std::size_t segment, std::size_t token,
+                       FigureCellRoleIR role) {
+    FigureSourceCellIR result;
+    result.logical_record = 165;
+    result.segment_index = segment;
+    result.token_index = token;
+    result.word = 'x';
+    result.token_bytes = {static_cast<std::uint32_t>(token * 2),
+                          static_cast<std::uint32_t>(token * 2 + 2)};
+    result.role = role;
+    return result;
+  };
+  figure.cells = {
+      cell(0, 0, FigureCellRoleIR::control),
+      cell(2, 1, FigureCellRoleIR::line_prefix),
+      cell(2, 2, FigureCellRoleIR::body_content),
+      cell(1, 5, FigureCellRoleIR::control),
+  };
+
+  std::string error;
+  const auto blocks = lower_figure_block_to_document_blocks(figure, &error);
+  require(blocks.has_value(), "spot-link figure lowering failed: " + error);
+  if (!blocks)
+    return;
+  const auto *body = std::get_if<PreformattedBlockIR>(&blocks->back().node);
+  require(body && body->line_links.size() == 1 &&
+              body->line_links[0].size() == 1,
+          "the drawn figure lost its LNK <SPT> selector");
+  if (!body || body->line_links.size() != 1 || body->line_links[0].size() != 1)
+    return;
+  const auto &lowered = body->line_links[0].front();
+  require((figure_kind ? lowered.kind == VerbatimLinkKindIR::book_anchor &&
+                             lowered.book_anchor == "FIGOFASTRU" &&
+                             lowered.spot_anchor.empty()
+                       : lowered.kind == VerbatimLinkKindIR::book_spot &&
+                             lowered.spot_anchor == "OFASTRU" &&
+                             lowered.book_anchor.empty()) &&
+              lowered.document_number == "SC31-6210-00" &&
+              lowered.heading_anchor.empty() &&
+              lowered.alternatives == link.alternatives,
+          "the spot link lost its kind or anchor");
+  std::vector<geist::HtmlCrossBookReference> asked;
+  geist::HtmlRenderOptions options;
+  options.resolve_cross_book =
+      [&asked](const geist::HtmlCrossBookReference &reference)
+      -> std::optional<std::string> {
+    asked.push_back(reference);
+    return "/shelf/" + reference.document_number + "/" +
+           (reference.anchor.empty() ? "SPT" + reference.spot_anchor
+                                     : reference.anchor);
+  };
+  const auto html = render_document_html_blocks(*blocks, options);
+  require(asked.size() == 1 &&
+              html.find(figure_kind
+                            ? "href=\"/shelf/SC31-6210-00/FIGOFASTRU\""
+                            : "href=\"/shelf/SC31-6210-00/SPTOFASTRU\"") !=
+                  std::string::npos &&
+              html.find(figure_kind ? "geist-link--book-anchor"
+                                    : "geist-link--book-spot") !=
+                  std::string::npos &&
+              html.find(">FASTRUN</a>") != std::string::npos,
+          "the resolved spot link is not on FASTRUN: " + html);
+  const auto markdown = render_document_markdown(
+      DocumentIR{{"1.2.1.1", "Verifying"}, *blocks});
+  require(markdown.find("FASTRUN") != std::string::npos &&
+              markdown.find("OFASTRU") == std::string::npos,
+          "Markdown lost the label or leaked the tuple: " + markdown);
+  require(verify_figure_document_blocks(figure, *blocks, &error),
+          "spot-link figure lowering verification failed: " + error);
+}
+
 // Caption text and its selector are separate source claims.  In SH20-918
 // 2.1/2.5 the CSELECT operands sort before the caption content they annotate;
 // lowering must not fold those control bytes into the visible label origin.
@@ -479,6 +597,8 @@ void test_caption_selector_provenance() {
 
 int main() {
   test_positioned_spot_anchor_and_lnk();
+  test_drawn_figure_spot_link();
+  test_drawn_figure_spot_link(true);
   test_caption_selector_provenance();
   Corpus corpus(std::filesystem::path(GEIST_FIXTURE_DIR));
   using geist::detail::FigureTargetKindIR;

@@ -112,6 +112,8 @@ std::string link_destination(const VerbatimLinkIR& link) {
     return link.url;
   case VerbatimLinkKindIR::book_contents:
   case VerbatimLinkKindIR::book_heading:
+  case VerbatimLinkKindIR::book_spot:
+  case VerbatimLinkKindIR::book_anchor:
     break;
   }
   // The referenced book is not in this export.  A destination invented here

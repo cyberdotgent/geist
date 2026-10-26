@@ -55,6 +55,10 @@ CrossReferenceTargetKindIR link_target_kind(FigureLinkKindIR kind) {
     return CrossReferenceTargetKindIR::book_contents;
   case FigureLinkKindIR::book_heading:
     return CrossReferenceTargetKindIR::book_heading;
+  case FigureLinkKindIR::book_spot:
+    return CrossReferenceTargetKindIR::book_spot;
+  case FigureLinkKindIR::book_anchor:
+    return CrossReferenceTargetKindIR::book_anchor;
   case FigureLinkKindIR::external_url:
     return CrossReferenceTargetKindIR::external;
   }
@@ -272,6 +276,12 @@ lower_ordered_figure_document_blocks(const FigureSourceBlockIR &figure,
           break;
         case FigureLinkKindIR::book_heading:
           node.target_kind = CrossReferenceTargetKindIR::book_heading;
+          break;
+        case FigureLinkKindIR::book_spot:
+          node.target_kind = CrossReferenceTargetKindIR::book_spot;
+          break;
+        case FigureLinkKindIR::book_anchor:
+          node.target_kind = CrossReferenceTargetKindIR::book_anchor;
           break;
         case FigureLinkKindIR::external_url:
           node.target_kind = CrossReferenceTargetKindIR::external;

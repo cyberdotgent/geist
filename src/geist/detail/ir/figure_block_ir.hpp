@@ -142,6 +142,8 @@ enum class FigureLinkKindIR {
   in_book,
   book_contents,
   book_heading,
+  book_spot,
+  book_anchor,
   external_url,
 };
 
@@ -157,6 +159,12 @@ struct FigureLinkIR {
   std::string document_number;
   std::string document_level;
   std::string heading_anchor;
+  // Alternative 2 of an `LNK <SPT>` reference: the spot anchor inside the
+  // other book, which the reader prefixes with `SPT`.
+  std::string spot_anchor;
+  // The destination of a `<FIG>`/`<TBL>` reference inside the other book:
+  // `FIG<anchor>` or `TBL<anchor>` (`cross_book_anchor`).
+  std::string book_anchor;
   std::string url;
   // The covered display columns of `line`.
   std::uint32_t logical_record = 0;

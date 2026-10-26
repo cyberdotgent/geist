@@ -75,7 +75,9 @@ bool same_link(const FigureLinkIR &left, const FigureLinkIR &right) {
          left.alternatives == right.alternatives &&
          left.document_number == right.document_number &&
          left.document_level == right.document_level &&
-         left.heading_anchor == right.heading_anchor && left.url == right.url &&
+         left.heading_anchor == right.heading_anchor &&
+         left.spot_anchor == right.spot_anchor &&
+         left.book_anchor == right.book_anchor && left.url == right.url &&
          left.logical_record == right.logical_record &&
          left.line_prefix_token == right.line_prefix_token &&
          left.column == right.column && left.length == right.length &&
@@ -1264,12 +1266,14 @@ struct Extractor {
           return decline(region, "drawn figure LNK selector: " + link_error);
         if (parsed->kind == SelectorLinkKindIR::external_image)
           return decline(region, "drawn figure text selector names an image");
-        // A cross-book spot link is proven in prose only.
-        if (parsed->kind == SelectorLinkKindIR::book_spot ||
-            parsed->kind == SelectorLinkKindIR::book_anchor)
-          return decline(region, "drawn figure LNK selector: LNK <" +
-                                     parsed->alternatives[0] +
-                                     "> is not modelled in a figure");
+        // A cross-book spot, figure or table link inside a drawn figure is
+        // served like the `<HDR>` one, with the anchor prefixed by its kind:
+        // SC31-6209-00 1.2.1.1 record 165 selects `FASTRUN` in its `OPTIONS`
+        // box with `cselect 15 7 LNK <SPT> <OFASTRU> <> <SC31-6210-00> <>
+        // <RDR>`, and hosted (DT 19920811184856) serves `<a href="../../DOCNUM/
+        // SC31-6210-00/SPTOFASTRU?ScrollTOP=SPTOFASTRU#SPTOFASTRU">FASTRUN</a>`
+        // inside the figure's `<pre>`.  BookServer forms `<FIG>`/`<TBL>` the
+        // same way (`FIG<anchor>`, `TBL<anchor>`; selector_link_ir.hpp).
         link.alternatives = parsed->alternatives;
         link.target = parsed->alternatives[5];
         switch (parsed->kind) {
@@ -1284,14 +1288,24 @@ struct Extractor {
           link.document_level = parsed->document_level;
           link.heading_anchor = parsed->alternatives[1];
           break;
+        case SelectorLinkKindIR::book_spot:
+          link.kind = FigureLinkKindIR::book_spot;
+          link.document_number = parsed->alternatives[3];
+          link.document_level = parsed->document_level;
+          link.spot_anchor = parsed->alternatives[1];
+          break;
+        case SelectorLinkKindIR::book_anchor:
+          link.kind = FigureLinkKindIR::book_anchor;
+          link.document_number = parsed->alternatives[3];
+          link.document_level = parsed->document_level;
+          link.book_anchor = cross_book_anchor(parsed->alternatives);
+          break;
         case SelectorLinkKindIR::external_link:
           link.kind = FigureLinkKindIR::external_url;
           link.external = true;
           link.url = parsed->destination;
           break;
         case SelectorLinkKindIR::external_image:
-        case SelectorLinkKindIR::book_spot:
-        case SelectorLinkKindIR::book_anchor:
           break;
         }
       } else {

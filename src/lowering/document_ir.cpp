@@ -128,8 +128,7 @@ bool valid_cross_reference_target(const CrossReferenceTargetIR& target) {
            !tuple[3].empty() && target.document_number == tuple[3] &&
            target.document_level == tuple[4] &&
            target.heading_anchor.empty() &&
-           target.book_anchor ==
-               (kind == "fig" ? "FIG" : "TBL") + tuple[1] &&
+           target.book_anchor == cross_book_anchor(tuple) &&
            target.url.empty();
   case CrossReferenceTargetKindIR::external:
     return (kind == "other" || kind == "internet" ||
@@ -551,6 +550,16 @@ bool verify_block(const BlockIR& block, bool nested, std::string* error) {
                 if (link.document_number.empty() || link.target.empty() ||
                     link.heading_anchor.empty())
                   return fail(error, "cross-book heading link is incomplete");
+                break;
+              case VerbatimLinkKindIR::book_spot:
+                if (link.document_number.empty() || link.target.empty() ||
+                    link.spot_anchor.empty())
+                  return fail(error, "cross-book spot link is incomplete");
+                break;
+              case VerbatimLinkKindIR::book_anchor:
+                if (link.document_number.empty() || link.target.empty() ||
+                    link.book_anchor.empty())
+                  return fail(error, "cross-book anchor link is incomplete");
                 break;
               case VerbatimLinkKindIR::external_url:
                 if (link.url.empty())

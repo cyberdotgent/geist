@@ -109,6 +109,11 @@ std::optional<SelectorLinkIR> parse_selector_link(
 // URL (a `/`-rooted path or an `http://`, `https://` or `ftp://` URL).
 std::string selector_link_image(const std::vector<std::string>& alternatives);
 
+// The destination inside the other book of a `<FIG>`/`<TBL>` link, from its
+// alternatives without their angle brackets: the kind followed by
+// alternative 2 (`FIGLSA1`, `TBLDFHE503`).  Empty for any other kind.
+std::string cross_book_anchor(const std::vector<std::string>& alternatives);
+
 // The record-local tokens a `LNK` selector spends on its alternative list.
 //
 // The alternatives follow the control's operands as single tokens each

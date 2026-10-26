@@ -3444,6 +3444,20 @@ two `<SPT>` selectors (`XDLIPRE`, then `XDLIPOS`, record 250 segments 14 and
 15) select the same 28 columns, and hosted links the phrase to the first one
 only.
 
+An `<SPT>` selector also occurs inside a drawn figure, and is served there the
+same way, inside the figure's `<pre>`.  `SC31-6209-00` `1.2.1.1`, record 165:
+between `SRFIGFIGUNIQ12` (token 49 at `0xBB405`) and `SREFIG` (token 100 at
+`0xBB43C`) the book draws a one-row box, and the line before its text row is
+`cselect 15 7 LNK <SPT> <OFASTRU> <> <SC31-6210-00> <> <RDR>` (tokens 66--75,
+`0xBB417`--`0xBB422`) over `   | OPTIONS   FASTRUN   ...|`.  Hosted (DT
+`19920811184856`) serves that row as
+`   | OPTIONS   <a href="../../DOCNUM/SC31-6210-00/SPTOFASTRU?ScrollTOP=SPTOFASTRU#SPTOFASTRU">FASTRUN</a>  ...  |`;
+with an empty alternative 5 no `DocnumLevel` is appended.  171 topics of the
+book carry such a box.  A `<FIG>` or `<TBL>` selector inside a drawn figure
+has not been seen on a hosted page; since the reader forms every kind but
+`<BOOK>` the same way, its destination there is `FIG<anchor>` or
+`TBL<anchor>` of the other book, as in prose.
+
 A `<BOOK>`/`<HDR>` link's display phrase is usually also covered by a `CFONT`
 span, which BookServer renders as `<cite>` words _inside_ the anchor
 (`<a href="../../DOCNUM/SC30-3290/CCONTENTS"><cite>TPNS</cite> <cite>General</cite> <cite>Utilities</cite></a>`, ITPPIBOK 1.3.7).

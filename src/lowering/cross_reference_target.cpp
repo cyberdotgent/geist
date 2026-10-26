@@ -3,7 +3,7 @@
 
 #include "geist/detail/lowering/cross_reference_target.hpp"
 
-#include "geist/detail/core/internal.hpp"
+#include "geist/detail/ir/selector_link_ir.hpp"
 
 namespace geist::detail {
 
@@ -28,9 +28,7 @@ CrossReferenceTargetIR selector_cross_reference_target(
     } else if (kind == CrossReferenceTargetKindIR::book_anchor) {
       target.document_number = alternatives[3];
       target.document_level = alternatives[4];
-      target.book_anchor =
-          (ascii_lower(alternatives[0]) == "fig" ? "FIG" : "TBL") +
-          alternatives[1];
+      target.book_anchor = cross_book_anchor(alternatives);
     } else if (kind == CrossReferenceTargetKindIR::external) {
       target.url = alternatives[3];
     }
