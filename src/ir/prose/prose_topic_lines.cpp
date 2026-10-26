@@ -2337,6 +2337,14 @@ struct LineBuilder {
       const auto next = next_token(index);
       const auto after = space_at(next) ? next_token(next) : npos;
       const auto text_follows = visible_at(after) && !space_at(after);
+      // The gap after a bullet slot or a change bar is a blank run of the
+      // slot's own display line.  A blank-spelled length byte that opens the
+      // next line is that line's row-control slot, never this row's gap:
+      // SC41-5442-00 3.6 record 104 line 15 is `                       |`
+      // (the rail of a drawn table) and token 173, the length byte of the
+      // `cfont` line after it, spells blanks.
+      const auto gap_on_own_line =
+          next != npos && !opens_display_line(items[next].token);
       // A one-cell slot after the origin run and before a one- or two-cell
       // gap is the bullet of a `cz FLOW LI` row (SC09-2417-00 2.1 record
       // 137 `<` + 3 spaces + slot + 2 spaces + `"Introducing`; hosted
@@ -2350,7 +2358,7 @@ struct LineBuilder {
                         (is_placeholder_run(view) ||
                          (item.separator && (view.body.front() == '?' ||
                                              is_bullet_glyph(view))));
-      if (slot && text_follows && run_length(next) <= 2) {
+      if (slot && text_follows && gap_on_own_line && run_length(next) <= 2) {
         line().bullet = true;
         if (!assign(view, ProseTokenRoleIR::bullet)) return false;
         line().cells.push_back({view.record, view.token, "?", false});
@@ -2370,7 +2378,7 @@ struct LineBuilder {
       // name`): one display cell in the margin, never text.  The bar's
       // encoded value is above the row-control range, unlike marker slots.
       if (view.body.front() == '|' && view.value >= row_control_byte_limit &&
-          space_at(next) && text_follows) {
+          space_at(next) && text_follows && gap_on_own_line) {
         if (!assign(view, ProseTokenRoleIR::marker)) return false;
         line().cells.push_back({view.record, view.token, "|", false});
         line().cells.push_back({npos, 0, " ", true});
@@ -2915,7 +2923,12 @@ struct LineBuilder {
     letter_lookahead = false;
       pending_space = true;
       const auto next = next_token(index);
-      if (space_at(next) && !space_at(next_token(next))) {
+      // Only a blank run of the bullet's own display line is its gap: a
+      // blank-spelled length byte opening the next line is that line's
+      // row-control slot.  dfhg4a02 1.28 record 1883 ends on a bare bullet
+      // and record 1884 opens with a length byte spelled as blanks.
+      if (space_at(next) && !space_at(next_token(next)) &&
+          !opens_display_line(items[next].token)) {
         line().cells.push_back({npos, 0, " ", true});
         pending_space = false;
         const auto& gap = items[next].token;

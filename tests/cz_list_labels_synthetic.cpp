@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <optional>
 #include <tuple>
@@ -72,6 +73,23 @@ struct RecordBuilder {
     for (auto &token : content) {
       record.encoded_tokens.push_back({next_encoded++, 2});
       record.tokens.push_back(std::move(token));
+    }
+  }
+
+  // One display line whose tokens are stored at the given widths, with its
+  // length byte spelled `spelling`.
+  void sized_line(TokenWords spelling,
+                  std::vector<std::pair<TokenWords, std::uint8_t>> content) {
+    std::uint16_t length = 0;
+    for (const auto &token : content) length += token.second;
+    record.encoded_tokens.push_back({length, 1});
+    record.tokens.push_back(std::move(spelling));
+    for (auto &token : content) {
+      record.encoded_tokens.push_back(
+          {token.second == 1 ? static_cast<std::uint16_t>(0x60)
+                             : next_encoded++,
+           token.second});
+      record.tokens.push_back(std::move(token.first));
     }
   }
 
@@ -630,7 +648,47 @@ void a_bullet_alone_on_its_row_takes_no_later_byte() {
           "the item after the bare bullet was not built");
 }
 
+// A row that draws nothing but a one-cell bar.  SC41-5442-00 3.6 record 104
+// line 15 is `                       |` (the rail of a drawn table, the bar a
+// one-byte token) and line 16, a `cfont` line, opens on token 173, a length
+// byte the dictionary spells as blanks.  Read as the change bar's gap, that
+// length byte became display text of the bar's row and the topic declined
+// ("token 173 of record 104 is a display-line length byte"); hosted (DT
+// 19970313113847) prints every row of the table.  A `U+2666` bullet alone
+// on its row takes no later length byte as its gap either (dfhg4a02 1.28,
+// where the bullet ends record 1883 and record 1884 opens on a
+// blank-spelled length byte).
+void a_bar_alone_on_its_row_takes_no_later_length_byte(bool bullet) {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({words("cz"), words("OFF"), words("XMP")});
+  const auto one = [](const char *text) {
+    return std::make_pair(words(text), std::uint8_t{1});
+  };
+  builder.sized_line(TokenWords{0x25BA},
+                     {one("cfont"), one("23"), one("1"), one("E")});
+  builder.sized_line(TokenWords{0x2666},
+                     {{words("                       "), 2},
+                      bullet ? std::make_pair(TokenWords{0x2666},
+                                              std::uint8_t{2})
+                             : one("|")});
+  builder.sized_line(words("    "),
+                     {one("cfont"), one("14"), one("5"), one("E")});
+  builder.sized_line(TokenWords{0x25BA},
+                     {{words("              "), 2}, one("After"), one("the"),
+                      one("rail.")});
+  directive(builder, "OFF", "EXMP", "2", "2");
+  Extracted extracted;
+  extracted.sources.push_back(builder.build(104));
+  extracted = extract_sources(std::move(extracted));
+  require(extracted.prose.has_value(),
+          std::string(bullet ? "a bullet" : "a bar") +
+              " alone on its row declined the topic: " + extracted.error);
+}
+
 int main() {
+  a_bar_alone_on_its_row_takes_no_later_length_byte(false);
+  a_bar_alone_on_its_row_takes_no_later_length_byte(true);
   a_dash_in_the_bullet_columns_is_the_nested_bullet();
   a_dash_outside_the_bullet_columns_stays_text();
   a_note_list_keeps_its_numbers_as_text();
