@@ -1120,6 +1120,24 @@ struct Extractor {
           body_begin = index;
         body_end = index + 1;
       }
+    // A figure envelope that holds nothing but its caption (the drawing it
+    // names follows the envelope) is still drawn: hosted BookServer prints
+    // the caption as the one row of the figure's `<pre>` and wraps it in
+    // the figure anchor.  SC41-5420-03 13.5 record 1536 lines 5-11 are
+    // `SRFIGFIGUNIQ59`, `cz OFF FIG`, `   Figure 13-1. Configure TCP/IP
+    // BOOTP`, `SREFIG`, two empty lines and `cz OFF EFIG 0 0`; hosted (DT
+    // 19990224124925) serves `<pre width="132"><!-- figure --><a
+    // name="FIGFIGUNIQ59">   Figure 13-1. Configure TCP/IP BOOTP</a>`, and
+    // the `cz OFF SCREEN` panel after the envelope in a `<pre>` of its own.
+    if (body_begin == lines.size() && caption_at < lines.size()) {
+      for (auto index = caption_at; index < caption_end; ++index)
+        if (classes[index].kind == LineKind::caption)
+          classes[index].kind = LineKind::body;
+      body_begin = caption_at;
+      body_end = caption_end;
+      caption_at = lines.size();
+      caption_end = lines.size();
+    }
     if (body_begin == lines.size())
       return decline(region, "drawn figure has no body lines");
     const auto rule_line = [&](std::size_t index) {

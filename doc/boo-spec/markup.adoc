@@ -1893,6 +1893,18 @@ blank lines between frame and caption included.  Only a full-width bottom
 rule, emptied and shown as `<hr>`, stands between the drawing and its
 caption.
 
+A figure envelope may hold its caption and nothing else, the drawing it names
+following the envelope.  The caption is then the figure's only row.
+`SC41-5420-03.boo` topic `13.5`, logical record 1536, stores `02` at
+`0x1480DB`, then `D7 23` (`SRFIGFIGUNIQ59`) on line 5, `cz OFF FIG` on line
+6, the caption `   Figure 13-1. Configure TCP/IP BOOTP` (length byte `11` at
+`0x1480E3`) on line 7, `02` at `0x1480F5`, then `D6 41` (`SREFIG`) on line 8,
+two empty lines and `cz OFF EFIG 0 0`; the `cz OFF SCREEN` panel follows.
+Hosted BookServer (DT `19990224124925`) serves `<pre width="132"><!-- figure
+-->`, the caption wrapped in `<a name="FIGFIGUNIQ59">`, two `<p>`, and then
+the panel in a `<pre>` of its own.  SC41-5351-01 `6.1.2` (`FIGFIGUNIQ39`) is
+served the same way.
+
 *A numbered figure caption is a run of display lines, and its continuations are
 indented to the title column.* The caption line is `Figure <n>. <title>`;
 every line that continues it starts at exactly the column where `<title>`

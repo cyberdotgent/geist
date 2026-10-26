@@ -686,6 +686,31 @@ void figure_spot_anchor_before_index_lines() {
         "figure spot anchor is not on the body row after its SI lines: " +
             html);
 }
+// A figure envelope that holds only its caption: hosted SC41-5420-03 13.5
+// (DT 19990224124925) serves the caption as the one row of the figure's
+// `<pre>`, wrapped in the figure anchor.
+void caption_only_figure() {
+  Builder b(false);
+  b.line({});
+  b.line({w("SRFIGFIGCAP")});
+  b.line({w("   "), w("Figure"), w("1."), w("Configure"), w("Panel")});
+  b.line({w("SREFIG")});
+  b.line({});
+  b.line({w("ordinary prose")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "caption-only figure rejected: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  const auto anchor = html.find("id=\"FIGFIGCAP\"");
+  check(anchor != std::string::npos &&
+            pre.find("Figure 1. Configure Panel") != std::string::npos &&
+            anchor < html.find("Figure 1.") &&
+            html.find("SREFIG") == std::string::npos,
+        "caption-only figure is not its caption row in a pre: " + html);
+}
 // Each shape the rule does not prove keeps the envelope with the table pass.
 void envelope_box_markup_is_narrow() {
   const auto markup = [](bool inner, const std::string &opener,
@@ -1841,6 +1866,7 @@ int main() {
   spot_anchor_inside_closed_box(false, true);
   spot_anchor_inside_closed_box(true, true, true);
   figure_spot_anchor_before_index_lines();
+  caption_only_figure();
   envelope_box_markup_is_narrow();
   list_closer_ends_open_drawing();
   unclaimed_box_rows_at_topic_end();
