@@ -2494,8 +2494,14 @@ struct CzBuilder {
             // delimiter draws text of its own.
             // Admit only an immediately balanced pair so a missing inner
             // closer can never make the outer region swallow a later
-            // directive.
-            const auto nested_closer = closer_index + 1;
+            // directive.  Row breaks between the pair are breaks of the
+            // region, as they are anywhere else in it: dfhqaa84 2.69 record
+            // 760 nests `cz OFF XMP`, four `cz BREAK 12` and
+            // `cz OFF EXMP 9 9` inside `cz OFF LINES` .. `cz OFF ELINES 7 7`.
+            auto nested_closer = closer_index + 1;
+            while (nested_closer < build.directives.size() &&
+                   build.directives[nested_closer].mode == "break")
+              ++nested_closer;
             if (nested_closer >= build.directives.size() ||
                 build.directives[nested_closer].mode != "off" ||
                 build.directives[nested_closer].tag != "e" + inner.tag)
@@ -2503,6 +2509,14 @@ struct CzBuilder {
             if (inner_rows.first != npos) {
               if (region_begin == npos) region_begin = inner_rows.first;
               region_end = inner_rows.second;
+            }
+            for (auto inner_break = closer_index + 1;
+                 inner_break < nested_closer; ++inner_break) {
+              const auto break_rows = ranges[inner_break];
+              if (break_rows.first == npos) continue;
+              if (region_begin == npos) region_begin = break_rows.first;
+              else breaks.push_back(break_rows.first);
+              region_end = break_rows.second;
             }
             const auto nested_closer_rows = ranges[nested_closer];
             if (nested_closer_rows.first != npos) {

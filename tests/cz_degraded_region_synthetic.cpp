@@ -1068,6 +1068,43 @@ void balanced_nested_verbatim_delimiters_stay_inside_the_outer_region() {
               markdown);
 }
 
+// dfhqaa84 2.69 record 760 nests `cz OFF XMP` .. `cz OFF EXMP 9 9` inside
+// `cz OFF LINES` .. `cz OFF ELINES 7 7`, with `cz BREAK 12` row breaks
+// between the inner pair.  The breaks are breaks of the region, not
+// directives that leave the inner pair unclosed.
+void row_breaks_inside_a_nested_verbatim_pair_stay_in_the_region() {
+  RecordBuilder builder;
+  metadata(builder);
+  builder.line({words("cz"), words("OFF"), words("LINES")});
+  builder.line({words("cz"), words("OFF"), words("XMP")});
+  builder.line({words("            "), words("EXEC"), words("CICS"),
+                words("SYNCPOINT")});
+  builder.line({words("cz"), words("BREAK"), words("12")});
+  builder.line({words("            "), words("EXEC"), words("CICS"),
+                words("INQUIRE"), words("UOW")});
+  builder.line({words("cz"), words("OFF"), words("EXMP"), words("9"),
+                words("9")});
+  builder.line({words("cz"), words("OFF"), words("ELINES"), words("7"),
+                words("7")});
+  builder.line({words("cz"), words("FLOW"), words("P"), words("3"),
+                words("3")});
+  builder.line({words("   "), words("Continue"), words("afterwards.")});
+
+  const auto extracted = extract_record(std::move(builder), 31);
+  require(extracted.prose.has_value(),
+          "a row break inside a nested verbatim pair left the outer region "
+          "unclosed: " + extracted.error);
+  if (!extracted.prose) return;
+  const auto document = lower_document(extracted);
+  if (!document) return;
+  const auto markdown = geist::detail::render_document_markdown(*document);
+  const auto first = markdown.find("EXEC CICS SYNCPOINT");
+  const auto second = markdown.find("EXEC CICS INQUIRE UOW");
+  require(first != std::string::npos && second != std::string::npos &&
+              first < second && contains(markdown, "Continue afterwards"),
+          "the nested region's rows were lost or reordered: " + markdown);
+}
+
 const geist::detail::ProseBlockIR *find_entry(
     const geist::detail::ProseTopicIR &prose, const std::string &term) {
   for (const auto &block : prose.blocks) {
@@ -1767,6 +1804,7 @@ int main() {
   a_list_at_the_indent_continues_an_inline_definition();
   an_empty_dt_owns_the_paragraph_or_screen_that_follows();
   balanced_nested_verbatim_delimiters_stay_inside_the_outer_region();
+  row_breaks_inside_a_nested_verbatim_pair_stay_in_the_region();
   a_list_part_paragraph_divides_its_definition_list();
   unproven_list_parts_still_decline();
   a_closed_generic_region_is_a_typed_verbatim_block();

@@ -1626,6 +1626,9 @@ struct LineBuilder {
   bool next_directive_closes(std::size_t index) const {
     for (auto next = index + 1; next < items.size(); ++next) {
       if (items[next].kind != ItemKind::layout) continue;
+      // A row break inside the pair is a break of the region (dfhqaa84
+      // 2.69 record 760, see the CZ block builder's nested verbatim pairs).
+      if (items[next].directive.mode == "break") continue;
       return items[next].directive.mode == "off" &&
              items[next].directive.tag == "e" + items[index].directive.tag;
     }
