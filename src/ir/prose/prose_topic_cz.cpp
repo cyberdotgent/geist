@@ -2301,6 +2301,30 @@ struct CzBuilder {
                                   earlier.tag == "table";
                          }))
           return true;
+        // An envelope drawn inside a closed box is the box's own markup
+        // (prose_topic_spans.cpp, `box_markup_envelopes`), and so is the
+        // pair of directives around it when the closer stands between the
+        // box's rows: the opener's rows are the box, which the line build
+        // draws as stored, and the closer reopens the reader's `<pre>` for
+        // the box's last rows and the rows after them.  SH26-4009-01 1.0
+        // record 56 opens `cz OFF TABLE` (line 4) and `SRTBLTBLUNIQ7` (line
+        // 5) above the top rule of the two-column syntax-legend grid (line
+        // 6) and closes `SRETBL` and `cz OFF ETABLE 0 0` above its bottom
+        // rule; hosted BookServer (DT 19950628152824) prints the grid, the
+        // nested example boxes in its cells included, row for row with no
+        // `<table>`; SC24-5780-01 1.4 (DT 19961023165238) likewise.
+        if (no_span) {
+          const auto closer = tag == "etable" || tag == "efig";
+          const auto& next = index + 1 < build.directives.size()
+                                 ? build.directives[index + 1]
+                                 : build.directives[index];
+          const auto in_box =
+              closer ? build.directives[index].inside_box
+                     : groups.empty() && index + 1 < build.directives.size() &&
+                           next.mode == "off" && next.tag == "e" + tag &&
+                           next.inside_box;
+          if (in_box) return closer ? named_closer_rows(range) : true;
+        }
         if (no_span)
           return fail(error, name + " delimits no admitted " +
                                  (kind == ProseSpanKindIR::table

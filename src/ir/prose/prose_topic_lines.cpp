@@ -1698,6 +1698,15 @@ struct LineBuilder {
     return pre;
   }
 
+  // A named region closer the reader answers with `</pre>` and a fresh
+  // `<pre width="132">` (the closer branch above): inside a closed box the
+  // box's rows go on printing as stored across it.
+  static bool pre_keeping_directive(const LayoutDirective& directive) {
+    return directive.mode == "off" &&
+           (directive.tag == "etable" || directive.tag == "efig" ||
+            directive.tag == "elblbox" || directive.tag == "edl");
+  }
+
   bool cz_pre_zone_box(const BoxRegion& region) {
     const auto inside = [&](const Item& item) {
       if (item.kind != ItemKind::token) return false;
@@ -1719,10 +1728,12 @@ struct LineBuilder {
         last = index;
       }
     if (first == npos) return false;
-    for (auto index = first; index <= last; ++index)
-      if (items[index].kind == ItemKind::layout ||
-          items[index].kind == ItemKind::span)
+    for (auto index = first; index <= last; ++index) {
+      if (items[index].kind == ItemKind::span) return false;
+      if (items[index].kind == ItemKind::layout &&
+          !pre_keeping_directive(items[index].directive))
         return false;
+    }
     return cz_reader_pre_open(first);
   }
 
@@ -1929,6 +1940,11 @@ struct LineBuilder {
         }
         figure_anchor_open = false;
         out.directives.push_back(item.directive);
+        out.directives.back().inside_box =
+            item.directive.source.token_end >
+                item.directive.source.token_begin &&
+            box_at_logical(item.directive.source.logical_record,
+                           item.directive.source.token_begin) != nullptr;
         current_directive = out.directives.size() - 1;
         // A row opened by the previous directive's trailing slot and a lone
         // origin run that carries no text yet belongs to this directive.

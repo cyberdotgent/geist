@@ -5234,6 +5234,33 @@ The reading applies only when:
 Any further envelope inside the same box follows the rules for an envelope
 drawn wholly inside the box.
 
+In the CZ dialect the envelope's `cz OFF TABLE` .. `cz OFF ETABLE` pair can
+straddle the box the same way, and it is the box's markup as well: the opener
+stands above the top rule with no row of its own, and the closer stands
+between the box's rows.  Neither ends the reader's verbatim output -- the
+opener opens a `<pre>`, the named closer closes it and opens a fresh one --
+so the box prints row for row across the closer, and the rows after the box
+up to the next `cz FLOW` print as stored, as after any named closer.
+SH26-4009-01 `1.0` draws its two-column syntax-legend grid this way.
+Offsets are absolute file offsets.
+
+[cols="<16,<38,<40",options="header"]
+|===
+|Line |Bytes |Reading
+
+|record 56 line 4 |`04` at `0x10BA5` |`cz OFF TABLE`
+|record 56 line 5 |`02` at `0x10BAA` |`SRTBLTBLUNIQ7`, a line of its own
+|record 56 line 6 |`0B` at `0x10BAD` |the grid's top rule
+|records 56--63 |-- |the grid's rows, example boxes nested in the right-hand cells, `cfont` and `SI` lines between them
+|record 63 line 16 |`02` at `0x117CD` |`SRETBL`, a line of its own
+|record 63 line 17 |`06` at `0x117D0` |`cz OFF ETABLE 0 0`
+|record 63 line 18 |`0B` at `0x117D7` |the grid's bottom rule
+|===
+
+Hosted (DT `19950628152824`) prints `<a name="TBLTBLUNIQ7"></a>` and every
+row of the grid, the bottom rule included, in its `<pre>`, with no `<table>`.
+SC24-5780-01 `1.4` (DT `19961023165238`) draws and serves the same legend.
+
 [[markup_anchor_above_closed_box]]
 ==== An anchor directly above a closed box
 

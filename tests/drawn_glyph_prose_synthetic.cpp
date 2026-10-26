@@ -1073,6 +1073,39 @@ void grid_inside_box() {
 // PQ12071` box on lines 11-15, before its first directive (`cz OFF ELBLBOX
 // 0 0`, line 18); dfhla313 1.1.3.1 record 153 draws its `Important` box on
 // lines 10-15, right after `cz OFF ETABLE 0 0` (line 8).
+// A `cz OFF TABLE` .. `cz OFF ETABLE` pair whose `SRTBL` envelope is drawn
+// inside a closed box, the closer standing above the box's bottom rule.
+// SH26-4009-01 1.0 record 56: `cz OFF TABLE`, `SRTBLTBLUNIQ7`, the top rule
+// of the two-column syntax-legend grid, its rows (with example boxes nested
+// in the cells), `SRETBL`, `cz OFF ETABLE 0 0`, the bottom rule.  Hosted
+// BookServer prints the grid row for row, no `<table>`.
+void table_pair_around_box() {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("cz"), w("OFF"), w("TABLE")});
+  builder.line({w("SRTBLLEGEND")});
+  builder.line({sp(3), box(run(0x250C, 0x2500, 12, 0x2510))});
+  builder.line({sp(3), box({0x2502}), w("Inside"), sp(4), box({0x2502})});
+  builder.line({sp(3), box({0x2502}), w("Second"), sp(4), box({0x2502})});
+  builder.line({w("SRETBL")});
+  builder.line({w("cz"), w("OFF"), w("ETABLE"), w("0"), w("0")});
+  builder.line({sp(3), box(run(0x2514, 0x2500, 12, 0x2518))});
+  builder.blank();
+  builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "a table pair around a box declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(untagged(pre_body(html)) == "    ____________ \n   | Inside     |\n"
+                                    "   | Second     |\n   |____________|",
+        "the box around the envelope was not drawn: " + html);
+  check(contains(html, "id=\"TBLLEGEND\"") && !contains(html, "<table") &&
+            contains(html, "<p class=\"geist-paragraph\">After.</p>"),
+        "the envelope in the box was read as a table: " + html);
+}
 void box_in_cz_pre_zone(bool after_closer) {
   Builder builder(false);
   if (after_closer) {
@@ -1512,6 +1545,7 @@ int main() {
   broken_bar_margin_mark();
   box_in_cz_pre_zone(false);
   box_in_cz_pre_zone(true);
+  table_pair_around_box();
   box_after_flowed_block(false);
   box_after_flowed_block(true);
   open_drawing_in_cz_pre_zone();

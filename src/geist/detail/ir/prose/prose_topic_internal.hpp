@@ -119,6 +119,9 @@ struct LayoutDirective {
   std::size_t indent = 0;
   std::string anchor_id;
   DocumentSourceSliceIR source;
+  // The directive's line stands between the rows of a closed box the line
+  // build draws as stored (prose_topic_lines.cpp, `cz_pre_zone_box`).
+  bool inside_box = false;
 };
 
 struct Item {
