@@ -1160,17 +1160,22 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
   }
   // The figure pass reports a declined region by its opener; an opener that
   // is box markup names the box and opens nothing.
-  const auto box_figure_markup = [&](const FigureSegmentRefIR& ref) {
+  // An opener inside a verbatim figure region (`CzVerbatimRegion::figure`)
+  // is an anchor of that region's rows, as box markup is.  So is a declined
+  // one inside any verbatim region (`any_verbatim`): SC41-4850-00 1.5 draws
+  // `SRFIGTBLUNIQ29` .. `SREFIG` inside `cz OFF LBLBOX`, and the stream
+  // already reads its markers as the box's anchors.
+  const auto box_figure_markup = [&](const FigureSegmentRefIR& ref,
+                                     bool any_verbatim = false) {
     const auto record = record_index_of(records, ref.logical_record);
     if (!record || ref.segment_index >= records[*record].control_segments.size())
       return false;
     const auto& segment = records[*record].control_segments[ref.segment_index];
-    // An opener inside a verbatim figure region (`CzVerbatimRegion::figure`)
-    // is an anchor of that region's rows, as box markup is.
-    return !segment.source_tokens.empty() &&
-           (box_markup.count({*record, segment.source_tokens.front()}) != 0 ||
-            inside_verbatim_figure(verbatim, *record,
-                                   segment.source_tokens.front()));
+    if (segment.source_tokens.empty()) return false;
+    const auto token = segment.source_tokens.front();
+    return box_markup.count({*record, token}) != 0 ||
+           inside_verbatim_figure(verbatim, *record, token) ||
+           (any_verbatim && inside_cz_verbatim(verbatim, *record, token));
   };
   if (has_figure_region(records, verbatim, box_markup)) {
     std::string selector_error;
@@ -1184,7 +1189,7 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
         records, layout, ownership, selectors,
         resource_ids != nullptr ? *resource_ids : no_resources);
     for (const auto& decline : topic.figures.declined) {
-      if (box_figure_markup(decline.begin)) continue;
+      if (box_figure_markup(decline.begin, true)) continue;
       // A picture selector inside an admitted table is a table cell; the
       // figure extractor reports it as table-owned and the table claims it.
       if ((decline.reason == "picture selector is table-owned" ||
@@ -1383,7 +1388,7 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
   }
   for (const auto& decline : topic.figures.declined) {
     if (decline.reason != "figure region contains a table" || !decline.end ||
-        box_figure_markup(decline.begin))
+        box_figure_markup(decline.begin, true))
       continue;
     if (!plan_frame(records, decline, ledger, topic, plan, error))
       return false;

@@ -1041,6 +1041,55 @@ void cz_frame_around_table() {
         "CZ figure around an undeclared table is not one verbatim block: " +
             html);
 }
+// A figure envelope around a table inside a labelled box, in a topic that has
+// a figure of its own elsewhere: the envelope is the box's markup, its
+// markers anchors of the box rows.  SC41-4850-00 1.5 draws `SRFIGTBLUNIQ29`,
+// `SRTBLTBLUNIQ29`, the grid, `SRETBL`, `SREFIG` and `cz OFF ETABLE 2 2`
+// between `cz OFF LBLBOX` and `cz OFF ELBLBOX 0 0`.
+void lblbox_figure_envelope_beside_figure() {
+  Builder b;
+  b.line({w("   "), w("Text before.")});
+  b.line({w("cz"), w("OFF"), w("LBLBOX")});
+  b.line({w("   "), repeat({0x250c}, 0x2500, 20, 0x2510)});
+  b.line({w("SRFIGTBLUNIQ5")});
+  b.line({w("   "), {0x2502}, w(std::string(20, ' ')), {0x2502}});
+  b.line({w("SRTBLTBLUNIQ5")});
+  b.line({w("   "), {0x2502}, w(" "), w("A"), w("      "), {0x2502}, w(" "),
+          w("B"), w("           "), {0x2502}});
+  b.line({w("SRETBL")});
+  b.line({w("SREFIG")});
+  b.line({w("cz"), w("OFF"), w("ETABLE"), w("2"), w("2")});
+  b.line({w("   "), repeat({0x2514}, 0x2500, 20, 0x2518)});
+  b.line({w("cz"), w("OFF"), w("ELBLBOX"), w("0"), w("0")});
+  b.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  b.line({w("   "), w("Middle text.")});
+  b.line({});
+  b.line({w("SRFIGFIGOTHER")});
+  b.line({w("cz"), w("OFF"), w("FIG")});
+  b.line({w("   "), repeat({0x250c}, 0x2500, 8, 0x2510)});
+  b.line({w("   "), {0x2502}, w(" "), w("X"), w("      "), {0x2502}});
+  b.line({w("   "), repeat({0x2514}, 0x2500, 8, 0x2518)});
+  b.line({w("   "), w("Figure 2. Other")});
+  b.line({w("SREFIG")});
+  b.line({w("cz"), w("OFF"), w("EFIG"), w("0"), w("0")});
+  b.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  b.line({w("   "), w("Text after.")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(),
+        "figure envelope inside a labelled box declined: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  check(pre.find("id=\"FIGTBLUNIQ5\"") != std::string::npos &&
+            pre.find("id=\"TBLTBLUNIQ5\"") < pre.find(" A ") &&
+            html.find("<table") == std::string::npos &&
+            html.find("id=\"EFIG\"") == std::string::npos &&
+            html.find("id=\"ETBL\"") == std::string::npos &&
+            html.find("id=\"FIGFIGOTHER\"") != std::string::npos,
+        "labelled box envelope lost its anchors or became an object: " + html);
+}
 void frame_rows_around_table(bool blank_inside_frame,
                              TokenWords after_length = w("<BOOK>")) {
   Builder b(false);
@@ -1961,6 +2010,7 @@ int main() {
   caption_only_figure();
   cz_figure_directive_running_on();
   cz_frame_around_table();
+  lblbox_figure_envelope_beside_figure();
   envelope_box_markup_is_narrow();
   list_closer_ends_open_drawing();
   unclaimed_box_rows_at_topic_end();
