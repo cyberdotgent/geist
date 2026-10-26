@@ -711,6 +711,43 @@ void caption_only_figure() {
             html.find("SREFIG") == std::string::npos,
         "caption-only figure is not its caption row in a pre: " + html);
 }
+// `cz OFF FIG` directly followed by drawn rows: no control ends the
+// directive's segment on its own line, so the decoded control string runs on
+// over the rows after it.  The rows are still the figure's drawing: hosted
+// SC41-5420-03 21.7.2 (DT 19990224124925) prints the decision flow chart
+// that follows `cz OFF FIG` (record 1896 line 17) row for row in the
+// figure's `<pre>`; its line 18 is the two-byte row `                 .`.
+void cz_figure_directive_running_on() {
+  Builder b;
+  b.line({w("Text"), w("before.")});
+  b.line({});
+  b.line({w("SRFIGFIGFLOW")});
+  b.line({w("cz"), w("OFF"), w("FIG")});
+  // A two-byte row: its length byte `02` decodes as the attach control and
+  // a comma, which the flattened string glues to `FIG`.
+  b.line({w(".")}, {1, ','});
+  b.line({w("               "), w("."), w("   "), w(".")});
+  b.line({w("              "), w("Ready?"), w("  "), w("No")});
+  b.line({});
+  b.line({w("   "), w("Figure"), w("1."), w("Flow")});
+  b.line({w("SREFIG")});
+  b.line({w("cz"), w("OFF"), w("EFIG"), w("0"), w("0")});
+  b.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  b.line({w("   "), w("after")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "figure after a running-on cz OFF FIG rejected: " +
+                             error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  check(html.find("id=\"FIGFIGFLOW\"") != std::string::npos &&
+            pre.find("Ready?") != std::string::npos &&
+            pre.find("Figure 1. Flow") != std::string::npos &&
+            html.find("OFF") == std::string::npos,
+        "running-on cz OFF FIG figure lost its rows: " + html);
+}
 // Each shape the rule does not prove keeps the envelope with the table pass.
 void envelope_box_markup_is_narrow() {
   const auto markup = [](bool inner, const std::string &opener,
@@ -1867,6 +1904,7 @@ int main() {
   spot_anchor_inside_closed_box(true, true, true);
   figure_spot_anchor_before_index_lines();
   caption_only_figure();
+  cz_figure_directive_running_on();
   envelope_box_markup_is_narrow();
   list_closer_ends_open_drawing();
   unclaimed_box_rows_at_topic_end();

@@ -928,10 +928,24 @@ decode_control_segments(std::uint32_t logical_record,
                                     : display_line_end_byte(opcode_tokens.front());
           std::vector<std::string> operands;
           operands.reserve(words.size() - 1);
+          // A word can straddle the line end: the next display line's length
+          // byte decodes to glyphs of its own, and with no blank between
+          // them the flattened string glues those to the last operand.  A
+          // two-byte row's length byte `02` decodes as the attach control and
+          // a comma, so SC41-5420-03 21.7.2 record 1896 line 17 `cz OFF FIG`
+          // flattens to the word `FIG,` (the `02` of line 18 at `0x165AFE`).
+          // The operand is the part inside the line; the directive was read
+          // as malformed and its operands as payload before.
+          std::optional<std::size_t> clipped_end;
           for (std::size_t word = 1; word < words.size(); ++word) {
-            if (words[word].end > line_end) break;
-            operands.push_back(ascii_lower(text.substr(
-                words[word].begin, words[word].end - words[word].begin)));
+            if (words[word].begin >= line_end) break;
+            const auto end = std::min(words[word].end, line_end);
+            operands.push_back(ascii_lower(
+                text.substr(words[word].begin, end - words[word].begin)));
+            if (words[word].end > line_end) {
+              clipped_end = end;
+              break;
+            }
           }
           // `cz <mode> <tag> [<left> <indent>]`. The tag names a region and
           // the compiler spells many of them (TABLE, XMP, FIG, COVER, and
@@ -975,6 +989,8 @@ decode_control_segments(std::uint32_t logical_record,
                  alphanumeric_tag(operands[1]) &&
                  decimal_operand(operands[2]) && decimal_operand(operands[3])));
           operand_words = segment.malformed ? 0 : operands.size();
+          if (!segment.malformed && clipped_end)
+            explicit_operand_end = *clipped_end;
         } else if (operand_words > words.size() - 1) {
           segment.malformed = true;
           operand_words = words.size() - 1;

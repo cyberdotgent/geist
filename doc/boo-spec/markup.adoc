@@ -7053,6 +7053,18 @@ two-byte `XMP` -- and then `46` at `0x152052`, the length byte (70) of the
 `19950610061004`) serves the region's row `" % & ' ( ) + - / : ; < > = .`
 in its `<pre width="80">`.
 
+The same holds when the next line's length byte decodes to glyphs that the
+flattened control string glues to the last operand.  A two-byte row's
+length byte `02` decodes as the attach control and a comma.
+`SC41-5420-03.boo` `21.7.2`, logical record 1896, stores `04` at
+`0x165AF9`, `46` (`cz`), `7C` (`OFF`) and `B9 15` (`FIG`), and then `02` at
+`0x165AFE`, the length byte of the flow chart's first row
+`                 .`; the flattened string reads `cz OFF FIG,` followed by
+the chart.  The directive is `cz OFF FIG` with no further operand, and the
+comma belongs to the next row's framing.  Hosted (DT `19990224124925`)
+serves `<pre width="132"><!-- figure -->` and the chart row for row, the
+first row wrapped in `<a name="FIGFIGUNIQ90">`.
+
 *A region closed by another region's closer.*  Every `CZ OFF E...` line is
 the generic closer, whatever its tag: it ends the depth count and prints
 nothing.  So a verbatim region can end at a closer that names another,
