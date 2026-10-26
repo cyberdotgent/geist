@@ -324,6 +324,11 @@ struct ProseTableLinkIR {
   bool picture = false;
   std::uint32_t logical_record = 0;
   std::vector<std::size_t> payload_tokens;  // ascending
+  // The tokens of the one display row the selector addresses: the first
+  // payload line that draws anything, or for a selector stacked directly
+  // above another one, that selector's row (ascending; empty when the row
+  // opens the next record, see below).
+  std::vector<std::size_t> row_tokens;
   // A selector that is the last control of its record addresses the display
   // row below it even when that row opens the next record: the leading text
   // segment of that record, which no control of its own opens, continues

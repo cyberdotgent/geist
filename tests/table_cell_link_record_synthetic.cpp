@@ -116,6 +116,20 @@ std::size_t row_width(const std::string &number, const std::string &name) {
   return geist::detail::display_line_cells(record, lines->front()).size();
 }
 
+// Display column of the row's number cell.
+std::size_t number_column(const std::string &number, const std::string &name) {
+  RecordBuilder probe;
+  probe.line(row(number, name, 1));
+  const auto record = probe.finish(1);
+  const auto *lines = geist::detail::record_display_lines(record);
+  if (lines == nullptr || lines->empty()) return 0;
+  const auto cells = geist::detail::display_line_cells(record, lines->front());
+  for (std::size_t at = 0; at < cells.size(); ++at)
+    if (cells[at].word == static_cast<std::uint16_t>(number.front()))
+      return at;
+  return 0;
+}
+
 std::vector<TokenWords> rule(std::uint16_t left, std::uint16_t join,
                              std::uint16_t right, std::size_t second) {
   return {w("   "), {left}, attach, glyphs(7, 0x2500), attach, {join},
@@ -123,8 +137,10 @@ std::vector<TokenWords> rule(std::uint16_t left, std::uint16_t join,
 }
 
 std::vector<TokenWords> selector(const std::string &target,
-                                 std::size_t length) {
-  return {w("cselect"), w("13"), w(std::to_string(length)), w(target)};
+                                 std::size_t length,
+                                 std::size_t column = 13) {
+  return {w("cselect"), w(std::to_string(column)), w(std::to_string(length)),
+          w(target)};
 }
 
 std::vector<DecodedLogicalRecordSource> topic() {
@@ -149,7 +165,21 @@ std::vector<DecodedLogicalRecordSource> topic() {
   one.line({w("cz"), w("OFF"), w("TABLE")});
   one.line({w("SRTBLTBLUNIQ1")});
   one.line(rule(0x250C, 0x252C, 0x2510, inner));
+  // Two selectors stacked over one row, each naming its own cell: hosted
+  // links both (S85G-8681-00 6.2 record 171 lines 21-23, `cselect 11 30
+  // HDRFUNC1` and `cselect 70 3 HDRFUNC1` above `|   1 | Connect
+  // Presentation Space (1) ... | 6.8 |`, DT 19950803164615).
+  one.line(selector("HDRNUM1", 1, number_column("1", first)));
   one.line(selector("HDRFUNC1", label(first, "1")));
+  // A `cfont` line between the selectors and their row addresses the same
+  // row (dfhla313 1.1.3.17.2 record 361 lines 24-26: `cselect 48 26
+  // HDRUEPCLPS`, `cfont 5 10 2`, then the row).
+  one.line({w("cfont"), w("13"), w("5"), w("2")});
+  one.line(row("1", first, width - row_width("1", first) + 1));
+  // A second line of the same cells, inside the selector's flattened
+  // segment but not the row below the selector: hosted links only that row
+  // (SY27-0327-05 6.2.1 record 754: `cselect 30 41 HDRSLMUP` links line 2,
+  // not line 3 `information on all configured AS/400 systems.`).
   one.line(row("1", first, width - row_width("1", first) + 1));
   one.line(rule(0x251C, 0x253C, 0x2524, inner));
   // The selector is the record's last display line; its row opens the next
@@ -200,12 +230,15 @@ void a_selector_reaches_the_row_that_opens_the_next_record() {
   require(text.find("HDRFUNC2") != std::string::npos,
           "the selector whose row opens the next record lost its link: " +
               text);
-  std::size_t links = 0;
-  for (auto at = text.find("value=\"HDRFUNC2\""); at != std::string::npos;
-       at = text.find("value=\"HDRFUNC2\"", at + 1))
-    ++links;
-  require(links == 1, "the cross-record selector linked " +
-                          std::to_string(links) + " rows, not one");
+  for (const std::string target : {"HDRNUM1", "HDRFUNC1", "HDRFUNC2"}) {
+    std::size_t links = 0;
+    const auto needle = "value=\"" + target + "\"";
+    for (auto at = text.find(needle); at != std::string::npos;
+         at = text.find(needle, at + 1))
+      ++links;
+    require(links == 1, "selector " + target + " linked " +
+                            std::to_string(links) + " cell lines, not one");
+  }
 }
 
 } // namespace

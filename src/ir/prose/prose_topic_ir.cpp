@@ -270,6 +270,13 @@ bool verify_prose_topic_ir(
           found->second->span != link.span)
         return fail(error, "table link payload is not owned by its span");
     }
+    for (const auto token : link.row_tokens) {
+      const auto found = by_token.find({link.logical_record, token});
+      if (found == by_token.end() ||
+          found->second->role != ProseTokenRoleIR::table ||
+          found->second->span != link.span)
+        return fail(error, "table link row is not owned by its span");
+    }
     if (link.continuation_tokens.empty() != (link.continuation_record == 0))
       return fail(error, "table link continuation is incomplete");
   }
@@ -698,6 +705,8 @@ std::string format_prose_topic_ir(const ProseTopicIR& topic) {
         << " length=" << link.length << " target=" << link.target
         << " record=" << link.logical_record << " payload=";
     for (const auto token : link.payload_tokens) out << token << ',';
+    out << " row=";
+    for (const auto token : link.row_tokens) out << token << ',';
     if (link.continuation_record != 0) {
       out << " continuation=" << link.continuation_record << ':';
       for (const auto token : link.continuation_tokens) out << token << ',';

@@ -673,6 +673,7 @@ void table_picture_overlap_fails_closed() {
   picture.picture = true;
   picture.logical_record = 2;
   picture.payload_tokens = {10};
+  picture.row_tokens = {10};
   picture.source = {2, 2, 2, 3, 30, 32};
   prose.table_links.push_back(picture);
   auto reference = picture;

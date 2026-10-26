@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <map>
+#include <optional>
 #include <utility>
 
 // Table/figure span plan of the prose topic family.  The body of a prose
@@ -91,6 +92,61 @@ bool inside_cz_verbatim(const std::vector<CzVerbatimRegion>& regions,
 
 
 namespace {
+
+// The display row a table-cell selector addresses: the first display line
+// after the selector's own line that draws anything and is not a `cfont` or
+// `cselect` line, in its own record or, when nothing follows the selector
+// there, at the start of the next one.  Returns the record index and the
+// row's tokens, or nullopt when another control comes first.
+std::optional<std::pair<std::size_t, std::vector<std::size_t>>> selector_row(
+    const std::vector<DecodedLogicalRecordSource>& records,
+    std::size_t record_index, const ControlSegmentIR& selector) {
+  if (selector.source_tokens.empty()) return std::nullopt;
+  for (auto record = record_index;
+       record < records.size() && record <= record_index + 1; ++record) {
+    const auto& source = records[record];
+    const auto* lines = record_display_lines(source);
+    if (lines == nullptr) return std::nullopt;
+    const auto* own =
+        record == record_index
+            ? display_line_of_token(source, selector.source_tokens.front())
+            : nullptr;
+    if (record == record_index && own == nullptr) return std::nullopt;
+    bool after = record != record_index;
+    for (const auto& line : *lines) {
+      if (!after) {
+        after = &line == own;
+        continue;
+      }
+      bool drawn = false;
+      for (const auto& cell : display_line_cells(source, line)) {
+        if (cell.token >= source.ir.tokens.size()) continue;
+        if (cell.word != ' ') drawn = true;
+      }
+      if (!drawn) continue;
+      // A control opening this line: `cfont`/`cselect` lines address the
+      // same row and are skipped; any other control ends the search.
+      const ControlSegmentIR* opener = nullptr;
+      for (const auto& segment : source.control_segments)
+        if (segment.kind != BookControlKind::text && !segment.display_text &&
+            !segment.source_tokens.empty() &&
+            segment.source_tokens.front() > line.prefix_token &&
+            segment.source_tokens.front() < line.token_end)
+          opener = &segment;
+      if (opener != nullptr) {
+        if (opener->kind == BookControlKind::font ||
+            opener->kind == BookControlKind::select)
+          continue;
+        return std::nullopt;
+      }
+      std::vector<std::size_t> tokens;
+      for (auto token = line.prefix_token + 1; token < line.token_end; ++token)
+        tokens.push_back(token);
+      return std::make_pair(record, std::move(tokens));
+    }
+  }
+  return std::nullopt;
+}
 
 using Claim = std::pair<std::size_t, std::size_t>;  // record index, token
 
@@ -449,65 +505,23 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
           }
           link.payload_tokens.push_back(token);
         }
-        // The last control of its record: the next record's leading text
-        // segment is the rest of this selector's payload.
-        const auto& controls = records[record].control_segments;
-        const auto last_control =
-            segment.segment_index < controls.size() &&
-            std::none_of(controls.begin() + static_cast<std::ptrdiff_t>(
-                                                segment.segment_index + 1),
-                         controls.end(), [](const ControlSegmentIR& later) {
-                           return later.kind != BookControlKind::text;
-                         });
-        // ... and the selector's line is the last of its record that draws
-        // anything, so the row it addresses can only be in the next one.
-        bool row_in_record = false;
-        if (const auto* lines = record_display_lines(records[record])) {
-          const auto* own =
-              segment.source_tokens.empty()
-                  ? nullptr
-                  : display_line_of_token(records[record],
-                                          segment.source_tokens.front());
-          bool after = false;
-          for (const auto& line : *lines) {
-            if (own != nullptr && &line == own) {
-              after = true;
-              continue;
-            }
-            if (!after) continue;
-            for (const auto& cell : display_line_cells(records[record], line))
-              if (cell.word != ' ') row_in_record = true;
-          }
-          if (own == nullptr) row_in_record = true;
-        } else {
-          row_in_record = true;
-        }
-        if (last_control && !row_in_record && record + 1 < records.size()) {
-          const auto& next = records[record + 1];
-          if (!next.control_segments.empty() &&
-              next.control_segments.front().kind == BookControlKind::text) {
-            // Only the first display line of that record that draws
-            // anything is the selector's row; the text segment runs on
-            // through the rows below it, which the selector does not reach
-            // (SC31-8573-00 3.7 record 239, hosted DT 19980130154145 links
-            // one row under `cselect 35 30 HDROCPPEU`).
-            const auto& leading = next.control_segments.front().source_tokens;
-            if (const auto* next_lines = record_display_lines(next)) {
-              for (const auto& line : *next_lines) {
-                bool drawn = false;
-                for (const auto& cell : display_line_cells(next, line))
-                  if (cell.word != ' ') drawn = true;
-                if (!drawn) continue;
-                for (const auto token : leading)
-                  if (token > line.prefix_token && token < line.token_end)
-                    link.continuation_tokens.push_back(token);
-                break;
-              }
-            }
-            std::sort(link.continuation_tokens.begin(),
-                      link.continuation_tokens.end());
-            if (!link.continuation_tokens.empty())
-              link.continuation_record = next.logical_record;
+        // The row the selector addresses is the first display line after
+        // the selector's own line that draws anything, past the `cfont` and
+        // `cselect` lines that address the same row.  The flattened segment
+        // runs on to the next control, through rows below that one, which
+        // the selector does not reach (SY27-0327-05 6.2.1 record 754
+        // `cselect 30 41 HDRSLMUP`, hosted DT 19970226230542, links line 2
+        // only, not line 3).  Selectors stacked above one row each name a
+        // cell of it (S85G-8681-00 6.2 record 171 lines 21-23), and the row
+        // may open the next record (S85G-8681-00 FRONT_1 record 19 line 39
+        // `cselect 13 41 HDRFUNC7`, row on record 20 line 0; SC31-8573-00
+        // 3.7 record 239, which links that one row only).
+        if (const auto row = selector_row(records, record, segment)) {
+          if (row->first == record) {
+            link.row_tokens = row->second;
+          } else {
+            link.continuation_record = records[row->first].logical_record;
+            link.continuation_tokens = row->second;
           }
         }
       }
