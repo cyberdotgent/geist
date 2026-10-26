@@ -39,6 +39,7 @@
 #include <iostream>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -398,5 +399,31 @@ int main() {
   expect_outline("chdlevel :LEGEND",
                  topic("LEGEND", ":LEGEND", {words("ST"), words("Notices")}),
                  "LEGEND", "Notices", "h1:LEGEND Notices|p");
+
+  // An `SRLEN` envelope anchor names the topic by the rest of its display
+  // line, even where a word of it is spelled like a control.  SC24-5780-01
+  // 3.146 record 1261 stores `SRLEN SI (Macro)` between `csummary` and
+  // `chdlevel`; hosted (DT 19961023165238) serves `<a name="LEN SI
+  // (Macro)">` and no text before the heading.  SC31-6210-01 2.13.5
+  // (`SRLEN SRCLO`) and SC31-7066-00 2.1.258 (`SRLEN SRATIO (NPDA)`) are
+  // served `<a name="LEN SRCLO">` and `<a name="LEN SRATIO (NPDA)">`.
+  for (const auto &[label, payload, expected] :
+       std::vector<std::tuple<std::string, Line, std::string>>{
+           {"SRLEN SI (Macro)",
+            {words("SRLEN"), words("SI"), words("(Macro)")},
+            "h2:3.146 SI (Macro)|a:LEN SI (Macro)|p"},
+           {"SRLEN .SI -- Segment Include",
+            {words("SRLEN"), words(".SI"), words("--"), words("Segment"),
+             words("Include")},
+            "h2:3.146 SI (Macro)|a:LEN .SI -- Segment Include|p"},
+           {"SRLEN SRATIO (NPDA)",
+            {words("SRLEN"), words("SRATIO"), words("(NPDA)")},
+            "h2:3.146 SI (Macro)|a:LEN SRATIO (NPDA)|p"}}) {
+    auto lines = topic("3.146", ":H2",
+                       {words("ST"), words("  "), words("SI"),
+                        words("(Macro)")});
+    lines.insert(lines.begin() + 6, payload);
+    expect_outline(label, lines, "3.146", "SI (Macro)", expected);
+  }
   return 0;
 }

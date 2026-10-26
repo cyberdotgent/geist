@@ -653,6 +653,12 @@ void bound_menu_items_to_display_lines(DecodedLogicalRecordSource& record) {
 // leading text segment is then that payload: qbkaqx00 FIGURES record 17 ends
 // `cselect 3 59 FIGCSIG` and record 18 line 0 is `   23.  Current Signature
 // of Service Program SRV1   2.1.4.1`.
+//
+// An `SR<id>` anchor's payload is the rest of its display line in the same
+// way: the metadata-envelope `SRLEN <name>` names its anchor by that line.
+// SC24-5780-01 3.146 record 1261 line 6 is `SRLEN SI (Macro)`, which the
+// splitter cut before `SI`; hosted (DT 19961023165238) serves
+// `<a name="LEN SI (Macro)">` and nothing of it as text.
 void rejoin_selected_line_display_text(DecodedLogicalRecordSource& record,
                                        bool carried_selection) {
   std::vector<ControlSegmentIR> joined;
@@ -662,6 +668,9 @@ void rejoin_selected_line_display_text(DecodedLogicalRecordSource& record,
     auto segment = record.control_segments[index];
     const auto selected =
         segment.kind == BookControlKind::select ||
+        (segment.kind == BookControlKind::structural &&
+         segment.opcode.size() > 2 &&
+         ascii_lower(segment.opcode).rfind("sr", 0) == 0) ||
         (carried_selection && index == 0 &&
          segment.kind == BookControlKind::text && !segment.display_text);
     const auto* line =

@@ -6616,6 +6616,17 @@ leading `SR`, so a payload extends the _name_ and nothing of it is displayed:
 |`SC34-425` record 1465 |`SRLEN FLMCSPDB DB2 Bind/Free Translator` |`<a name="LEN FLMCSPDB DB2 Bind/Free Translator">` (DT `19921112160049`)
 |===
 
+The payload is the rest of the control's display line, whatever its words
+are spelled like.  `SC24-5780-01` record 1261 line 6 opens with the length
+byte `08` at `0xBEAE5`, then `95` (`SRLEN`), `94` (`SI`), `23` (`(`) and
+`Macro)`; the flattened text `SRLEN SI (Macro)` looks like an `SRLEN` and an
+`SI` index control, but `SI` stands after `SRLEN` on the same display line
+and so opens no control.  Hosted (DT `19961023165238`) serves
+`<a name="LEN SI (Macro)">` before the heading `3.146   SI (Macro)` and no
+text above it.  `SC31-6210-01` `2.13.5` (`SRLEN SRCLO`, served
+`<a name="LEN SRCLO">`) and `SC31-7066-00` `2.1.258` (`SRLEN SRATIO (NPDA)`,
+`<a name="LEN SRATIO (NPDA)">`) are the same.
+
 A `SR<id>` anchor in the *body* behaves differently: its id is the opcode
 without `SR` and its payload is the first display line of the text it names,
 which hosted wraps in the anchor element.
