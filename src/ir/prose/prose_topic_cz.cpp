@@ -2827,6 +2827,17 @@ struct CzBuilder {
         if (tag.size() > 1 && tag.front() == 'e' &&
             (list_tag(tag.substr(1)) || tag == "ent")) {
           const auto opened = tag.substr(1);
+          // `CZ OFF EPARML` has no prefix of its own: it is the reader's
+          // generic `CZ OFF E` closer, which prints nothing.  One that
+          // closes a list an earlier topic opened, and owns no row, draws
+          // nothing: SC31-8513-00 2.14.2.7.2 (DT 19980219192539) ends with
+          // `cz OFF EPARML 5 5` and `cz OFF EPARML 0 0`, the first closing
+          // the topic's own list, and hosted serves nothing for either.
+          if (opened == "parml" && groups.empty() &&
+              std::none_of(stack.begin(), stack.end(), [](const Frame& frame) {
+                return frame.tag == "parml";
+              }))
+            return true;
           if (stack.empty() || stack.back().tag != opened)
             return fail(error, name + " closes no open " + opened);
           // A term still waiting for its body at the list's end is a term

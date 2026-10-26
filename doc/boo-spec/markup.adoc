@@ -7079,7 +7079,13 @@ record 528 opens a parameter list with `06 4A 8F D7 6A AE AE` at `0x6B89B`
 `cz OFF ETABLE 4 4` is record 533 line 16, and has only `SI` index lines
 after it -- no `cz OFF EPARML`.  Hosted (DT `19980512102401`) serves the
 terms and the table and ends the page.  Ten books of a 500-book sample
-leave a `PARML` open this way, three a `DL` and two a `UL`.  A message list
+leave a `PARML` open this way, three a `DL` and two a `UL`.  The converse
+holds for the parameter list: `CZ OFF EPARML` has no prefix of its own and
+is the generic `CZ OFF E` closer, which prints nothing, so a row-less
+`cz OFF EPARML` that closes a list an earlier topic opened draws nothing.
+`SC31-8513-00.boo` `2.14.2.7.2` ends with `cz OFF EPARML 5 5`, closing its
+own list, and a second `cz OFF EPARML 0 0`; hosted (DT `19980219192539`)
+serves nothing for either.  A message list
 (`MSGL`) is not such a list: it is announced at the end of one topic and
 holds the messages of the topics after it (see the message lists above).
 

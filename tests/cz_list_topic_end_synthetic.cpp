@@ -242,9 +242,30 @@ void an_open_message_list_still_declines() {
           "an open message list with rows was accepted");
 }
 
+// The other end: a row-less `cz OFF EPARML` closing a list an earlier topic
+// opened.  dfhlp419 `1.229.1` writes a table, a `cz FLOW P 7 7` paragraph and
+// `cz OFF EPARML 0 0` before the next heading; `CZ OFF EPARML` is the
+// reader's generic `CZ OFF E` closer, which prints nothing.
+void a_parameter_list_closed_from_an_earlier_topic() {
+  RecordBuilder builder;
+  builder.heading("1.229.1", "WAIT");
+  builder.cz({"cz", "FLOW", "P", "7", "7"});
+  builder.row("       ", {"See", "the", "Recovery", "Guide."});
+  builder.cz({"cz", "OFF", "EPARML", "0", "0"});
+  builder.cz({"cz", "FLOW", "H3", "3", "3"});
+  auto extracted = run(builder.build(77), "WAIT");
+  require(extracted.topic.has_value(),
+          "an EPARML closing an earlier topic's list was rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  require(contains(topic_text(*extracted.topic), "Guide."),
+          "the paragraph lost its words:\n" + topic_text(*extracted.topic));
+}
+
 }  // namespace
 
 int main() {
+  a_parameter_list_closed_from_an_earlier_topic();
   a_parameter_list_open_at_the_end();
   nested_lists_open_at_the_end();
   an_open_message_list_still_declines();
