@@ -7,6 +7,7 @@
 #include "geist/detail/ir/figure_block_ir.hpp"
 
 #include <algorithm>
+#include <iterator>
 
 namespace geist::detail {
 
@@ -636,9 +637,83 @@ void bound_menu_items_to_display_lines(DecodedLogicalRecordSource& record) {
   record.control_segments = std::move(bounded);
 }
 
+// A `cselect` payload is the display line after the control's own line, and
+// that line can hold a word spelled like a control.  The splitter opens a
+// segment on it, the demotion above proves it display text (a genuine
+// control opens its own display line), and the selected line then ends at the
+// word: the selection's columns reach past the row it was left with.
+// SG24-5257-00 FIGURES record 16 line 4 is `   28.  Defining SRDS with
+// IDCAMS   4.1.3` under `cselect 3 38 FIGTSTA6`; the splitter cut it before
+// `SRDS`, leaving 17 of the 41 cells the selection names.  Hosted (DT
+// 19981216162732) links the whole `28.  Defining SRDS with IDCAMS   4.1.3`.
+// The same correction as for a menu item: the text segments that open on the
+// selector's last payload line are that line's display text and belong to
+// the selector's payload.  A selector that ends its record with an empty
+// payload selects the next record's first line (`carried_selection`), whose
+// leading text segment is then that payload: qbkaqx00 FIGURES record 17 ends
+// `cselect 3 59 FIGCSIG` and record 18 line 0 is `   23.  Current Signature
+// of Service Program SRV1   2.1.4.1`.
+void rejoin_selected_line_display_text(DecodedLogicalRecordSource& record,
+                                       bool carried_selection) {
+  std::vector<ControlSegmentIR> joined;
+  joined.reserve(record.control_segments.size());
+  for (std::size_t index = 0; index < record.control_segments.size();
+       ++index) {
+    auto segment = record.control_segments[index];
+    const auto selected =
+        segment.kind == BookControlKind::select ||
+        (carried_selection && index == 0 &&
+         segment.kind == BookControlKind::text && !segment.display_text);
+    const auto* line =
+        selected && !segment.source_tokens.empty()
+            ? display_line_of_token(record, segment.source_tokens.back())
+            : nullptr;
+    bool grown = false;
+    while (line != nullptr && index + 1 < record.control_segments.size()) {
+      const auto& next = record.control_segments[index + 1];
+      if (!next.display_text || next.kind != BookControlKind::text ||
+          next.source_tokens.empty() ||
+          display_line_of_token(record, next.source_tokens.front()) != line ||
+          next.source_tokens.front() == line->prefix_token + 1)
+        break;
+      segment.complete.end = next.complete.end;
+      ++index;
+      grown = true;
+    }
+    if (grown) {
+      segment.payload_range.end = segment.complete.end;
+      const auto words =
+          decoded_byte_range_to_word_range(record.assembled, segment.complete);
+      segment.source_tokens = source_tokens_intersecting_output(
+          record.assembled, words.begin, words.end);
+    }
+    segment.segment_index = joined.size();
+    joined.push_back(std::move(segment));
+  }
+  record.control_segments = std::move(joined);
+}
+
 } // namespace
 
-void demote_display_line_owned_controls(DecodedLogicalRecordSource& record) {
+const ControlSegmentIR* carried_control_segment(
+    const DecodedLogicalRecordSource& record) {
+  auto at = record.control_segments.rbegin();
+  if (at == record.control_segments.rend()) return nullptr;
+  while (std::next(at) != record.control_segments.rend() &&
+         at->kind == BookControlKind::font &&
+         at->payload_range.begin == at->payload_range.end)
+    ++at;
+  return &*at;
+}
+
+bool ends_with_carried_selection(const DecodedLogicalRecordSource& record) {
+  const auto* carried = carried_control_segment(record);
+  return carried != nullptr && carried->kind == BookControlKind::select &&
+         carried->payload_range.begin == carried->payload_range.end;
+}
+
+void demote_display_line_owned_controls(DecodedLogicalRecordSource& record,
+                                        bool carried_selection) {
   if (record.control_segments.empty()) return;
   const auto lines = record_display_lines(record);
   if (!lines) return;
@@ -759,6 +834,7 @@ void demote_display_line_owned_controls(DecodedLogicalRecordSource& record) {
     segment.operand_range = segment.opcode_range;
     segment.payload_range = {segment.complete.begin, segment.complete.end};
   }
+  rejoin_selected_line_display_text(record, carried_selection);
   bound_menu_items_to_display_lines(record);
 }
 

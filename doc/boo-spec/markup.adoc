@@ -4387,6 +4387,45 @@ Hosted serves the heading `Tables` and nothing else; `SC33-6733-01`
 as a run of rule glyphs by that book's dictionary; it is row geometry, not
 part of the `cz OFF TLIST` directive.
 
+The selected row is always one whole display line, the line after the
+`cselect` control's own line, whatever the words on it are spelled like.
+Four shapes in the same census leave the flattened decoded text looking
+otherwise; in every one hosted links exactly the line.
+
+* A word on the selected line spelled like an anchor or index control is
+display text (see "A Control-Shaped Word Inside A Row Is Display Text").
+`SG24-5257-00` `FIGURES`, logical record 16, line 4 opens with the length
+byte `12` at `0x39217` and reads `   28.  Defining SRDS with IDCAMS   4.1.3`
+under `cselect 3 38 FIGTSTA6`; `SRDS` is the one-byte token `8F` at
+`0x3921F`, after `Defining` on the same line.  Hosted (DT
+`19981216162732`) links `28.  Defining SRDS with IDCAMS   4.1.3`.
+`SC41-4703-00` (`SRTSEQ=*HEX`, DT `19950727170530`), `SC41-9864-00`
+(`SRCICFF`), `SC24-5780-01` (`SI Macro -- ...`, DT `19961023165238`) and
+`SC26-4222-06` have the same shape.
+* A `cselect` that ends its record with an empty payload selects the next
+record's first display line.  `qbkaqx00` `FIGURES` record 17 ends with
+`cselect 3 59 FIGCSIG`; record 18 opens at `0x6167D` with the length byte
+`19` (25) and reads `   23.  Current Signature of Service Program SRV1
+2.1.4.1`, with the control-shaped `SRV1` (`E6 9B` at `0x6168A`) inside it.
+`SC09-1520-00` (DT `19931217172725`) stores the same row.
+* A `cfont` with an empty payload may stand between that `cselect` and the
+record end; it styles the same next line and does not end the carry.
+`dxcopsi2` `FIGURES` record 18 ends with `cselect 3 50 FIGRESTR1` (`41` at
+`0x27755`) and `cfont 8 5 E` (`38` at `0x2775C`); record 19 opens at
+`0x27762` with the length byte `15` (21) and the row
+`   30.  ZPCTL -- Input terminal restrictions   3.55.1`.  Its `.` after `30`
+is a one-byte token (`01` at `0x27765`) that expands to the attach control
+and `.`, followed by a one-blank token: inside a selected line that pair is
+display text, not a row-control slot.
+* The carried line may carry a revision bar in its margin.  `SH19-6816-03`
+`FIGURES` record 14 ends with `cselect 3 69 FIGA04L979`; record 15 opens at
+`0x26340` with the length byte `20` (32), a blank, `81` (the bar U+2502) and
+`41`, then the attached `.`.  Hosted (DT `19980122104944`) prints
+` | <a ...#FIGA04L979>41.  DRLJBATR job for printing or saving reports in
+batch   2.1.5.1.3</a>`: the bar stands in the margin before the link, as on a
+selection row inside one record.  `GC33-0805-01` (DT `19950525093857`) is
+the same.
+
 [[markup_srtbl_records_with_an_inline_first_row]]
 === SRTBL records with an inline first row
 

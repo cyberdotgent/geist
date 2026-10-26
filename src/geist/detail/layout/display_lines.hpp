@@ -242,6 +242,25 @@ std::string format_display_line_ir(const DecodedLogicalRecordSource& record,
 // abbreviation.  SH12-565 record 282 line 31 is the list item
 // `   °   SRCVPAC` of `LOGMODE / RUSIZES / PSNDPAC / SRCVPAC / SSNDPAC.`,
 // all five of which hosted 4.3.5 (DT 19941206115523) serves.
-void demote_display_line_owned_controls(DecodedLogicalRecordSource& record);
+//
+// A demoted segment that opens on a selector's payload line is then rejoined
+// to the selector, so the selected row keeps its whole line.
+// `carried_selection` says that the previous record ended with a selector
+// whose payload is empty, so this record's leading text segment is that
+// selector's payload line.
+void demote_display_line_owned_controls(DecodedLogicalRecordSource& record,
+                                        bool carried_selection = false);
+
+// The control a record carries into the next record: its last segment,
+// passing over trailing `cfont` segments with no payload, which style that
+// same next line.  dxcopsi2 FIGURES record 18 ends `cselect 3 50 FIGRESTR1`,
+// `cfont 8 5 E`; record 19 opens with the selected line `   30.  ZPCTL --
+// Input terminal restrictions   3.55.1`.  Null for a record with no segment.
+const ControlSegmentIR* carried_control_segment(
+    const DecodedLogicalRecordSource& record);
+
+// The carried control is a `cselect` with an empty payload: its selected
+// line is the next record's first display line.
+bool ends_with_carried_selection(const DecodedLogicalRecordSource& record);
 
 } // namespace geist::detail

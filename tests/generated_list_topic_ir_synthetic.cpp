@@ -667,13 +667,15 @@ using Line = std::vector<TokenWords>;
 
 DecodedLogicalRecordSource framed_topic(
     const std::vector<Line>& lines,
-    const std::vector<std::pair<std::size_t, TokenWords>>& length_spellings) {
+    const std::vector<std::pair<std::size_t, TokenWords>>& length_spellings,
+    std::uint32_t logical_record = 2, bool carried_selection = false,
+    bool one_byte_blanks = false) {
   DecodedLogicalRecordSource record;
   std::uint16_t next_encoded = 0x40;
   for (std::size_t index = 0; index < lines.size(); ++index) {
     const auto& content = lines[index];
-    record.encoded_tokens.push_back(
-        {static_cast<std::uint16_t>(2 * content.size()), 1});
+    const auto length_at = record.encoded_tokens.size();
+    record.encoded_tokens.push_back({0, 1});
     // The record's first length byte spells `,` after a spacing control, as
     // the real ones do (dfhtkb00 record 30 token 0, value 2), so that the
     // `sh` line opens the record's first segment.
@@ -682,15 +684,28 @@ DecodedLogicalRecordSource framed_topic(
     for (const auto& spelling : length_spellings)
       if (spelling.first == index) length = spelling.second;
     record.tokens.push_back(length);
+    // With `one_byte_blanks`, blank runs and a token led by the spacing
+    // control are one-byte dictionary tokens, as the `.` glued to an ordinal
+    // and the blanks after it are (dxcopsi2 record 19 tokens 3 and 4, values
+    // 1 and 19).
     for (const auto& token : content) {
-      record.encoded_tokens.push_back({next_encoded++, 2});
+      const auto one_byte =
+          one_byte_blanks && !token.empty() &&
+          (token.front() == 1 ||
+           std::all_of(token.begin(), token.end(),
+                       [](std::uint16_t word) { return word == ' '; }));
+      record.encoded_tokens.push_back(
+          {next_encoded++, static_cast<std::uint8_t>(one_byte ? 1 : 2)});
+      record.encoded_tokens[length_at].value = static_cast<std::uint16_t>(
+          record.encoded_tokens[length_at].value +
+          record.encoded_tokens.back().width);
       record.tokens.push_back(token);
     }
   }
-  record.logical_record = 2;
+  record.logical_record = logical_record;
   record.assembled =
       geist::detail::assemble_logical_record_with_sources(record.tokens);
-  record.ir.logical_record = 2;
+  record.ir.logical_record = logical_record;
   std::uint32_t byte = 1;
   for (std::size_t token = 0; token < record.tokens.size(); ++token) {
     const auto encoded = record.encoded_tokens[token];
@@ -707,7 +722,7 @@ DecodedLogicalRecordSource framed_topic(
   record.control_segments = geist::detail::decode_control_segments(
       record.logical_record, record.assembled, record.encoded_tokens,
       record.ir.display_lines);
-  geist::detail::demote_display_line_owned_controls(record);
+  geist::detail::demote_display_line_owned_controls(record, carried_selection);
   geist::detail::assign_display_line_margin_marks(record);
   return record;
 }
@@ -719,7 +734,8 @@ std::string dispatched_outline(
     const std::string& id, const std::vector<Line>& body,
     const std::string& level,
     const std::vector<std::pair<std::size_t, TokenWords>>& body_length_spellings =
-        {}) {
+        {},
+    const std::vector<std::vector<Line>>& next_records = {}) {
   std::vector<Line> lines = {
       {words("sh" + geist::detail::ascii_lower(id))},
       {words("ctopicn"), words("6")},
@@ -736,10 +752,17 @@ std::string dispatched_outline(
   lines.insert(lines.end(), body.begin(), body.end());
   std::vector<DecodedLogicalRecordSource> records{
       framed_topic(lines, length_spellings)};
+  // A following record's first length byte is spelled as blanks, as the
+  // reader's dictionary spells most of them, and its leading text segment
+  // is carried exactly as the record decoder carries it.
+  for (const auto& next : next_records)
+    records.push_back(framed_topic(
+        next, {{0, words("   ")}}, records.back().logical_record + 1,
+        geist::detail::ends_with_carried_selection(records.back()), true));
   geist::detail::TopicIdentityIR identity;
   identity.id = id;
   identity.start_logical_record = 2;
-  identity.end_logical_record = 2;
+  identity.end_logical_record = records.back().logical_record;
   std::string rejection;
   geist::detail::TypedLoweringTraceIR trace;
   const auto document = geist::detail::try_lower_topic_to_document_ir(
@@ -766,10 +789,19 @@ std::string dispatched_outline(
     } else if (const auto* paragraph =
                    std::get_if<geist::detail::ParagraphBlockIR>(&block.node)) {
       outline += "p";
-      for (const auto& item : paragraph->content)
+      for (const auto& item : paragraph->content) {
         if (const auto* link =
                 std::get_if<geist::detail::CrossReferenceInlineIR>(&item.node))
           outline += "[" + link->label + "]";
+        // A margin revision mark wraps the link: `|` and the link inside.
+        if (const auto* revised =
+                std::get_if<geist::detail::RevisedInlineIR>(&item.node))
+          for (const auto& child : revised->children)
+            if (const auto* link =
+                    std::get_if<geist::detail::CrossReferenceInlineIR>(
+                        &child.node))
+              outline += "|[" + link->label + "]";
+      }
     } else {
       outline += "?";
     }
@@ -867,7 +899,85 @@ void generated_list_envelope_shapes() {
       "generated list=h1:Tables|p[1.   Alpha    1.1]|p[2.   Beta    1.2]");
 }
 
+// A selected line keeps every word the selection's columns name.
+void selected_line_keeps_its_words() {
+  // A word inside the selected line spelled like an anchor control:
+  // SG24-5257-00 FIGURES record 16 line 4 is `   28.  Defining SRDS with
+  // IDCAMS   4.1.3` under `cselect 3 38 FIGTSTA6`, and the splitter cut a
+  // segment before `SRDS`.  Hosted (DT 19981216162732) links all of it.
+  expect_dispatched(
+      "SR-shaped word inside the selected line",
+      dispatched_outline(
+          "FIGURES",
+          {{words("ST"), words("  "), words("Figures")},
+           {words("cselect"), words("3"), words("38"), words("FIGTSTA6")},
+           {words("   "), words("28."), words("  "), words("Defining"),
+            words("SRDS"), words("with"), words("IDCAMS"), words("   "),
+            words("4.1.3")}},
+          ":FIGLIST"),
+      "generated list=h1:Figures|p[28.   Defining SRDS with IDCAMS    "
+      "4.1.3]");
+  // The same where the selector ends its record and the selected line is
+  // the next record's first: qbkaqx00 FIGURES record 17 ends `cselect 3 59
+  // FIGCSIG`, record 18 line 0 is `   23.  Current Signature of Service
+  // Program SRV1   2.1.4.1`.
+  expect_dispatched(
+      "SR-shaped word inside a selected line carried to the next record",
+      dispatched_outline(
+          "FIGURES",
+          {{words("ST"), words("  "), words("Figures")},
+           {words("cselect"), words("3"), words("15"), words("FIGONE")},
+           {words("   "), words("1."), words("  "), words("Alpha"),
+            words("   "), words("1.1")},
+           {words("cselect"), words("3"), words("26"), words("FIGCSIG")}},
+          ":FIGLIST", {},
+          {{{words("   "), words("2."), words("  "), words("Program"),
+             words("SRV1"), words("   "), words("2.1.4.1")}}}),
+      "generated list=h1:Figures|p[1.   Alpha    1.1]|p[2.   Program SRV1  "
+      "  2.1.4.1]");
+  // A selector and its `cfont` end the record together; the selected line
+  // opens the next one, and its ordinal's `.` is glued to the number by a
+  // spacing control.  dxcopsi2 FIGURES record 18 ends `cselect 3 50
+  // FIGRESTR1`, `cfont 8 5 E`; record 19 line 0 is `   30.  ZPCTL -- Input
+  // terminal restrictions   3.55.1`, token 3 `{0x0001, '.'}`.
+  expect_dispatched(
+      "selected line after a carried selector and cfont",
+      dispatched_outline(
+          "FIGURES",
+          {{words("ST"), words("  "), words("Figures")},
+           {words("cselect"), words("3"), words("15"), words("FIGONE")},
+           {words("   "), words("1."), words("  "), words("Alpha"),
+            words("   "), words("1.1")},
+           {words("cselect"), words("3"), words("21"), words("FIGRESTR1")},
+           {words("cfont"), words("8"), words("5"), words("E")}},
+          ":FIGLIST", {},
+          {{{words("   "), words("30"), TokenWords{1, '.'}, words("  "),
+             words("ZPCTL"), words("   "), words("3.55.1")}}}),
+      "generated list=h1:Figures|p[1.   Alpha    1.1]|p[30.   ZPCTL    "
+      "3.55.1]");
+  // A revision bar in the margin of a carried selected line: SH19-6816-03
+  // FIGURES record 15 line 0 is ` | 41.  DRLJBATR job ...   2.1.5.1.3`
+  // after record 14 ends `cselect 3 69 FIGA04L979`; hosted (DT
+  // 19980122104944) prints the bar outside the link.
+  expect_dispatched(
+      "revision bar before a carried selected line",
+      dispatched_outline(
+          "FIGURES",
+          {{words("ST"), words("  "), words("Figures")},
+           {words("cselect"), words("3"), words("15"), words("FIGONE")},
+           {words("   "), words("1."), words("  "), words("Alpha"),
+            words("   "), words("1.1")},
+           {words("cselect"), words("3"), words("22"), words("FIGA04L979")}},
+          ":FIGLIST", {},
+          {{{words(" "), TokenWords{0x2502}, words("41"), TokenWords{1, '.'},
+             words("  "), words("DRLJBATR"), words("   "),
+             words("2.1.5.1.3")}}}),
+      "generated list=h1:Figures|p[1.   Alpha    1.1]|p|[41.   DRLJBATR    "
+      "2.1.5.1.3]");
+}
+
 int main() {
+  selected_line_keeps_its_words();
   framed_selection_keeps_its_payload(true, false);
   framed_selection_keeps_its_payload(false, false);
   framed_selection_keeps_its_payload(false, true);

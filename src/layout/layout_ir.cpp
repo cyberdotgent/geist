@@ -91,7 +91,9 @@ bool authoritative_native_rows(
       });
   if (previous == records.end() || previous->control_segments.empty())
     return false;
-  const auto& carried = previous->control_segments.back();
+  const auto* carried_at = carried_control_segment(*previous);
+  if (carried_at == nullptr) return false;
+  const auto& carried = *carried_at;
   return (carried.kind == BookControlKind::select &&
           carried.payload_range.begin == carried.payload_range.end) ||
          carried.kind == BookControlKind::table_start;
@@ -106,14 +108,18 @@ bool authoritative_native_line(
   if (lines == nullptr) return false;
   // A selector addresses its next drawn line, not every later line in the
   // compatibility payload. A continued selector uses the same source proof
-  // at the beginning of the adjacent record.
+  // at the beginning of the adjacent record.  A revision bar in the line's
+  // margin is margin, not the line's first content: SH19-6816-03 FIGURES
+  // record 15 line 0 is ` | 41.  DRLJBATR job ...` after record 14 ends
+  // `cselect 3 69 FIGA04L979`, and the text segment starts at `41`.
   for (const auto& candidate : *lines) {
     auto content = candidate.prefix_token + 1;
     if (content >= candidate.token_end ||
         !all_space_words(record.tokens[content]))
       continue;
     while (content < candidate.token_end &&
-           all_space_words(record.tokens[content]))
+           (all_space_words(record.tokens[content]) ||
+            is_display_line_margin_revision_bar(record, content)))
       ++content;
     if (content == candidate.token_end ||
         candidate.token_end > segment.source_tokens.back() + 1 ||
@@ -572,7 +578,8 @@ LayoutIR extract_layout_ir(
             // origin even if both were outside that trimmed range.
             auto content = origin;
             while (content < line.token_end &&
-                   all_space_words(record.tokens[content]))
+                   (all_space_words(record.tokens[content]) ||
+                    is_display_line_margin_revision_bar(record, content)))
               ++content;
             if (content == line.token_end || !owned(content) ||
                 line.token_end > segment.source_tokens.back() + 1)
