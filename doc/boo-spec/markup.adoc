@@ -3769,6 +3769,19 @@ or, in `ez30qn00` topic `4.3` record 441, by a `*`.  A description can be
 empty: `ez302400` topic `3.3` record 211 writes `csartdesc 1`, `SRPIC1`,
 `ceartdesc` and nothing between.
 
+What follows a closer can also be glued to it without any boundary byte, so
+a closer is recognised by the display line it opens, not by the flattened
+text.  `qbkaco03.boo` topic `1.4.3.1.3`, record 262: line 13 is `cartdesc
+RZAEU405`; line 14 opens with the length byte `02` at `0x58E6C4`, which the
+dictionary spells as the attach control and a comma, then `A3 7E`
+(`ceartdesc`); line 15 is empty (`00` at `0x58E6C7`, spelled as the attach
+control); and line 16 opens with the length byte `26` at `0x58E6C8`, which
+the dictionary spells `char`, then the caption
+`   Figure 10. Client Access ODBC Setup [32-bit] dialog -- Package(s)`.  The
+flattened string reads `ceartdescchar`.  The description is `RZAEU405`
+alone and the caption is the figure's, as in `SG24-4815-01` `1.1`; four
+more pictures of the topic repeat the shape.
+
 An uncaptioned picture closes its figure before its description, in three
 orders: `SC21-8295-03` (`qbkavl02.boo`) topic `1.1` record 46 writes
 `cartdesc   REQTEXT`, `SREFIG`, `ceartdesc`, `cz OFF EFIG 0 0`; `DFHP7A00`

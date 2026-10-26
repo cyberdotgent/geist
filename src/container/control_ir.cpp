@@ -6,9 +6,11 @@
 #include "geist/detail/core/internal.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <optional>
 #include <sstream>
+#include <string_view>
 
 namespace geist::detail {
 namespace {
@@ -419,6 +421,27 @@ bool script_opcode_words(const TokenWords &words) {
                      });
 }
 
+// A BUILD 1.3 artwork envelope opcode spelled alone by its token.  The reader
+// reads these controls line by line, so one that opens its display line is a
+// control whatever the flattened string glues to it: qbkaco03 1.4.3.1.3
+// record 262 line 14 is `ceartdesc` (token 102), and the attach-spelled
+// length byte of the empty line 15 glues it to line 16's length byte, which
+// the dictionary spells `char` -- `ceartdescchar`, which the string splitter
+// does not know.  The description then ran on over the closer and the
+// caption `Figure 10. ...` that follows it.
+bool art_envelope_opcode_words(const TokenWords &words) {
+  static const std::array<std::string_view, 5> opcodes = {
+      "csartdesc", "ceartdesc", "cartdesc", "csart", "ceart"};
+  return std::any_of(opcodes.begin(), opcodes.end(),
+                     [&](std::string_view opcode) {
+                       if (words.size() != opcode.size()) return false;
+                       for (std::size_t i = 0; i < words.size(); ++i)
+                         if (words[i] != static_cast<unsigned char>(opcode[i]))
+                           return false;
+                       return true;
+                     });
+}
+
 // The reader skips every display line whose control name starts with `C.`
 // (doc/boo-spec, topics, "Topic Lines In Older Containers").  The string
 // splitter only knows the opcodes it lists, so an unlisted one stays glued
@@ -439,7 +462,8 @@ split_script_control_lines(const AssembledLogicalRecord &assembled,
     if (opcode >= line.token_end || opcode >= assembled.tokens.size())
       continue;
     const auto &token = assembled.tokens[opcode];
-    if (!script_opcode_words(token_body_words(assembled, token)))
+    if (!script_opcode_words(token_body_words(assembled, token)) &&
+        !art_envelope_opcode_words(token_body_words(assembled, token)))
       continue;
     cuts.push_back(decoded_word_range_to_byte_range(
                        assembled, token_body_word_range(assembled, token))

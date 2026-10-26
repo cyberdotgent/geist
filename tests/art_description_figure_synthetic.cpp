@@ -821,7 +821,46 @@ void a_caption_does_not_take_the_next_lines_length_byte() {
 
 } // namespace
 
+// qbkaco03.boo `1.4.3.1.3` record 262: `csartdesc 37` / `SRPIC37` /
+// `cartdesc   RZAEU405` (line 13) / `ceartdesc` (line 14) / empty line /
+// `   Figure 10. Client Access ODBC Setup [32-bit] dialog -- Package(s)`
+// (line 16) / `SREFIG`.  Line 14's length byte (token 101, value 2, at
+// 0x58E6C4) is spelled as the attach control and a comma, and the next line's
+// as the word `char`, with line 15 (empty, its length byte spelled as the
+// attach control) between them, so no boundary byte stands before `ceartdesc` and the
+// flattened `cartdesc` segment runs on across the closer and the caption.
+// The reader reads controls line by line: `ceartdesc` opens its line and ends
+// the description, and the caption is the figure's (hosted SG24-4815-01 1.1
+// has the same lines with a boundary byte).  Read as the rest of the
+// `cartdesc` line, the closer and the caption were dropped -- 23 words of the
+// topic, five captions.
+void a_closer_without_a_boundary_byte_still_ends_the_description() {
+  const std::string label = "closer glued";
+  RecordBuilder builder;
+  builder.heading("1.1", "Internet");
+  builder.line({words("SRFIGFIGUNIQ1")});
+  builder.line({words("csart")});
+  builder.line({words("cselect"), words("3"), words("9"), words("PIC1")});
+  builder.line({words("   "), words("PICTURE"), words("1")});
+  builder.line({words("ceart")});
+  builder.line({words("csartdesc"), words("1")});
+  builder.line({words("SRPIC1")});
+  builder.line({words("cartdesc"), words("  "), words("RZAEU405")});
+  builder.line({words("ceartdesc")}, TokenWords{1, ','});
+  builder.line({}, TokenWords{1});
+  builder.line({words("   "), words("Figure"), words("1."), words("Internet"),
+                words("World"), words("Map")},
+               words("char"));
+  builder.line({words("SREFIG")});
+  auto extracted = run(builder.build(262), "Internet");
+  const auto *figure = the_figure(extracted, label);
+  if (figure == nullptr) return;
+  require(figure->description == "RZAEU405",
+          label + ": description changed: '" + figure->description + "'");
+}
+
 int main() {
+  a_closer_without_a_boundary_byte_still_ends_the_description();
   a_caption_does_not_take_the_next_lines_length_byte();
   a_caption_before_the_picture_keeps_its_wrapped_text();
   an_unnumbered_caption_is_bounded_by_the_picture_and_end_marker();
