@@ -2056,7 +2056,7 @@ Corpus-wide the two codes occur only in those four books: a `bootrace --fonts` s
 only in SC26-457 `1.3`, and a sample of 87 further books from the hosted
 shelf finds it in exactly one more: SC26-4905-00 `1.3`.  Both store
 `cfont 3 7 P 11 10 Z 22 4 P 27 1 P 29 10 Z 39 1 P` over
-pass:[<literal>&#160;&#160;&#160;COMMAND parameters .... [ terminator]</literal>].  Hosted
+pass:[<literal>&#160;&#160;&#160;COMMAND parameters .... &#91; terminator&#93;</literal>].  Hosted
 serves both rows (DTs `19911220191142` and `19930625182638`) as
 `<kbd>COMMAND</kbd> <dfn>parameters</dfn> <kbd>....</kbd> <kbd>[</kbd> <dfn>terminator</dfn><kbd>]</kbd>`.
 The two witnesses are two books serving one shared sentence, not two
@@ -7408,13 +7408,16 @@ directly after the `ASIRFMSG=ALLSSCP` term and its `<br>`.
 *An anchor between the rows of a parameter term.*  An `SR<id>` line can
 also stand between two rows a `cz FLOW PT` owns; it is no paragraph
 boundary, and the rows run on.  `SC33-1653-06.boo` `5.4.3`, logical record
-1006, stores the term row `   RECFORM=([UNDEFINED|VARIABLE|FIXED]`, then
+1006, stores the term row
+pass:[<literal>&#160;&#160;&#160;RECFORM=(&#91;UNDEFINED&#124;VARIABLE&#124;FIXED&#93;</literal>], then
 `02 E2 DD` at `0x12F7A4` (`SRSPTRECF`), a `cfont` line and the row
-`                    [,BLOCKED|UNBLOCKED][,DOSISAM])` before `cz BREAK 7`;
+pass:[<literal>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#91;,BLOCKED&#124;UNBLOCKED&#93;&#91;,DOSISAM&#93;)</literal>]
+before `cz BREAK 7`;
 hosted (DT `20040413135708`) serves the first row, then
-pass:[<literal>&lt;a name="SPTRECF"&gt;                   &lt;kbd&gt;[,BLOCKED|UNBLOCKED][,DOSISAM])&lt;/kbd&gt;&lt;/a&gt;</literal>]
+pass:[<literal>&lt;a name="SPTRECF"&gt;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&lt;kbd&gt;&#91;,BLOCKED&#124;UNBLOCKED&#93;&#91;,DOSISAM&#93;)&lt;/kbd&gt;&lt;/a&gt;</literal>]
 and `<br>`.  `SC31-8248-01.boo` `2.15` (DT `19980611104703`), logical
-record 244, puts `SRSPTDQSPL` between the term `   position.length` and its
+record 244, puts `SRSPTDQSPL` between the term
+pass:[<literal>&#160;&#160;&#160;position.length</literal>] and its
 description rows at the term's `indent` column, served the same way.
 
 *An empty region.*  A generic region whose opener is followed directly by
