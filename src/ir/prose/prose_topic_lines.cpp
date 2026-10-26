@@ -1728,13 +1728,49 @@ struct LineBuilder {
         last = index;
       }
     if (first == npos) return false;
+    bool line_break = false;
     for (auto index = first; index <= last; ++index) {
       if (items[index].kind == ItemKind::span) return false;
-      if (items[index].kind == ItemKind::layout &&
-          !pre_keeping_directive(items[index].directive))
-        return false;
+      if (items[index].kind != ItemKind::layout) continue;
+      if (items[index].directive.mode == "break") {
+        line_break = true;
+        continue;
+      }
+      if (!pre_keeping_directive(items[index].directive)) return false;
     }
-    return cz_reader_pre_open(first);
+    bool verbatim_region = false;
+    // `cz BREAK` prints `<br>` into an open `<pre>`, an extra row the box
+    // does not draw.
+    if (cz_reader_pre_state(first, verbatim_region))
+      return !verbatim_region && !line_break;
+    // A closed box under rows the reader flows.  The reader has no `<pre>`
+    // open there and prints the box's rows into the flowed text, where the
+    // page collapses their columns; the box is drawn as stored instead, the
+    // reading the same reader gives the same box wherever its `<pre>` is
+    // open.  SC23-0450-01 C.2 record 309 opens the message `EDJBLD004W`
+    // with `SRMSG EDJBLD004W` (line 41) and its labelled box (line 43 to
+    // record 310 line 5) straight under the `User Response:` row of the
+    // message before it.  The MVS edition SC38-2036-00 draws the same
+    // message boxes; its build with directives (H.3 record 509, `EOYIND202S`
+    // under `System Action:`) stores this shape, and its build without them
+    // is served (DT 19940603150829) with the box row for row in the
+    // `<pre>`.  Only a box that ends the flowed rows --
+    // blank display lines and then the next directive -- qualifies: rows
+    // after it would flow on, and a drawing cannot hold them.  A `cz BREAK`
+    // between its rows (SC23-0450-01 C.2 record 350 line 5, inside the
+    // `EDJBLD055S` box) only breaks the flowed text the drawing replaces.
+    if (!region.closed) return false;
+    for (auto index = last + 1; index < items.size(); ++index) {
+      const auto& item = items[index];
+      if (item.kind == ItemKind::layout) return true;
+      if (item.kind == ItemKind::segment_end) continue;
+      // An empty display line, or the length byte that opens the next one.
+      if (item.kind == ItemKind::token &&
+          (is_bare(item.token) || opens_display_line(item.token)))
+        continue;
+      return false;
+    }
+    return true;
   }
 
   // A closed three-row box (top rule, one row, bottom rule) whose first item

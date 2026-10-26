@@ -6766,8 +6766,22 @@ of them drawn from box words alone) as much as for a closed box:
 
 A closed box drawn directly under the rows of a `CZ FLOW` -- with no empty
 line between them, where the reader's `<pre>` is closed -- has no such
-reading.  The rows after a drawing, up to the next directive, are in the same
-`<pre>` and are printed as stored.
+reading: hosted prints its rows into the flowed text, and the page collapses
+their columns.  The box is still the book's drawing, and when it ends the
+flowed block -- only empty display lines and then the next directive follow
+its bottom rule -- it can be drawn as stored without moving a row of the
+text around it.  The message lists of BookManager BUILD write that shape for
+every message after the first: `SC23-0450-01.boo` `C.2`, record 309, ends
+the `User Response:` row of one message on line 40 and opens the next with
+`SRMSG EDJBLD004W` on line 41; line 43 (length byte `09` at `0x22DE3`) is
+the box's labelled top rule and record 310 line 5 (length byte `08` at
+`0x22E42`) its bottom rule, followed by an empty line (`00` at `0x22E4B`)
+and `cz FLOW XPL 3 3`.  A `CZ BREAK` between the box's rails (record 350
+line 5, `cz BREAK 5`) prints `<br>` into the flowed text and nothing the
+drawing needs.  The MVS edition of the same messages, in a build without
+directives (`SC38-2036-00` `H.3`, DT `19940603150829`), is served with each
+such box row for row in the `<pre>`.  The rows after a drawing in a `<pre>` stretch, up to the next
+directive, are in the same `<pre>` and are printed as stored.
 
 *Generic regions that end without a closer.*  A second `cz OFF <tag>` of the
 same tag inside an open generic region only deepens it and prints nothing,

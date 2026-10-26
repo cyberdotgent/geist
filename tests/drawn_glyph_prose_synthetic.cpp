@@ -1106,6 +1106,35 @@ void table_pair_around_box() {
             contains(html, "<p class=\"geist-paragraph\">After.</p>"),
         "the envelope in the box was read as a table: " + html);
 }
+// A closed box straight under flowed rows that ends them: blank lines and
+// the next directive follow it.  SC23-0450-01 C.2 record 309 draws the
+// `EDJBLD004W` message box under the `User Response:` row of the message
+// before it; record 350 puts `cz BREAK 5` between the rails of the
+// `EDJBLD055S` box.  The box is drawn as stored (the flattened edition
+// SC38-2036-00 H.3 is served that way).
+void box_ending_flowed_rows(bool line_break) {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.line({sp(3), box(run(0x250C, 0x2500, 12, 0x2510))});
+  builder.line({sp(3), box({0x2502}), w("Inside"), sp(4), box({0x2502})});
+  if (line_break) builder.line({w("cz"), w("BREAK"), w("5")});
+  builder.line({sp(3), box({0x2502}), w("Second"), sp(4), box({0x2502})});
+  builder.line({sp(3), box(run(0x2514, 0x2500, 12, 0x2518))});
+  builder.blank();
+  builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "a box ending flowed rows declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(untagged(pre_body(html)) == "    ____________ \n   | Inside     |\n"
+                                    "   | Second     |\n   |____________|",
+        "the box under the flowed rows was not drawn: " + html);
+  check(contains(html, "<p class=\"geist-paragraph\">Lead.</p>") &&
+            contains(html, "<p class=\"geist-paragraph\">After.</p>"),
+        "the flowed rows around the box are not paragraphs: " + html);
+}
 void box_in_cz_pre_zone(bool after_closer) {
   Builder builder(false);
   if (after_closer) {
@@ -1546,6 +1575,8 @@ int main() {
   box_in_cz_pre_zone(false);
   box_in_cz_pre_zone(true);
   table_pair_around_box();
+  box_ending_flowed_rows(false);
+  box_ending_flowed_rows(true);
   box_after_flowed_block(false);
   box_after_flowed_block(true);
   open_drawing_in_cz_pre_zone();
