@@ -374,6 +374,18 @@ has no visible text before its title: hosted BookServer (DT
 none of the terms. Only an `SI` that is the first token after a line's
 length byte is such an entry.
 
+An `SI` line after the `ST` line ends the title: the title is its own
+display line.  `SG24-4675-00.boo` topic `1.1.2`, logical record 35: the
+`ST` line opens at `0x4ED93` (length byte `0F`, then `B6` = `ST`) and ends
+with `Effective?`; line 9 is empty (its length byte `00` at `0x4EDA3`); line
+10 is `02` at `0x4EDA4`, then `B4` (`SI`) and `47` (`costs`).  Hosted (DT
+`19960308132239`) heads the topic `1.1.2   Is Your Storage Service Cost
+Effective?` and prints no `costs`.  An `SI` line may also hold the keyword
+alone: `dfht4c00.boo` topic `3.3.2`, logical record 219, line 7 is the
+length byte `01` at `0x4C93A` and `9C` (`SI`) at `0x4C93B`, between the
+index lines `SI DFHDBnnnn, CICS` and `SI DFHDBnnnn messages`.  It names no
+term and, like every index line, draws nothing.
+
 *Dashes in titles.* These books write a dash between title words as a
 dictionary token whose expansion is two box-drawing horizontals (U+2500
 U+2500). `EDCIV1R2.BOO` topic `2.1`, record 44, display line 8:

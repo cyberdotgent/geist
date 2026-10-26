@@ -437,5 +437,47 @@ int main() {
     expect_outline("SRMSG SRTM 01", lines, "3.1906", "SRTM 01",
                    "h6:3.1906 SRTM 01|a:MSG SRTM 01|p");
   }
+  // The title is its display line: a subject-index line after it is an
+  // index entry, not more title.  SG24-4675-00 1.1.2 record 35 line 8 is
+  // `ST  Is Your Storage Service Cost Effective?`, line 9 is empty (its
+  // length byte spelled as the attach control and `,`), line 10 is
+  // `SI costs`; the one-word term was read as title and the entry left
+  // empty.  Hosted (DT 19960308132239) heads the topic `1.1.2   Is Your
+  // Storage Service Cost Effective?` and shows no `costs` there.
+  // dfht4c00 3.3.2 record 219 line 7 is an `SI` line with no term at all;
+  // like any index line it draws nothing.
+  {
+    // The title's own `?` stands after a spacing token, as stored (record
+    // 35 tokens 34-35); this check is about the index line, so only the
+    // title's words and the absence of `costs` are compared.
+    auto lines = topic("1.1.2", ":H3",
+                       {words("ST"), words("  "), words("Is"), words("Your"),
+                        words("Storage"), words("Service"), words("Cost"),
+                        words("Effective"), TokenWords{1}, words("?")});
+    lines.insert(lines.begin() + 9, Line{words("SI"), words("costs")});
+    lines.insert(lines.begin() + 9, Line{});
+    std::string rejection;
+    const auto found =
+        outline(lines, "1.1.2", "Is Your Storage Service Cost Effective?",
+                &rejection, {{9, TokenWords{1}}, {10, TokenWords{1, ','}}});
+    require(found.rfind("h3:1.1.2 Is Your Storage Service Cost Effective", 0) ==
+                    0 &&
+                found.find("costs") == std::string::npos &&
+                found.size() > 2 && found.compare(found.size() - 2, 2, "|p") == 0,
+            "SI line after the title: blocks '" + found + "' (" + rejection +
+                ")");
+  }
+  {
+    auto lines = topic("1.1.2", ":H3",
+                       {words("ST"), words("  "), words("Is"), words("Your"),
+                        words("Storage"), words("Service"), words("Cost"),
+                        words("Effective")});
+    lines.insert(lines.begin() + 9, Line{words("SI")});
+    lines.insert(lines.begin() + 9, Line{});
+    expect_outline("SI line with no term", lines, "1.1.2",
+                   "Is Your Storage Service Cost Effective",
+                   "h3:1.1.2 Is Your Storage Service Cost Effective|p",
+                   {{9, TokenWords{1}}, {10, TokenWords{1, ','}}});
+  }
   return 0;
 }

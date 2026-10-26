@@ -1223,6 +1223,14 @@ struct LineBuilder {
     index_line_end = npos;
     current_term.term = collapse_ascii_whitespace(current_term.term);
     current_term.slices = slices_for(records, term_refs);
+    // An `SI` line that holds the keyword alone names no term; like every
+    // index line it draws nothing, so there is no entry to keep.  dfht4c00
+    // 3.3.2 record 219 line 7 is `SI` (tokens [99,100)) between two index
+    // lines with terms.
+    if (current_term.term.empty() && term_refs.empty()) {
+      current_term = {};
+      return true;
+    }
     if (current_term.term.empty())
       return fail(error, "SI control has an empty index term");
     out.index_terms.push_back(std::move(current_term));
@@ -2191,6 +2199,13 @@ struct LineBuilder {
     }
     if (item.index_start) {
       if (in_index) return fail(error, "nested SI control");
+      // The keyword opens its own display line, so a title still open ends
+      // here: the `ST` payload is its display line.  SG24-4675-00 1.1.2
+      // record 35 has `ST  Is Your Storage Service Cost Effective?` on line
+      // 8, an empty line 9 and `SI costs` on line 10; read as title, `costs`
+      // left the index term empty.  Hosted (DT 19960308132239) heads the
+      // topic with line 8 alone.
+      if (in_title && !finish_title()) return false;
       in_index = true;
       current_term = {};
       term_refs.clear();
