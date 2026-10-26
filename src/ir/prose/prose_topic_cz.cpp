@@ -2162,6 +2162,17 @@ struct CzBuilder {
           ranges[last].first == npos)
         stack.pop_back();
     }
+    // Any other list the topic leaves open ends with it.  The reader keeps
+    // no list stack: at `CMENU` it prints `</pre></ol></ul></dl>` whatever
+    // is open, and a topic without a menu just ends.  SC41-5605-00 3.2.4.1
+    // (DT 19980512102401) opens `cz FLOW PARML 3 3` in record 528, writes its
+    // terms and a table, and never writes `cz OFF EPARML`; hosted serves the
+    // terms and the table as stored.  A term still waiting for its body is
+    // a term alone, as at the list's closer.
+    while (!stack.empty() && list_tag(stack.back().tag)) {
+      stack.back().pending_definition = npos;
+      stack.pop_back();
+    }
     if (!stack.empty())
       return fail(error, "cz list " + stack.back().tag + " is not closed");
     const auto leading_anchors = topic.anchors.size();
