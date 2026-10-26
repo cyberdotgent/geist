@@ -284,6 +284,33 @@ void indented_si_is_display_text() {
           "indented SI prose was hidden, or genuine SI metadata leaked");
 }
 
+// ha5cam00 GLOSSARY.2 record 259 line 0 is `   to any size.  The IBM outline
+// font character sets have a CZ prefix.`: the flattened string splits a `cz`
+// segment at the word `CZ`, in the middle of a row of prose.  A layout
+// directive opens its own display line like every other control, so one
+// that stands after visible cells is display text.
+void an_embedded_cz_word_is_display_text() {
+  DecodedLogicalRecordSource record;
+  record.logical_record = 259;
+  append(record, 12, 1, {3, 'z', 'e', 'r', 'o'});
+  append(record, 0x80, 2, {' ', ' ', ' '});
+  append(record, 0x81, 2, {'s', 'e', 't', 's'});
+  append(record, 0x82, 2, {'h', 'a', 'v', 'e'});
+  append(record, 0x83, 2, {'a'});
+  append(record, 0x84, 2, {'C', 'Z'});
+  append(record, 0x85, 2, {'p', 'r', 'e', 'f', 'i', 'x', '.'});
+  refresh(record);
+  geist::detail::demote_display_line_owned_controls(record);
+  require(record.ir.display_lines_parse,
+          "embedded CZ regression requires native framing");
+  for (const auto& segment : record.control_segments)
+    require(segment.kind != geist::detail::BookControlKind::layout_directive,
+            "the word CZ inside a prose row stayed a layout directive");
+  const auto lines = geist::detail::best_effort_lines({record}, "");
+  require(lines.size() == 1 && lines[0] == "   sets have a CZ prefix.",
+          "the embedded CZ words were not kept as display text");
+}
+
 // GC28-183's generated Part Contents topics have no body text. Their last
 // metadata row is exactly `c.sp 1 p` (topic 1.1, logical record 65, tokens
 // 31..33, source bytes [0xef4b,0xef50)); the count and point unit are operands,
@@ -981,6 +1008,7 @@ int main() {
   a_length_byte_is_never_display_text();
   a_length_byte_cannot_select_the_following_code();
   indented_si_is_display_text();
+  an_embedded_cz_word_is_display_text();
   vertical_space_operands_do_not_leak();
   revision_definitions_have_an_explicit_disposition();
   a_fully_disposed_empty_topic_is_typed();

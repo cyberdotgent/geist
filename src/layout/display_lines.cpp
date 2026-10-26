@@ -664,9 +664,13 @@ void demote_display_line_owned_controls(DecodedLogicalRecordSource& record) {
         segment.kind == BookControlKind::text &&
         ascii_lower(token_word_text(
             record.ir.tokens[segment.source_tokens.front()])) == "si";
+    // A layout directive is read the same way: `cz` opens its own display
+    // line, so a `CZ` word after visible cells is prose (ha5cam00
+    // GLOSSARY.2 record 259 line 0 `... character sets have a CZ prefix.`).
     if (segment.kind != BookControlKind::structural &&
         segment.kind != BookControlKind::title &&
-        segment.kind != BookControlKind::text)
+        segment.kind != BookControlKind::text &&
+        segment.kind != BookControlKind::layout_directive)
       continue;
     // A line's length byte draws nothing whatever its spelling, so it is
     // never the segment's first visible token: dfhqap4a 10.0 record 1678
