@@ -647,6 +647,7 @@ foreach(synthetic_test
     length_byte_control_word_synthetic
     art_description_figure_synthetic
     missing_picture_resource_synthetic
+    layout_control_payload_row_synthetic
     art_envelope_prose_synthetic
     ordered_picture_figure_synthetic
     framed_picture_figure_synthetic

@@ -741,6 +741,35 @@ LayoutIR extract_layout_ir(
         }
       }
 
+      // The markerless control-payload row above was cut at the first
+      // boundary the marker heuristic had found.  The framing pass can since
+      // have put an earlier boundary in front of it (a line whose length
+      // byte the dictionary spells as blanks): the row then starts inside, or
+      // reaches into, rows the boundaries build below, and the run would
+      // hold the same tokens twice.  SC41-3550-01 2.2 record 40 segment 12
+      // read the step number `6` (tokens 240-242) both as that speculative
+      // row and as the row its own line's length byte opens.  The boundary
+      // rows are the line-proven ones, so the speculative row yields to them.
+      if (!boundaries.empty()) {
+        const auto first_marker = boundaries.front().marker;
+        for (auto& row : run.rows)
+          if (row.start == PhysicalRowStartKind::control_payload &&
+              row.token_begin < first_marker && row.token_end > first_marker) {
+            row.token_end = first_marker;
+            row.visible_text = visible_slice(record, row.token_begin,
+                                             row.token_end, row.native_origin);
+          }
+        run.rows.erase(
+            std::remove_if(run.rows.begin(), run.rows.end(),
+                           [&](const auto& row) {
+                             return row.start ==
+                                        PhysicalRowStartKind::control_payload &&
+                                    (row.token_begin >= first_marker ||
+                                     row.visible_text.empty());
+                           }),
+            run.rows.end());
+      }
+
       for (std::size_t row_index = 0; row_index < boundaries.size();
            ++row_index) {
         const auto& boundary = boundaries[row_index];
