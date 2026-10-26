@@ -630,6 +630,7 @@ foreach(synthetic_test
     cz_body_blocks_synthetic
     cz_footnote_forms_synthetic
     cz_list_topic_end_synthetic
+    cz_definition_terms_synthetic
     cz_message_list_synthetic
     srmsg_operand_row_synthetic
     list_closer_anchor_synthetic

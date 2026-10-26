@@ -815,7 +815,14 @@ struct CzBuilder {
     // 13.  The DT control is the entry's only source of its own; the rows
     // are its body paragraphs.  An empty term before a separate DD has no
     // such evidence and still fails.
-    if (directive.indent > directive.left &&
+    //
+    // The reader splits the row at the indent alone; the left column plays
+    // no part.  GC31-8249-00 GLOSSARY record 56 writes `cz FLOW DT 3 3`
+    // before each row `   Contrast with: This refers to ...`, and hosted
+    // (DT 19970304141430) serves `<dt>  <dd><B>Contrast</B> <B>with:</B>
+    // This refers ...`.  A term whose indent is its left column and that a
+    // separate DD follows keeps the term reading below.
+    if ((directive.indent > directive.left || !separate_body) &&
         directive.indent <= row.text_begin && has_text(row)) {
       if (separate_body)
         return fail(error, "cz FLOW DT has an empty term before cz FLOW DD");
