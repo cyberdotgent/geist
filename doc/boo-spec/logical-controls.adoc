@@ -1412,6 +1412,13 @@ The flattened record joins lines 8-11 into one `ST` payload, and because
 pass:[<literal>IEAB5EST&#160;</literal>] ends in pass:[<literal>ST&#160;</literal>], a string search for the opcode starts the value one
 word early and yields pass:[<literal>ST&#160;&#160;Multiple Destinations???? SI Destinations, Multiple for Example, …</literal>]. Line 8 alone is the title.
 
+A `?` at the end of that line is part of the title when the dictionary
+spells it as a word of its own; only the decoder's placeholder runs are
+not.  `SC33-1661-01` `1.1.1`, record 33, line 9 is `ST  What is DTP?`:
+token 31 `DTP`, token 32 the spacing control (value 0) and token 33 the
+two-byte dictionary word `?` (U+003F).  Hosted (DT `19991018104951`) heads
+the topic `<H2> 1.1.1   What is DTP?</H2>`.
+
 Reading the row needs three further rules, each decided positionally:
 
 * *The opcode word opens the line.* The title line is the first display line

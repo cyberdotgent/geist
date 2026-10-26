@@ -384,6 +384,16 @@ int main() {
                     {10, TokenWords{1}}});
   }
 
+  // A `?` the dictionary spells as a word of its own ends the title as
+  // stored: SC33-1661-01 1.1.1 record 33 line 9 is `ST  What is DTP?`, the
+  // `?` a word after a spacing token; hosted (DT 19991018104951) heads the
+  // topic `<H2> 1.1.1   What is DTP?</H2>`.
+  expect_heading("ST  What is DTP?",
+                 topic("1.1.1", ":H2",
+                       {words("ST"), words("  "), words("What"), words("is"),
+                        words("DTP"), TokenWords{1}, words("?")}),
+                 "1.1.1", "What is DTP", "1.1.1 What is DTP?");
+
   // The reader takes the level from a fixed column of the `chdlevel` line,
   // skipping the one character after the opcode's blank whatever it is: the
   // foil book GG24-4137-00 writes `chdlevel .H3` (record 306 line 6) and

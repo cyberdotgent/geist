@@ -1163,7 +1163,21 @@ struct LineBuilder {
     if (!in_title) return true;
     in_title = false;
     title_done = true;
+    // Blank and placeholder runs at the edges are not title text, but a `?`
+    // the dictionary spells as a word of its own is: SC33-1661-01 1.1.1
+    // record 33 line 9 ends `ST  What is DTP?` with token 33, the word `?`
+    // (0x3F) after a spacing token, and hosted (DT 19991018104951) heads
+    // the topic `<H2> 1.1.1   What is DTP?</H2>`.
+    std::size_t literal_marks = 0;
+    for (auto ref = out.title_refs.rbegin(); ref != out.title_refs.rend();
+         ++ref) {
+      const auto& words = records[ref->first].tokens[ref->second];
+      if (words.size() != 1 || words.front() != '?') break;
+      ++literal_marks;
+    }
     out.title = collapse_ascii_whitespace(out.title);
+    if (literal_marks != 0 && !out.title.empty())
+      out.title += std::string(literal_marks, '?');
     if (out.title.empty()) return fail(error, "ST title is empty");
     return true;
   }
