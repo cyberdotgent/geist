@@ -711,6 +711,50 @@ void caption_only_figure() {
             html.find("SREFIG") == std::string::npos,
         "caption-only figure is not its caption row in a pre: " + html);
 }
+// A drawn figure whose caption is not its last text: the caption first and
+// the drawing after it (hosted SC21-8384-00 3.1.2.3, SC33-1689-01 2.41), or a
+// caption that runs on into a second paragraph after an empty line (hosted
+// SC33-1166-01 4.12.1, DT 19990719154323).  Hosted prints every row, caption
+// rows included, in the figure's `<pre>` as stored.
+void figure_text_after_caption(bool caption_first) {
+  Builder b(false);
+  const TokenWords top{0x250c, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500,
+                       0x2510};
+  const TokenWords bottom{0x2514, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500,
+                          0x2500, 0x2518};
+  b.line({});
+  b.line({w("SRFIGFIGTAIL")});
+  if (caption_first) {
+    b.line({w("   "), w("Figure"), w("1."), w("Listing")});
+    b.line({});
+  }
+  b.line({w("   "), top});
+  b.line({w("   "), {2, 0x2502}, {1, 'C', 'M', 'D'}, w("  "), {0x2502}});
+  b.line({w("   "), bottom});
+  if (!caption_first) {
+    b.line({w("   "), w("Figure"), w("1."), w("Listing")});
+    b.line({});
+    b.line({w("              "), w("More"), w("caption"), w("words.")});
+  }
+  b.line({w("SREFIG")});
+  b.line({});
+  b.line({w("ordinary prose")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "figure with text after its caption rejected: " +
+                             error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  check(pre.find("Figure 1. Listing") != std::string::npos &&
+            pre.find("CMD") != std::string::npos &&
+            (caption_first ? pre.find("Figure 1.") < pre.find("CMD")
+                           : pre.find("More caption words.") !=
+                                 std::string::npos),
+        "figure with text after its caption is not one block of rows: " +
+            html);
+}
 // `cz OFF FIG` directly followed by drawn rows: no control ends the
 // directive's segment on its own line, so the decoded control string runs on
 // over the rows after it.  The rows are still the figure's drawing: hosted
@@ -2008,6 +2052,8 @@ int main() {
   spot_anchor_inside_closed_box(true, true, true);
   figure_spot_anchor_before_index_lines();
   caption_only_figure();
+  figure_text_after_caption(true);
+  figure_text_after_caption(false);
   cz_figure_directive_running_on();
   cz_frame_around_table();
   lblbox_figure_envelope_beside_figure();

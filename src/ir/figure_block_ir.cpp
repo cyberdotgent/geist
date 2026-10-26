@@ -1079,6 +1079,7 @@ struct Extractor {
     //    continuation lines, then only spacing.
     std::size_t caption_at = lines.size();
     std::size_t caption_end = lines.size(); // exclusive
+    bool text_after_caption = false;
     for (auto index = first_line + 1; index < last_line; ++index) {
       const auto kind = classes[index].kind;
       if (caption_at == lines.size()) {
@@ -1106,11 +1107,28 @@ struct Extractor {
         caption_end = index + 1;
         continue;
       }
-      if (kind == LineKind::body || kind == LineKind::caption)
-        return decline(region, "drawn figure has text after its caption '" +
-                                   collapse_ascii_whitespace(
-                                       trim_ascii(classes[index].text)) +
-                                   "'");
+      if (kind == LineKind::body || kind == LineKind::caption) {
+        text_after_caption = true;
+        break;
+      }
+    }
+    // Text after the caption -- the caption stands first and the drawing
+    // follows it, or the caption runs on into a second paragraph -- leaves
+    // no caption to separate: hosted BookServer prints every line of the
+    // envelope as a row of the figure's `<pre>`, caption lines included, as
+    // it prints a caption under the drawing.  SC21-8384-00 3.1.2.3 (DT
+    // 19951221115440) stores `   Figure 15-2. Example of Modified ...` and
+    // its two continuation lines first and the source listing after an
+    // empty line; SC33-1166-01 4.12.1 (DT 19990719154323) follows the
+    // `Figure 41.` caption under its box with an empty line and a second
+    // six-line paragraph.  Hosted serves both, row for row, inside
+    // `<pre width="132"><!-- figure -->`.
+    if (text_after_caption) {
+      for (auto index = first_line + 1; index < last_line; ++index)
+        if (classes[index].kind == LineKind::caption)
+          classes[index].kind = LineKind::body;
+      caption_at = lines.size();
+      caption_end = lines.size();
     }
     std::size_t body_begin = lines.size();
     std::size_t body_end = lines.size();

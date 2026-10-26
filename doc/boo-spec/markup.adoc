@@ -1905,6 +1905,20 @@ Hosted BookServer (DT `19990224124925`) serves `<pre width="132"><!-- figure
 the panel in a `<pre>` of its own.  SC41-5351-01 `6.1.2` (`FIGFIGUNIQ39`) is
 served the same way.
 
+The caption need not be the envelope's last text either.  It may stand
+first, the drawing following it: `SC21-8384-00.boo` `3.1.2.3` stores
+`SRFIGSAMPC`, `cz OFF FIG`, the three caption lines `   Figure 15-2. Example
+of Modified QSYS/QSTRUP Startup Program.  This` ..., an empty line and the
+`SEQNBR*...` source listing before `SREFIG`.  Or it may run on, after an
+empty line, into a second paragraph: `SC33-1166-01.boo` `4.12.1` follows the
+`Figure 41. Conceptual view ...` caption under its box with an empty line and
+six more lines (`The user-key task-lifetime storage of transactions E, F,
+and G, ...`) before `SREFIG`.  Hosted (DT `19951221115440` and
+`19990719154323`) prints every line of either envelope, caption lines
+included, as a row of the figure's `<pre width="132"><!-- figure -->`, the
+empty line as `<p>`.  SC33-1689-01 `2.41` (`FIGDFHA81N`, caption first) is
+served the same way.
+
 *A numbered figure caption is a run of display lines, and its continuations are
 indented to the title column.* The caption line is `Figure <n>. <title>`;
 every line that continues it starts at exactly the column where `<title>`
