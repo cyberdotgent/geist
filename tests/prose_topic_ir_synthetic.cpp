@@ -27,6 +27,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -694,6 +695,78 @@ void table_picture_overlap_fails_closed() {
               error);
 }
 
+// A table cell picture the resource catalog does not store: hosted serves
+// its stand-in image in the cell (GX27-3990-01 C.0 `PARTS`, DT
+// 19951020145045, `<img src="/bookmgr/construc.gif" alt="PICTURE 24">`).
+// The cell keeps the image, drawn unresolved, and the consumer is not asked
+// for the object.
+void table_picture_the_book_does_not_store() {
+  ProseTopicIR prose;
+  prose.heading_level = "h2";
+  prose.title = "Table";
+  prose.title_source = {1, 0, 0, 1, 1, 2};
+  FixedTableBlockIR table;
+  table.source_declared_table = true;
+  table.geometry = FixedTableGeometryIR::gap;
+  table.object_id = "PARTS";
+  table.object_source = {2, 0, 0, 1, 3, 4};
+  table.left_column = 0;
+  table.width = 20;
+  FixedTableCellLineIR line;
+  line.text = "PICTURE 24";
+  line.slice = {2, 1, 10, 11, 20, 22};
+  PositionedRowCellIR cell;
+  cell.logical_record = 2;
+  cell.token_index = 10;
+  cell.word = 'P';
+  cell.run = 1;
+  line.source_cells.push_back(cell);
+  FixedTableCellIR table_cell;
+  table_cell.lines.push_back(std::move(line));
+  FixedTableRowIR row;
+  row.cells.push_back(std::move(table_cell));
+  row.line_count = 1;
+  table.body.push_back(std::move(row));
+  prose.tables.blocks.push_back(std::move(table));
+  prose.spans.push_back({ProseSpanKindIR::table, 0, 0, 0});
+
+  ProseTableLinkIR picture;
+  picture.span = 0;
+  picture.column = 1;
+  picture.length = 10;
+  picture.target = "24";
+  picture.target_kind = CrossReferenceTargetKindIR::resource;
+  picture.picture = true;
+  picture.missing_resource = true;
+  picture.logical_record = 2;
+  picture.payload_tokens = {10};
+  picture.row_tokens = {10};
+  picture.source = {2, 2, 2, 3, 30, 32};
+  prose.table_links.push_back(picture);
+
+  TopicIdentityIR topic;
+  topic.id = "C.0";
+  topic.title = prose.title;
+  std::string error;
+  const auto document = lower_prose_topic_to_document_ir(topic, prose, &error);
+  require(document.has_value(),
+          "a table cell picture the book does not store declined: " + error);
+  if (!document) return;
+  std::vector<std::string> asked;
+  geist::HtmlRenderOptions options;
+  options.resolve_resource =
+      [&asked](const std::string& id) -> std::optional<std::string> {
+    asked.push_back(id);
+    return "/object/" + id;
+  };
+  const auto html =
+      geist::detail::render_document_html_blocks(*document, options);
+  require(asked.empty() && contains(html, "geist-image--unresolved") &&
+              contains(html, "src=\"resource:24\"") &&
+              contains(html, "alt=\"PICTURE 24\""),
+          "the unstored cell picture is not an unresolved image: " + html);
+}
+
 // `CZ` dialect (doc/boo-spec/markup.adoc, "CZ layout directives").  Every fixture
 // below was compared word for word against hosted BookServer: packet
 // (DT 20260614112503).  The SC41-485, SC09-2417-00 and GX27-3999-00 fixtures
@@ -880,6 +953,7 @@ int main() {
   alphabetic_ordered_list();
   selector_target_provenance_is_not_label_provenance();
   table_picture_overlap_fails_closed();
+  table_picture_the_book_does_not_store();
   cz_fixtures();
   geist_test::exit_with_failures();
   std::cout << "prose_topic_ir_synthetic: ok\n";

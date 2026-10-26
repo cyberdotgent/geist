@@ -718,15 +718,18 @@ int main() {
       check_lowering(*hdlc, "packet.boo 2.1.4 FIGFIGUNIQ12");
   }
 
-  // Without a resource catalog a book-resource figure must be declined.
+  // Without a resource catalog a book-resource figure is still the figure,
+  // its picture marked as one the book does not store: hosted BookServer
+  // serves such a picture as its stand-in image (GC30-3072-04 2.2, DT
+  // 19930512100721; missing_picture_resource_synthetic.cpp).
   {
     const auto topic = corpus.topic("packet.boo", "2.4");
     const auto figures = geist::detail::extract_figure_blocks_ir(
         topic.sources, topic.layout, topic.ownership, topic.selectors, {});
-    require(figures.blocks.empty() && figures.declined.size() == 1 &&
-                figures.declined.front().reason.find(
-                    "not in the resource catalog") != std::string::npos,
-            "figure with an unknown resource was admitted");
+    require(figures.blocks.size() == 1 && figures.declined.empty() &&
+                figures.blocks.front().missing_resource,
+            "a figure whose picture the catalog lacks is not kept as an "
+            "unstored picture");
   }
 
   // Every figure the book names in its generated FIGURES list is admitted by

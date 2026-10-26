@@ -225,6 +225,7 @@ bool link_table_cells(const ProseTopicIR& prose, std::size_t span,
           const auto* link = links.front();
           ImageInlineIR image;
           image.resource = "resource:" + link->target;
+          image.missing_resource = link->missing_resource;
           image.alt_text = figure_picture_placeholder(link->target);
           if (text->text != image.alt_text)
             return fail(error, "picture cell line does not spell '" +

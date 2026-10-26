@@ -322,6 +322,11 @@ struct ProseTableLinkIR {
   // (GX27-3999-00 3.2 `NOSENV2`, DT 19950730184057), replacing exactly the
   // `PICTURE 16` placeholder words the compiler wrote into the cell.
   bool picture = false;
+  // A picture the resource catalog holds no object for: hosted serves its
+  // stand-in image in the cell (GX27-3990-01 C.0 `PARTS`, DT
+  // 19951020145045, `<img src="/bookmgr/construc.gif" alt="PICTURE 24">`;
+  // `FigureBlockIR::missing_resource`).
+  bool missing_resource = false;
   std::uint32_t logical_record = 0;
   std::vector<std::size_t> payload_tokens;  // ascending
   // The tokens of the one display row the selector addresses: the first

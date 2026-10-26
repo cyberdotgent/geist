@@ -519,11 +519,13 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
           link.picture = true;
           link.target = figure_picture_resource(target);
           link.target_kind = CrossReferenceTargetKindIR::resource;
-          if (link.target.empty() || resource_ids == nullptr ||
-              resource_ids->count(link.target) == 0)
+          if (link.target.empty())
             return fail(error, "table '" + block.object_id +
-                                   "' picture resource " + link.target +
-                                   " is not in the resource catalog");
+                                   "' picture selector names no picture");
+          // A picture the catalog does not store is still the cell's
+          // picture (ProseTableLinkIR::missing_resource).
+          link.missing_resource = resource_ids == nullptr ||
+                                  resource_ids->count(link.target) == 0;
         }
         // A `LNK` selector in a cell is the same cross-book/external link
         // the prose inline carries: its destination is the leading `<...>`
