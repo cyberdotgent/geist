@@ -1180,6 +1180,31 @@ void a_length_byte_spelled_as_a_glued_glyph_stays_the_slot() {
 // SC26-457 1.3 and SC26-4905-00 1.3 store
 // `cfont 3 7 P 11 10 Z 22 4 P 27 1 P 29 10 Z 39 1 P`; hosted serves
 // `<kbd>COMMAND</kbd> <dfn>parameters</dfn> ...` in both books.
+// Code `0` (`H0`) opens `<I>` in the reader's fixed code table, as `K`
+// (`H4`) does; hosted serves SH19-6758-01 PREFACE.4 (DT 19930122124212)
+// `cfont 12 11 0 24 3 0 ...` as `<I>Customizing</I> <I>and</I> ...`.
+void an_h0_span_is_an_italic_phrase() {
+  RecordBuilder builder;
+  metadata(builder, "1.18", {"Related", "Books"});
+  builder.line({words("cfont"), words("12"), words("11"), words("0"),
+                words("24"), words("3"), words("0")});
+  // `Customizing` stands at column 12 and `and` at column 24.
+  builder.line({words("   "), words("Part"), words("1."), words(" "),
+                words("Customizing"), words("and")});
+  const auto record = builder.build(48);
+  std::string error;
+  const auto prose = extract(record, "Related Books", error);
+  require(prose.has_value(), "an H0 span was rejected: " + error);
+  if (!prose) return;
+  bool italic = false;
+  for (const auto &block : prose->blocks)
+    for (const auto &fragment : block.inlines)
+      if (fragment.text.find("Customizing") != std::string::npos &&
+          fragment.style == geist::detail::FontStyleIR::italic_phrase)
+        italic = true;
+  require(italic, "the H0 span did not become the italic phrase");
+}
+
 void a_pvdef_span_is_a_defined_term() {
   RecordBuilder builder;
   metadata(builder, "1.17", {"Command", "Structure"});
@@ -1290,6 +1315,7 @@ int main() {
   a_glued_placeholder_run_stays_a_marker();
   a_length_byte_spelled_as_a_glued_glyph_stays_the_slot();
   a_pvdef_span_is_a_defined_term();
+  an_h0_span_is_an_italic_phrase();
   a_nested_span_of_the_same_style(true, true);
   a_nested_span_of_the_same_style(false, false);
   return 0;

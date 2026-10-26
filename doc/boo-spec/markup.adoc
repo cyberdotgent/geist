@@ -2013,6 +2013,7 @@ quoted in the evidence column; every rule was checked on at least two books.
 |===
 |Code |`CFONTDEF` name |Hosted HTML |Evidence
 
+|`0` |`H0` |`<I>` |SH19-6758-01 `PREFACE.4` record 32 `cfont 12 11 0 24 3 0 ...` (`12 35 a7 a6 a3 ...` at `0x291f9`, the code `0` stored as `a3`) -> `<I>Customizing</I> <I>and</I> <I>using</I> ...` (DT `19930122124212`); SG24-2557-00 `4.2` record 98 `cfont 12 8 0 21 5 0 27 11 0` -> `<I>Managing</I> <I>Batch</I> <I>Performance</I>` (DT `19951218081915`)
 |`1` |`HP1` |`<I>` |ACPZMST1 `FRONT_1.1` `cfont 44 11 1 56 11 1` -> `<I>general-use</I> <I>programming</I>`; QSYSNEWG `2.0`
 |`2` |`HP2` |`<B>` |QSYSNEWG `2.3` `cfont 43 8 2 52 7 2` -> `<B>Security</B> <B>Officer</B>`; DREICMST `2.8.1`
 |`3` |`HP3` |`<B><I>` |ACPZMST1 `1.2.3.1` `cfont 5 5 3 11 8 3` -> `<B><I>local</B></I> <B><I>resource</B></I>`; packet `PREFACE`

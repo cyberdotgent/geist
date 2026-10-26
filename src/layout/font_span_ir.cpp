@@ -71,7 +71,13 @@ FontStyleIR style_for_code(const std::string& code) {
   case 'j':
   case 'm': return FontStyleIR::bold_phrase;
   // K (H4) is hosted `<I>` in every book sampled: 119 K rows of 30 books
-  // (SC09-138 1.1.3, SC34-425 2.4.9, DFHIA401 PREFACE, ...).
+  // (SC09-138 1.1.3, SC34-425 2.4.9, DFHIA401 PREFACE, ...).  `0` (H0)
+  // opens the same `<I>` in the reader's fixed code table, and hosted serves
+  // it so: SH19-6758-01 PREFACE.4 (DT 19930122124212) `cfont 12 11 0 24 3 0
+  // ...` -> `<I>Customizing</I> <I>and</I> ...`, SG24-2557-00 4.2 (DT
+  // 19951218081915) `cfont 12 8 0 21 5 0 27 11 0` -> `<I>Managing</I>
+  // <I>Batch</I> <I>Performance</I>`.
+  case '0':
   case 'k':
   case 'l': return FontStyleIR::italic_phrase;
   default: break;
