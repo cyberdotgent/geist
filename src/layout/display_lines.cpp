@@ -509,7 +509,8 @@ std::string token_word_text(const LogicalTokenIR& token) {
   return text.substr(begin, text.find_last_not_of(' ') + 1 - begin);
 }
 
-void demote_length_byte_controls(DecodedLogicalRecordSource& record) {
+void demote_length_byte_controls(DecodedLogicalRecordSource& record,
+                                 bool carried_selection) {
   // A display line's length byte is a length and nothing else: whatever word
   // the dictionary happens to spell for that byte, the reader never displays
   // it and it never opens a control.  Where the byte's spelling is itself a
@@ -521,9 +522,23 @@ void demote_length_byte_controls(DecodedLogicalRecordSource& record) {
   // (FA1PLMM0 record 471: every one of `ctopicn`, `cparent`, `csummary`,
   // `SRHDRPWRGEN`, `ST`, `SI`, `cfont` opens its line one token after that
   // line's length byte).
-  for (auto& segment : record.control_segments) {
+  for (std::size_t index = 0; index < record.control_segments.size();
+       ++index) {
+    auto& segment = record.control_segments[index];
     if (segment.kind == BookControlKind::text || segment.opcode.empty())
       continue;
+    // The line a `cselect` with an empty payload selects is display text
+    // whatever its length byte spells: qbkaco03 FIGURES record 42 line 51
+    // opens with a byte spelled `csummary` under `cselect 3 72
+    // FIGFIGUNIQ36`, record 43 line 0 with one spelled `CSUMMARY` after a
+    // record-ending `cselect` (`carried_selection`), and dfha3b01 FIGURES
+    // spells such a byte `cbacklevel`.
+    const auto& previous =
+        index == 0 ? nullptr : &record.control_segments[index - 1];
+    const auto selected_line =
+        (index == 0 && carried_selection) ||
+        (previous != nullptr && previous->kind == BookControlKind::select &&
+         previous->payload_range.begin == previous->payload_range.end);
     // Object-scope and selector opcodes are demoted here. The topic-metadata
     // and font opcodes are length bytes just as often, but they are also
     // read by the message and trap families, which render a segment's
@@ -540,7 +555,7 @@ void demote_length_byte_controls(DecodedLogicalRecordSource& record) {
     case BookControlKind::select:
       break;
     default:
-      continue;
+      if (!selected_line) continue;
     }
     if (segment.source_tokens.empty()) continue;
     const auto token = segment.source_tokens.front();
@@ -738,7 +753,7 @@ void demote_display_line_owned_controls(DecodedLogicalRecordSource& record,
   if (record.control_segments.empty()) return;
   const auto lines = record_display_lines(record);
   if (!lines) return;
-  demote_length_byte_controls(record);
+  demote_length_byte_controls(record, carried_selection);
   for (std::size_t index = 0; index < record.control_segments.size(); ++index) {
     auto& segment = record.control_segments[index];
     if (segment.source_tokens.empty()) continue;

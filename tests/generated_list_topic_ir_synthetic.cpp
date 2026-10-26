@@ -735,7 +735,8 @@ std::string dispatched_outline(
     const std::string& level,
     const std::vector<std::pair<std::size_t, TokenWords>>& body_length_spellings =
         {},
-    const std::vector<std::vector<Line>>& next_records = {}) {
+    const std::vector<std::vector<Line>>& next_records = {},
+    const TokenWords& next_first_length = TokenWords{' ', ' ', ' '}) {
   std::vector<Line> lines = {
       {words("sh" + geist::detail::ascii_lower(id))},
       {words("ctopicn"), words("6")},
@@ -757,7 +758,7 @@ std::string dispatched_outline(
   // is carried exactly as the record decoder carries it.
   for (const auto& next : next_records)
     records.push_back(framed_topic(
-        next, {{0, words("   ")}}, records.back().logical_record + 1,
+        next, {{0, next_first_length}}, records.back().logical_record + 1,
         geist::detail::ends_with_carried_selection(records.back()), true));
   geist::detail::TopicIdentityIR identity;
   identity.id = id;
@@ -974,6 +975,41 @@ void selected_line_keeps_its_words() {
              words("2.1.5.1.3")}}}),
       "generated list=h1:Figures|p[1.   Alpha    1.1]|p|[41.   DRLJBATR    "
       "2.1.5.1.3]");
+  // The selected line's length byte may spell a metadata control word.
+  // qbkaco03 FIGURES record 42 line 50 is `cselect 3 72 FIGFIGUNIQ36` and
+  // line 51 opens with a length byte the dictionary spells `csummary`, then
+  // `    11.  Client Access ODBC Setup [32-bit] dialog -- Performance`; the
+  // byte is the row's length, not a `CSUMMARY` control.  dfha3b01 and
+  // dfha3a06 FIGURES spell such a byte `cbacklevel`.
+  expect_dispatched(
+      "selected line whose length byte spells csummary",
+      dispatched_outline(
+          "FIGURES",
+          {{words("ST"), words("  "), words("Figures")},
+           {words("cselect"), words("3"), words("15"), words("FIGONE")},
+           {words("   "), words("1."), words("  "), words("Alpha"),
+            words("   "), words("1.1")},
+           {words("cselect"), words("3"), words("14"), words("FIGTWO")},
+           {words("   "), words("2."), words("  "), words("Beta"),
+            words("   "), words("1.2")}},
+          ":FIGLIST", {{4, words("csummary")}}),
+      "generated list=h1:Figures|p[1.   Alpha    1.1]|p[2.   Beta    1.2]");
+  // The same where the selector ends its record and the next record opens
+  // on that line (qbkaco03 record 43 line 0, length byte `CSUMMARY`).
+  expect_dispatched(
+      "carried selected line whose length byte spells csummary",
+      dispatched_outline(
+          "FIGURES",
+          {{words("ST"), words("  "), words("Figures")},
+           {words("cselect"), words("3"), words("15"), words("FIGONE")},
+           {words("   "), words("1."), words("  "), words("Alpha"),
+            words("   "), words("1.1")},
+           {words("cselect"), words("3"), words("14"), words("FIGTWO")}},
+          ":FIGLIST", {},
+          {{{words("   "), words("2."), words("  "), words("Beta"),
+             words("   "), words("1.2")}}},
+          words("CSUMMARY")),
+      "generated list=h1:Figures|p[1.   Alpha    1.1]|p[2.   Beta    1.2]");
 }
 
 int main() {

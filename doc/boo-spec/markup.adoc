@@ -4389,7 +4389,7 @@ part of the `cz OFF TLIST` directive.
 
 The selected row is always one whole display line, the line after the
 `cselect` control's own line, whatever the words on it are spelled like.
-Four shapes in the same census leave the flattened decoded text looking
+Five shapes in the same census leave the flattened decoded text looking
 otherwise; in every one hosted links exactly the line.
 
 * A word on the selected line spelled like an anchor or index control is
@@ -4417,6 +4417,15 @@ record end; it styles the same next line and does not end the carry.
 is a one-byte token (`01` at `0x27765`) that expands to the attach control
 and `.`, followed by a one-blank token: inside a selected line that pair is
 display text, not a row-control slot.
+* The selected line's length byte may be spelled like a control.
+`qbkaco03` `FIGURES` record 42: line 5 is `csummary 40 0 40`, whose opcode
+is the one-byte token `2C` at `0x57E9BF`, and the same byte `2C` at
+`0x57EB70` is the length byte (44) of line 51, the row
+`    11.  Client Access ODBC Setup [32-bit] dialog -- Performance   1.4.3.1.3`
+under `cselect 3 72 FIGFIGUNIQ36` on line 50.  Record 43 opens with `2C`
+at `0x57EBA7` after a record-ending `cselect`.  On the selected line the byte
+is the row's length and no `CSUMMARY` control; `dfha3b01` and `dfha3a06`
+spell such a byte `cbacklevel`.
 * The carried line may carry a revision bar in its margin.  `SH19-6816-03`
 `FIGURES` record 14 ends with `cselect 3 69 FIGA04L979`; record 15 opens at
 `0x26340` with the length byte `20` (32), a blank, `81` (the bar U+2502) and
