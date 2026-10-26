@@ -120,6 +120,11 @@ struct ImageInlineIR {
   // The book names this picture (`resource:<n>`) but stores no object for
   // it; see `FigureBlockIR::missing_resource`.
   bool missing_resource = false;
+  // The book's own description of the picture (a BUILD 1.3 artwork
+  // envelope in running text), which a renderer prefers to `alt_text` as the
+  // image's alternative text, as hosted BookServer does.  `alt_text` stays
+  // the placeholder the image replaces.
+  std::string description = {};
 };
 
 struct CrossReferenceInlineIR {

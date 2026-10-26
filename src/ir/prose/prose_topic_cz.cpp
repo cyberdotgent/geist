@@ -1823,8 +1823,9 @@ struct CzBuilder {
   bool artwork(std::size_t& index, std::pair<std::size_t, std::size_t> range,
                const std::string& tag) {
     const auto tabdata = cz_tabdata_region_tag(tag);
-    const auto opener = tabdata ? std::string("TABDATA")
-                                : std::string("ARTWORK");
+    const auto opener = tabdata            ? std::string("TABDATA")
+                        : tag == "artalt" ? std::string("ARTALT")
+                                          : std::string("ARTWORK");
     const auto closer_index = index + 1;
     if (closer_index >= build.directives.size() ||
         build.directives[closer_index].mode != "off" ||

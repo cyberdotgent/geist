@@ -377,6 +377,7 @@ bool lower_inlines(const ProseBlockIR& block, std::size_t begin,
       ImageInlineIR image;
       image.resource = "resource:" + node.target;
       image.alt_text = node.text;
+      image.description = node.description;
       lowered.node = std::move(image);
       lowered.origin = origin(node.slices, "prose CSELECT picture");
       break;
@@ -631,7 +632,19 @@ std::optional<DocumentIR> lower_prose_topic_to_document_ir(
       auto blocks = lower_figure_block_to_document_blocks(
           prose.figures.blocks[span.index], &span_error);
       if (!blocks) return false;
-      for (auto& block : *blocks) destination.push_back(std::move(block));
+      for (auto& block : *blocks) {
+        // A picture an artwork envelope outside the region describes
+        // (ProseTopicIR::picture_descriptions).
+        if (auto* image = std::get_if<FigureBlockIR>(&block.node);
+            image != nullptr && image->description.empty() &&
+            image->resource.rfind("resource:", 0) == 0) {
+          const auto found = prose.picture_descriptions.find(
+              ascii_lower(image->resource.substr(9)));
+          if (found != prose.picture_descriptions.end())
+            image->description = found->second;
+        }
+        destination.push_back(std::move(block));
+      }
     }
     ++emitted_spans;
     return true;

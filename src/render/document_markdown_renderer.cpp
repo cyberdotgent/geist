@@ -457,8 +457,10 @@ void append_flat_inlines(RenderSink &sink, const InlineSequenceIR &inlines,
             sink.syntax(")", "link syntax", origin);
           } else if constexpr (std::is_same_v<T, ImageInlineIR>) {
             sink.syntax("![", "image syntax", origin);
-            sink.content(escape_markdown_text_impl(node.alt_text), "image alt text",
-                         origin);
+            sink.content(escape_markdown_text_impl(node.description.empty()
+                                                       ? node.alt_text
+                                                       : node.description),
+                         "image alt text", origin);
             sink.syntax("](", "image syntax", origin);
             sink.syntax(markdown_destination(node.resource),
                         "image destination", origin);

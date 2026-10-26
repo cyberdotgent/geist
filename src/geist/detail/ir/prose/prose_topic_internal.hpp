@@ -383,6 +383,10 @@ struct StreamBuild {
   // `repeated_titles`.
   std::size_t span_base = 0;
   std::vector<ProseRepeatedTitleIR> repeated_titles;
+  // Output: the description of each picture a BUILD 1.3 artwork envelope
+  // standing in prose describes (`csartdesc <n>` .. `ceartdesc`), by the
+  // picture's lower-cased resource id.
+  std::map<std::string, std::string> picture_descriptions;
 };
 
 bool parse_envelope(const std::vector<DecodedLogicalRecordSource>& records,
@@ -678,8 +682,14 @@ inline bool cz_title_page_closer(const std::string& tag) {
 // the region.  `HP0` never opens anything anywhere in the corpus and `EHP0`
 // never appears except as an artwork closer, so both spellings close a region
 // and neither closes anything else.
+// `ARTALT` is the same region around a BUILD 1.3 artwork envelope whose
+// picture carries a description (`csart` .. `ceart`, `csartdesc <n>` ..
+// `ceartdesc`), closed by `EHP0` like `ARTWORK`: SC41-5612-02 PREFACE.3
+// record 35 writes `cz OFF ARTALT`, the envelope, `cz OFF EHP0 0 0`, and
+// hosted (DT 19980522111551) serves the picture row in its own
+// `<pre width="80">`.
 inline bool cz_artwork_region_tag(const std::string& tag) {
-  return tag == "artwork";
+  return tag == "artwork" || tag == "artalt";
 }
 inline bool cz_artwork_region_closer(const std::string& tag) {
   return tag == "eartwork" || tag == "ehp0";

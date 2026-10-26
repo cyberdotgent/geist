@@ -1319,6 +1319,10 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   // decoder separators then reach the display-row pass, which decides
   // between bullet slot, split-off text and padding.
   bool cz_seen = false;
+  // The open BUILD 1.3 artwork description (`csartdesc <n>` .. `ceartdesc`)
+  // standing in prose: the lower-cased resource id of the picture it
+  // describes, or empty outside one.
+  std::string art_description_picture;
   // Anchors that stood among the topic metadata controls precede every
   // anchor the body contributes, in source order.
   build.leading_anchors = envelope.leading_anchors;
@@ -1800,6 +1804,26 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             item.continuation_start = continuation;
             first_payload = false;
           }
+          build.items.push_back(std::move(item));
+        }
+        Item end;
+        end.kind = ItemKind::segment_end;
+        build.items.push_back(std::move(end));
+        return true;
+      };
+
+      // A row's length byte the dictionary spells as a BUILD 1.3 artwork
+      // opcode opens no control (as in the layout_directive case below):
+      // dfht4c00 4.5.3 record 411 frames a `cz OFF XMP` row with a byte
+      // spelled `cartdesc`.  The byte re-enters the token stream as the
+      // row's control slot.
+      const auto art_length_byte_row = [&]() {
+        if (!title_seen || !is_display_line_length_opcode(record, segment))
+          return false;
+        for (const auto token : segment.source_tokens) {
+          Item item;
+          item.kind = ItemKind::token;
+          item.token = view_token(records, record_index, token);
           build.items.push_back(std::move(item));
         }
         Item end;
@@ -3427,6 +3451,129 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           return false;
         name_verbatim_figure(first_item, record_index, segment);
         cz_seen = true;
+        break;
+      }
+      // The BUILD 1.3 artwork envelope outside a figure region
+      // (doc/boo-spec/markup.adoc, "The BUILD 1.3 artwork envelope"):
+      // `csart` .. `ceart` around a picture selector in running text and
+      // `csartdesc <n>` .. `ceartdesc` around the `cartdesc` lines that
+      // describe picture <n>.  The boundaries own their opcode (and the
+      // picture number) and nothing else; text the decoder glued after a
+      // closer is the body that follows it (a59o1001 3.1.1 record 59:
+      // `ceartdesc` then `symbol located beside the power switch ...`).
+      // Hosted BookServer serves the picture where its selector stands, with
+      // the description as the image's alternative text (GA27-4106-02 D.0,
+      // DT 19980408153335: `<img ... P16.GIF alt="   REQTEXT">`, then
+      // `<a name="PIC16">` and the paragraph after the envelope).
+      case BookControlKind::art_start:
+      case BookControlKind::art_end:
+      case BookControlKind::art_description_end: {
+        if (art_length_byte_row()) break;
+        if (!title_seen)
+          return fail(error, "artwork control precedes the title");
+        if (segment.malformed) return fail(error, "artwork control is malformed");
+        if (segment.kind == BookControlKind::art_description_end) {
+          if (art_description_picture.empty())
+            return fail(error, "ceartdesc closes no artwork description");
+          art_description_picture.clear();
+        }
+        if (!push_payload(ProseTokenRoleIR::control, false, false, false))
+          return false;
+        break;
+      }
+      case BookControlKind::art_description_start: {
+        if (art_length_byte_row()) break;
+        if (!title_seen)
+          return fail(error, "artwork control precedes the title");
+        if (segment.malformed) return fail(error, "artwork control is malformed");
+        if (!art_description_picture.empty())
+          return fail(error, "artwork description opens inside another");
+        const auto picture =
+            ascii_lower(trim_ascii(operand_text(record, segment.operand_range)));
+        if (picture.empty() ||
+            !std::all_of(picture.begin(), picture.end(), [](unsigned char ch) {
+              return std::isdigit(ch) != 0;
+            }))
+          return fail(error, "artwork description names no picture");
+        if (build.picture_descriptions.count(picture) != 0)
+          return fail(error, "picture " + picture + " is described twice");
+        build.picture_descriptions[picture];
+        art_description_picture = picture;
+        if (!push_payload(ProseTokenRoleIR::control, false, false, false))
+          return false;
+        break;
+      }
+      case BookControlKind::art_description: {
+        if (art_length_byte_row()) break;
+        // One `cartdesc` line: the rest of the opcode's own display line is
+        // description text, which the reader collects for the picture's
+        // `alt` and never prints.  The escaped `cvselect`/`cvfont` lines
+        // between description lines open no segment, so the payload runs on
+        // across them; they are description markup too.  Any other row the
+        // segment reaches is body text after the envelope.
+        if (art_description_picture.empty())
+          return fail(error, "cartdesc outside an artwork description");
+        if (segment.malformed) return fail(error, "artwork control is malformed");
+        const DisplayLineIR* control_line = nullptr;
+        bool opcode_seen = false;
+        std::string text;
+        for (const auto token : segment.source_tokens) {
+          const auto view = view_token(records, record_index, token);
+          if (!opcode_seen) {
+            if (!is_visible(view) || is_row_control_slot(records, view)) {
+              if (!ledger.assign(record_index, token,
+                                 ProseTokenRoleIR::padding, error))
+                return false;
+              continue;
+            }
+            opcode_seen = true;
+            control_line = display_line_of_token(record, token);
+            if (control_line == nullptr ||
+                control_line->prefix_token + 1 != token)
+              return fail(error, "cartdesc does not open its display line");
+            if (!ledger.assign(record_index, token, ProseTokenRoleIR::control,
+                               error))
+              return false;
+            continue;
+          }
+          if (token < control_line->token_end) {
+            if (is_visible(view) && !is_row_control_slot(records, view)) {
+              if (!text.empty()) text.push_back(' ');
+              text += body_text(view);
+            }
+            if (!ledger.assign(record_index, token, ProseTokenRoleIR::control,
+                               error))
+              return false;
+            continue;
+          }
+          const auto* line = display_line_of_token(record, token);
+          bool escaped = false;
+          if (line != nullptr && line->prefix_token + 1 < line->token_end) {
+            const auto opener = ascii_lower(trim_ascii(body_text(
+                view_token(records, record_index, line->prefix_token + 1))));
+            escaped = opener == "cvselect" || opener == "cvfont";
+          }
+          if (escaped) {
+            if (!ledger.assign(record_index, token, ProseTokenRoleIR::control,
+                               error))
+              return false;
+            continue;
+          }
+          Item item;
+          item.kind = ItemKind::token;
+          item.token = view;
+          build.items.push_back(std::move(item));
+        }
+        if (!opcode_seen) return fail(error, "cartdesc has no opcode");
+        Item end;
+        end.kind = ItemKind::segment_end;
+        build.items.push_back(std::move(end));
+        text = collapse_ascii_whitespace(trim_ascii(text));
+        auto& description = build.picture_descriptions[art_description_picture];
+        if (!text.empty()) {
+          if (!description.empty()) description.push_back(' ');
+          description += text;
+        }
         break;
       }
       default: {

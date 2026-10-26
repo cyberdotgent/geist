@@ -144,6 +144,36 @@ std::optional<ProseTopicIR> extract_prose_topic_ir(
     topic.anchors.push_back(std::move(anchor));
   }
   if (!build_blocks(records, lines, ledger, topic, error)) return std::nullopt;
+  // An artwork envelope outside a figure region describes the picture its
+  // selector draws, whether that picture stands in running text or the
+  // figure family admitted it as a picture region of its own (the
+  // `cz OFF ARTALT` region around it).  A description of a picture the topic
+  // does not draw fails closed.
+  if (!stream.picture_descriptions.empty()) {
+    std::set<std::string> drawn;
+    for (auto& block : topic.blocks)
+      for (auto& inline_node : block.inlines)
+        if (inline_node.kind == ProseInlineKindIR::image) {
+          const auto found = stream.picture_descriptions.find(
+              ascii_lower(inline_node.target));
+          if (found == stream.picture_descriptions.end()) continue;
+          inline_node.description = found->second;
+          drawn.insert(found->first);
+        }
+    for (const auto& figure : topic.figures.blocks) {
+      if (figure.body_kind != FigureBodyKindIR::picture) continue;
+      if (figure.target_kind == FigureTargetKindIR::book_resource)
+        drawn.insert(ascii_lower(figure.target));
+      for (const auto& extra : figure.additional_pictures)
+        if (extra.target_kind == FigureTargetKindIR::book_resource)
+          drawn.insert(ascii_lower(extra.target));
+    }
+    for (const auto& [picture, text] : stream.picture_descriptions)
+      if (drawn.count(picture) == 0)
+        return reject("artwork description of picture " + picture +
+                      " describes no picture the topic draws");
+    topic.picture_descriptions = stream.picture_descriptions;
+  }
   topic.index_terms = lines.index_terms;
   topic.index_terms.insert(topic.index_terms.end(),
                            stream.trailing_index_terms.begin(),

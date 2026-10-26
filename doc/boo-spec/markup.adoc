@@ -3856,6 +3856,35 @@ read, `SRPIC1` was an unexplained structural control inside the region, the
 figure declined, and 42 of the book's 186 topics went to the verbatim
 best-effort route with `csart` and `cartdesc` printed as text.
 
+The envelope is not confined to figures.  BUILD 1.3 also writes it in running
+text, around a picture that stands in a paragraph, a list item or a
+definition, and as a fixed-column region of its own.  `SC41-5612-02.boo`
+topic `PREFACE.3`, logical record 35, stores `csart` (`0x27E4F`), a display
+line `cz OFF ARTALT` (`0x27E52`..`0x27E55`), `cselect 3 9 PIC1`
+(`0x27E57`..`0x27E5B`), the placeholder line `   PICTURE 1`
+(`0x27E5D`..`0x27E60`), `ceart` (`0x27E62`), `csartdesc 1` (`0x27E65`),
+`ceartdesc` (`0x27E69`) and then `cz OFF EHP0 0 0`, with no `SRFIG` anywhere
+in the topic.  Hosted BookServer (DT `19980522111551`) serves the picture row
+alone in a `<pre width="80">`, `<img ... P1.GIF alt="PICTURE 1">`: `ARTALT`
+opens the same fixed-column region as `ARTWORK` and `EHP0` closes it.
+`GA27-4106-02.boo` topic `D.0` (logical records 146-151) writes 35 envelopes
+`csart` / `cselect 3 11 PIC<n>` / `     PICTURE <n>` / `ceart` /
+`csartdesc <n>` / `SRPIC<n>` / `cartdesc   REQTEXT` / `ceartdesc` between the
+paragraphs of its safety notices, without a region directive; hosted (DT
+`19980408153335`) serves each as `<img ... P16.GIF alt="   REQTEXT">`, then
+`<a name="PIC16">` on the paragraph that follows.  `SC41-5101-01.boo` topic
+`D.2.1.1` (logical record 950) puts an `ARTALT` envelope inside a list item,
+between `Press the Shift key with the` and `key. The Diacritic mode symbol
+...`, and closes the region with `cz OFF EHP0 4 4` between `SRPIC53` and the
+`cartdesc` line; hosted (DT
+`19971120215738`) serves the image (`alt="       REQTEXT"`), the `PIC53`
+anchor and the rest of the item in that order.  Outside a figure the
+envelope reads as inside one: the boundary controls own their opcode and the
+picture number, the `cartdesc` text is the picture's alternative text and is
+never printed, and text the decoder glued behind a closer is the body that
+follows it (`a59o1001.boo` topic `3.1.1` record 59: `ceartdesc` and then
+`symbol located beside the power switch is an International ...`).
+
 [[markup_picture_placeholder_rows]]
 ===== Picture placeholder rows
 

@@ -548,7 +548,8 @@ void append_inline(HtmlSink &sink, const InlineIR &node) {
                                       ? "geist-image geist-image--unresolved"
                                       : "geist-image");
           sink.attribute("src", href.href);
-          sink.attribute("alt", value.alt_text);
+          sink.attribute("alt", value.description.empty() ? value.alt_text
+                                                           : value.description);
           if (!value.missing_resource)
             append_image_size(sink, value.resource);
           sink.markup(">");

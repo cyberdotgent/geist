@@ -14,6 +14,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <optional>
 #include <set>
 #include <string>
@@ -148,6 +149,10 @@ struct ProseInlineIR {
   // (`DisplayLineIR::margin_mark`), 0 for an unrevised run.  A run never
   // straddles rows with different marks.
   char32_t revision_mark = 0;
+  // Images only: the book's own description of the picture (a BUILD 1.3
+  // `csartdesc <n>` .. `ceartdesc` envelope), which hosted BookServer serves
+  // as the image's alternative text.  Empty when the book gave none.
+  std::string description;
 };
 
 // The `CZ` dialect (doc/boo-spec/markup.adoc, "CZ layout directives") adds the
@@ -354,6 +359,13 @@ struct ProseMenuItemIR {
 struct ProseTopicIR {
   std::size_t record_count = 0;
   std::size_t token_count = 0;
+  // The descriptions BUILD 1.3 artwork envelopes standing outside a figure
+  // region give (`csartdesc <n>` .. `ceartdesc`), by the lower-cased
+  // resource id of the picture each describes.  The picture is an inline
+  // image of the prose (which carries its description itself) or a picture
+  // region the figure family admitted on its own (a `cz OFF ARTALT` region
+  // holding just the selector), whose image block the lowering describes.
+  std::map<std::string, std::string> picture_descriptions;
   std::string heading_level;
   // The raw lower-cased CHDLEVEL operand this level was proven from: `h1`..
   // `h6`, or one of the front-matter forms (`cover`, `toc`, `preface`, ...)

@@ -842,6 +842,8 @@ void format_inlines(std::ostringstream& out, const InlineSequenceIR& inlines) {
             out << "image=" << quoted(node.resource) << ':'
                 << quoted(node.alt_text);
             if (node.missing_resource) out << " missing";
+            if (!node.description.empty())
+              out << " description=" << quoted(node.description);
             if (!node.cells.empty())
               out << " cells=" << quoted(node.cells);
           }
