@@ -259,9 +259,57 @@ void a_term_without_rows_before_a_break_declines() {
           "a row-less cz FLOW DT before cz BREAK was accepted");
 }
 
+// A parameter term whose rows an anchor line splits: SC33-1653-06 `5.4.3`
+// record 1006 stores `cz FLOW PT 3 7`, the row
+// `   RECFORM=([UNDEFINED|VARIABLE|FIXED]`, `SRSPTRECF` and the row
+// `                    [,BLOCKED|UNBLOCKED][,DOSISAM])` before `cz BREAK 7`;
+// SC31-8248-01 `2.15` record 244 puts `SRSPTDQSPL` between the term
+// `   position.length` and its description at the indent column.  The reader
+// prints the anchor between the rows, which run on as one paragraph.
+void a_parameter_term_split_by_an_anchor() {
+  RecordBuilder builder;
+  builder.heading("5.4.3", "DFHFCT");
+  builder.cz({"cz", "FLOW", "PARML", "3", "3"});
+  builder.cz({"cz", "FLOW", "PT", "3", "7"});
+  builder.row("   ", {"RECFORM=([UNDEFINED|FIXED]"});
+  builder.cz({"SRSPTRECF"});
+  builder.row("                    ", {"[,BLOCKED|UNBLOCKED])"});
+  builder.cz({"cz", "BREAK", "7"});
+  builder.row("       ", {"Code", "this", "to", "describe", "records."});
+  builder.empty();
+  builder.cz({"cz", "FLOW", "PT", "3", "18"});
+  builder.row("   ", {"position.length"});
+  builder.cz({"SRSPTDQSPL"});
+  builder.row("                  ", {"The", "starting", "position."});
+  builder.empty();
+  builder.cz({"cz", "OFF", "EPARML", "0", "0"});
+  auto extracted = run(builder.build(1006), "DFHFCT");
+  require(extracted.topic.has_value(),
+          "a parameter term split by an anchor was rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  require(count_kind(*extracted.topic, ProseBlockKindIR::definition_entry) ==
+              2,
+          "expected two parameter entries:\n" + topic_text(*extracted.topic));
+  const auto text = topic_text(*extracted.topic);
+  require(contains(text, "RECFORM") && contains(text, "UNBLOCKED") &&
+              contains(text, "records.") && contains(text, "starting"),
+          "a parameter entry lost its words:\n" + text);
+  for (const auto *id : {"SPTRECF", "SPTDQSPL"})
+    require(std::any_of(extracted.topic->anchors.begin(),
+                        extracted.topic->anchors.end(),
+                        [&](const auto &anchor) {
+                          return anchor.id == id &&
+                                 anchor.position <
+                                     extracted.topic->blocks.size();
+                        }),
+            std::string("anchor ") + id + " is not placed at an entry");
+}
+
 }  // namespace
 
 int main() {
+  a_parameter_term_split_by_an_anchor();
   a_term_whose_indent_is_its_left_column();
   a_term_without_rows_before_the_next_term();
   a_term_without_rows_before_a_break_declines();

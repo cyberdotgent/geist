@@ -1072,11 +1072,28 @@ struct CzBuilder {
     }
     // A term split over source paragraphs needs compound definition content;
     // flattening the groups here would erase a source-declared boundary.
-    if (groups.size() != 1)
-      return fail(error, "cz FLOW PT has multiple paragraph groups");
+    //
+    // An anchor line between two rows is no such boundary: the reader
+    // prints `<a name>` there and the rows run on.  SC33-1653-06 5.4.3
+    // record 1006 stores `SRSPTRECF` between the two rows of the term
+    // `RECFORM=([UNDEFINED|VARIABLE|FIXED]` / `[,BLOCKED|UNBLOCKED]...`, and
+    // SC31-8248-01 2.15 record 244 `SRSPTDQSPL` between the term
+    // `position.length` and its description; both books serve the rows as
+    // stored with the anchor between them (DT 20040413135708,
+    // DT 19980611104703).  The anchor stands at the entry.
+    std::vector<std::size_t> anchored_rows;
+    for (std::size_t group = 1; group < groups.size(); ++group) {
+      const auto& first = lines[groups[group].first];
+      if (groups[group].first != groups[group - 1].second ||
+          !first.anchor_before || first.breaks_before != 0 ||
+          first.thematic_break)
+        return fail(error, "cz FLOW PT has multiple paragraph groups");
+      anchored_rows.push_back(groups[group].first);
+    }
     frame.body_owner = npos;
     ++frame.items;
-    const auto [begin, end] = groups.front();
+    const auto begin = groups.front().first;
+    const auto end = groups.back().second;
     ProseBlockIR block;
     block.kind = ProseBlockKindIR::definition_entry;
     block.list_ordinal = frame.list_ordinal;
@@ -1106,6 +1123,7 @@ struct CzBuilder {
                      block_index, error))
       return false;
     append(std::move(block), begin);
+    for (const auto row : anchored_rows) merged_lines[row] = block_index;
     if (described) {
       frame.body_owner = block_index;
       return true;
