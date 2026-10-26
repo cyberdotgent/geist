@@ -607,7 +607,43 @@ void a_trailing_announcement_draws_nothing() {
 
 }  // namespace
 
+// Messages listed by headline alone: eyua1b01 `3.43` opens a message list
+// and writes `SRMSG <id>`, `cz OFF MSG` and the headline row for each of its
+// EYUVE messages, one after the other, then `SRMSG` and
+// `cz OFF EMSGL 0 0`.  Each `CZ OFF MSG` after the first only deepens the
+// reader's region, and the list closer, the generic `CZ OFF E`, ends it.
+void headline_only_messages_end_at_the_list_closer() {
+  RecordBuilder builder;
+  builder.heading();
+  builder.line({words("cz"), words("FLOW"), words("MSGL"), words("3"),
+                words("3")});
+  builder.line({words("cz"), words("OFF"), words("MSGL")});
+  builder.line({words("SRMSG"), words("EYUVE1001E")});
+  builder.line({words("cz"), words("OFF"), words("MSG")});
+  builder.line({words("   "), words("EYUVE1001E"), words("  "),
+                words("Editor"), words("error.")});
+  builder.line({words("SRMSG"), words("EYUVE1002E")});
+  builder.line({words("cz"), words("OFF"), words("MSG")});
+  builder.line({words("   "), words("EYUVE1002E"), words("  "),
+                words("Invalid"), words("request.")});
+  builder.line({words("SRMSG")});
+  builder.line({words("cz"), words("OFF"), words("EMSGL"), words("0"),
+                words("0")});
+  auto extracted = run(builder.build(1800));
+  require(extracted.topic.has_value(),
+          "headline-only messages closed by EMSGL were rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  std::string text;
+  for (const auto &block : extracted.topic->blocks)
+    text += block_text(block) + "\n";
+  require(text.find("Editor") != std::string::npos &&
+              text.find("request.") != std::string::npos,
+          "a headline lost its words:\n" + text);
+}
+
 int main() {
+  headline_only_messages_end_at_the_list_closer();
   a_message_list_is_typed();
   a_body_block_outside_a_message_list_is_a_paragraph();
   a_closer_of_an_earlier_topics_list_is_inert();

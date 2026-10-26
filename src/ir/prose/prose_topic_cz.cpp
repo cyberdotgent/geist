@@ -1820,6 +1820,13 @@ struct CzBuilder {
         // APPENDIX1.2 record 1417 opens `cz OFF CGRAPHIC` on lines 25 and 32
         // with no closer and no `cz FLOW` between them.
         take(inner_rows, false);
+      } else if (inner.tag == "emsgl" && in_message_list()) {
+        // The message list's closer ends the region: the reader's generic
+        // `CZ OFF E` resets the region depth, and the closer closes the
+        // list as usual.  eyua1b01 3.43 lists its EYUVE messages as
+        // `SRMSG <id>` / `cz OFF MSG` / headline row, one after the other,
+        // and closes the list with `cz OFF EMSGL 0 0`.
+        break;
       } else {
         return RegionOutcome::not_a_region;
       }

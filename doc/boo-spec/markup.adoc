@@ -6478,6 +6478,18 @@ topics of each of sixteen books: `GC33-1694-01`, `GC33-1177-01`,
 `SC30-3310-06`, `SC30-3603-03`, `SC31-6546-00`, `SC31-8046-00`,
 `SC33-6798-00` and `SC33-6799-00`.
 
+*Messages listed by headline alone.*  A message list can hold messages that
+have no body: each is `SRMSG <id>`, `cz OFF MSG` and the headline row, and
+the next message follows at once.  `eyua1b01.boo` `3.43`, logical record
+1800, writes `03 28 74 72` at `0xAB94E` (`cz OFF MSG`) after
+`SRMSG EYUVE1001E` (line 54), and 279 such messages up to
+`06 28 74 C1 D0 83 83` at `0xB0C79` (`cz OFF EMSGL 0 0`, record 1867).  The
+reader opens one `<pre width="80">` at the first `CZ OFF MSG`; each later
+one only deepens the region, and the list closer, the generic `CZ OFF E`,
+ends it.  The headlines are therefore one verbatim block, with each
+message's `MSG <id>` anchor on its row.  The book is not on the hosted
+BookServer; the reading follows from the reader's rules alone.
+
 [[markup_footnotes_in_the_flattened_dialect]]
 ==== Footnotes in the flattened dialect
 
