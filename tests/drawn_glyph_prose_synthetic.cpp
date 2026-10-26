@@ -1135,6 +1135,49 @@ void box_ending_flowed_rows(bool line_break) {
             contains(html, "<p class=\"geist-paragraph\">After.</p>"),
         "the flowed rows around the box are not paragraphs: " + html);
 }
+// A closed box with `cz FLOW` directives between its rows.  e2lh7000 2.7
+// record 72 opens `cz OFF DANGER`, the top rule, one rail row, then
+// `cz FLOW P 5 5` and the warning's rows between the rails, the bottom rule,
+// `SREDGR` and `cz OFF EDANGER 0 0`; h0vb0e02 4.3 writes a `cz FLOW NOTE`,
+// `cz FLOW UL`, `cz FLOW LI` .. `cz OFF EUL` list inside one cell of its
+// parts table, with a `cz BREAK 32` elsewhere in the same box.  The reader
+// would flow the rows after the directive; the box is drawn as stored.
+void box_holding_flow_directives(bool region) {
+  Builder builder(true);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  if (region) builder.line({w("cz"), w("OFF"), w("DANGER")});
+  builder.line({sp(3), box(run(0x250C, 0x2500, 12, 0x2510))});
+  builder.line({sp(3), box({0x2502}), sp(11), box({0x2502})});
+  builder.line({w("cz"), w("FLOW"), w("P"), w("5"), w("5")});
+  builder.line({sp(3), box({0x2502}), w("Inside"), sp(4), box({0x2502})});
+  if (!region) {
+    builder.line({w("cz"), w("FLOW"), w("UL"), w("5"), w("5")});
+    builder.line({w("cz"), w("FLOW"), w("LI"), w("5"), w("9")});
+    builder.line({sp(3), box({0x2502}), w("Item"), sp(6), box({0x2502})});
+    builder.line({w("cz"), w("OFF"), w("EUL"), w("5"), w("5")});
+    builder.line({w("cz"), w("BREAK"), w("5")});
+  }
+  builder.line({sp(3), box(run(0x2514, 0x2500, 12, 0x2518))});
+  builder.blank();
+  if (region)
+    builder.line({w("cz"), w("OFF"), w("EDANGER"), w("0"), w("0")});
+  builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(),
+        "a box holding cz FLOW directives declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(untagged(pre_body(html)) ==
+            "    ____________ \n   |            |\n   | Inside     |\n" +
+                std::string(region ? "" : "   | Item       |\n") +
+                "   |____________|",
+        "the box holding cz FLOW directives was not drawn: " + html);
+  check(contains(html, "<p class=\"geist-paragraph\">After.</p>"),
+        "the paragraph after the box is not typed: " + html);
+}
 void box_in_cz_pre_zone(bool after_closer) {
   Builder builder(false);
   if (after_closer) {
@@ -1577,6 +1620,8 @@ int main() {
   table_pair_around_box();
   box_ending_flowed_rows(false);
   box_ending_flowed_rows(true);
+  box_holding_flow_directives(true);
+  box_holding_flow_directives(false);
   box_after_flowed_block(false);
   box_after_flowed_block(true);
   open_drawing_in_cz_pre_zone();

@@ -2004,6 +2004,19 @@ struct CzBuilder {
   bool directive_rows(std::size_t& index, const LayoutDirective& directive,
                       std::pair<std::size_t, std::size_t> range) {
     const auto& directives = build.directives;
+    // A `cz FLOW` (and the list directives after it) between the rows of a
+    // closed box the line build draws as stored (`cz_pre_zone_box`): the
+    // box owns every row, so the directive has none and formats nothing.
+    // e2lh7000 2.7 record 72 opens `cz FLOW P 5 5` (line 24) right under the
+    // top rule of its `DANGER` box; h0vb0e02 4.3 records 525-526 write a
+    // `cz FLOW NOTE` .. `cz OFF EUL` note list inside a cell of its parts
+    // table.
+    if (directive.inside_box && range.first == npos &&
+        (directive.mode == "flow" || directive.mode == "break" ||
+         (directive.mode == "off" && !directive.tag.empty() &&
+          directive.tag.front() == 'e' && directive.tag != "etable" &&
+          directive.tag != "efig")))
+      return true;
     {
       // A drawn box where the reader's `<pre>` is open (`cz_pre_zone_box`:
       // after a region opener or closer, or after an empty line that ended

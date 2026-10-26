@@ -1728,21 +1728,40 @@ struct LineBuilder {
         last = index;
       }
     if (first == npos) return false;
-    bool line_break = false;
+    // Directives between the rows of a closed box.  The reader acts on each
+    // -- a named closer reopens its `<pre>`, `cz BREAK` prints `<br>`, a
+    // `cz FLOW` closes the `<pre>` and flows the rows after it, which the
+    // page then runs together -- but none of them is the box's: BookMaster
+    // drew the box with the directives' effect already in its rows.  The box
+    // is drawn as stored, the directives format nothing
+    // (prose_topic_cz.cpp, `directive_rows`), and a verbatim region the box
+    // stands in no longer draws it row by row when a `cz FLOW` inside the
+    // box would end the region.  e2lh7000 2.7 record 72 writes `cz FLOW P 5
+    // 5` (line 24) under the top rule of the `DANGER` box `cz OFF DANGER`
+    // (line 21) opens; h0vb0e02 4.2 record 521 line 15 a `cz BREAK 32`
+    // between two rows of its parts table and 4.3 a `cz FLOW NOTE` (record
+    // 525 line 32), `cz FLOW UL`, `cz FLOW LI` .. `cz OFF EUL 29 29` (record
+    // 526 line 19) list inside one of its cells.
+    bool flow = false;
     for (auto index = first; index <= last; ++index) {
       if (items[index].kind == ItemKind::span) return false;
       if (items[index].kind != ItemKind::layout) continue;
-      if (items[index].directive.mode == "break") {
-        line_break = true;
+      if (items[index].directive.mode == "break" && region.closed) continue;
+      if (items[index].directive.mode == "flow" && region.closed) {
+        flow = true;
         continue;
       }
-      if (!pre_keeping_directive(items[index].directive)) return false;
+      if (pre_keeping_directive(items[index].directive)) continue;
+      // A list or region closer after a `cz FLOW` inside the box.
+      if (items[index].directive.mode == "off" && flow &&
+          !items[index].directive.tag.empty() &&
+          items[index].directive.tag.front() == 'e')
+        continue;
+      return false;
     }
     bool verbatim_region = false;
-    // `cz BREAK` prints `<br>` into an open `<pre>`, an extra row the box
-    // does not draw.
     if (cz_reader_pre_state(first, verbatim_region))
-      return !verbatim_region && !line_break;
+      return flow || !verbatim_region;
     // A closed box under rows the reader flows.  The reader has no `<pre>`
     // open there and prints the box's rows into the flowed text, where the
     // page collapses their columns; the box is drawn as stored instead, the

@@ -6783,6 +6783,35 @@ directives (`SC38-2036-00` `H.3`, DT `19940603150829`), is served with each
 such box row for row in the `<pre>`.  The rows after a drawing in a `<pre>` stretch, up to the next
 directive, are in the same `<pre>` and are printed as stored.
 
+Directives can also stand between the rows of a closed box: the source's
+own markup inside a note, warning or table that BookMaster then drew as a
+box.  The reader acts on each one -- a `CZ FLOW` closes its `<pre>` and
+flows the box's remaining rows, a `CZ BREAK` prints `<br>`, a list closer
+ends the list -- but the drawn rows already carry the directives' effect.
+`e2lh7000.boo` (`SY27-0346-00`) `2.7`, logical record 72:
+
+[cols="<16,<38,<40",options="header"]
+|===
+|Line |Bytes |Reading
+
+|21 |`03` at `0x26AB2B`, then `cz OFF DANGER` |opens a generic region
+|22 |`08` at `0x26AB2F` |the box's top rule
+|23 |`05` at `0x26AB38` |a rail row
+|24 |`05` at `0x26AB3E`, then `cz FLOW P 5 5` |a flowed paragraph between the rails
+|25--33 |-- |rail rows and the warning text between the rails, with `cfont` and `cselect` lines
+|record 73 line 2 |`08` at `0x26AC2A` |the box's bottom rule
+|record 73 line 3 |`02` at `0x26AC33` |`SREDGR`
+|record 73 line 5 |`06` at `0x26AC37` |`cz OFF EDANGER 0 0`
+|===
+
+`h0vb0e02.boo` (`SY33-0185-02`) `4.3` writes a whole list --
+`cz FLOW NOTE 32 32` (record 525 line 32), `cz FLOW UL`, five
+`cz FLOW LI 32 36` and `cz OFF EUL 29 29` (record 526 line 19) -- into the
+description column of a parts table drawn as one closed box, and `4.2` a
+`cz BREAK 32` (record 521 line 15) between two of its rows.  Neither book is
+in the hosted catalog.  The box is the drawing; read as stored it keeps
+every row of the text in its column.
+
 *Generic regions that end without a closer.*  A second `cz OFF <tag>` of the
 same tag inside an open generic region only deepens it and prints nothing,
 and the opener of a verbatim region (`XMP`, `SCREEN`, `SYNTAX`, ...) inside
