@@ -7081,7 +7081,11 @@ record 528 opens a parameter list with `06 4A 8F D7 6A AE AE` at `0x6B89B`
 (`cz FLOW PARML 3 3`), writes its `cz FLOW PT` terms and a table whose
 `cz OFF ETABLE 4 4` is record 533 line 16, and has only `SI` index lines
 after it -- no `cz OFF EPARML`.  Hosted (DT `19980512102401`) serves the
-terms and the table and ends the page.  Ten books of a 500-book sample
+terms and the table and ends the page.  A topic may also continue a
+parameter list an earlier topic opened, with neither the opener nor the
+closer: `SC41-5605-00.boo` `3.2.4.3` writes the `cz FLOW PT 3 7` entries
+`ORIENT` and `DATA` after a table, and no `PARML` directive at all; hosted
+(DT `19980512102401`) serves them as stored.  Ten books of a 500-book sample
 leave a `PARML` open this way, three a `DL` and two a `UL`.  The converse
 holds for the parameter list: `CZ OFF EPARML` has no prefix of its own and
 is the generic `CZ OFF E` closer, which prints nothing, so a row-less

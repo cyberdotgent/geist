@@ -1241,7 +1241,7 @@ struct CzBuilder {
   // item (SC31-8513-00 2.12.1.5, `<var>data_set_name</var>` `<br>`).  Entries
   // may hold paragraphs, lists, notes and regions between them, as in an
   // opened list.  The closer is the proof: the first `EPARML` that closes no
-  // list opened after the term.  A term with none still fails.
+  // list opened after the term, or else the end of the topic.
   bool implicit_parameter_list(std::size_t index) const {
     std::size_t depth = 0;
     for (auto cursor = index + 1; cursor < build.directives.size(); ++cursor) {
@@ -1251,7 +1251,12 @@ struct CzBuilder {
       if (depth == 0) return true;
       --depth;
     }
-    return false;
+    // With no such closer the list runs to the topic's end, which closes
+    // it like any list the topic leaves open (`finish`): SC41-5605-00
+    // 3.2.4.3 (DT 19980512102401) continues the parameter list of 3.2.4 with
+    // `cz FLOW PT 3 7` `ORIENT`, its `cz BREAK 7` body and a table, and no
+    // `cz OFF EPARML` at all; hosted serves the entries as stored.
+    return true;
   }
 
   bool note(const std::vector<std::pair<std::size_t, std::size_t>>& groups) {
