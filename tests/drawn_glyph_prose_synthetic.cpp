@@ -1178,6 +1178,37 @@ void box_holding_flow_directives(bool region) {
   check(contains(html, "<p class=\"geist-paragraph\">After.</p>"),
         "the paragraph after the box is not typed: " + html);
 }
+// A bullet word alone on its row under a `cfont` span covering exactly its
+// cell is a drawn character of an example.  SC31-6425-00 6.6.6 record 499
+// draws an assembler listing's vertical ellipsis as `cfont 16 1 E` /
+// `                °` rows between the code rows; hosted (DT
+// 19930409175826) serves `                <samp>°</samp>` in the listing.
+// Without the span the lone bullet is still an empty list item.
+void styled_lone_bullet_word(bool styled) {
+  Builder builder(false);
+  builder.line({sp(3), w("Lead.")});
+  builder.blank();
+  builder.line({w("cfont"), w("14"), w("4"), w("E")});
+  builder.line({sp(14), w("CODE")});
+  if (styled) builder.line({w("cfont"), w("16"), w("1"), w("E")});
+  builder.line({sp(16), bullet()});
+  builder.line({w("cfont"), w("14"), w("4"), w("E")});
+  builder.line({sp(14), w("MORE")});
+  builder.blank();
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const auto doc = lower(builder, error);
+  if (!styled) {
+    check(!doc.has_value(), "an unstyled lone bullet was typed as text");
+    return;
+  }
+  check(doc.has_value(), "a styled lone bullet word declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(untagged(pre_body(html)) ==
+            "              CODE\n                \xC2\xB0\n              MORE",
+        "the styled bullet word is not a row of the example: " + html);
+}
 void box_in_cz_pre_zone(bool after_closer) {
   Builder builder(false);
   if (after_closer) {
@@ -1622,6 +1653,8 @@ int main() {
   box_ending_flowed_rows(true);
   box_holding_flow_directives(true);
   box_holding_flow_directives(false);
+  styled_lone_bullet_word(true);
+  styled_lone_bullet_word(false);
   box_after_flowed_block(false);
   box_after_flowed_block(true);
   open_drawing_in_cz_pre_zone();

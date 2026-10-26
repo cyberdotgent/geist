@@ -387,6 +387,16 @@ dictionary literal byte `04` listed above. The native display-line boundary and
 the spacing prefixes distinguish this attached character from a bullet at the
 start of a list row; the glyph's shape alone does not determine its role.
 
+A row can also hold the word alone, as a drawn character.  `SC31-6425-00`
+topic `6.6.6`, logical record 499, draws the vertical ellipsis of an assembler
+listing as three rows, each preceded by the control line `cfont 16 1 E`:
+line 10 is `03` at `0x917E6` (the length byte, 3), the two-byte blank run
+`B6 A3` (16 cells) and `03` at `0x917E9`, the word `0x2666` at column 16 --
+the one cell the font span covers.  Hosted (DT `19930409175826`) serves
+`                <samp>°</samp>` between the listing's code rows.  A list
+bullet never carries a font span of its own; the span over exactly the
+word's cell, on a row with no other visible cell, marks it as example text.
+
 The mapping is not stored in the book. Reading a table page at
 `directory_page_number + (word >> 11)` — the page the table-selection formula
 above names — lands on dictionary data in `ACPZMST1`, `SC09-138`, `PRG1SORT`

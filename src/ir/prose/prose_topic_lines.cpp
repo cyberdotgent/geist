@@ -224,6 +224,31 @@ struct LineBuilder {
 
   // An arrow word stored with no blank cell between it and a word of its own
   // display row: the open row already carries that word as its last cell.
+  // The only visible cell of its display row, and a pending font control's
+  // span covers that cell and nothing else.
+  bool styled_lone_glyph(const TokenView& view) {
+    const auto* line = display_line_of(view.record, view.token);
+    if (line == nullptr || view.body.size() != 1) return false;
+    const auto cells = display_line_cells(records[view.record], *line);
+    std::size_t column = npos;
+    for (std::size_t cell = 0; cell < cells.size(); ++cell) {
+      if (cells[cell].token == view.token) {
+        if (column != npos) return false;
+        column = cell;
+        continue;
+      }
+      if (cells[cell].word > ' ') return false;
+    }
+    if (column == npos) return false;
+    for (const auto control : pending_controls) {
+      const auto& item = items[control];
+      if (item.kind != ItemKind::font) continue;
+      for (const auto& span : item.spans)
+        if (span.column == column && span.length == 1) return true;
+    }
+    return false;
+  }
+
   // A word, not a drawn stroke: an arrow glued to box words is the end of a
   // drawn path (`>>___CHANGE___data___->`, qbka4801 8.2.3.2 record 646 line
   // 26), which the row model cannot prove.
@@ -2843,6 +2868,16 @@ struct LineBuilder {
     // 19910524075122 serves verbatim; IBMMMSTR record 44 token 145 is value
     // 46595 width 2 opening `   °   Compiler control messages (numbers 0002
     // through 0049) are mainly`, served by DT 19911004151140.
+    // A bullet word alone on its row, styled by a font span of the row's own
+    // `cfont` line that covers exactly its cell, is a drawn character of an
+    // example, not a list item: no list bullet carries a font of its own.
+    // SC31-6425-00 6.6.6 record 499 draws the vertical ellipsis of an
+    // assembler listing as three rows `cfont 16 1 E` / `                °`
+    // between the code rows; hosted (DT 19930409175826) serves
+    // `                <samp>°</samp>` on each.
+    if (line_visible_cells == 0 && is_bullet_glyph(view) &&
+        styled_lone_glyph(view))
+      return append_visible(view, ProseTokenRoleIR::text);
     if (line_visible_cells == 0 && is_glyph(view) &&
         (view.width == 1 || is_bullet_glyph(view))) {
       // A glyph opening the line is the list bullet.
