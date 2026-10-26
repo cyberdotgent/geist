@@ -499,9 +499,117 @@ void a_question_mark_at_the_edge_of_a_term_is_kept() {
           "a question mark at the edge of a term was trimmed away");
 }
 
+// A `:TOC` envelope with its style definitions and the body lines given
+// verbatim.
+DecodedLogicalRecordSource contents_body(
+    const std::vector<std::vector<TokenWords>> &definitions,
+    const std::vector<std::vector<TokenWords>> &body) {
+  RecordBuilder builder;
+  const TokenWords bullet{bullet_glyph};
+  builder.line(bullet, {words("SHCONTENTS")});
+  builder.line(bullet, {words("chdlevel"), words(":TOC")});
+  builder.line(bullet, {words("ST"), words("Table"), words("of"),
+                        words("Contents")});
+  builder.line(bullet, {words("cz"), words("OFF"), words("TOC")});
+  for (const auto &line : definitions) builder.line(bullet, line);
+  for (const auto &line : body) builder.line(bullet, line);
+  return builder.build(7);
+}
+
+std::vector<TokenWords> toc_entry(const std::string &depth,
+                                  const std::string &style,
+                                  const std::string &id,
+                                  const std::vector<std::string> &title) {
+  std::vector<TokenWords> line{words("ctoce"), words(depth), words(style),
+                               words(id)};
+  for (const auto &word : title) line.push_back(words(word));
+  return line;
+}
+
+// The reader skips every `CTOCDEF`, `CZ FLOW H` and `SI` line of a generated
+// contents page (they are in its list of ignored control prefixes), so
+// what they carry decides nothing.
+//
+// * SC34-4326-00 CONTENTS record 7 defines `ctocdef=3 0 2 o`, `ctocdef=4 0
+//   4 Ç` and `ctocdef=6 0 8 &`: a fourth operand that is a glyph, not a
+//   number.  Hosted (DT 19920131153525) serves the contents as in every
+//   other book.
+// * qbkab201 and GX27-3990-01 end their contents with `cz FLOW H2 3 3`,
+//   the next topic's level.
+// * dasa3l00 CONTENTS record 12 ends with two `SI` lines.
+// * A `ctoce` line with no title is linked by its topic id: SC31-8513-00
+//   CONTENTS writes `ctoce 4 4 2.5.5.10.2`, and hosted (DT 19980219192539)
+//   serves `<a href="2.5.5.10.2?...">2.5.5.10.2</a>`.
+// * A topic id may hold an apostrophe: SC26-4721-01 CONTENTS writes
+//   `ctoce 1 2 WHAT'S_NEW.1 ...`, and hosted links `WHAT'S_NEW.1`.
+// * A title keeps its own question mark: SC34-4326-00 `ctoce 1 2 FRONT_2.3
+//   What Do You Think?`, served `What Do You Think?`.
+void contents_lines_the_reader_skips() {
+  const std::vector<std::vector<TokenWords>> definitions{
+      {words("ctocdef=0"), words("1"), words("0"), words("2")},
+      {words("ctocdef=1"), words("1"), words("0"), words("2")},
+      {words("ctocdef=2"), words("0"), words("0")},
+      {words("ctocdef=3"), words("0"), words("2"), words("o")},
+      {words("ctocdef=4"), words("0"), words("4"), TokenWords{0x00C7}},
+      {words("ctocdef=5"), words("0"), words("6")},
+      {words("ctocdef=6"), words("0"), words("8"), words("&")}};
+  const auto record = contents_body(
+      definitions,
+      {toc_entry("0", "1", "1.0", {"Planning"}),
+       toc_entry("1", "2", "1.1", {}),
+       toc_entry("1", "2", "WHAT'S_NEW.1", {"Remote", "unit"}),
+       toc_entry("1", "2", "1.2", {"What", "Do", "You", "Think?"}),
+       {words("cz"), words("OFF"), words("ETOC"), words("0"), words("0")},
+       {words("SI"), words("linear"), words("programming")},
+       {words("cz"), words("FLOW"), words("H2"), words("3"), words("3")}});
+  std::string error;
+  const auto topic = geist::detail::extract_generated_toc_index_topic_ir(
+      {record}, nullptr, &error);
+  require(topic.has_value(),
+          "contents with skipped control lines was rejected: " + error);
+  if (!topic) return;
+  require(topic->definitions.size() == 7 && topic->entries.size() == 4,
+          "the contents lost a definition or an entry");
+  if (topic->entries.size() != 4) return;
+  require(topic->entries[3].title == "What Do You Think?",
+          "a title's own question mark was dropped: '" +
+              topic->entries[3].title + "'");
+  require(topic->entries[1].topic_id == "1.1" &&
+              topic->entries[1].title.empty(),
+          "an untitled entry took text from elsewhere");
+  require(topic->entries[2].topic_id == "WHAT'S_NEW.1",
+          "an apostrophe topic id was not kept");
+  geist::detail::TopicIdentityIR identity;
+  identity.id = "CONTENTS";
+  identity.title = "Table of Contents";
+  identity.start_logical_record = record.logical_record;
+  identity.end_logical_record = record.logical_record;
+  auto document = geist::detail::lower_generated_toc_index_topic_to_document_ir(
+      identity, *topic, &error);
+  require(document.has_value(), "the contents did not lower: " + error);
+  if (!document) return;
+  require(geist::detail::verify_document_ir(*document, &error),
+          "the lowered contents failed verification: " + error);
+  bool linked_by_id = false;
+  for (const auto &block : document->blocks)
+    if (const auto *list =
+            std::get_if<geist::detail::ListBlockIR>(&block.node))
+      for (const auto &item : list->items)
+        for (const auto &inline_item : item.content)
+          if (const auto *link =
+                  std::get_if<geist::detail::CrossReferenceInlineIR>(
+                      &inline_item.node))
+            if (!link->targets.empty() &&
+                link->targets.front().target.value == "1.1" &&
+                link->label == "1.1")
+              linked_by_id = true;
+  require(linked_by_id, "an untitled entry is not linked by its topic id");
+}
+
 } // namespace
 
 int main() {
+  contents_lines_the_reader_skips();
   a_question_mark_at_the_edge_of_a_term_is_kept();
   the_bullet_in_the_sentinel_slot_is_a_length_byte();
   a_term_the_book_wrote_empty_keeps_its_children();

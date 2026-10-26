@@ -82,6 +82,7 @@ enum class GeneratedTocIndexLineKindIR {
   index_text,
   spacing,  // any `C.` line (`c.sp`, `C.CP`): the reader draws nothing
   region_directive,
+  subject_index,  // an `SI` line in a contents page: draws nothing
 };
 
 struct GeneratedTocIndexLineIR {

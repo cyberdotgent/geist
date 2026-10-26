@@ -77,8 +77,12 @@ std::optional<DocumentIR> canonical_document(
       item.depth = entry.depth;
       auto id_origin = origin(entry.topic_id_slices,
                               "generated contents entry topic id");
+      // An entry with no title is linked by its topic id (SC31-8513-00
+      // CONTENTS `ctoce 4 4 2.5.5.10.2`, hosted `<a ...>2.5.5.10.2</a>`).
+      const auto untitled = entry.title.empty();
       auto title_origin =
-          origin(entry.title_slices, "generated contents entry title");
+          untitled ? id_origin
+                   : origin(entry.title_slices, "generated contents entry title");
       item.content.push_back({CodeInlineIR{entry.topic_id}, id_origin});
       item.content.push_back({TextInlineIR{" "}, id_origin});
       // The destination is the topic's own id.  `anchor` is the target kind
@@ -89,7 +93,7 @@ std::optional<DocumentIR> canonical_document(
       item.content.push_back(
           {CrossReferenceInlineIR{
                {CrossReferenceTargetKindIR::anchor, entry.topic_id},
-               entry.title},
+               untitled ? entry.topic_id : entry.title},
            title_origin});
       item.origin = origin({entry.source}, "generated contents entry");
       list_slices.push_back(entry.source);

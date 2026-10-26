@@ -427,7 +427,11 @@ Each line holds exactly one control.
 version 1.0/1.1 container, as `(toc_style, topic_id, title...)` with the
 nesting taken from the target topic's `CPARENT` chain. The title runs to
 the end of the display line, so its internal spacing survives verbatim.
-Skip any line whose control starts with `C.`.
+Skip any line whose control starts with `C.`, any `SI` line, and a
+`CZ FLOW H<n>` line with nothing after it (the next topic's level).
+A `CTOCE` line may end after its topic id; the entry is then listed by
+that id.  A topic id may contain an apostrophe.  A `?` the dictionary
+spells as a word of its own at the end of a title is part of the title.
 . Stop at the end of the topic's logical-record range. Do not look for a
 terminator control; 29 of 34 books have none.
 . Normalize display case through the same token-word translation and display
@@ -446,7 +450,26 @@ blocks — so the corpus offers no differential evidence at all. This is not
 a gap an implementer has to close: because the definitions never vary, a
 reader can hard-code the style-to-presentation mapping tabulated above and
 skip the `CTOCDEF` lines entirely. What would settle it is a book whose
-`CTOCDEF` lines differ from these seven.
+`CTOCDEF` lines differ from these seven.  Outside the 34 fixtures such books
+exist, and they do not settle it either: `SC34-4326-00.boo` `CONTENTS`,
+logical record 7, writes a fourth operand that is a single glyph in three
+definitions -- line 12 `ctocdef=3 0 2 o`, line 13 `ctocdef=4 0 4 Ç`, line 15
+`ctocdef=6 0 8 &` -- and `SC34-4328-00` and `SC34-4271-00` write `ÿ`, `|`,
+`Ú` and `_` in the same places.  Hosted (DT `19920131153525`) serves that
+contents page exactly like any other, with no trace of the glyphs: the
+reader skips the `CTOCDEF` line whole, so its operands need not be numbers.
+
+* Contents pages with more than the generated list.  `SC31-8513-00.boo`
+`CONTENTS` writes `ctoce 4 4 2.5.5.10.2` and `ctoce 2 2 2.13.13`, entries
+with no title, which hosted (DT `19980219192539`) links by their ids
+(`<a href="2.5.5.10.2?...">2.5.5.10.2</a>`).  `SC26-4380-01`, `DSNRMSTR`
+and `dasa3c01` follow the last `CTOCE` (and `cz OFF ETOC 0 0`) with an empty
+display line and then the book's printed contents as ordinary rows --
+`cfont 3 7 2 11 2 2 15 12 2 30 1 2`, `   Chapter 1.  Introduction   1`,
+`   Statement of Purpose   1`, ...  Hosted (`SC26-4380-01`, DT
+`19921009142502`) prints those rows after the generated list, `<p>` at the
+empty lines and `<B>` over the styled columns.  No reader rule for them is
+recorded here yet.
 * Which topics get a `CTOCE`. The decision is per topic, not per book: books
 carry both listed and unlisted `:H3` topics, and corpus-wide 697 `:H3`, 775
 `:H4` and all 1,617 `:MSGNO` topics are omitted. Nothing in the omitted

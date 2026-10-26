@@ -7,6 +7,7 @@
 #include "geist/detail/ir/figure_block_ir.hpp"
 
 #include <algorithm>
+#include <sstream>
 #include <cctype>
 #include <cstdlib>
 #include <tuple>
@@ -132,6 +133,18 @@ bool decimal_text(const std::string& value) {
   return !value.empty() &&
          std::all_of(value.begin(), value.end(), [](const unsigned char ch) {
            return std::isdigit(ch) != 0;
+         });
+}
+
+// A contents entry names a topic as the book spells its id, and a few books
+// put an apostrophe in one: SC26-4721-01 CONTENTS writes `ctoce 1 2
+// WHAT'S_NEW.1 ...`, and hosted links `WHAT'S_NEW.1`.
+bool valid_contents_topic_id(const std::string& value) {
+  return !value.empty() && value.size() <= 64 &&
+         std::all_of(value.begin(), value.end(), [](const unsigned char ch) {
+           return std::isalnum(ch) != 0 || ch == '_' || ch == '-' ||
+                  ch == '.' || ch == '$' || ch == '#' || ch == '@' ||
+                  ch == '\'';
          });
 }
 
@@ -300,6 +313,12 @@ private:
       } else if (opcode == "cendindex") {
         index_ended_ = true;
         kind = GeneratedTocIndexLineKindIR::index_end;
+      } else if (opcode == "si" && topic_.kind ==
+                                         GeneratedTocIndexKindIR::contents) {
+        // A subject-index line draws nothing wherever it stands: dasa3l00
+        // CONTENTS record 12 ends with `SI linear programming` and `SI
+        // columns in a data table`.
+        kind = GeneratedTocIndexLineKindIR::subject_index;
       } else if (opcode.rfind("c.", 0) == 0) {
         // The reader skips every display line whose control name starts
         // with `C.`, operands included: `c.sp` in every book, `C.CP` and
@@ -316,6 +335,12 @@ private:
                         view.opcode + "' in record " +
                         std::to_string(view.record->logical_record));
       }
+      if (heading_announced_ &&
+          kind != GeneratedTocIndexLineKindIR::region_directive &&
+          kind != GeneratedTocIndexLineKindIR::spacing &&
+          kind != GeneratedTocIndexLineKindIR::subject_index)
+        return fail(error, "generated navigation line follows a CZ FLOW H "
+                           "directive: '" + view.opcode + "'");
       topic_.lines.push_back(
           {kind, view.opcode, whole_line_slice(*view.record, view.line)});
     }
@@ -364,13 +389,15 @@ private:
     if (definition.ordinal != topic_.definitions.size())
       return fail(error, "CTOCDEF ordinals are not contiguous at '" +
                              view.opcode + "'");
+    // The reader skips a `CTOCDEF` line whole (it is in its list of ignored
+    // control prefixes), so its operands are kept as stored and decide
+    // nothing.  Most books write numbers only; SC34-4326-00 CONTENTS record 7
+    // writes `ctocdef=3 0 2 o`, `ctocdef=4 0 4 Ç` and `ctocdef=6 0 8 &`, and
+    // hosted (DT 19920131153525) serves that contents page like any other.
     for (const auto& field :
-         space_fields(view.cells, view.body, view.cells.size())) {
-      auto operand = cell_text(view.cells, field.begin, field.end);
-      if (!decimal_text(operand))
-        return fail(error, "CTOCDEF operand is not decimal: '" + operand + "'");
-      definition.operands.push_back(std::move(operand));
-    }
+         space_fields(view.cells, view.body, view.cells.size()))
+      definition.operands.push_back(
+          cell_text(view.cells, field.begin, field.end));
     if (definition.operands.empty())
       return fail(error, "CTOCDEF carries no operands");
     definition.source = whole_line_slice(*view.record, view.line);
@@ -391,10 +418,13 @@ private:
         contents_ == nullptr ||
         contents_->grammar == TocEntryGrammar::nesting_and_style;
     const std::size_t first = stored_nesting ? 1 : 0;
-    if (fields.size() < first + 3)
+    // A topic with no title of its own is listed by its id alone:
+    // SC31-8513-00 CONTENTS writes `ctoce 4 4 2.5.5.10.2`, and hosted (DT
+    // 19980219192539) links it as `2.5.5.10.2`.
+    if (fields.size() < first + 2)
       return fail(error, stored_nesting
-                             ? "CTOCE has fewer than four fields"
-                             : "CTOCE has fewer than three fields");
+                             ? "CTOCE has fewer than three fields"
+                             : "CTOCE has fewer than two fields");
     const auto style =
         cell_text(view.cells, fields[first].begin, fields[first].end);
     const auto depth =
@@ -410,9 +440,11 @@ private:
     if (entry.style >= topic_.definitions.size())
       return fail(error, "CTOCE style has no CTOCDEF");
     const auto& id_field = fields[first + 1];
-    const auto& title_field = fields[first + 2];
+    const auto untitled = fields.size() == first + 2;
+    const auto title_begin =
+        untitled ? view.cells.size() : fields[first + 2].begin;
     entry.topic_id = cell_text(view.cells, id_field.begin, id_field.end);
-    if (!valid_topic_id(entry.topic_id))
+    if (!valid_contents_topic_id(entry.topic_id))
       return fail(error, "CTOCE topic id is not an identifier: '" +
                              entry.topic_id + "'");
     if (catalog_ != nullptr &&
@@ -427,14 +459,30 @@ private:
       entry.depth = nesting->second;
     }
     entry.title =
-        trim_text(cell_text(view.cells, title_field.begin, view.cells.size()));
-    if (entry.title.empty())
+        trim_text(cell_text(view.cells, title_begin, view.cells.size()));
+    // A question mark the dictionary spells as a word of its own ends the
+    // title as stored: SC34-4326-00 CONTENTS writes `ctoce 1 2 FRONT_2.3
+    // What Do You Think?`, and hosted (DT 19920131153525) links `What Do
+    // You Think?`.  Only literal `?` words count; a placeholder cell is not
+    // one.
+    {
+      auto last = view.cells.size();
+      while (last > title_begin && view.cells[last - 1].word == ' ') --last;
+      auto marks = last;
+      while (marks > title_begin && view.cells[marks - 1].word == '?') --marks;
+      if (marks < last && marks > title_begin)
+        entry.title =
+            trim_text(cell_text(view.cells, title_begin, marks)) +
+            std::string(last - marks, '?');
+    }
+    if (entry.title.empty() && !untitled)
       return fail(error, "CTOCE carries no title");
     entry.source = whole_line_slice(*view.record, view.line);
     cell_slices(*view.record, view.cells, id_field.begin, id_field.end,
                 entry.topic_id_slices);
-    cell_slices(*view.record, view.cells, title_field.begin, view.cells.size(),
-                entry.title_slices);
+    if (!untitled)
+      cell_slices(*view.record, view.cells, title_begin, view.cells.size(),
+                  entry.title_slices);
     topic_.entries.push_back(std::move(entry));
     return true;
   }
@@ -580,9 +628,26 @@ private:
     // `cz FLOW P 3 3`, then only `cz BREAK 3`; hosted DT 20000720144410
     // serves `<p><br>` after the index and no text).
     const auto trailing_paragraph = index_ended_ && operands == "flow p 3 3";
+    // `cz FLOW H<n>` is only the reader's `CZ FLOW` prefix and draws nothing
+    // of its own; a contents page may end with one that announces the next
+    // topic's level (qbkab201 CONTENTS record 3 line 4 and GX27-3990-01
+    // CONTENTS record 7 line 19, both `cz FLOW H2 3 3` after
+    // `cz OFF ETOC 0 0`).  Rows after it would flow and are not admitted.
+    std::vector<std::string> words;
+    {
+      std::istringstream split(operands);
+      for (std::string word; split >> word;) words.push_back(word);
+    }
+    const auto heading_prefix =
+        words.size() == 4 && words[0] == "flow" && words[1].size() == 2 &&
+        words[1][0] == 'h' &&
+        std::isdigit(static_cast<unsigned char>(words[1][1])) != 0 &&
+        decimal_text(words[2]) && decimal_text(words[3]);
+    if (heading_prefix) heading_announced_ = true;
     if (operands != "break 3" && operands != "off toc" &&
         operands != "off etoc 0 0" && operands != "off index" &&
-        operands != "off eindex 0 0" && !trailing_paragraph)
+        operands != "off eindex 0 0" && !trailing_paragraph &&
+        !heading_prefix)
       return fail(error, "CZ directive is outside the generated navigation "
                          "grammar: '" + operands + "'");
     return true;
@@ -636,6 +701,7 @@ private:
   std::vector<LineView> views_;
   GeneratedTocIndexTopicIR topic_;
   bool index_ended_ = false;
+  bool heading_announced_ = false;
 };
 
 bool same_slice(const DocumentSourceSliceIR& left,
