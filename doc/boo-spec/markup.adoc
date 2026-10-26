@@ -7096,6 +7096,20 @@ serves nothing for either.  A message list
 (`MSGL`) is not such a list: it is announced at the end of one topic and
 holds the messages of the topics after it (see the message lists above).
 
+*Items of a list an earlier topic opened.*  The reader counts the item lists
+it opens (`CZ FLOW UL`, `OL`, `SL` add one; `CZ OFF EUL`, `EOL` take one
+away) and prints `<li>` for `CZ FLOW LI` only while the count is not zero.
+Otherwise it prints `<dd>` and the rows as stored, head included -- the
+reading of a `NOTEL` note.  `SC41-5304-02.boo` `2.3.14.2` starts with a table
+and then `05 45 77 7A 92 96` at `0x7403C` (`cz FLOW LI 3 7`) and the row
+`   °   All distribution objects (mail) by typing: SAVDLO DLO(*MAIL).`, a
+second such item, and `06 45 7B AB 64 88 88` at `0x74120`
+(`cz OFF EUL 0 0`) with no `cz FLOW UL` in the topic; hosted
+(DT `19980622160722`) serves `<dd>    °   All distribution objects ...` for
+each item and `</ul>` for the closer.  The bullet makes the rows bulleted
+items of a list that ends at that closer or with the topic; an item whose
+head is no bullet is a paragraph that keeps its head.
+
 *Arrows in a verbatim region.*  An arrow word (`U+2190`..`U+2193`) on a row of
 a `CZ` verbatim region is a drawn cell of that row.  `SC41-4870-00.boo`
 `1.10.3.1` record 100 line 15 follows `cz OFF CGRAPHIC` with the row

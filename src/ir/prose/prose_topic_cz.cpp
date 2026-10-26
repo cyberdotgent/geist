@@ -655,6 +655,25 @@ struct CzBuilder {
 
   bool list_item(std::size_t index, const LayoutDirective& directive,
                  const std::vector<std::pair<std::size_t, std::size_t>>& groups) {
+    // The reader counts the item lists it has opened (`UL`, `OL`, `SL`) and
+    // prints `<li>` for `CZ FLOW LI` only while that count is not zero;
+    // otherwise it prints `<dd>` and the rows as stored, head included --
+    // the reading of a NOTEL note (below).  A topic that continues a list an
+    // earlier topic opened has no opener of its own: SC41-5304-02 2.3.14.2
+    // (DT 19980622160722) starts with a table and two `cz FLOW LI 3 7`
+    // items `°   All distribution objects ...` before `cz OFF EUL 0 0`,
+    // and hosted serves each as `<dd>    °   All distribution ...`.  A
+    // bulleted item is drawn as the bulleted item it is, in a list the
+    // topic's end or the unopened closer ends; any other head stays text.
+    if (std::none_of(stack.begin(), stack.end(), [](const Frame& frame) {
+          return frame.tag == "ul" || frame.tag == "ol" || frame.tag == "sl" ||
+                 frame.tag == "notel";
+        })) {
+      if (groups.empty() || !lines[groups.front().first].bullet)
+        return paragraphs(groups, 0);
+      stack.push_back({"ul", next_list_ordinal++, 0});
+      stack.back().left = directive.left;
+    }
     if (stack.empty() || (stack.back().tag != "ul" && stack.back().tag != "ol" &&
                           stack.back().tag != "sl" && stack.back().tag != "notel"))
       return fail(error, "cz FLOW LI outside an open list");
@@ -2863,6 +2882,16 @@ struct CzBuilder {
                 return frame.tag == "parml";
               }))
             return true;
+          // An item-list closer of a list an earlier topic opened: the
+          // reader prints `</ul>` or `</ol>` and nothing else, and its rows
+          // follow the list (SC41-5304-02 2.3.14.2 `cz OFF EUL 0 0` after
+          // the continued items above).
+          if ((opened == "ul" || opened == "ol" || opened == "sl") &&
+              std::none_of(stack.begin(), stack.end(),
+                           [&opened](const Frame& frame) {
+                             return frame.tag == opened;
+                           }))
+            return paragraphs(groups, 0);
           if (stack.empty() || stack.back().tag != opened)
             return fail(error, name + " closes no open " + opened);
           // A term still waiting for its body at the list's end is a term

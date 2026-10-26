@@ -262,9 +262,42 @@ void a_parameter_list_closed_from_an_earlier_topic() {
           "the paragraph lost its words:\n" + topic_text(*extracted.topic));
 }
 
+// The start of a list an earlier topic opened: SC41-5304-02 `2.3.14.2`
+// writes two `cz FLOW LI 3 7` items `   <bullet>   All distribution ...`
+// after a table and closes them with `cz OFF EUL 0 0`; the reader has no
+// item list open and serves each item as `<dd>` and the row as stored,
+// bullet included.
+void items_of_a_list_an_earlier_topic_opened() {
+  RecordBuilder builder;
+  builder.heading("2.3.14.2", "SAVDLO");
+  builder.cz({"cz", "FLOW", "LI", "3", "7"});
+  builder.line({words("   "), TokenWords{0x2666}, words("   "), words("All"),
+                words("mail.")});
+  builder.empty();
+  builder.cz({"cz", "FLOW", "LI", "3", "7"});
+  builder.line({words("   "), TokenWords{0x2666}, words("   "), words("All"),
+                words("changed"), words("documents.")});
+  builder.empty();
+  builder.cz({"cz", "OFF", "EUL", "0", "0"});
+  builder.cz({"cz", "FLOW", "P", "3", "3"});
+  builder.row("   ", {"You", "can", "omit", "folders."});
+  auto extracted = run(builder.build(455), "SAVDLO");
+  require(extracted.topic.has_value(),
+          "items of a list an earlier topic opened were rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  const auto text = topic_text(*extracted.topic);
+  require(contains(text, "mail.") && contains(text, "documents.") &&
+              contains(text, "folders."),
+          "the continued items lost their words:\n" + text);
+  require(count_kind(*extracted.topic, ProseBlockKindIR::list_item) == 2,
+          "the bulleted rows are not two bulleted items:\n" + text);
+}
+
 }  // namespace
 
 int main() {
+  items_of_a_list_an_earlier_topic_opened();
   a_parameter_list_closed_from_an_earlier_topic();
   a_parameter_list_open_at_the_end();
   nested_lists_open_at_the_end();
