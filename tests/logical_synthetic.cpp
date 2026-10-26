@@ -300,7 +300,7 @@ void verify_control_ir_contract() {
           {{{2, 'c', '.', 's', 'p', ' ', '4', 'q', ' ', 'p', ' ', 'c'}}});
   const auto malformed_directive =
       geist::detail::assemble_logical_record_with_sources(
-          {{{2, 'c', 'z', ' ', 'B', 'R', 'E', 'A', 'K', ' ', '4'}}});
+          {{{2, 'c', 'z', ' ', 'B', 'R', 'E', 'A', 'K', ' ', 'X'}}});
   const auto malformed_spacing_segments =
       geist::detail::decode_control_segments(15, malformed_spacing);
   const auto malformed_directive_segments =

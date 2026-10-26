@@ -142,6 +142,37 @@ void cz_operands_stop_at_the_display_line() {
           "the following display line's prose left the directive's payload");
 }
 
+// `cz BREAK <count>` takes any decimal count: SC23-0450-01 C.2 record 350
+// line 5 is `cz BREAK 5` between the rails of a message box whose text
+// starts in column 5.  Read as malformed, `BREAK 5` became payload and the
+// line no longer drew nothing.
+void cz_break_count_is_an_operand() {
+  for (const char count : {'3', '5'}) {
+    DecodedLogicalRecordSource record;
+    record.logical_record = 9;
+    append(record, 6, 1, {3, 'z', 'e', 'r', 'o'});
+    append(record, 0x40, 2, {'c', 'z'});
+    append(record, 0x41, 2, {'B', 'R', 'E', 'A', 'K'});
+    append(record, 0x42, 2, {static_cast<std::uint16_t>(count)});
+    append(record, 4, 1, {3, 't', 'h', 'e', 'n'});
+    append(record, 0x50, 2, {'A', 'l', 'p', 'h', 'a'});
+    append(record, 0x51, 2, {'b', 'e', 't', 'a'});
+    refresh(record);
+    const geist::detail::ControlSegmentIR *directive = nullptr;
+    for (const auto &segment : record.control_segments)
+      if (segment.kind == geist::detail::BookControlKind::layout_directive)
+        directive = &segment;
+    require(directive != nullptr, "no cz BREAK directive was decoded");
+    if (directive == nullptr) return;
+    require(!directive->malformed,
+            std::string("`cz BREAK ") + count + "` was read as malformed");
+    const auto operands = geist::detail::trim_ascii(
+        slice(record, directive->operand_range));
+    require(operands == std::string("BREAK ") + count,
+            "cz BREAK operand range is '" + operands + "'");
+  }
+}
+
 // The same record with its framing withheld: an unframed record decides
 // nothing, so the old whole-segment reading must stand rather than a guess.
 void an_unframed_record_decides_nothing() {
@@ -1004,6 +1035,7 @@ int main() {
   capital_script_control_lines_draw_nothing();
   an_opcode_stops_at_the_display_line();
   cz_operands_stop_at_the_display_line();
+  cz_break_count_is_an_operand();
   an_unframed_record_decides_nothing();
   a_length_byte_is_never_display_text();
   a_length_byte_cannot_select_the_following_code();

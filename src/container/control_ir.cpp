@@ -953,8 +953,13 @@ decode_control_segments(std::uint32_t logical_record,
                                  return std::isdigit(ch) != 0;
                                });
           };
-          // `BREAK` stays pinned to its single corpus value; the region
-          // modes take a tag and an optional `<left> <indent>` pair.  `FLOW`
+          // `BREAK` takes one decimal count: the corpus writes 3 after a
+          // heading and the row's left margin elsewhere (SC23-0450-01 C.2
+          // record 350 line 5 is `cz BREAK 5` between the rails of a box
+          // whose text starts in column 5).  Read as malformed, its mode
+          // and count were payload, so a box with the line inside it
+          // planned no region.  The region modes take a tag and an
+          // optional `<left> <indent>` pair.  `FLOW`
           // is admitted beside `OFF` because the prose model reads both
           // (prose_topic_cz.cpp, "cz mode is not FLOW, OFF or BREAK") and
           // only this grammar disagreed, which is what left every `cz FLOW`
@@ -963,7 +968,7 @@ decode_control_segments(std::uint32_t logical_record,
           const auto region_mode = mode == "off" || mode == "flow";
           segment.malformed =
               !((operands.size() == 2 && operands[0] == "break" &&
-                 operands[1] == "3") ||
+                 decimal_operand(operands[1])) ||
                 (operands.size() == 2 && region_mode &&
                  alphanumeric_tag(operands[1])) ||
                 (operands.size() == 4 && region_mode &&
