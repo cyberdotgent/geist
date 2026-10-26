@@ -425,5 +425,17 @@ int main() {
     lines.insert(lines.begin() + 6, payload);
     expect_outline(label, lines, "3.146", "SI (Macro)", expected);
   }
+  // The envelope `SRMSG` row names its message by the rest of the row, too:
+  // dknm3a02 3.1906 record 2192 stores `SRMSG SRTM 01` between `csummary`
+  // and `chdlevel`, and the splitter cut it before `SRTM`.  The reader
+  // forms an `SR` row's anchor from the row text after `SR`, verbatim.
+  {
+    auto lines = topic("3.1906", ":MSGNO",
+                       {words("ST"), words("  "), words("SRTM"), words("01")});
+    lines.insert(lines.begin() + 6,
+                 Line{words("SRMSG"), words("SRTM"), words("01")});
+    expect_outline("SRMSG SRTM 01", lines, "3.1906", "SRTM 01",
+                   "h6:3.1906 SRTM 01|a:MSG SRTM 01|p");
+  }
   return 0;
 }

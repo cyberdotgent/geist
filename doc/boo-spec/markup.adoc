@@ -6625,7 +6625,13 @@ and so opens no control.  Hosted (DT `19961023165238`) serves
 `<a name="LEN SI (Macro)">` before the heading `3.146   SI (Macro)` and no
 text above it.  `SC31-6210-01` `2.13.5` (`SRLEN SRCLO`, served
 `<a name="LEN SRCLO">`) and `SC31-7066-00` `2.1.258` (`SRLEN SRATIO (NPDA)`,
-`<a name="LEN SRATIO (NPDA)">`) are the same.
+`<a name="LEN SRATIO (NPDA)">`) are the same.  An `SRMSG` row in that
+position is read the same way: the reader forms the anchor of every row that
+opens with `SR` from the row text after `SR`.  `dknm3a02` topic `3.1906`
+record 2192 line 6 is `SRMSG SRTM 01` (the message id `SRTM 01` begins with
+`SR` too), so the message anchor is `MSG SRTM 01`; `b1bm1abc`, `b1bm1ab5`
+and `dknm3a13` store the same rows.  These four books are not in the hosted
+catalogue, so this case rests on the reader's anchor rule alone.
 
 A `SR<id>` anchor in the *body* behaves differently: its id is the opcode
 without `SR` and its payload is the first display line of the text it names,

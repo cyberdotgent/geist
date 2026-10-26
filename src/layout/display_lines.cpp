@@ -658,7 +658,10 @@ void bound_menu_items_to_display_lines(DecodedLogicalRecordSource& record) {
 // way: the metadata-envelope `SRLEN <name>` names its anchor by that line.
 // SC24-5780-01 3.146 record 1261 line 6 is `SRLEN SI (Macro)`, which the
 // splitter cut before `SI`; hosted (DT 19961023165238) serves
-// `<a name="LEN SI (Macro)">` and nothing of it as text.
+// `<a name="LEN SI (Macro)">` and nothing of it as text.  An `SRMSG` row is
+// read the same way: the reader forms every `SR` row's anchor from the row
+// text after `SR`, verbatim, and dknm3a02 3.1906 record 2192 line 6 is
+// `SRMSG SRTM 01`, cut before `SRTM`.
 void rejoin_selected_line_display_text(DecodedLogicalRecordSource& record,
                                        bool carried_selection) {
   std::vector<ControlSegmentIR> joined;
@@ -668,6 +671,7 @@ void rejoin_selected_line_display_text(DecodedLogicalRecordSource& record,
     auto segment = record.control_segments[index];
     const auto selected =
         segment.kind == BookControlKind::select ||
+        segment.kind == BookControlKind::message_start ||
         (segment.kind == BookControlKind::structural &&
          segment.opcode.size() > 2 &&
          ascii_lower(segment.opcode).rfind("sr", 0) == 0) ||
@@ -688,6 +692,14 @@ void rejoin_selected_line_display_text(DecodedLogicalRecordSource& record,
       segment.complete.end = next.complete.end;
       ++index;
       grown = true;
+    }
+    if (grown && segment.kind == BookControlKind::message_start &&
+        segment.operand_range.begin == segment.operand_range.end) {
+      // The message identity is what the splitter cut off: the row's words
+      // become the control's operand.
+      segment.operand_range.end = segment.complete.end;
+      segment.payload_range = {segment.complete.end, segment.complete.end};
+      segment.malformed = false;
     }
     if (grown) {
       segment.payload_range.end = segment.complete.end;
