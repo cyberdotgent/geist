@@ -6868,8 +6868,8 @@ wherever it stands.  `SC31-8212-00` topic `2.3.3`, logical record 855 line 21
 at `0x57C0A` is `05 3F 76 78 A4 A4` (`cz FLOW H3 3 3`), and the next line,
 `03 ...` at `0x57C10`, is `cz BREAK 3` and then `cz FLOW P 3 3`; hosted DT
 `19950906051034` prints only the empty rows between the repeated `Purpose`
-heading and the paragraph.  A heading's words are the rows after its
-directive, and this one has none.  That book has 58 topics with an empty
+heading and the paragraph.  The rows after a heading directive are what it
+introduces, and this one has none.  That book has 58 topics with an empty
 heading directive in mid-topic.  An anchor whose following rows are all empty (here `SRHDRHWEOP6`
 before the repeated heading and three empty rows) precedes the first block
 after those rows.
@@ -7259,12 +7259,30 @@ parameter list the part stands after the entry before it, outside it:
 owning a row; hosted (DT `19970730115116`) serves nothing visible between
 the last description and the `Examples` heading.
 
-*A heading level the dialect does not use.*  `CZ FLOW H` draws nothing of
-its own, so a `cz FLOW H7` line only closes the `<pre>` and its rows flow:
+*A heading directive is not a heading.*  `CZ FLOW H` draws nothing of its
+own, at any level: a `cz FLOW H<n>` line only closes the `<pre>` and the
+rows after it flow like any other rows, each styled by its own `CFONT`.
 `SC24-5760-00.boo` `4.9.1.1`, logical record 2207, stores
 `06 46 85 C2 28 A6 A8` at `0xCAA3D` (`cz FLOW H7 3 5`) and the row
 `     Example:  It is recommended that a prtid name should not:`, which hosted
-serves as flowing text after `</pre>`.
+serves as flowing text after `</pre>`.  Levels 2 to 6 behave the same.
+`SC31-8778-01.boo` `3.1.3.2`, logical record 2153: the line at `0xC5CE4`
+(length byte `06`) is `cz FLOW H5 3 3` (`48 6D B2 FB 8F 8F`), the next is
+`cfont 3 7 L 11 10 L 22 9 L`, and the next rows are
+`   NCPPATH Definition Statement:  Code the NCPPATH definition statement to`
+and four more rows of the same paragraph; at `0xC5D55` a second
+`cz FLOW H5 3 3` introduces `   PATH Definition Statement:  Code a PATH
+definition statement to define` / `   routes.`.  Hosted (DT
+`20010606144047`) serves
+`   <I>NCPPATH</I> <I>Definition</I> <I>Statement</I>:  Code the NCPPATH ...`
+as one flowing paragraph, then `<p>` and the `PATH` paragraph; the only
+heading element of the page is the topic's `<H4>`.  Topic `3.1.3.3` serves
+the label row `NCPPATH:` of a `cz FLOW H5` as `   <I>NCPPATH</I>:` after
+`</pre>`.  One topic carrying a `cz FLOW H<n>` with rows in each of 25
+library books (`SC24-5780-01` `2.1` `<B>Purpose</B>`, `SC41-4612-00`
+`1.19`, `SC31-8513-00` `1.1.2.3.2`, `SC33-1653-06` `PREFACE`,
+`SC09-2417-00` `2.2`, ...) shows the same: no heading element for the
+directive, its label row printed with its font.
 
 *An item with no row.*  `CZ FLOW LI` prints `<li>` whether or not rows
 follow, so a row-less item is an empty item even at the end of a list.
@@ -7433,7 +7451,7 @@ title is the whole `ST` display line, never a leading body row.
 |`FLOW NT` / `FLOW NOTE` |label run (`Note:`) then the note body |`SC09-2417-00` `4.5.2.2`
 |`OFF XMP` … `OFF EXMP` |`<pre width="80">` with one `<samp>` per word |`packet` `3.2`, `SC09-2417-00` `4.5.2.2`
 |`SRFTN<id>` … `FLOW FN` … `SREFTN` |`<a name="<id>"><h5>` footnote block, targeted by `CSELECT <col> <len> <id>` |`packet` `1.1` `SRFTNFTNUNIQ1` / `cselect 16 4 FTNFTNUNIQ1`, `3.2` `SRFTNFTNUNIQ21`..`24`
-|`FLOW H2`..`H6` with rows |in-topic heading of that level |`SC09-2417-00` `2.2`; `DFHP7A00` `2.3.4.5.2` uses `FLOW H6` for the command-family subheadings
+|`FLOW H<n>` with rows |no heading element: `</pre>` if one is open, then the rows flow as any other, styled by their own `CFONT` |see "A heading directive is not a heading" below
 |===
 
 A parameter list can lack its `FLOW PARML` opener.  The `PT` terms, the

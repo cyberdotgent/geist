@@ -220,11 +220,6 @@ bool list_tag(const std::string& tag) {
          tag == "dl" || tag == "parml";
 }
 
-bool heading_tag(const std::string& tag) {
-  return tag.size() == 2 && tag.front() == 'h' && tag.back() >= '2' &&
-         tag.back() <= '6';
-}
-
 bool has_text(const Line& line) { return line.cells.size() > line.text_begin; }
 
 // Groups [begin, end) of a directive's lines: a bare spacing token or an
@@ -3008,33 +3003,24 @@ struct CzBuilder {
         if (!paragraphs(groups, 1)) return false;
         return true;
       }
-      if (heading_tag(tag)) {
-        if (groups.empty()) {
-          // A heading directive with no rows of its own draws nothing,
-          // wherever it stands.  The reader closes its open `<pre>` at every
-          // `cz FLOW` line and otherwise ignores `cz FLOW H<n>`; a heading's
-          // words are the rows after it, and here there are none.  A
-          // trailing one announces the next topic's level (packet 1.1 record
-          // 17; packet 4.5.1 record 225 ends `cz FLOW H5 3 3` and then its
-          // footnote, hosted DT 20260614112503).  SC31-8212-00 2.3.3 record
-          // 855 line 21 is `cz FLOW H3 3 3` followed at once by `cz BREAK 3`
-          // and `cz FLOW P 3 3`, in the middle of the topic; hosted (DT
-          // 19950906051034) prints only the empty rows around it.
-          return true;
-        }
-        ProseBlockIR block;
-        block.kind = ProseBlockKindIR::heading;
-        block.heading_level = static_cast<std::size_t>(tag.back() - '0');
-        if (!emit(std::move(block), groups.front().first, groups.front().second))
-          return false;
-        if (!paragraphs(groups, 1)) return false;
-        return true;
-      }
-      // A heading tag past the dialect's levels (`H7`) is only the
-      // reader's `CZ FLOW H` prefix, which draws nothing of its own: the rows
-      // flow.  SC24-5760-00 `4.9.1.1` (DT 19950909201627) stores
-      // `cz FLOW H7 3 5` and `     Example:  It is recommended that ...`,
-      // served as a flowing row after `</pre>`.
+      // `cz FLOW H<n>` is only the reader's `CZ FLOW` prefix: it closes the
+      // open `<pre>`, and the reader ignores the `CZ FLOW H` line itself, so
+      // the rows after it flow like any other and nothing is a heading.  The
+      // label words carry the style of their own `cfont`, and a run-in label
+      // runs on into its paragraph.  Hosted BookServer serves no heading
+      // element for such a directive in any of 25 sampled books (both
+      // dialects): SC31-8778-01 3.1.3.3 (DT 20010606144047) prints
+      // `cz FLOW H5 3 3` / `cfont 3 7 L` / `NCPPATH:` as `   <I>NCPPATH</I>:`
+      // after `</pre>`, and 3.1.3.2 prints the run-in `NCPPATH Definition
+      // Statement:  Code the NCPPATH ...` as one flowing paragraph;
+      // SC24-5780-01 2.1 `<B>Purpose</B>`, SC41-4612-00 1.19 `<I>Repeatable</I>
+      // <I>Read</I> <I>(RR)</I>:  Level RR ensures:`.  A heading directive
+      // with no rows of its own draws nothing, wherever it stands (packet
+      // 4.5.1 record 225 ends `cz FLOW H5 3 3`; SC31-8212-00 2.3.3 record 855
+      // line 21 is `cz FLOW H3 3 3` followed at once by `cz BREAK 3`).  A tag
+      // past the dialect's levels (`H7`) is the same prefix: SC24-5760-00
+      // `4.9.1.1` (DT 19950909201627) serves `cz FLOW H7 3 5` and
+      // `     Example:  It is recommended that ...` as a flowing row.
       if (tag.front() == 'h' && tag.size() == 2 &&
           std::isdigit(static_cast<unsigned char>(tag.back())) != 0)
         return paragraphs(groups, 0);

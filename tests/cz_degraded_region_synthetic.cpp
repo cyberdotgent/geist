@@ -253,10 +253,16 @@ std::optional<geist::detail::DocumentIR> lower_document(
   return document;
 }
 
-// H6 is a real CZ flow heading, not body prose.  DFHP7A00 2.3.4.5.2 stores
-// `cz FLOW H6 3 3` before each command-family subheading; the source heading
-// level, rather than its displayed words, is the structural evidence.
-void an_h6_directive_builds_a_level_six_heading() {
+// `cz FLOW H<n>` is only the reader's `CZ FLOW` prefix: it closes the open
+// `<pre>`, the reader ignores the line itself, and the rows after it flow.
+// Hosted BookServer serves no heading element for it in any of 25 sampled
+// books: SC31-8778-01 3.1.3.3 (DT 20010606144047) serves `cz FLOW H5 3 3`,
+// `cfont 3 7 L`, `NCPPATH:` as `   <I>NCPPATH</I>:` after `</pre>`.  A run-in
+// label keeps its paragraph: 3.1.3.2 stores `cz FLOW H5 3 3` and the rows
+// `NCPPATH Definition Statement:  Code the NCPPATH definition statement
+// to` / `identify the NCP ...`, served as one flowing paragraph, where a
+// heading made of the first row group left the topic with no body at all.
+void a_heading_directive_flows(bool run_in) {
   RecordBuilder builder;
   builder.line({words("sh1.1")});
   builder.line({words("ctopicn"), words("7")});
@@ -269,7 +275,16 @@ void an_h6_directive_builds_a_level_six_heading() {
   builder.line({words("ST"), words("Widget"), words("Notes")});
   builder.line({words("cz"), words("FLOW"), words("H6"), words("3"),
                 words("3")});
-  builder.line({words("   "), words("Connection"), words("properties")});
+  if (run_in) {
+    builder.line({words("   "), words("Connection"), words("properties:"),
+                  words("  "), words("Code"), words("the"), words("statement")});
+    builder.line({words("   "), words("to"), words("identify"), words("it.")});
+  } else {
+    builder.line({words("   "), words("Connection"), words("properties")});
+  }
+  const std::string expected =
+      run_in ? "Connection properties: Code the statement to identify it\\."
+             : "Connection properties";
 
   Extracted extracted;
   extracted.sources.push_back(builder.build(22));
@@ -285,14 +300,13 @@ void an_h6_directive_builds_a_level_six_heading() {
   require(extracted.prose.has_value(),
           "cz FLOW H6 was declined: " + extracted.error);
   if (!extracted.prose) return;
-  const auto heading = std::find_if(
-      extracted.prose->blocks.begin(), extracted.prose->blocks.end(),
-      [](const auto &block) {
-        return block.kind == geist::detail::ProseBlockKindIR::heading;
-      });
-  require(heading != extracted.prose->blocks.end() &&
-              heading->heading_level == 6,
-          "cz FLOW H6 did not retain heading level 6");
+  require(std::none_of(extracted.prose->blocks.begin(),
+                       extracted.prose->blocks.end(),
+                       [](const auto &block) {
+                         return block.kind ==
+                                geist::detail::ProseBlockKindIR::heading;
+                       }),
+          "cz FLOW H6 made a heading");
 
   std::string error;
   const auto document = geist::detail::lower_prose_topic_to_document_ir(
@@ -300,8 +314,9 @@ void an_h6_directive_builds_a_level_six_heading() {
   require(document.has_value(), "lowering the H6 fixture failed: " + error);
   if (!document) return;
   const auto markdown = geist::detail::render_document_markdown(*document);
-  require(contains(markdown, "###### Connection properties"),
-          "the H6 heading did not survive DocumentIR rendering: " + markdown);
+  require(contains(markdown, "\n\n" + expected) &&
+              !contains(markdown, "######"),
+          "the H6 rows did not flow as a paragraph: " + markdown);
 }
 
 // A definition body may have its own DD directive instead of sharing the DT
@@ -1785,7 +1800,8 @@ void an_unclosed_address_region_declines_the_topic() {
 } // namespace
 
 int main() {
-  an_h6_directive_builds_a_level_six_heading();
+  a_heading_directive_flows(false);
+  a_heading_directive_flows(true);
   a_separate_dd_completes_its_definition_term();
   syntax_followed_by_pt_builds_an_implicit_parameter_list();
   a_term_after_a_paragraph_opens_the_list_its_closer_ends();
