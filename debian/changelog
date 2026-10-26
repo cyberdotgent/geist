@@ -1,3 +1,25 @@
+geist (0.4.0) unstable; urgency=medium
+
+  * Add the native Win32 reader: one statically linked executable around the
+    system WebBrowser control, per-monitor DPI aware with themed common
+    controls, built with MSVC and MinGW-w64. It replaces the Qt reader in the
+    Windows release; the macOS reader DMG is attached to the release as well.
+  * Ship THIRD-PARTY-NOTICES with every binary distribution, and draw GDF
+    vector text with the Hershey Roman simplex stroke font.
+  * Type 99.7% of the topics of a fresh 500-book census with no word lost on
+    the typed route: framed and captioned pictures, revision marks (including
+    header-declared letter marks), CZ flow and list regions, footnotes,
+    parameter and definition lists, generated indexes, contents and figure
+    lists, drawn boxes and diagrams, glossaries and fixed-table selectors.
+  * Model LNK cross-book links to figure, table and spot anchors through the
+    resolve_cross_book hook, and keep pictures a book does not store as
+    unresolved images in place.
+  * Follow hosted BookServer for run-in CZ FLOW H headings, glossary terms,
+    message anchors and generated-list labels, and document the new format
+    findings in the BOO specification.
+
+ -- Yvan Janssens <yvanj@cyber.gent>  Mon, 26 Oct 2026 12:12:57 +0000
+
 geist (0.3.4) unstable; urgency=medium
 
   * Add the experimental universal native macOS reader, including multi-window
