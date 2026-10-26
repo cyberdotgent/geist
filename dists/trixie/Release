@@ -1,0 +1,40 @@
+Architectures: amd64
+Codename: trixie
+Components: stable unstable
+Date: Mon, 26 Oct 2026 14:13:05 +0000
+Description: IBM BookManager BOO tools
+Label: Geist
+Origin: Geist
+Suite: trixie
+MD5Sum:
+ d522d09aa8463e9b310a80b642715681             3362 Release
+ 30f80721dd735f26997f54202639994c            39662 stable/binary-amd64/Packages
+ 6ed6f41a38458d4e29b783fa19f7ad02             8206 stable/binary-amd64/Packages.gz
+ 286b0d13f6ed99c301eb9bfd2f260464               81 stable/binary-amd64/Release
+ 55c3fd5d76e91d4f0dc1e097d39549d6            30275 unstable/binary-amd64/Packages
+ 83c3fbde391e491eb3111e0f733b0d2f             6387 unstable/binary-amd64/Packages.gz
+ 671fa3f389d61d032a6e76576a328892               83 unstable/binary-amd64/Release
+SHA1:
+ 213469e998d6d1be7964c79f1e9f6d62b70731fb             3362 Release
+ 1facf7406fc965458c3f9e89d96be1871b51b9f5            39662 stable/binary-amd64/Packages
+ 0e791831660bf916d5ca38076771a9b15a0748b9             8206 stable/binary-amd64/Packages.gz
+ 89503581b4ff20491a8be712867c258571140c07               81 stable/binary-amd64/Release
+ 56697917c9d5a1ea0c6927240c60b4077cd650cd            30275 unstable/binary-amd64/Packages
+ 6a0c19cdd84ee8136aac179e9afde5c255ce26f6             6387 unstable/binary-amd64/Packages.gz
+ 054ca6340ddc01c8c34352b39cc65507f3dc3503               83 unstable/binary-amd64/Release
+SHA256:
+ ca7bc70041ae512fe3ca3e84c4b89084d04e8d872b59b67b1011d47c909a41a2             3362 Release
+ 0c2b78bdcd80a2aa50e691da1936fc65e81bad97ed8bca9e4be4e621a94372e8            39662 stable/binary-amd64/Packages
+ c98da2c33257918af5fc5d2f8d7a261f0a76e587fc259ef618facf4efd7f56cf             8206 stable/binary-amd64/Packages.gz
+ 45ddc6a0097b98e283da15b1bf7581f3572a654cd1918cbac6328f2da2445b29               81 stable/binary-amd64/Release
+ cb058701cb613d0b8d5801977fc4e35845b6f68550eec92fa6468223f8f61ff4            30275 unstable/binary-amd64/Packages
+ 040e1d90f48c6bf84b5d9a432d020e4f1fb61c0cab15d3c2f28452a3a9fac2d2             6387 unstable/binary-amd64/Packages.gz
+ 0ba57eeb37dc3302e29df0769a587afa1ba0623808ff10aa087bc2cac1a29bd3               83 unstable/binary-amd64/Release
+SHA512:
+ 7763ed3bef44fc1073a9519ba523dc505ef9c52805656f79c431e4171a35f597238de72df469652ebd1a2c10becfc0feddee4aed2b60c2de21d7036c98e38800             3362 Release
+ d41b0397c8e214e35b07f2c5e94862e0ad8bf5cf452c17308e230ce0841a63571f61a1696ac5da9badc7a18c84bd7036fd2177dcb009aaa02466bf7608437fc7            39662 stable/binary-amd64/Packages
+ b45e94eeca6f16efdff23320843014f24674256053551df6a6cb4b378ca8f2b38795b7706e75721ecdcdc6fa6271011518f2d19a4e667afb63353809a635f6a7             8206 stable/binary-amd64/Packages.gz
+ 375a0df70b36f599702770bc921e2d575e7e5ff8b164dfb773b6621ea79c852874f9faf739389238865e4f3f23e347820aee7daf81825bb575ae4e2fd2004b98               81 stable/binary-amd64/Release
+ 01d95e943d2657b750dd126fcdcec7c31a9d3f33c94550629b64e2836e88c4bdf79b1e504a98ef4e7b206fc9b9d3644d2344d8ebc7a97559bfe0c119b05e9172            30275 unstable/binary-amd64/Packages
+ 01e5b7af8473d0c6470db753c1ecf330e2a5949fdfb7940f2b26e1e03a1c0e2fdb04b8c544239a947d7a96513a06b340131c2f954f4837c8ce05cfaaf08bb8f2             6387 unstable/binary-amd64/Packages.gz
+ 71b5229dd95cd3a7aeb7f4aec6a7569faa10609bf42a47afe0bdc252862eafcb4f8c30f0c6ca09b19e48c05bcdd21321040a11565cbf718f8cd9b5e583b5639d               83 unstable/binary-amd64/Release
