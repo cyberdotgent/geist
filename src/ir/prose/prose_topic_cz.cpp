@@ -1208,12 +1208,14 @@ struct CzBuilder {
       // A note is such a part too: SC33-1362-01 1.2.2 (DT 19950831082352)
       // follows the term `MQCLOS    Close object.` with a row-less
       // `cz FLOW LP 11 11` and `cz FLOW NT 11 18`, served `<br>` and the
-      // note inside the `<dl>`.
+      // note inside the `<dl>`.  So is a second list part: 1.2.6 writes
+      // two `cz FLOW LP 11 11` in a row, the second with its row.
       const auto note_follows =
           next < build.directives.size() &&
           build.directives[next].mode == "flow" &&
           (build.directives[next].tag == "nt" ||
-           build.directives[next].tag == "note") &&
+           build.directives[next].tag == "note" ||
+           build.directives[next].tag == "lp") &&
           ranges[next].first != npos;
       if (!text_follows && !note_follows)
         return fail(error, "cz FLOW LP has no list-part text");

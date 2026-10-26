@@ -329,6 +329,19 @@ void a_rowless_list_part_before_a_note() {
   const auto text = topic_text(*extracted.topic);
   require(contains(text, "Close") && contains(text, "bad."),
           "a block lost its words:\n" + text);
+  // Two list parts in a row, the second with its row (SC33-1362-01 1.2.6).
+  RecordBuilder second;
+  second.heading("1.2.6", "MQINQ");
+  second.cz({"cz", "FLOW", "DL", "11", "11"});
+  second.cz({"cz", "FLOW", "DT", "11", "19"});
+  second.row("           ", {"RC2195", "  ", "Unexpected", "error."});
+  second.cz({"cz", "FLOW", "LP", "11", "11"});
+  second.cz({"cz", "FLOW", "LP", "11", "11"});
+  second.row("           ", {"For", "more", "information."});
+  second.cz({"cz", "OFF", "EDL", "8", "8"});
+  auto twice = run(second.build(91), "MQINQ");
+  require(twice.topic.has_value(),
+          "two cz FLOW LP in a row were rejected: " + twice.error);
 }
 
 }  // namespace
