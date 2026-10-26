@@ -8,12 +8,40 @@
 
 #include <algorithm>
 #include <cctype>
+#include <optional>
 #include <set>
 #include <tuple>
 #include <utility>
 
 namespace geist::detail {
 namespace {
+
+// The title a catalog entry projects with its heading's revision mark in
+// front: one non-alphanumeric glyph, one blank, then the title.  The topic
+// index of SH12-2230-00-de stores 4.2 as `¦ Mit Allgemein Zugänglichen
+// Kurznamen Arbeiten`, whose `ST` line is `ST¦ Mit allgemein zugänglichen
+// Kurznamen arbeiten` with the bar in the title's revision column; hosted
+// BookServer (SH12-2230-00-DE, DT 19940919125937) heads the topic
+// `<H2>¦ 4.2   Mit allgemein ...</H2>` and lists the compiled menu entry as
+// `4.2 Mit allgemein zugänglichen Kurznamen arbeiten`, without the mark.
+// Returns the title after the mark, or nothing when the title has none.
+std::optional<std::string> title_without_revision_mark(const std::string &title) {
+  if (title.empty()) return std::nullopt;
+  const auto lead = static_cast<unsigned char>(title.front());
+  std::size_t width = 1;
+  if (lead >= 0xF0) width = 4;
+  else if (lead >= 0xE0) width = 3;
+  else if (lead >= 0xC0) width = 2;
+  else if (lead >= 0x80) return std::nullopt;
+  else if (std::isalnum(lead) != 0 || std::isspace(lead) != 0 || lead < 0x21)
+    return std::nullopt;
+  if (title.size() < width + 2 || title[width] != ' ' || title[width + 1] == ' ')
+    return std::nullopt;
+  for (std::size_t at = 1; at < width; ++at)
+    if ((static_cast<unsigned char>(title[at]) & 0xC0) != 0x80)
+      return std::nullopt;
+  return title.substr(width + 1);
+}
 
 bool fail(std::string *error, std::string message) {
   if (error != nullptr)
@@ -601,6 +629,12 @@ std::optional<MenuTargetValidationIR> validate_source_menu_targets(
       agreed = begins_with(label, normalized_canonical) &&
                (ascii_equals_case_insensitive(label, toc_title) ||
                 begins_with(toc_title, label));
+    }
+    if (!agreed) {
+      // A label without the revision mark the catalog title carries in
+      // front (`title_without_revision_mark`).
+      const auto bare = title_without_revision_mark(normalized_canonical);
+      agreed = bare && ascii_equals_case_insensitive(label, *bare);
     }
     std::optional<std::size_t> terminal_marker_token;
     if (!agreed) {

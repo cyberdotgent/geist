@@ -137,6 +137,31 @@ void a_label_the_toc_does_not_corroborate_fails_closed() {
           "admitted; it must fail closed");
 }
 
+// SH12-2230-00-de 4.0: the catalog title carries the heading's revision mark
+// in front (`¦ Mit Allgemein Zugänglichen Kurznamen Arbeiten`), the compiled
+// menu label does not; hosted (DT 19940919125937) lists the entry as
+// `4.2 Mit allgemein zugänglichen Kurznamen arbeiten`.
+void a_label_without_the_titles_revision_mark_agrees() {
+  const std::string title = "\xC2\xA6 Mit Allgemein Zug\xC3\xA4nglichen "
+                            "Kurznamen Arbeiten";
+  const std::string label =
+      "Mit allgemein zug\xC3\xA4nglichen Kurznamen arbeiten";
+  std::string error;
+  require(validates(menu("4.2", label), catalog("4.2", title, title), &error),
+          "a menu label without the catalog title's revision mark was "
+          "rejected: " + error);
+  // The mark must be followed by the title: a different title stays
+  // rejected, and so does a leading word that is not a mark.
+  require(!validates(menu("4.2", "Mit Verteilerlisten arbeiten"),
+                     catalog("4.2", title, title), &error),
+          "a different label was admitted behind a revision mark");
+  require(!validates(menu("4.2", "Mit allgemein arbeiten"),
+                     catalog("4.2", "X Mit allgemein arbeiten",
+                             "X Mit allgemein arbeiten"),
+                     &error),
+          "a leading letter was read as a revision mark");
+}
+
 } // namespace
 
 int main() {
@@ -144,5 +169,6 @@ int main() {
   a_toc_title_with_a_trailing_marker_still_agrees();
   a_relabelled_title_still_fails_closed();
   a_label_the_toc_does_not_corroborate_fails_closed();
+  a_label_without_the_titles_revision_mark_agrees();
   return 0;
 }
