@@ -344,9 +344,51 @@ void a_rowless_list_part_before_a_note() {
           "two cz FLOW LP in a row were rejected: " + twice.error);
 }
 
+// A term the compiler wrapped with `cz BREAK` before its `DD`: SX26-3751-07
+// `1.13` writes `cz FLOW DT 3 5`, `   AUTODBL (NONE | DBL | DBL4 | DBL8 |`,
+// `cz BREAK 3`, `   DBLPAD | DBLPAD4 | DBLPAD8 | value)` and then
+// `cz FLOW DD 5 5` with the description; hosted (DT 19960422095654) serves
+// `<dt>   AUTODBL (NONE ...` `<br>` `   DBLPAD ... value)` `<dd>` and the
+// description.  The break's row is the term's second line.
+void a_term_wrapped_by_a_break_before_its_dd() {
+  RecordBuilder builder;
+  builder.heading("1.13", "Options");
+  builder.cz({"cz", "FLOW", "DL", "3", "3"});
+  builder.cz({"cz", "FLOW", "DT", "3", "5"});
+  builder.row("   ", {"AUTODBL", "(NONE", "|", "DBL", "|"});
+  builder.cz({"cz", "BREAK", "3"});
+  builder.row("   ", {"DBLPAD", "|", "value)"});
+  builder.cz({"cz", "FLOW", "DD", "5", "5"});
+  builder.row("     ", {"Provides", "an", "automatic", "means."});
+  builder.cz({"cz", "FLOW", "DT", "3", "5"});
+  builder.row("   ", {"CHARLEN", "(number", "|", "500)"});
+  builder.cz({"cz", "FLOW", "DD", "5", "5"});
+  builder.row("     ", {"Specifies", "the", "maximum."});
+  builder.cz({"cz", "OFF", "EDL", "0", "0"});
+  auto extracted = run(builder.build(28), "Options");
+  require(extracted.topic.has_value(),
+          "a term wrapped by cz BREAK before its DD was rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  require(count_kind(*extracted.topic, ProseBlockKindIR::definition_entry) ==
+              2,
+          "expected two definition entries:\n" + topic_text(*extracted.topic));
+  for (const auto &block : extracted.topic->blocks) {
+    if (block.kind != ProseBlockKindIR::definition_entry) continue;
+    std::string term;
+    for (std::size_t at = 0; at < block.term_inline_count; ++at)
+      term += block.inlines[at].text;
+    if (term.find("AUTODBL") != std::string::npos)
+      require(term.find("DBLPAD") != std::string::npos &&
+                  term.find("Provides") == std::string::npos,
+              "the break's row is not the term's: '" + term + "'");
+  }
+}
+
 }  // namespace
 
 int main() {
+  a_term_wrapped_by_a_break_before_its_dd();
   a_rowless_list_part_before_a_note();
   a_parameter_term_split_by_an_anchor();
   a_term_whose_indent_is_its_left_column();

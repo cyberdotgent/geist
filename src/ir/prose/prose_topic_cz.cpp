@@ -1151,6 +1151,44 @@ struct CzBuilder {
     return true;
   }
 
+  // `cz FLOW DT` at `index`, then a `cz BREAK` that owns rows, then
+  // `cz FLOW DD`: the break wraps the term.  SX26-3751-07 1.13 (DT
+  // 19960422095654) writes `cz FLOW DT 3 5`, `   AUTODBL (NONE | DBL |
+  // DBL4 | DBL8 |`, `cz BREAK 3`, `   DBLPAD | DBLPAD4 | DBLPAD8 | value)`
+  // and `cz FLOW DD 5 5`; hosted serves both rows in the `<dt>` with `<br>`
+  // between them, then `<dd>` and the description.
+  //
+  // Only a term row that reaches past its `indent` qualifies: there the
+  // column reading would cut the row into a term and an inline
+  // definition, and the `DD` would find no term to define.
+  // Several breaks may wrap one term (1.13 `ICA` writes four).
+  bool break_wraps_term(std::size_t index) const {
+    if (!(index < build.directives.size() &&
+          build.directives[index].mode == "flow" &&
+          build.directives[index].tag == "dt" &&
+          break_with_rows_follows(index) && ranges[index].first != npos))
+      return false;
+    auto next = index + 1;
+    while (next < build.directives.size() &&
+           build.directives[next].mode == "break" && ranges[next].first != npos)
+      ++next;
+    if (next >= build.directives.size() ||
+        build.directives[next].mode != "flow" ||
+        build.directives[next].tag != "dd")
+      return false;
+    auto first = ranges[index].first;
+    while (first < ranges[index].second && !has_text(lines[first])) ++first;
+    if (first >= ranges[index].second) return false;
+    const auto& row = lines[first];
+    auto split = std::max(build.directives[index].indent, row.text_begin);
+    while (split < row.cells.size() && split > 0 && !row.cells[split].space &&
+           !row.cells[split - 1].space)
+      ++split;
+    for (auto cell = split; cell < row.cells.size(); ++cell)
+      if (!row.cells[cell].space) return true;
+    return false;
+  }
+
   // The directive after `index` is a `cz BREAK` that owns a row with text.
   bool break_with_rows_follows(std::size_t index) const {
     const auto next = index + 1;
@@ -2183,6 +2221,30 @@ struct CzBuilder {
           }
           return parameter_body(groups);
         }
+        // The second line of a term that waits for its DD (see
+        // `break_wraps_term`): the reader prints `<br>` and the row inside
+        // the `<dt>`.
+        auto term_directive = index;
+        while (term_directive > 0 &&
+               directives[term_directive - 1].mode == "break" &&
+               ranges[term_directive - 1].first != npos)
+          --term_directive;
+        if (term_directive > 0 && break_wraps_term(term_directive - 1) &&
+            !stack.empty() &&
+            stack.back().tag == "dl" &&
+            stack.back().pending_definition != npos && groups.size() == 1) {
+          const auto term = stack.back().pending_definition;
+          auto& block = topic.blocks[term];
+          ProseInlineIR boundary;
+          boundary.kind = ProseInlineKindIR::line_break;
+          block.inlines.push_back(std::move(boundary));
+          if (!build_block(records, lines, groups.front().first,
+                           groups.front().second, block, ledger, term, error))
+            return false;
+          block.term_inline_count = block.inlines.size();
+          merged_lines[groups.front().first] = term;
+          return true;
+        }
         return paragraphs(groups, 0);
       }
       if (!handle(index, directive, range, groups, name, tag)) {
@@ -3079,9 +3141,10 @@ struct CzBuilder {
           }
         }
         const auto separate_body =
-            index + 1 < build.directives.size() &&
-            build.directives[index + 1].mode == "flow" &&
-            build.directives[index + 1].tag == "dd";
+            (index + 1 < build.directives.size() &&
+             build.directives[index + 1].mode == "flow" &&
+             build.directives[index + 1].tag == "dd") ||
+            break_wraps_term(index);
         if (!definition(directive, groups, separate_body)) return false;
         return true;
       }

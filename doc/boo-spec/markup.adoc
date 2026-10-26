@@ -7679,6 +7679,18 @@ pass:[<literal>&lt;dt&gt;&lt;dt&gt;   **       &lt;dd&gt;Exponentiation</literal
 A `DT` with no row followed by any other directive, or by a paragraph at
 another column, has no observed meaning.
 
+*A term wrapped by `cz BREAK` before its `DD`.*  `CZ BREAK` prints `<br>`
+wherever it stands, so a `DT` row, one or more breaks with rows and then a
+`cz FLOW DD` make one term of several lines.  `SX26-3751-07` `1.13`, logical
+record 71: line 19 is the term row `   AUTODBL (NONE | DBL | DBL4 | DBL8 |`
+after `cz FLOW DT 3 5`; `03 4A 83 CD` at `0xBBAD` (`cz BREAK 3`), the row
+`   DBLPAD | DBLPAD4 | DBLPAD8 | value)`, and `05 4A 90 88 D7 D7` at
+`0xBBD9` (`cz FLOW DD 5 5`) with the description.  Hosted
+(DT `19960422095654`) serves both rows in the `<dt>` with `<br>` between
+them, then `<dd>` and the description; the term `ICA` of the same topic is
+wrapped by four breaks.  The term row reaches past the `indent` here; read
+by its columns it would end at `AUTODBL`.
+
 *A term without definition text, followed by a list at its `indent`.*  A
 `DT` whose row holds only the term can hand its definition to the list that
 opens next, when that list's `left` operand equals the term's `indent`.
