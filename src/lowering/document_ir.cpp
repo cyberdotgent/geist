@@ -124,7 +124,7 @@ bool valid_cross_reference_target(const CrossReferenceTargetIR& target) {
            target.heading_anchor.empty() && target.spot_anchor == tuple[1] &&
            target.url.empty();
   case CrossReferenceTargetKindIR::book_anchor:
-    return (kind == "fig" || kind == "tbl") && !tuple[1].empty() &&
+    return !cross_book_anchor(tuple).empty() && !tuple[1].empty() &&
            !tuple[3].empty() && target.document_number == tuple[3] &&
            target.document_level == tuple[4] &&
            target.heading_anchor.empty() &&

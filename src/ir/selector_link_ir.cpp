@@ -34,8 +34,12 @@ bool url_like(const std::string& value) {
 std::string cross_book_anchor(const std::vector<std::string>& alternatives) {
   if (alternatives.size() < 2) return {};
   const auto kind = ascii_lower(alternatives[0]);
-  if (kind != "fig" && kind != "tbl") return {};
-  return (kind == "fig" ? "FIG" : "TBL") + alternatives[1];
+  if (kind == "fig") return "FIG" + alternatives[1];
+  if (kind == "tbl") return "TBL" + alternatives[1];
+  // `<FIGURE>` is accepted as a figure kind and addressed by its own spelling
+  // (see parse_selector_link).
+  if (kind == "figure") return "FIGURE" + alternatives[1];
+  return {};
 }
 
 std::string selector_link_image(const std::vector<std::string>& alternatives) {
@@ -95,13 +99,23 @@ std::optional<SelectorLinkIR> parse_selector_link(
   }
   // A figure or table of the other book: BookServer addresses it as the
   // kind followed by the anchor, `FIG<anchor>` or `TBL<anchor>`.
-  if (kind == "fig" || kind == "tbl") {
+  //
+  // The reader admits a kind by its first three letters only (`HDR`, `FIG`,
+  // `TBL`, ...; `BOOK` by four) and then writes the kind exactly as the
+  // tuple spells it in front of the anchor.  `<FIGURE>` therefore passes as
+  // a figure link and is addressed `FIGURE<anchor>`: dfhqas13 1.2.3.5
+  // record 87 stores `cselect 56 12 LNK <FIGURE> <DFHA205> <> <SC33-1682>
+  // <00> <DFHA200>`, for which the reader's link builder writes
+  // `DOCNUM/SC33-1682/FIGUREDFHA205` (no hosted page carries the kind: the
+  // four books that use it are not in the hosted catalog).  Only the
+  // observed spelling is admitted; any other unlisted kind still fails
+  // closed.
+  if (kind == "fig" || kind == "tbl" || kind == "figure") {
     if (fourth.empty() || anchor.empty())
       return reject("LNK <" + link.alternatives[0] +
                     "> selector has no document number or anchor");
     link.kind = SelectorLinkKindIR::book_anchor;
-    link.destination =
-        "DOCNUM/" + fourth + "/" + (kind == "fig" ? "FIG" : "TBL") + anchor;
+    link.destination = "DOCNUM/" + fourth + "/" + cross_book_anchor(link.alternatives);
     return link;
   }
   if (kind == "other" || kind == "internet" || kind == "image") {

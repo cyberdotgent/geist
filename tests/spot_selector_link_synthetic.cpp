@@ -299,12 +299,25 @@ void figure_and_table_tuples_name_an_anchor_of_another_book() {
   require(!geist::detail::parse_selector_link(
               {"<TBL>", "<X>", "<>", "<>", "<ANY>", "<LR>"}, &error),
           "a <TBL> tuple naming no book was admitted");
-  // A kind the reader does not list stays unmodelled.
+  // The reader admits a kind by its first three letters and addresses it as
+  // spelled: `<FIGURE>` is a figure link to `FIGURE<anchor>` (dfhqas13
+  // 1.2.3.5 record 87).
+  const auto figure_word = geist::detail::parse_selector_link(
+      {"<FIGURE>", "<DFHS101>", "<>", "<GC33-1693>", "<00>", "<DFHS100>"},
+      &error);
+  require(figure_word.has_value() &&
+              figure_word->kind ==
+                  geist::detail::SelectorLinkKindIR::book_anchor &&
+              figure_word->destination == "DOCNUM/GC33-1693/FIGUREDFHS101" &&
+              geist::detail::cross_book_anchor(figure_word->alternatives) ==
+                  "FIGUREDFHS101",
+          "the <FIGURE> tuple is not a link to FIGURE<anchor>: " + error);
+  // Any other kind the reader does not list stays unmodelled.
   require(!geist::detail::parse_selector_link(
-              {"<FIGURE>", "<DFHS101>", "<>", "<GC33-1693>", "<00>",
+              {"<FIGUREX>", "<DFHS101>", "<>", "<GC33-1693>", "<00>",
                "<DFHS100>"},
               &error),
-          "the unlisted <FIGURE> kind was admitted");
+          "an unlisted kind was admitted");
 }
 
 void a_figure_selector_asks_the_consumer_for_the_other_book() {
@@ -350,11 +363,48 @@ void a_figure_selector_asks_the_consumer_for_the_other_book() {
           "the Markdown figure link leaked its tuple: " + markdown);
 }
 
+// The `<FIGURE>` link lowers and verifies like `<FIG>`, and the consumer is
+// asked for the anchor as the reader spells it (dfhqas13 1.2.3.5 record 87).
+void a_figure_word_selector_lowers_to_its_spelled_anchor() {
+  const auto extracted =
+      extract({"<FIGURE>", "<DFHA205>", "<>", "<SC33-1682>", "<00>",
+               "<DFHA200>"});
+  require(extracted.prose.has_value(),
+          "the <FIGURE> selector topic was rejected: " + extracted.error);
+  if (!extracted.prose) return;
+  geist::detail::TopicIdentityIR identity;
+  identity.id = "1.6.9.1";
+  identity.title = topic_title;
+  identity.heading_level = 4;
+  identity.start_logical_record = 250;
+  identity.end_logical_record = 250;
+  std::string error;
+  const auto document = geist::detail::lower_prose_topic_to_document_ir(
+      identity, *extracted.prose, &error);
+  require(document.has_value() &&
+              geist::detail::verify_document_ir(*document, &error),
+          "the <FIGURE> link topic did not lower: " + error);
+  if (!document) return;
+  std::vector<geist::HtmlCrossBookReference> asked;
+  geist::HtmlRenderOptions options;
+  options.resolve_cross_book =
+      [&asked](const geist::HtmlCrossBookReference &reference)
+      -> std::optional<std::string> {
+    asked.push_back(reference);
+    return "/shelf/" + reference.document_number + "/" + reference.anchor;
+  };
+  geist::detail::render_document_html_blocks(*document, options);
+  require(asked.size() == 1 && asked.front().anchor == "FIGUREDFHA205" &&
+              asked.front().document_number == "SC33-1682",
+          "the <FIGURE> reference does not name FIGURE<anchor>");
+}
+
 } // namespace
 
 int main() {
   figure_and_table_tuples_name_an_anchor_of_another_book();
   a_figure_selector_asks_the_consumer_for_the_other_book();
+  a_figure_word_selector_lowers_to_its_spelled_anchor();
   latin1_text_before_the_selector_keeps_all_alternatives();
   the_tuple_parses_to_a_book_spot();
   a_spot_tuple_without_its_anchor_or_book_fails_closed();
