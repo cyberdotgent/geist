@@ -1217,8 +1217,13 @@ struct Extractor {
             trim_ascii(classes[index].text)));
 
     for (std::size_t index = 0; index < spot_anchor_lines.size(); ++index) {
+      // `SI` lines draw nothing, so the anchor opens the row after them:
+      // hosted SC34-4326-00 2.5.2.1 (DT 19920131153525) wraps the rail row
+      // of record 625 line 25 in `<a name="SPTLINKEDT">`, past the two `SI`
+      // lines that follow the anchor line.
       auto next = spot_anchor_lines[index] + 1;
-      while (next < last_line && classes[next].kind == LineKind::control)
+      while (next < last_line && (classes[next].kind == LineKind::control ||
+                                  classes[next].kind == LineKind::index))
         ++next;
       if (next < body_begin || next >= body_end ||
           (classes[next].kind != LineKind::body &&

@@ -643,6 +643,49 @@ void spot_anchor_inside_closed_box(bool index_after, bool under_top,
           "box envelope opener does not nest after the spot anchor: " + html);
   }
 }
+// A drawn figure whose `SRSPT<id>` line is followed by `SI` lines before the
+// next body row: hosted SC34-4326-00 2.5.2.1 (DT 19920131153525)
+// wraps that row in `<a name="SPTLINKEDT">` inside the figure's `<pre>`; the
+// index lines draw nothing.
+void figure_spot_anchor_before_index_lines() {
+  Builder b(false);
+  const TokenWords top{0x250c, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500,
+                       0x2510};
+  const TokenWords bottom{0x2514, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500,
+                          0x2500, 0x2518};
+  b.line({});
+  b.line({w("SRFIGFIGSPOT")});
+  b.line({w("   "), top});
+  b.line({w("   "), {2, 0x2502}, {1, 'N', 'O', 'T', 'E'}, w(" "),
+          {0x2502}});
+  b.line({w("SRSPTMID")});
+  b.line({w("SI"), w("mid"), w("term")});
+  b.line({w("SI"), w("other"), w("term")});
+  b.line({w("   "), {2, 0x2502}, {1, 'C', 'M', 'D'}, w("  "), {0x2502}});
+  b.line({w("   "), bottom});
+  b.line({w("   "), w("Figure"), w("1."), w("Spot")});
+  b.line({w("SREFIG")});
+  b.line({});
+  b.line({w("ordinary prose")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "figure with an indexed spot anchor rejected: " +
+                             error);
+  if (!doc)
+    return;
+  bool degraded = false;
+  for (const auto& block : doc->blocks)
+    degraded = degraded ||
+               block.origin.degradation_code == "figure-body-anchor-position";
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  const auto anchor = pre.find("id=\"SPTMID\"");
+  check(!degraded && anchor != std::string::npos &&
+            pre.find("NOTE") < anchor && anchor < pre.find("CMD") &&
+            html.find("term") == std::string::npos,
+        "figure spot anchor is not on the body row after its SI lines: " +
+            html);
+}
 // Each shape the rule does not prove keeps the envelope with the table pass.
 void envelope_box_markup_is_narrow() {
   const auto markup = [](bool inner, const std::string &opener,
@@ -1797,6 +1840,7 @@ int main() {
   spot_anchor_inside_closed_box(true, false);
   spot_anchor_inside_closed_box(false, true);
   spot_anchor_inside_closed_box(true, true, true);
+  figure_spot_anchor_before_index_lines();
   envelope_box_markup_is_narrow();
   list_closer_ends_open_drawing();
   unclaimed_box_rows_at_topic_end();

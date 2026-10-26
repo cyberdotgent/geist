@@ -1949,7 +1949,13 @@ the display line that follows it.  `SC34-425.boo` `2.5.3` record 1746 line 8
 is `SRSPTRCC11` and hosted DT `19921112160049` serves
 pass:[<literal>&lt;a name="FIGFIGUNIQ77"&gt;&lt;a name="SPTRCC11"&gt;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;COUNT&#160;&#160;&#160;&#160;: 4 bytes&lt;/a&gt;&lt;/a&gt;</literal>].
 `FA1PLMM0.boo` `H.5` (`SPTIESWP`) opens one in the middle of a box and
-`SC24-5520-00.boo` `3.8.3.6` carries two (`SPTFCIR`, `SPTRFLUSH`).  A word
+`SC24-5520-00.boo` `3.8.3.6` carries two (`SPTFCIR`, `SPTRFLUSH`).  `SI`
+lines between the anchor and the next drawn line draw nothing and are passed
+over: `SC34-4326-00.boo` `2.5.2.1` record 625 stores `02` at `0xEA9A8`, then
+`E5 74` (`SRSPTLINKEDT`) on line 22, two `SI` lines (length bytes `16` at
+`0xEA9AB` and `19` at `0xEA9C2`) on lines 23--24, and a blank rail row (`05`
+at `0xEA9DC`) on line 25; hosted (DT `19920131153525`) wraps that rail row in
+`<a name="SPTLINKEDT">`.  A word
 of a drawn line that is merely _spelled_ like a structural opcode is not one:
 `SH12-565.boo` `APPENDIX1.9.5.2.1` record 796 line 30 is the body text
 pass:[<literal>&#160;&#160;&#160;&#160;&#160;SRVPREF&#160;&#160;&#160;&#160;(server prefix)</literal>], whose first content token is the leading
