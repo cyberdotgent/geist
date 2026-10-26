@@ -624,6 +624,7 @@ foreach(synthetic_test
     cz_unopened_region_closer_synthetic
     cz_region_topic_end_synthetic
     wordless_length_byte_synthetic
+    cz_word_in_prose_synthetic
     cz_directive_grammar_synthetic
     cz_body_blocks_synthetic
     cz_message_list_synthetic
