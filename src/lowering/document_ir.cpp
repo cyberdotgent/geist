@@ -841,6 +841,7 @@ void format_inlines(std::ostringstream& out, const InlineSequenceIR& inlines) {
           {
             out << "image=" << quoted(node.resource) << ':'
                 << quoted(node.alt_text);
+            if (node.missing_resource) out << " missing";
             if (!node.cells.empty())
               out << " cells=" << quoted(node.cells);
           }
@@ -1179,6 +1180,7 @@ std::string format_document_ir(const DocumentIR& document) {
             out << ']';
           } else if constexpr (std::is_same_v<T, FigureBlockIR>) {
             out << " figure resource=" << quoted(node.resource);
+            if (node.missing_resource) out << " missing";
             out << " caption=";
             format_inlines(out, node.caption);
           } else if constexpr (std::is_same_v<T, FootnoteBlockIR>) {

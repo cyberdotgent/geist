@@ -185,6 +185,9 @@ struct FigurePictureIR {
   SelectorRefIR selector;
   FigureTargetKindIR target_kind = FigureTargetKindIR::book_resource;
   std::string target;
+  // A book picture the resource catalog holds no object for (see
+  // `FigureSourceBlockIR::missing_resource`).
+  bool missing_resource = false;
   std::string placeholder_text;
   // The `cartdesc` lines of this picture's own BUILD 1.3 envelope (see
   // `FigureSourceBlockIR::description`): a figure of several pictures wraps
@@ -313,6 +316,13 @@ struct FigureSourceBlockIR {
   FigureTargetKindIR target_kind = FigureTargetKindIR::book_resource;
   // Resource id ("9") or the external path ("/bookmgr/monetcoq.jpg").
   std::string target;
+  // A book picture whose object the book does not store: the selector names
+  // picture <n> and the placeholder row spells `PICTURE <n>`, but the
+  // resource catalog has no entry <n>.  Hosted BookServer still serves the
+  // picture, as its own "under construction" image with the placeholder as
+  // the alternative text (GC30-3072-04 2.2, DT 19930512100721:
+  // `<img src="/bookmgr/construc.gif" alt="PICTURE 1">`).
+  bool missing_resource = false;
   // An external-image LNK selector's six (or seven) alternatives, verbatim
   // and without angle brackets. Empty for a book resource.
   std::vector<std::string> target_alternatives;

@@ -136,7 +136,7 @@ std::vector<LinkTarget> document_link_targets(const DocumentIR& document) {
       continue;
     }
     if (const auto* figure = std::get_if<FigureBlockIR>(&block.node)) {
-      if (pending_figure != std::string::npos &&
+      if (pending_figure != std::string::npos && !figure->missing_resource &&
           ascii_starts_with_case_insensitive(figure->resource, "resource:"))
         targets[pending_figure].resource = figure->resource;
       pending_figure = std::string::npos;

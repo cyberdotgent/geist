@@ -691,6 +691,10 @@ lower_figure_block_to_document_blocks(const FigureSourceBlockIR &figure,
       return std::nullopt;
     FigureBlockIR node;
     node.resource = book_resource ? "resource:" + target : target;
+    node.missing_resource =
+        book_resource &&
+        (index == 0 ? figure.missing_resource
+                    : figure.additional_pictures[index - 1].missing_resource);
     // Each picture's own envelope describes it.
     node.description = index == 0
                            ? figure.description
@@ -774,7 +778,8 @@ bool verify_figure_document_blocks(const FigureSourceBlockIR &figure,
         return fail(error, "figure anchor id differs from canonical");
     } else if (const auto *node = std::get_if<FigureBlockIR>(&expected.node)) {
       const auto &actual_node = std::get<FigureBlockIR>(actual.node);
-      if (node->resource != actual_node.resource)
+      if (node->resource != actual_node.resource ||
+          node->missing_resource != actual_node.missing_resource)
         return fail(error, "figure resource differs from canonical");
       if (node->description != actual_node.description)
         return fail(error, "figure description differs from canonical");

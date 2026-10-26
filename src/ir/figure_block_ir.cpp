@@ -91,6 +91,7 @@ bool same_block(const FigureSourceBlockIR &left,
       left.span.anchored != right.span.anchored ||
       left.anchor != right.anchor || !same_ref(left.selector, right.selector) ||
       left.target_kind != right.target_kind || left.target != right.target ||
+      left.missing_resource != right.missing_resource ||
       left.target_alternatives != right.target_alternatives ||
       left.placeholder_text != right.placeholder_text ||
       left.description != right.description ||
@@ -110,7 +111,8 @@ bool same_block(const FigureSourceBlockIR &left,
     const auto &a = left.additional_pictures[index];
     const auto &b = right.additional_pictures[index];
     if (!same_ref(a.selector, b.selector) || a.target_kind != b.target_kind ||
-        a.target != b.target || a.placeholder_text != b.placeholder_text ||
+        a.target != b.target || a.missing_resource != b.missing_resource ||
+        a.placeholder_text != b.placeholder_text ||
         a.description != b.description)
       return false;
   }
@@ -1617,10 +1619,12 @@ struct Extractor {
           // Several picture selectors under one caption are one figure
           // (SC26-457 3.2.1 PIC1 + PIC2, B.1.3 PIC4 + PIC5, SC34-425 2.1.2
           // PIC21 + PIC22; hosted stacks the images under one caption).
+          // A picture the resource catalog does not hold is still the
+          // figure's picture: hosted serves a stand-in image for it with the
+          // placeholder as its alternative text (GC30-3072-04 2.2,
+          // GX27-3990-01 2.10, DT 19930512100721 and 19951020145045).
           const auto target = figure_picture_resource(selector->target);
-          if (resource_ids.count(ascii_lower(target)) == 0)
-            return decline(region, "picture resource " + target +
-                                       " is not in the resource catalog");
+          const auto missing = resource_ids.count(ascii_lower(target)) == 0;
           if (picture != nullptr) {
             if (block.target_kind != FigureTargetKindIR::book_resource)
               return decline(region, "figure region contains several "
@@ -1628,12 +1632,13 @@ struct Extractor {
             block.additional_pictures.push_back(
                 {{selector->logical_record, selector->segment_index,
                   selector->selector_ordinal},
-                 FigureTargetKindIR::book_resource, target, {}, {}});
+                 FigureTargetKindIR::book_resource, target, missing, {}, {}});
             break;
           }
           picture = selector;
           block.target_kind = FigureTargetKindIR::book_resource;
           block.target = target;
+          block.missing_resource = missing;
         } else if (ascii_equals_case_insensitive(selector->target, "lnk")) {
           const auto external = external_image(selector->display_payload);
           if (!external) break; // A source-positioned link in figure text.
@@ -2103,7 +2108,8 @@ std::string format_figure_blocks_ir(const FigureBlocksIR &blocks) {
           << (block.target_kind == FigureTargetKindIR::book_resource
                   ? "resource:"
                   : "external:")
-          << block.target << " selector=" << block.selector.logical_record
+          << block.target << (block.missing_resource ? " (missing)" : "")
+          << " selector=" << block.selector.logical_record
           << ':' << block.selector.segment_index << ':'
           << block.selector.ordinal;
     if (!block.placeholder_text.empty())

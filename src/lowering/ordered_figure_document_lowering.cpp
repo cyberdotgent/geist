@@ -122,6 +122,7 @@ drawn_frame_blocks(const FigureSourceBlockIR &figure,
           return fail(error, "drawn frame picture covers no placeholder");
         ImageInlineIR image;
         image.resource = picture.resource;
+        image.missing_resource = picture.missing_resource;
         // As the figure image: the book's own description when it gave one,
         // else the placeholder the image replaces (hosted's alt text).
         image.alt_text =

@@ -125,6 +125,15 @@ HrefIR resource_href(const std::string &resource,
   return resource.empty() ? dead_link() : HrefIR{resource, false};
 }
 
+// A picture the book names but does not store (`missing_resource`): there is
+// no object to ask `resolve_resource` for, so the image is unresolved, and
+// its source stays the book's own `resource:<n>` spelling -- which no
+// browser fetches -- so the picture it stands for remains readable in the
+// markup.
+HrefIR missing_resource_href(const std::string &resource) {
+  return resource.empty() ? dead_link() : HrefIR{resource, true};
+}
+
 // `width`/`height` for an `<img>`: the display size the consumer's hook, or
 // the book's own resources, state for it.  Asked with the value
 // `resolve_resource` sees, so the two hooks agree on what an image is.
@@ -528,14 +537,20 @@ void append_inline(HtmlSink &sink, const InlineIR &node) {
             sink.markup("</a>");
           }
         } else if constexpr (std::is_same_v<T, ImageInlineIR>) {
-          const auto href = resource_href(value.resource, sink.options());
+          // A picture the book does not store has no object to ask a
+          // consumer for: it is drawn unresolved, as hosted draws its
+          // stand-in (FigureBlockIR::missing_resource).
+          const auto href = value.missing_resource
+                                ? missing_resource_href(value.resource)
+                                : resource_href(value.resource, sink.options());
           sink.markup("<img");
           sink.attribute("class", href.unresolved
                                       ? "geist-image geist-image--unresolved"
                                       : "geist-image");
           sink.attribute("src", href.href);
           sink.attribute("alt", value.alt_text);
-          append_image_size(sink, value.resource);
+          if (!value.missing_resource)
+            append_image_size(sink, value.resource);
           sink.markup(">");
           // Inside a preformatted row the image stands at the first cell it
           // occupies and every one of those cells prints blank, so the rest
@@ -888,7 +903,11 @@ void append_block(HtmlSink &sink, const BlockIR &block) {
           }
           close_block(sink, "ul");
         } else if constexpr (std::is_same_v<T, FigureBlockIR>) {
-          const auto href = resource_href(node.resource, sink.options());
+          // A picture the book does not store has no object to ask a
+          // consumer for (FigureBlockIR::missing_resource).
+          const auto href = node.missing_resource
+                                ? missing_resource_href(node.resource)
+                                : resource_href(node.resource, sink.options());
           open_block(sink, "figure", block_class, origin);
           sink.markup("<img");
           sink.attribute("class",
@@ -902,7 +921,8 @@ void append_block(HtmlSink &sink, const BlockIR &block) {
           sink.attribute("alt", node.description.empty()
                                     ? figure_alt_text(node.resource)
                                     : node.description);
-          append_image_size(sink, node.resource);
+          if (!node.missing_resource)
+            append_image_size(sink, node.resource);
           sink.markup(">");
           if (!node.caption.empty()) {
             sink.markup("<figcaption class=\"geist-figure-caption\">");

@@ -571,8 +571,10 @@ void escaped_control_lines_are_not_description_text() {
 // GA19-5486-13 2.1: the unnumbered title starts the next record.
 void an_unnumbered_caption_is_bounded_by_the_picture_and_end_marker() {
   for (const bool split : {false, true}) {
-    // Missing resources, missing boundaries and table ownership still fail
-    // closed. Other bounded text and pictures must be retained in source order.
+    // Missing boundaries and table ownership still fail closed; a picture
+    // the catalog does not store is kept as an unstored picture
+    // (missing_picture_resource_synthetic.cpp). Other bounded text and
+    // pictures must be retained in source order.
     for (int mutation = 0; mutation != 8; ++mutation) {
       RecordBuilder first;
       first.heading("1.1", "Architecture");
@@ -614,7 +616,16 @@ void an_unnumbered_caption_is_bounded_by_the_picture_and_end_marker() {
       tail.line({words("   "), words("Following paragraph.")});
       records.push_back(tail.build(split ? 43 : 42));
       auto extracted = run(std::move(records), "Architecture");
-      if (mutation == 2 || mutation == 3 || mutation == 4) {
+      if (mutation == 2) {
+        require(extracted.topic.has_value() &&
+                    extracted.topic->figures.blocks.size() == 1 &&
+                    extracted.topic->figures.blocks.front().target == "3" &&
+                    extracted.topic->figures.blocks.front().missing_resource,
+                "a picture the catalog does not store is not kept unstored: " +
+                    extracted.error);
+        continue;
+      }
+      if (mutation == 3 || mutation == 4) {
         require(!extracted.topic,
                 "ambiguous or invalid picture figure was admitted: " +
                     std::to_string(mutation));

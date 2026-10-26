@@ -117,6 +117,9 @@ struct ImageInlineIR {
   // right rail -- keeps its place after the image (G544-3305-00 2.3.1).
   // Empty for an image in running text, where it occupies no cell.
   std::string cells = {};
+  // The book names this picture (`resource:<n>`) but stores no object for
+  // it; see `FigureBlockIR::missing_resource`.
+  bool missing_resource = false;
 };
 
 struct CrossReferenceInlineIR {
@@ -461,6 +464,13 @@ struct FigureBlockIR {
   // show it.  Empty when the book gave none; a renderer then names the
   // picture as hosted BookServer does.
   std::string description;
+  // `resource` names picture <n> of this book (`resource:<n>`), but the
+  // book's resource catalog holds no object <n>.  The picture is still
+  // part of the topic -- hosted BookServer serves a stand-in image for it,
+  // with the placeholder as the alternative text (GC30-3072-04 2.2, DT
+  // 19930512100721) -- so a renderer draws an unresolved image instead of
+  // asking a consumer for an object that does not exist.
+  bool missing_resource = false;
 };
 
 struct FootnoteBlockIR {

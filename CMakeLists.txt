@@ -646,6 +646,7 @@ foreach(synthetic_test
     envelope_length_byte_opcode_synthetic
     length_byte_control_word_synthetic
     art_description_figure_synthetic
+    missing_picture_resource_synthetic
     ordered_picture_figure_synthetic
     framed_picture_figure_synthetic
     menu_wrapped_title_synthetic

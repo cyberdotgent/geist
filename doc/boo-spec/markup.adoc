@@ -3883,6 +3883,23 @@ under the same selectors, is in `SC33-0668-02` `1.2.6` (DT
 `19930625001740`, pictures 3--6, each served as an image whose `alt` is its
 description and with no `PICTURE` text).
 
+A selector can name a picture the book does not store.  `GC30-3072-04.boo`
+topic `2.2`, logical record 39, writes `SRFIGEUSERS` (`E8 4D` at `0x9416`),
+then a display line of five bytes, `05` at `0x9418`, holding
+`cselect 3 9 PIC1` (`38 D5 DB E5 5B`), then the placeholder line `04` at
+`0x941E`, `   PICTURE 1` (`09 E5 59 C5`), the caption and `SREFIG`; the file
+holds no stored objects at all.  `GX27-3990-01.boo` stores objects 1--17, 30
+and 32, while its topics `2.10`, `6.1`, `A.0`, `C.0`, `C.6` and `D.1` select
+pictures 18--29 and 31.  Hosted BookServer still serves each such picture
+where its selector stands, as the reader's own stand-in image with the
+placeholder words as the `alt` text: `GC30-3072-04` `2.2` (DT
+`19930512100721`) serves `<a name="FIGEUSERS">   <a
+href="/bookmgr/construc.gif"><img src="/bookmgr/construc.gif" alt="PICTURE
+1"></a>`, and `GX27-3990-01` (DT `19951020145045`) does the same for
+pictures 18--20 in `2.10` and 24--27 in the table cells of `C.0`.  A
+selected picture missing from the catalog therefore still occupies its place
+in the topic; only its image is unavailable.
+
 The word depends on the book's `CLANGUAGE` value, by its first letter and for
 some letters its second (upper case, as stored):
 
