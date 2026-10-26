@@ -597,6 +597,39 @@ void a_bullet_row_opening_a_record_keeps_its_columns() {
   require(styled, "the `cfont 11 3 V` triple did not land on `shn`");
 }
 
+// A bullet row that draws nothing but its bullet.  dfhg4a02 1.7 record 91:
+// `cz FLOW UL 3 3`, `cz FLOW LI 3 7`, line 10 `   ` + the `U+2666` bullet
+// stored as a two-byte word (token 71) and nothing else, an empty line
+// (token 72), then line 12 whose length byte (token 73, value 5) the
+// dictionary spells as one blank, `cz FLOW LI 3 7`, and the next item's
+// row.  The bullet opens no text of its own row, so it is not the
+// record-opening bullet of a text row: read as one, the blank-spelled length
+// byte of the next line became that row's text and the topic declined.
+void a_bullet_alone_on_its_row_takes_no_later_byte() {
+  RecordBuilder builder;
+  metadata(builder);
+  directive(builder, "FLOW", "UL", "3", "3");
+  directive(builder, "FLOW", "LI", "3", "7");
+  builder.line({words("   "), TokenWords{0x2666}});
+  builder.record.encoded_tokens.push_back({0, 1});
+  builder.record.tokens.push_back(TokenWords{1});
+  const auto length_byte = builder.record.tokens.size();
+  directive(builder, "FLOW", "LI", "3", "7");
+  builder.record.tokens[length_byte] = words(" ");
+  builder.line({words("   "), TokenWords{0x2666}, words("   "),
+                words("An"), words("attempt"), words("failed.")});
+  directive(builder, "OFF", "EUL", "0", "0");
+  Extracted extracted;
+  extracted.sources.push_back(builder.build(91));
+  extracted = extract_sources(std::move(extracted));
+  require(extracted.prose.has_value(),
+          "a bullet alone on its row declined the topic: " + extracted.error);
+  if (!extracted.prose) return;
+  require(find_block(*extracted.prose, ProseBlockKindIR::list_item,
+                     "attempt") != nullptr,
+          "the item after the bare bullet was not built");
+}
+
 int main() {
   a_dash_in_the_bullet_columns_is_the_nested_bullet();
   a_dash_outside_the_bullet_columns_stays_text();
@@ -606,6 +639,7 @@ int main() {
   a_revision_flag_before_an_ordinal_opens_the_item_line();
   a_flag_without_an_ordinal_stays_text();
   a_bullet_row_opening_a_record_keeps_its_columns();
+  a_bullet_alone_on_its_row_takes_no_later_byte();
   geist_test::exit_with_failures();
   std::cout << "cz_list_labels_synthetic: ok\n";
   return 0;

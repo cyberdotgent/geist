@@ -2241,11 +2241,24 @@ struct LineBuilder {
     // `<li>            <var>shn</var> is the line number ...` like its
     // siblings stored mid-record.  Taken for a row slot, the bullet opened a
     // new row at the gap and the row lost its origin and bullet columns.
+    // Only a bullet that the row's own text follows on its display line:
+    // dfhg4a02 1.7 record 91 line 10 draws the bullet alone (token 71), and
+    // read as a text row's bullet it took the next line's blank-spelled
+    // length byte (token 73) as that row's text.
+    const auto bullet_line = display_line_of(view.record, view.token);
+    const auto text_follows = [&]() {
+      for (auto token = view.token + 1; token < bullet_line->token_end;
+           ++token) {
+        const auto after = view_token(records, view.record, token);
+        if (is_visible(after) && !is_space_run(after) && !is_padding(after))
+          return true;
+      }
+      return false;
+    };
     const auto record_opening_bullet =
         view.width == 2 && is_bullet_glyph(view) && line_open &&
-        line_visible_cells == 0 &&
-        display_line_of(view.record, view.token) != nullptr &&
-        !opens_display_line(view);
+        line_visible_cells == 0 && bullet_line != nullptr &&
+        !opens_display_line(view) && text_follows();
     if (cz_mode && item.separator && !is_placeholder_run(view) &&
         !record_opening_bullet &&
         (is_separator(view) || is_bullet_glyph(view)) &&
