@@ -1,6 +1,7 @@
 // Copyright 2026 Yvan Janssens
 // SPDX-License-Identifier: Apache-2.0
 
+#include "geist/detail/container/revision_declarations.hpp"
 #include "geist/detail/core/internal.hpp"
 #include "geist/detail/layout/display_lines.hpp"
 #include "geist/detail/ir/book_topic_catalog_ir.hpp"
@@ -239,6 +240,12 @@ BooDocument BooDocument::open(const std::filesystem::path& path) {
   const auto first_topic_record = topics.empty()
                                       ? context->decoded_records.size() + 1
                                       : topics.front().start_logical_record;
+  // The records before the first topic are the book header; its `crevdesc`
+  // lines declare the revision characters every later topic decode reads.
+  // The topic walk above decodes only topic headers, whose title column
+  // takes any character, so nothing it read depends on them.
+  context->declared_revision_characters = read_book_header_revision_characters(
+      *context, static_cast<std::uint32_t>(first_topic_record));
   const std::vector<std::string> book_header_records(
       context->decoded_records.begin(),
       context->decoded_records.begin() +

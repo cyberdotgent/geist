@@ -109,6 +109,11 @@ std::vector<std::string> clean_source_owned_selector_display_markers(
     const std::vector<std::string>& decoded_records,
     const std::vector<DecodedLogicalRecordSource>& sources);
 
+// The revision characters a book's header declares, one per `crevdesc`
+// display line (doc/boo-spec/markup.adoc, "Revision characters declared in
+// the book header"), sorted and unique.
+using DeclaredRevisionCharacters = std::vector<char32_t>;
+
 // Source-framing evidence for a lexical SH candidate, not topic metadata.
 enum class TopicHeaderFraming { undecided, native_origin, non_native };
 
@@ -123,6 +128,11 @@ struct LogicalDecodeContext {
   // entries in legacy contexts are proven on demand; undecided evidence keeps
   // the existing lexical compatibility rule.
   std::map<std::size_t, TopicHeaderFraming> topic_header_framing;
+  // The revision characters the book header declares
+  // (`read_book_header_revision_characters`), which every source decode
+  // hands to the display lines' margin reading.  Filled by `open()` once the
+  // first topic is known; empty for a context that knows no header.
+  DeclaredRevisionCharacters declared_revision_characters;
   // Everything above is built by `BooDocument::open()` and never written
   // again, so it is safe to read from any number of threads. The cache below
   // is the only mutable state a decode context has, and it is filled once and

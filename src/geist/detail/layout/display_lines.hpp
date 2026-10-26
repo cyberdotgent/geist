@@ -164,13 +164,21 @@ bool is_display_line_margin_revision_bar(
 //    token at cell 1 holding `U+2502` or a printable ASCII punctuation
 //    character (`|`, `#`, `+`, `:`, ...), a blank cell 2 and at least one
 //    drawn cell after it (markup.adoc, "The three-column left margin").  A
-//    letter or digit there is text, never a mark;
+//    letter or digit there is text unless the book declares it (below);
 //  * the `ST` revision column: the line's first token is the two-word opcode
 //    `ST` and the cell glued directly after it is not blank
 //    (logical-controls.adoc, the title line).
 //
 // No-op for an unframed record.
-void assign_display_line_margin_marks(DecodedLogicalRecordSource& record);
+//
+// `declared` is the book's own list of revision characters, read from the
+// `crevdesc` lines of its header (markup.adoc, "Revision characters declared
+// in the book header"; `read_declared_revision_characters`).  A letter or
+// digit the book declares is a mark in the body-row margin too: SC41-4725-00
+// declares `G` and draws ` G     °   With a time separator, ...`.
+void assign_display_line_margin_marks(
+    DecodedLogicalRecordSource& record,
+    const DeclaredRevisionCharacters& declared = {});
 
 // The stored mark of the display line `token` belongs to, when `token` is
 // that mark's own token; `std::nullopt` otherwise.
@@ -179,8 +187,9 @@ std::optional<char32_t> display_line_margin_mark_at(
 
 // Checks that every stored mark agrees with the line's cells: recomputes the
 // marks of a copy and compares.
-bool verify_display_line_margin_marks(const DecodedLogicalRecordSource& record,
-                                      std::string* error = nullptr);
+bool verify_display_line_margin_marks(
+    const DecodedLogicalRecordSource& record, std::string* error = nullptr,
+    const DeclaredRevisionCharacters& declared = {});
 
 // The revision mark of a topic's title: the first display line of `records`
 // whose first token is the `ST` opcode heads the topic, and the mark its

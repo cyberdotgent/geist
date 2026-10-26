@@ -162,6 +162,7 @@ set(GEIST_SOURCES
 
   # container/
   src/container/control_ir.cpp
+  src/container/revision_declarations.cpp
   src/container/decoded_record_scan.cpp
   src/container/logical.cpp
   src/container/page_runs.cpp
@@ -638,6 +639,7 @@ foreach(synthetic_test
     prose_glossary_anchor_synthetic
     revision_margin_row_synthetic
     margin_mark_line_synthetic
+    declared_revision_mark_synthetic
     heading_revision_mark_synthetic
     prose_line_end_punctuation_synthetic
     topic_header_envelope_rule_synthetic

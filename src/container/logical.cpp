@@ -993,6 +993,9 @@ decode_logical_record_sources(const LogicalDecodeContext& context,
   // holds no lock at all: several threads may decode different topics of one
   // book at the same time.
   const auto& dictionary = source_dictionary_for(context);
+  // The book header's `crevdesc` declarations decide which letters and
+  // digits a row margin draws as revision marks (display_lines.hpp).
+  const auto& declared = context.declared_revision_characters;
 
   records.reserve(end_logical_record - first_logical_record);
   for (auto logical_record = first_logical_record;
@@ -1024,7 +1027,7 @@ decode_logical_record_sources(const LogicalDecodeContext& context,
         decoded, !records.empty() &&
                      records.back().logical_record + 1 == logical_record &&
                      ends_with_carried_selection(records.back()));
-    assign_display_line_margin_marks(decoded);
+    assign_display_line_margin_marks(decoded, declared);
     std::string segment_error;
     if (!verify_control_segments(decoded.assembled, decoded.control_segments,
                                  &segment_error)) {

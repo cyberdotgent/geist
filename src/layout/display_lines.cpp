@@ -293,15 +293,24 @@ namespace {
 // A character a row margin draws as a revision mark: the box-drawing vertical,
 // the broken bar U+00A6, or a printable ASCII punctuation character.  Letters
 // and digits in cell 1 are row text (markup.adoc, "Fixed selection rows in
-// generated lists").  SC34-5559-00 4.1.3 record 990 line 18 stores a blank,
+// generated lists") unless the book header declares them as revision
+// characters (`crevdesc`, markup.adoc "Revision characters declared in the
+// book header").  SC34-5559-00 4.1.3 record 990 line 18 stores a blank,
 // the two-byte U+00A6 at 0x61C82 and the bullet word; hosted (DT
 // 20000125132847) serves `<li> <br> ¦     CL commands: ...`, the bar in the
-// margin and the bullet blanked, as for `|`.
-bool margin_mark_glyph(const std::uint16_t word) {
+// margin and the bullet blanked, as for `|`.  SC41-4725-00 declares `G`
+// (record 1 line 64 at 0x10135, `04 C1 5E CB 8F`: `crevdesc`, `G`) and 24.0
+// record 129 line 7 stores ` G     °   With a time separator, ...`; hosted
+// (DT 19950926184312) serves `<li> <br> G         With a time separator`.
+bool margin_mark_glyph(const std::uint16_t word,
+                       const DeclaredRevisionCharacters& declared) {
   if (word == 0x2502 || word == 0x00A6) return true;
   if (word < 0x21 || word > 0x7e) return false;
-  return !((word >= '0' && word <= '9') || (word >= 'A' && word <= 'Z') ||
-           (word >= 'a' && word <= 'z'));
+  const auto alphanumeric = (word >= '0' && word <= '9') ||
+                            (word >= 'A' && word <= 'Z') ||
+                            (word >= 'a' && word <= 'z');
+  return !alphanumeric || std::binary_search(declared.begin(), declared.end(),
+                                             static_cast<char32_t>(word));
 }
 
 struct MarginMarkReading {
@@ -311,7 +320,8 @@ struct MarginMarkReading {
 };
 
 MarginMarkReading read_margin_mark(const DecodedLogicalRecordSource& record,
-                                   const DisplayLineIR& line) {
+                                   const DisplayLineIR& line,
+                                   const DeclaredRevisionCharacters& declared) {
   MarginMarkReading reading;
   const auto& tokens = record.ir.tokens;
   const auto first = line.prefix_token + 1;
@@ -344,7 +354,7 @@ MarginMarkReading read_margin_mark(const DecodedLogicalRecordSource& record,
   }
   // A body row's margin: one blank cell, the mark, a blank, drawn cells.
   if (cells.size() < 4 || opcode != TokenWords{' '} || next.size() != 1 ||
-      !margin_mark_glyph(next[0]) || cells[0].token != first ||
+      !margin_mark_glyph(next[0], declared) || cells[0].token != first ||
       cells[1].token != first + 1 || cells[2].word != ' ')
     return reading;
   if (!std::any_of(cells.begin() + 3, cells.end(),
@@ -358,10 +368,12 @@ MarginMarkReading read_margin_mark(const DecodedLogicalRecordSource& record,
 
 } // namespace
 
-void assign_display_line_margin_marks(DecodedLogicalRecordSource& record) {
+void assign_display_line_margin_marks(
+    DecodedLogicalRecordSource& record,
+    const DeclaredRevisionCharacters& declared) {
   if (!record.ir.display_lines_parse) return;
   for (auto& line : record.ir.display_lines) {
-    const auto reading = read_margin_mark(record, line);
+    const auto reading = read_margin_mark(record, line, declared);
     line.margin_mark = reading.mark;
     line.margin_mark_token = reading.token;
     line.margin_mark_place = reading.place;
@@ -395,14 +407,15 @@ std::optional<char32_t> topic_title_revision_mark(
   return std::nullopt;
 }
 
-bool verify_display_line_margin_marks(const DecodedLogicalRecordSource& record,
-                                      std::string* error) {
+bool verify_display_line_margin_marks(
+    const DecodedLogicalRecordSource& record, std::string* error,
+    const DeclaredRevisionCharacters& declared) {
   const auto fail = [&](const char* message) {
     if (error != nullptr) *error = message;
     return false;
   };
   for (const auto& line : record.ir.display_lines) {
-    const auto reading = read_margin_mark(record, line);
+    const auto reading = read_margin_mark(record, line, declared);
     if (reading.mark != line.margin_mark ||
         reading.token != line.margin_mark_token ||
         reading.place != line.margin_mark_place)
