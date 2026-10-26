@@ -6209,7 +6209,10 @@ is the two-byte word `E8 1A` at `0x238BE`), writes the RPG declaration rows,
 and closes with `cz OFF ETABDATA 2 2` (`D2 D7` at `0x23DAB`) and
 `cz OFF EXMP 2 2` (`D3 0C` at `0x23DB2`) in record 64.  Hosted
 (DT `19950831082352`) serves all the rows in one `<pre width="80">`; 32
-topics of the book have this shape.
+topics of the book have this shape.  Topics `1.1.1.3.1` and `1.1.1.8.1`
+close the `TABDATA` with `cz OFF EHEX 2 2` instead, a closer whose region
+the topic never opens; it prints nothing either, and hosted serves the
+same single `<pre width="80">`.
 
 *`cz OFF ARTWORK`* opens a fixed-column region holding a picture reference,
 and its picture is a `CSELECT` whose target is `PIC<n>`.

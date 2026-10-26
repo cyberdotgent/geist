@@ -540,6 +540,30 @@ void nested_openers_and_foreign_closers() {
               "the nested region is not one two-row block:\n" +
                   topic_text(*extracted.topic));
   }
+  {
+    // The same pair closed by another region's closer: SC33-1362-01
+    // `1.1.1.3.1` ends its TABDATA with `cz OFF EHEX 2 2` (no HEX region
+    // anywhere) and then `cz OFF EXMP 2 2`.
+    RecordBuilder builder;
+    builder.heading("1.1.1.3.1", "RPG");
+    builder.cz({"cz", "OFF", "XMP"});
+    builder.cz({"cz", "OFF", "TABDATA"});
+    builder.row("          ", {"D*", "MQMD", "Structure"});
+    builder.row("          ", {"D", "  ", "MDSID", "      ", "1"});
+    builder.cz({"cz", "OFF", "EHEX", "2", "2"});
+    builder.cz({"cz", "OFF", "EXMP", "2", "2"});
+    builder.cz({"cz", "FLOW", "H4", "3", "3"});
+    auto extracted = run(builder.build(70), "RPG");
+    require(extracted.topic.has_value(),
+            "a TABDATA closed by EHEX inside an XMP was rejected: " +
+                extracted.error);
+    if (extracted.topic)
+      require(count_kind(*extracted.topic, ProseBlockKindIR::preformatted) ==
+                      1 &&
+                  extracted.topic->blocks.back().preformatted_lines.size() == 2,
+              "the nested region is not one two-row block:\n" +
+                  topic_text(*extracted.topic));
+  }
 }
 
 // `cz FLOW LP` outside a definition list.  Before the first item of an item

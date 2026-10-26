@@ -2533,13 +2533,20 @@ struct CzBuilder {
             // region, as they are anywhere else in it: dfhqaa84 2.69 record
             // 760 nests `cz OFF XMP`, four `cz BREAK 12` and
             // `cz OFF EXMP 9 9` inside `cz OFF LINES` .. `cz OFF ELINES 7 7`.
+            // The inner closer may be another region's, its own never
+            // opened, with no row: the reader's generic `CZ OFF E` ends the
+            // depth either way.  SC33-1362-01 1.1.1.3.1 closes its TABDATA
+            // with `cz OFF EHEX 2 2` before `cz OFF EXMP 2 2`.
             auto nested_closer = closer_index + 1;
             while (nested_closer < build.directives.size() &&
                    build.directives[nested_closer].mode == "break")
               ++nested_closer;
             if (nested_closer >= build.directives.size() ||
                 build.directives[nested_closer].mode != "off" ||
-                build.directives[nested_closer].tag != "e" + inner.tag)
+                (build.directives[nested_closer].tag != "e" + inner.tag &&
+                 !(foreign_closer(build.directives[nested_closer].tag,
+                                  "e" + inner.tag) &&
+                   ranges[nested_closer].first == npos)))
               break;
             if (inner_rows.first != npos) {
               if (region_begin == npos) region_begin = inner_rows.first;
