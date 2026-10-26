@@ -628,6 +628,7 @@ foreach(synthetic_test
     cz_word_in_prose_synthetic
     cz_directive_grammar_synthetic
     cz_body_blocks_synthetic
+    cz_footnote_forms_synthetic
     cz_message_list_synthetic
     srmsg_operand_row_synthetic
     list_closer_anchor_synthetic

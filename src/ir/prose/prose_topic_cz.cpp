@@ -189,8 +189,9 @@ bool collect_layout_directive(
   if (directive.mode == "break" && numbers == 0)
     return fail(error, "cz BREAK has no count");
   if (directive.mode == "flow" && directive.tag == "fn") {
-    if (pending_footnote_id.empty())
-      return fail(error, "cz FLOW FN has no preceding SRFTN anchor");
+    // With no anchor before it the directive waits for the `SRFTN<id>` on
+    // the next line (prose_topic_stream.cpp); a footnote that never gets
+    // one declines when its block is built.
     directive.anchor_id = pending_footnote_id;
     pending_footnote_id.clear();
   } else if (!pending_footnote_id.empty()) {

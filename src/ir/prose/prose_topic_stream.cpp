@@ -1249,6 +1249,11 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   // `SRFTN<id>` of the CZ dialect names the footnote the next `cz FLOW FN`
   // directive opens (packet 1.1 record 17).
   std::string pending_footnote_id;
+  // Where in the item stream that anchor stood, and its source: a footnote
+  // that `SREFTN` closes before any `cz FLOW FN` opened it is a footnote all
+  // the same, opened at the anchor (see `srftn` below).
+  std::size_t pending_footnote_item = 0;
+  DocumentSourceSliceIR pending_footnote_source;
   // Lower-cased owners of the topic's `SRLIS<owner>` list-item anchors; an
   // `SRELIS<owner>` naming one of them is no anchor (see below).
   std::set<std::string> list_owners;
@@ -2405,16 +2410,78 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           // `SRFTNFTNUNIQ1`, targeted by `cselect 16 4 FTNFTNUNIQ1`); the
           // `FTN` prefix marks it as the footnote the next `cz FLOW FN`
           // body carries.
+          //
+          // BookServer prints the footnote opening (`<a name="<id>"><hr>
+          // <h5>`) for the `SRFTN<id>` line itself and `</h5></a>` for
+          // `SREFTN`; `cz FLOW FN` is only its generic `CZ FLOW`, which
+          // closes an open `<pre>`.  So books that put the directive after
+          // the anchor, before it, or nowhere all serve the same footnote:
+          //   - before it: dfhtma09 3.1.3 record 398 lines 40-41
+          //     `cz FLOW FN 3 7`, `SRFTNFTNUNIQ40`, the rows, `SREFTN`;
+          //   - nowhere: SC41-5612-02 2.4 record 195 lines 23-25
+          //     `SRFTNREXLN`, ` |  (6) For REXX procedures, the limit is
+          //     33.`, `SREFTN`; hosted (DT 19980522111551) serves
+          //     `<a name="FTNREXLN"><hr><h5>` and the row before `</h5></a>`.
+          // The rows after the anchor line are then the anchor's flattened
+          // payload; they are the footnote's text.
           if (!pending_footnote_id.empty())
             return fail(error, "SR" + pending_footnote_id +
                                    " is not closed before " + segment.opcode);
-          if (!assign_segment_tokens(records, ledger, record_index, segment,
-                                     ProseTokenRoleIR::control, false, error))
+          const auto id = segment.opcode.substr(2);
+          if (!valid_anchor_id(id))
+            return fail(error, "footnote id '" + id + "' is invalid");
+          const auto operands = operand_tokens(record, segment);
+          const auto leading = leading_separator_tokens(record, segment);
+          const auto payload = std::any_of(
+              segment.source_tokens.begin(), segment.source_tokens.end(),
+              [&](const auto token) {
+                if (std::binary_search(operands.begin(), operands.end(),
+                                       token))
+                  return false;
+                const auto view = view_token(records, record_index, token);
+                return !is_padding(view) &&
+                       !is_row_control_slot(records, view) &&
+                       !(std::binary_search(leading.begin(), leading.end(),
+                                            token) &&
+                         is_separator(view));
+              });
+          // A `cz FLOW FN` waiting for its anchor: the directive and nothing
+          // else stands right before this line (the length byte that frames
+          // the anchor's line is no text).
+          Item* waiting = nullptr;
+          for (auto it = build.items.rbegin(); it != build.items.rend();
+               ++it) {
+            if (it->kind == ItemKind::segment_end) continue;
+            if (it->kind == ItemKind::token && it->separator &&
+                (is_bare(it->token) || is_space_run(it->token) ||
+                 is_row_control_slot(records, it->token)))
+              continue;
+            if (it->kind == ItemKind::layout && it->directive.mode == "flow" &&
+                it->directive.tag == "fn" && it->directive.anchor_id.empty())
+              waiting = &*it;
+            break;
+          }
+          if (waiting != nullptr) {
+            waiting->directive.anchor_id = id;
+          } else {
+            pending_footnote_id = id;
+            pending_footnote_item = build.items.size();
+            pending_footnote_source =
+                operands.empty()
+                    ? DocumentSourceSliceIR{}
+                    : token_slice(record, operands.front(),
+                                  operands.back() + 1);
+          }
+          if (payload) {
+            if (operands.empty())
+              return fail(error, "footnote anchor has no source token");
+            if (!push_payload(ProseTokenRoleIR::control, false, false, false))
+              return false;
+          } else if (!assign_segment_tokens(records, ledger, record_index,
+                                            segment, ProseTokenRoleIR::control,
+                                            false, error)) {
             return false;
-          pending_footnote_id = segment.opcode.substr(2);
-          if (!valid_anchor_id(pending_footnote_id))
-            return fail(error, "footnote id '" + pending_footnote_id +
-                                   "' is invalid");
+          }
           break;
         }
         if (!segment.malformed && title_seen && !cz_dialect &&
@@ -2441,6 +2508,21 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
           if (!assign_segment_tokens(records, ledger, record_index, segment,
                                      ProseTokenRoleIR::control, false, error))
             return false;
+          if (!pending_footnote_id.empty()) {
+            // No `cz FLOW FN` came between the anchor and its end marker:
+            // the footnote opened at the anchor (see `srftn` above).
+            Item open;
+            open.kind = ItemKind::layout;
+            open.directive.mode = "flow";
+            open.directive.tag = "fn";
+            open.directive.anchor_id = pending_footnote_id;
+            open.directive.source = pending_footnote_source;
+            build.items.insert(
+                build.items.begin() +
+                    static_cast<std::ptrdiff_t>(pending_footnote_item),
+                std::move(open));
+            pending_footnote_id.clear();
+          }
           const auto operands = operand_tokens(record, segment);
           Item item;
           item.kind = ItemKind::layout;
@@ -3445,11 +3527,26 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         if (!title_seen)
           return fail(error, "layout directive precedes the title");
         const auto first_item = build.items.size();
+        // Rows between a footnote anchor and a later `cz FLOW FN` would land
+        // outside the footnote the reader prints around them.
+        const auto footnote_rows =
+            !pending_footnote_id.empty() &&
+            std::any_of(build.items.begin() +
+                            static_cast<std::ptrdiff_t>(pending_footnote_item),
+                        build.items.end(), [&](const Item& item) {
+                          return item.kind == ItemKind::token &&
+                                 is_visible(item.token) &&
+                                 !is_row_control_slot(records, item.token);
+                        });
+        const auto footnote = pending_footnote_id;
         if (!collect_layout_directive(records, record_index, segment,
                                       pending_footnote_id, ledger, build.items,
                                       error))
           return false;
         name_verbatim_figure(first_item, record_index, segment);
+        if (footnote_rows && pending_footnote_id.empty())
+          return fail(error, "rows of SR" + footnote +
+                                 " precede its cz FLOW FN");
         cz_seen = true;
         break;
       }

@@ -6510,6 +6510,37 @@ between. Hosted (DT `19910801172557`) prints `</h5></a>` on the `SREFTN`
 line and the explanation after it, outside the footnote; `BLGM9MSC` `1.4`
 (DT `19920131154755`) is the same.
 
+[[markup_cz_footnotes_without_their_flow_directive]]
+==== CZ footnotes without their `cz FLOW FN` directive
+
+In the `CZ` dialect the reader prints the footnote opening
+(`<a name="<id>"><hr><h5>`) for the `SRFTN<id>` line itself and
+`</h5></a>` for the `SREFTN` line.  `cz FLOW FN` matches only the generic
+`CZ FLOW` prefix, which closes an open `<pre>` and prints nothing else.  The
+footnote is therefore the display rows between the two markers wherever the
+directive stands, and books store three orders:
+
+[cols="1,2,2",options="header"]
+|===
+|Order |Example |Bytes
+|`SRFTN<id>`, `cz FLOW FN`, rows, `SREFTN` |`packet` `1.1` record 17 |see the `SRFTN<id>` row of the control table
+|`cz FLOW FN`, `SRFTN<id>`, rows, `SREFTN` |`dfhtma09` `3.1.3` record 398 lines 40-41 |`cz FLOW FN 3 7` at `0x1235B3`-`0x1235B8` (`FN` is the two-byte word `D3 D7` at `0x1235B5`); the next line's length byte `02` at `0x1235B9`, then `SRFTNFTNUNIQ40` as the two-byte word `E2 BB` at `0x1235BA`; record 399 holds the rows `    (1) RRMS comprises three OS/390 components: ...` and `SREFTN`
+|`SRFTN<id>`, rows, `SREFTN` (no directive) |`SC41-5612-02` `2.4` record 195 lines 23-25 |length byte `02` at `0x34BE4`, `SRFTNREXLN` (`E0 0E`) at `0x34BE5`; length byte `15` (21) at `0x34BE7` opening ` \|  (6) For REXX procedures, the limit is 33.`; length byte `02` at `0x34BFD`, `SREFTN` (`DE 92`) at `0x34BFE`
+|===
+
+Hosted `SC41-5612-02` `2.4` (DT `19980522111551`) serves the third form as
+`<a name="FTNREXLN"><hr>`, `<h5>`, the row, `</h5></a>`, exactly like the
+first; `SC41-4612-00` `2.3.3` (DT `19950815061811`) serves `FTNFTNUNIQ36`,
+a two-row footnote stored the same way.  In the second and third order the
+rows after the anchor's own line belong to the anchor's flattened segment,
+as in the flattened dialect; they are the footnote's text.  Other controls
+may stand between the anchor and the rows (`cfont` in `SC41-4850-00` `1.3`
+record 9 line 27, two `SI` index lines in `SC41-4403-00` `1.9` record 56
+lines 17-18); several such footnotes follow each other, each closed by its
+own `SREFTN` (`b1bq1abd` `1.5.6` records 228-230, seven footnotes).  An
+anchor that no `SREFTN` closes, or that another `cz` directive follows
+before its `SREFTN`, is not observed as a footnote.
+
 [[markup_front_matter_heading_forms]]
 ==== Front-matter heading forms
 
