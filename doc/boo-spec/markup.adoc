@@ -2993,7 +2993,9 @@ prefix token), `E4 E7` (`|`).
 
 The mark is the box-drawing vertical `U+2502`, the broken bar `U+00A6`, or a
 printable ASCII punctuation character.  A letter or digit in cell 1 is row
-text, never a mark.  `SC34-5559-00.boo` `4.1.3`, logical record 990 display
+text unless the book header declares that character as a revision character
+(<<markup_revision_characters_declared_in_the_book_header>>); then it is a
+mark like `|`.  `SC34-5559-00.boo` `4.1.3`, logical record 990 display
 line 18, is `10 0E BD 3C 03 0F C3 AB C4 8C` at `0x61C80`: length byte `10`,
 `0E` (one blank), `BD 3C` (`U+00A6`, two bytes), `03` (the bullet `U+2666`),
 `0F` (a two-cell blank run), `C3 AB` (`CL`), `C4 8C` (`commands`), under
@@ -4266,15 +4268,6 @@ missing specifically: whether a legacy cross-reference row can carry a
 column separator other than `?`, and whether a row's column widths can vary
 within one table. Both are answerable from any second book that uses the
 legacy form; `QS3X36CM.BOO` is the only fixture that does.
-* What `c.rev` does to a row. The control and its two operands are identified
-(see "`c.rev` revision-code definitions"); the per-row marker that selects a
-revision code has not been located in the token stream. Specifically: the 22
-`c.rev` lines declare revision ids and bar characters, but no token in any
-body record has been matched to one of those ids, and no hosted page has been
-checked for a row drawn with a non-`|` bar character. `SC09-138.boo` `FRONT`
-declares `c.rev GE G`, `c.rev HN H` and eight others with distinct
-characters, so a hosted page of that book showing a `G` or `H` in the margin
-would locate the marker.
 
 Retired here, because they are answered in the body above or in a linked note:
 
@@ -4290,6 +4283,9 @@ descriptor id after the prefix; see <<assets_how_a_topic_references_an_image>>.
 * _`CZ` grammar for `PROBD`, `ORESP`, `MSGL`, `SYNTAX`, `LINES`, `ARTWORK`, and
 `ARTWORK` closing with `EHP0`_ — see "The six region names that had no
 modelled meaning" above.
+* _What `c.rev` does to a row_ — nothing per row: a revised row stores the
+declared character itself in its margin, and no token names the revision id.
+See <<markup_revision_characters_declared_in_the_book_header>>.
 * _`CTOCDEF` operands_ — the same question is tracked, with what would settle
 it, in <<toc_open_questions>>. A reader can
 hard-code the style mapping and skip the definitions.
@@ -6862,10 +6858,87 @@ DT `19900829171904` serves `PREFACE.5` with its title, paragraph and menu only,
 `SC24-5520-00` DT `19911011135123` ends `6.11.8` with the paragraph before
 record 1599 line 5).
 
-Nothing else is known about `c.rev`: no hosted page has been checked for which
-revision code a marked row carries, and no per-row revision marker has been
-located in the token stream. Treat the control as identified but its effect as
-an open question.
+No per-row reference to a revision id exists: a revised row stores the
+code's character in its margin, the same dictionary token the declaration
+stores, and the book header lists the characters again (next section).
+
+[[markup_revision_characters_declared_in_the_book_header]]
+==== Revision characters declared in the book header
+
+The book header (the logical records before the first topic) carries one
+display line per revision code the book compiler resolved:
+
+----
+crevdesc <character> [description ...]
+----
+
+The first operand is the character, one dictionary word; any further words
+are a free-text description (`SC33-0807-00` record 1:
+`crevdesc 1 Changes since the First Draft of this book`).  A first operand of
+more than one character declares no character.  The lines repeat the
+characters of the book's `c.rev` definitions in the same order, duplicates
+included:
+
+[cols="<22,<36,<42",options="header"]
+|===
+|Book |Header `crevdesc` lines |Bytes
+
+|`SC41-4725-00` record 1 |lines 64-69: `G`, `\|`, `\|`, `+`, `G`, `@` (the
+`c.rev` lines `I80 G`, `F80 \|`, `R80 \|`, `NEW80 +`, `SPC80 G`, `NLS @`
+follow in record 2) |line 64 at `0x10135`: `04` (length byte), `C1 5E`
+(`crevdesc`), `CB 8F` (`G`)
+|`SC26-4769-00` record 1 |lines 62-73: seven `\|`, `t`, `e`, three `x` |line 71
+at `0x1B156`: `03`, `D1 7A` (`crevdesc`), `9C` (`x`)
+|`SC33-1653-06` record 1 |lines 64-72: `1`..`5`, `#`, `U+00A2`, `6`, `7` |line 71
+at `0xD9152`: `03`, `BF 51` (`crevdesc`), `B1` (`6`)
+|===
+
+A revised row stores the declared character in cell 1 of its margin, in the
+shape of <<markup_revision_marks_as_stored>>, as the very token the
+declaration stores.  Letters and digits are revision marks here exactly as
+`|` is:
+
+[cols="<30,<40,<30",options="header"]
+|===
+|Book / topic / record / line |Bytes from the length byte |Hosted row
+
+|`SC41-4725-00` `24.0` record 129 line 7 |`1B` at `0x1BC1E` (spelled as ten
+blanks), `12` (one blank), `CB 8F` (`G`), `15` (a four-cell run), `03` (the
+bullet `U+2666`), `13` (a two-cell run), `E9 C2` (`With`) ..., under
+`cz FLOW LI 7 11` |pass:[<literal>&lt;li&gt; &lt;br&gt; G&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; With a time separator, ...</literal>]
+|`SC26-4769-00` `1.6` record 208 line 10 |`15` at `0x2A12B`, `1C` (one
+blank), `9C` (`x`), `03` (the bullet), `1D` (a two-cell run), `D5 92`
+(`Following`) ... |pass:[<literal>&#160;x °&#160;&#160; Following a STOP RUN statement, ...</literal>]
+|`SC33-1653-06` `5.11` record 1258 line 0 |`19` at `0x1462FC`, `0D` (one
+blank), `B1` (`6`), `03` (the bullet), `0E` (a two-cell run), `96` (`The`)
+... |pass:[<literal>&lt;li&gt; &lt;br&gt; 6&#160;&#160;&#160;&#160; The generic name coded on a DFHTST TYPE=LOCAL macro ...</literal>]
+|===
+
+Hosted DTs `19950926184312`, `19920801115802` and `20040413135708`.  As for
+`|`, hosted BookServer breaks the line before a flowed row whose column 1 is
+not blank, prints the character in the margin and blanks the bullet; rows of
+the same item without the character follow unmarked (`SC41-4725-00` `24.0`:
+three ` G ` rows, then `string must be enclosed in apostrophes`).  An
+undeclared letter in cell 1 stays row text.
+
+The header also lists which topics carry each character, between a
+`crevisions` line and a `cerevisions` line:
+
+----
+crc <character> <topic number> <topic number> ...
+----
+
+The numbers are the topics' `ctopicn` values; a long list continues on
+further `crc` lines for the same character.  `SC41-4725-00` record 1 line 74
+at `0x10163` begins `crc G 4 8 12 14 15 20 24 ...`.  Hosted BookServer's
+revised-topics page for a book prints exactly these lists, one row per topic
+with its character: `SC41-4725-00` lists 85 topics under `G`, 114 under `|`,
+23 under `@` and 9 under `+`, the counts of its `crc` lines; `SC33-1653-06`
+lists 9 under `6` and 6 under `7`, likewise.
+
+In the 500-book census sample, 414 books declare at least one character and
+91 declare a letter or digit; only the three books above store a declared
+letter or digit in a row margin.
 
 [[markup_cz_layout_directives]]
 === CZ layout directives
