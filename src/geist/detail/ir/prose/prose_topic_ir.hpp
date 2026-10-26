@@ -324,6 +324,14 @@ struct ProseTableLinkIR {
   bool picture = false;
   std::uint32_t logical_record = 0;
   std::vector<std::size_t> payload_tokens;  // ascending
+  // A selector that is the last control of its record addresses the display
+  // row below it even when that row opens the next record: the leading text
+  // segment of that record, which no control of its own opens, continues
+  // the selector's payload.  S85G-8681-00 FRONT_1 record 19 ends with
+  // `cselect 13 41 HDRFUNC7`, record 20 opens with its row, and hosted (DT
+  // 19950803164615) links it.  Zero and empty when there is none.
+  std::uint32_t continuation_record = 0;
+  std::vector<std::size_t> continuation_tokens;  // ascending
   DocumentSourceSliceIR source;
 };
 

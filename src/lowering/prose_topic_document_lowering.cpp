@@ -137,9 +137,12 @@ std::vector<const ProseTableLinkIR*> line_links(
       continue;
     bool covers = !line.source_cells.empty() || !line.unpositioned_cells.empty();
     const auto owned = [&](std::uint32_t record, std::size_t token) {
-      return record == link.logical_record &&
-             std::binary_search(link.payload_tokens.begin(),
-                                link.payload_tokens.end(), token);
+      if (record == link.logical_record)
+        return std::binary_search(link.payload_tokens.begin(),
+                                  link.payload_tokens.end(), token);
+      return record == link.continuation_record &&
+             std::binary_search(link.continuation_tokens.begin(),
+                                link.continuation_tokens.end(), token);
     };
     for (const auto& cell : line.source_cells)
       covers = covers && owned(cell.logical_record, cell.token_index);

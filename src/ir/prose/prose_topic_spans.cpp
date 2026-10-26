@@ -449,6 +449,50 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
           }
           link.payload_tokens.push_back(token);
         }
+        // The last control of its record: the next record's leading text
+        // segment is the rest of this selector's payload.
+        const auto& controls = records[record].control_segments;
+        const auto last_control =
+            segment.segment_index < controls.size() &&
+            std::none_of(controls.begin() + static_cast<std::ptrdiff_t>(
+                                                segment.segment_index + 1),
+                         controls.end(), [](const ControlSegmentIR& later) {
+                           return later.kind != BookControlKind::text;
+                         });
+        // ... and the selector's line is the last of its record that draws
+        // anything, so the row it addresses can only be in the next one.
+        bool row_in_record = false;
+        if (const auto* lines = record_display_lines(records[record])) {
+          const auto* own =
+              segment.source_tokens.empty()
+                  ? nullptr
+                  : display_line_of_token(records[record],
+                                          segment.source_tokens.front());
+          bool after = false;
+          for (const auto& line : *lines) {
+            if (own != nullptr && &line == own) {
+              after = true;
+              continue;
+            }
+            if (!after) continue;
+            for (const auto& cell : display_line_cells(records[record], line))
+              if (cell.word != ' ') row_in_record = true;
+          }
+          if (own == nullptr) row_in_record = true;
+        } else {
+          row_in_record = true;
+        }
+        if (last_control && !row_in_record && record + 1 < records.size()) {
+          const auto& next = records[record + 1];
+          if (!next.control_segments.empty() &&
+              next.control_segments.front().kind == BookControlKind::text) {
+            link.continuation_record = next.logical_record;
+            link.continuation_tokens =
+                next.control_segments.front().source_tokens;
+            std::sort(link.continuation_tokens.begin(),
+                      link.continuation_tokens.end());
+          }
+        }
       }
       link.source = token_slice(
           records[record], operands.front(),
