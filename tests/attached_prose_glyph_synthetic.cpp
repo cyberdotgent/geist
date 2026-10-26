@@ -1232,10 +1232,15 @@ void anchor_above_box_is_narrow() {
   }
   {
     Builder b(false);
+    // An `SRFIG<id>` that opens no figure is a bare anchor wherever it
+    // stands; a blank line above a box it names the next row, the box's top
+    // rule (its segment's run-on payload is the box's rows, SG24-4575-00
+    // 2.1.1).  It is not the box's leader, so `box_leading_anchors` still
+    // ignores it (above).
     anchored_box(b, "SRFIGX1", true);
     std::string error;
-    check(!lower_record(run_on_anchor(b, "SRFIGX1"), error),
-          "a figure opener a blank line above a box was read as its anchor");
+    check(lower_record(run_on_anchor(b, "SRFIGX1"), error).has_value(),
+          "a figure opener a blank line above a box declined: " + error);
   }
 }
 // An `SRFIG<id>` that opens no figure -- no picture selector, and no

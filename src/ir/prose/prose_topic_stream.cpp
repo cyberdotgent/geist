@@ -1168,6 +1168,20 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   // Segments an earlier control read as its own operands (a glossary term
   // the splitter opened as a control, `SRGLS SI`).
   std::set<std::pair<std::size_t, std::size_t>> absorbed_segments;
+  // The closed drawn boxes of the topic (prose_topic_boxes.cpp).
+  const auto planned_boxes = plan_boxes(records);
+  const auto in_closed_box = [&](std::size_t record_index,
+                                 std::size_t token) {
+    const std::pair<std::size_t, std::size_t> at{record_index, token};
+    return std::any_of(planned_boxes.begin(), planned_boxes.end(),
+                       [&](const BoxRegion& box) {
+                         return box.closed &&
+                                std::make_pair(box.begin_record,
+                                               box.begin_token) <= at &&
+                                at <= std::make_pair(box.end_record,
+                                                     box.end_token);
+                       });
+  };
   // Which dialect the topic is written in: a body that carries any `CZ`
   // control names every block boundary explicitly, a body that carries none
   // reconstructs its blocks from row geometry (doc/boo-spec/markup.adoc, "CZ layout
@@ -2577,8 +2591,24 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
             !segment.source_tokens.empty() && !list_item_closer &&
             box_leaders.count({record_index, segment.source_tokens.front()}) !=
                 0;
+        // A payload that runs on into a closed box -- over a rule row and
+        // empty lines, up to a selector inside the box -- holds rows of the
+        // box, which are the box's to draw, never the control's padding.
+        // SG24-4575-00 2.1.1 record 29 stores `SRSPT1F1` (line 9), a
+        // 74-cell rule, two empty lines and the picture frame whose
+        // `cselect 35 9 PIC1` (line 16) ends the segment; hosted (DT
+        // 19950816155957) serves `<a name="SPT1F1"><hr>` and the frame.
+        const auto drawn_box_payload =
+            !in_box && !list_item_closer &&
+            std::any_of(segment.source_tokens.begin(),
+                        segment.source_tokens.end(), [&](const auto token) {
+                          return !std::binary_search(anchor_operands.begin(),
+                                                     anchor_operands.end(),
+                                                     token) &&
+                                 in_closed_box(record_index, token);
+                        });
         if ((visible_payload || in_box || drawn_verbatim_payload ||
-             box_leader) &&
+             box_leader || drawn_box_payload) &&
             title_seen) {
           if (anchor_operands.empty())
             return fail(error, "anchor control has no source token");

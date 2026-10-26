@@ -807,6 +807,39 @@ void generic_region_unended(bool then_xmp) {
         "the rows after the region were lost: " + html);
 }
 
+// An anchor whose flattened segment runs on over a full-width rule, empty
+// lines and a closed box: the box rows stay the box's.  SG24-4575-00 2.1.1
+// record 29 stores `SRSPT1F1` (line 9), a 74-cell rule (line 10), two empty
+// lines and the picture frame (lines 13-20); hosted (DT 19950816155957)
+// serves `<a name="SPT1F1"><hr>` and the frame verbatim.
+void anchor_segment_over_rule_and_box() {
+  Builder builder(false);
+  builder.line({sp(3), w("Lead.")});
+  builder.line({w("SRSPT1F1")});
+  builder.line({sp(3), box(TokenWords(74, 0x2500))});
+  builder.blank();
+  builder.blank();
+  builder.line({sp(3), box(run(0x250C, 0x2500, 14, 0x2510))});
+  builder.line({sp(3), box({0x2502}), sp(13), box({0x2502})});
+  builder.line({w("cselect"), w("5"), w("9"), w("PIC1")});
+  builder.line({sp(3), box({0x2502}), w("PICTURE"), w("1"), sp(3),
+                box({0x2502})});
+  builder.line({sp(3), box(run(0x2514, 0x2500, 14, 0x2518))});
+  builder.blank();
+  builder.line({sp(3), w("After.")});
+  std::string error;
+  const std::set<std::string> resources{"1"};
+  const auto doc = try_lower_topic_to_document_ir(
+      {"1.1", "Example", ":H2", 10, 20, 21}, {builder.finish()}, nullptr,
+      &error, nullptr, &resources);
+  check(doc.has_value(), "an anchor run on over a box declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(pre_body(html), "<img") &&
+            contains(html, "id=\"SPT1F1\"") && contains(html, "<hr"),
+        "the box after the anchored rule was not drawn: " + html);
+}
+
 void generic_region_ended_by_flow() {
   Builder builder(true);
   builder.line({sp(3), w("Lead.")});
@@ -1442,6 +1475,7 @@ int main() {
   styled_box_rows(true);
   generic_region_ended_by_flow();
   nested_generic_opener();
+  anchor_segment_over_rule_and_box();
   cz_word_inside_a_row();
   marked_flattened_bullet(b({'#'}, 0x23));
   marked_flattened_bullet(b({':'}, 0x3A));

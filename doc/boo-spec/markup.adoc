@@ -5182,6 +5182,15 @@ The reading applies only to the proven shape:
 An anchor separated from the box by an empty line, or standing above an
 open drawing, is not proven to name it.
 
+Such an anchor still names the row after it, and the rows its flattened
+segment runs on over are rows of the topic, not of the anchor.
+`SG24-4575-00.boo` `2.1.1` record 29 stores `SRSPT1F1` alone on line 9, a
+74-cell `U+2500` rule on line 10, two empty lines, and a picture frame on
+lines 13-20 whose `cselect 35 9 PIC1` (line 16) is the next control, so the
+anchor's segment spans the rule and the frame's first rows.  Hosted (DT
+`19950816155957`) serves `<a name="SPT1F1"><hr>`, two `<p>` and the frame
+with the picture in it.
+
 Inside the blank-delimited run of an open drawing, a line that is one bare
 `SR<id>` anchor and nothing else names the row after it, as a body anchor
 names the row after it anywhere.  `SY27-0327-02.boo` `2.1.1` record 121 draws
