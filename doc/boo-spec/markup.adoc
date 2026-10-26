@@ -7625,6 +7625,14 @@ logical record 371: `05 4D 9C 98 CD C2` at `0x4240B` (`cz FLOW DT 3 13`),
 then `05 4D 9C A8 C2 C2` at `0x42411` (`cz FLOW P 13 13`) and the paragraph
 rows.  Hosted serves pass:[<literal>&lt;dt&gt;&lt;p&gt;            &lt;dd&gt;&lt;I&gt;Prompt&lt;/I&gt; &lt;I&gt;1:&lt;/I&gt; You can use DisplayWrite/36 ...</literal>].
 
+*The `DT` has no display row, and the next directive is another `DT` or
+the list's `cz OFF EDL`.*  The reader prints `<dt>` and nothing else; the
+entry is empty and draws nothing.  `SX26-3751-07` `1.1`, logical record 12:
+`05 4A 90 8A CD BB` at `0x6CCD` (`cz FLOW DT 3 13`) is followed at once by
+`05 4A 90 8A CD BB` at `0x6CD3`, and then by the row `   **        Exponentiation`
+(length byte `06` at `0x6CD9`).  Hosted (DT `19960422095654`) serves
+pass:[<literal>&lt;dt&gt;&lt;dt&gt;   **       &lt;dd&gt;Exponentiation</literal>].
+
 A `DT` with no row followed by any other directive, or by a paragraph at
 another column, has no observed meaning.
 

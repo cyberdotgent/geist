@@ -216,10 +216,55 @@ void a_term_whose_indent_is_its_left_column() {
           "a definition lost its words:\n" + text);
 }
 
+// A term with no display row before the next term or the list's closer
+// prints only `<dt>`.  SX26-3751-07 `1.1` record 12 writes
+// `cz FLOW DT 3 13` twice in a row, the second with the row
+// `   **        Exponentiation`; hosted (DT 19960422095654) serves
+// `<dt><dt>   **       <dd>Exponentiation`.  An empty `<dt>` before
+// `</dl>` is the same.
+void a_term_without_rows_before_the_next_term() {
+  RecordBuilder builder;
+  builder.heading("1.1", "Operators");
+  builder.cz({"cz", "FLOW", "DL", "3", "3"});
+  builder.cz({"cz", "FLOW", "DT", "3", "13"});
+  builder.cz({"cz", "FLOW", "DT", "3", "13"});
+  builder.row("   ", {"**", "        ", "Exponentiation"});
+  builder.cz({"cz", "FLOW", "DT", "3", "13"});
+  builder.row("   ", {"*", "         ", "Multiplication"});
+  builder.cz({"cz", "FLOW", "DT", "3", "13"});
+  builder.cz({"cz", "OFF", "EDL", "0", "0"});
+  auto extracted = run(builder.build(12), "Operators");
+  require(extracted.topic.has_value(),
+          "row-less cz FLOW DT terms were rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  require(count_kind(*extracted.topic, ProseBlockKindIR::definition_entry) ==
+              2,
+          "expected two definition entries:\n" + topic_text(*extracted.topic));
+  const auto text = topic_text(*extracted.topic);
+  require(contains(text, "Exponentiation") && contains(text, "Multiplication"),
+          "a definition lost its words:\n" + text);
+}
+
+// A row-less term before any other directive still has no reading.
+void a_term_without_rows_before_a_break_declines() {
+  RecordBuilder builder;
+  builder.heading("8.3.1.3", "Purge");
+  builder.cz({"cz", "FLOW", "DL", "3", "3"});
+  builder.cz({"cz", "FLOW", "DT", "18", "34"});
+  builder.cz({"cz", "BREAK", "3"});
+  builder.row("   ", {"Text."});
+  builder.cz({"cz", "OFF", "EDL", "0", "0"});
+  auto extracted = run(builder.build(13), "Purge");
+  require(!extracted.topic.has_value(),
+          "a row-less cz FLOW DT before cz BREAK was accepted");
+}
+
 }  // namespace
 
 int main() {
   a_term_whose_indent_is_its_left_column();
+  a_term_without_rows_before_the_next_term();
+  a_term_without_rows_before_a_break_declines();
   return 0;
 }
 

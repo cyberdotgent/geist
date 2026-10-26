@@ -2976,6 +2976,25 @@ struct CzBuilder {
                                                     first_body_line);
           }
         }
+        // Before the next term or the list's closer a DT with no row prints
+        // only `<dt>`: SX26-3751-07 1.1 (DT 19960422095654) writes two
+        // `cz FLOW DT 3 13` in a row and serves `<dt><dt>   **       <dd>
+        // Exponentiation`.  It ends the term before it and draws nothing.
+        if (groups.empty() && !stack.empty() && stack.back().tag == "dl") {
+          const auto* next = index + 1 < build.directives.size()
+                                 ? &build.directives[index + 1]
+                                 : nullptr;
+          if (next == nullptr ||
+              (next->mode == "flow" && next->tag == "dt") ||
+              (next->mode == "off" && next->tag == "edl")) {
+            auto& frame = stack.back();
+            term_alone(frame);
+            frame.body_owner = npos;
+            frame.inline_entry = npos;
+            frame.inline_indent = npos;
+            return true;
+          }
+        }
         const auto separate_body =
             index + 1 < build.directives.size() &&
             build.directives[index + 1].mode == "flow" &&
