@@ -222,6 +222,27 @@ struct LineBuilder {
     return false;
   }
 
+  // An arrow word stored with no blank cell between it and a word of its own
+  // display row: the open row already carries that word as its last cell.
+  // A word, not a drawn stroke: an arrow glued to box words is the end of a
+  // drawn path (`>>___CHANGE___data___->`, qbka4801 8.2.3.2 record 646 line
+  // 26), which the row model cannot prove.
+  bool attached_arrow(const TokenView& view) {
+    if (!line_open || line_visible_cells == 0 || line().cells.empty() ||
+        line().cells.back().space ||
+        (pending_space && view.prefix != 0 && view.prefix != 1) ||
+        !display_word_precedes_in_line(view))
+      return false;
+    const auto& last = line().cells.back();
+    if (last.record == npos || last.record != view.record) return false;
+    const auto before = view_token(records, last.record, last.token);
+    return std::none_of(before.body.begin(), before.body.end(),
+                        [](const auto word) {
+                          return box_word(word) ||
+                                 (word >= 0x2190 && word <= 0x2193);
+                        });
+  }
+
   // A mapped diamond can be literal text, not just a list marker.  Require
   // the native row to prove attachment on both sides; the flattened token
   // stream alone cannot distinguish a row boundary or an omitted blank.
@@ -1622,8 +1643,21 @@ struct LineBuilder {
   // No directive may stand inside the box: a `cz FLOW` there closes the
   // reader's `<pre>` in the middle of the drawing.
   bool cz_reader_pre_open(std::size_t at) {
-    bool pre = true;
     bool region = false;
+    return cz_reader_pre_state(at, region) && !region;
+  }
+
+  // True when the reader is flowing the rows at item `at`: a `cz FLOW`
+  // closed its `<pre>` and no empty display line or region opener has
+  // reopened one since (the rules above).
+  bool cz_reader_flowing(std::size_t at) {
+    bool region = false;
+    return !cz_reader_pre_state(at, region);
+  }
+
+  bool cz_reader_pre_state(std::size_t at, bool& region) {
+    bool pre = true;
+    region = false;
     bool figure = false;
     bool labelled = false;
     for (std::size_t index = 0; index < at; ++index) {
@@ -1661,7 +1695,7 @@ struct LineBuilder {
           directive.tag != "msgl")
         region = true;
     }
-    return pre && !region;
+    return pre;
   }
 
   bool cz_pre_zone_box(const BoxRegion& region) {
@@ -1974,7 +2008,21 @@ struct LineBuilder {
     // (`drawn_region_cell`): SC41-4870-00 1.10.3.1 record 100 line 15
     // `   ->__ name1 __->` directly under `cz OFF CGRAPHIC`, served in
     // `<pre width="80">` (DT 19950630115246).  The word keeps its own glyph.
-    if (item.drawn_arrow && xmp_mode) {
+    // In a row the reader flows (`cz_reader_flowing`) there is no drawing to
+    // run together: the reader joins the block's rows into running text and
+    // the arrow is one more character of it.  SC33-1683-02 1.2.4.1.1 record
+    // 963 ends `   refer to the CICS System Programming Reference manual.`
+    // with `U+2190` under `cz FLOW P 3 3`; hosted (DT 19990708140137) serves
+    // the flowed paragraph with the code-page byte 0x1B after `manual.`.
+    // An arrow glued to the word before it on its own row is a character of
+    // that word wherever the row stands, as an attached diamond is
+    // (`attached_inline_glyph`): SC33-1683-00 1.2.4.1.1 record 996 line 19
+    // (a topic with no directive) stores `manual`, the attached `.` and the
+    // arrow with no blank cell between them.  A spaced arrow still proves no
+    // drawing and declines.
+    if (item.drawn_arrow &&
+        (xmp_mode || (cz_mode && cz_reader_flowing(index)) ||
+         attached_arrow(view))) {
       if (!ensure_line()) return false;
       if (pending_space && view.prefix != 0 && view.prefix != 1)
         line().cells.push_back({npos, 0, " ", true});

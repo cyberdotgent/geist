@@ -352,6 +352,27 @@ row above it (`... ''MARK.SUPPLY.C(ORDER)'')') ↑ ↑ ↑ ↑ ↑ ↑`, or the 
 rows as drawn rows: the shaft under an up arrow or over a down arrow proves the
 drawing (<<markup_vertical_arrows_in_prose>>).
 
+An arrow word can also be running text, and two placements prove it without
+a drawing:
+
+* the row stands in a flowed block -- after a `cz FLOW` directive, before an
+  empty display line or region opener reopens verbatim output
+  (<<markup_reading_a_cz_body>>) -- so the reader joins its rows anyway;
+* the arrow is glued to an ordinary word of its own display row: no blank
+  cell, and no box-drawing word, stands between them.
+
+`SC33-1683-02` topic `1.2.4.1.1` (DT `19990708140137`) stores the row
+`   refer to the CICS System Programming Reference manual.` under
+`cz FLOW P 3 3` (record 963 line 21) and ends it with the two-byte word
+`U+2190` (token 192, bytes `0xCFFDA`--`0xCFFDC`, value 37947), glued to the
+attached `.` (token 190) by the attach token 191; the next display line is
+`cz FLOW H4 3 3`. Hosted
+serves the flowed paragraph `... Reference</a> manual.` followed by the byte
+`0x1b`. `SC33-1683-00`, the same topic in a book with no directive, stores the
+row as the last line of record 996 with the same glued arrow. A spaced arrow
+alone at the end of a row of a book's verbatim text (the `DREICMST` row
+above) proves neither.
+
 The token word `0x2666` is not inherently a list-item delimiter. It also occurs
 attached inside ordinary text. In `GA19-5486-13` (build `10/12/95 16:12:06`),
 topic `23.1`, logical record 988, physical offsets `0xf073f` through `0xf0741`

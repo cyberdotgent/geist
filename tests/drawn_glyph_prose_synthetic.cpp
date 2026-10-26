@@ -592,6 +592,40 @@ void arrow_in_verbatim_region(bool region) {
         "the arrow row was not drawn: " + html);
 }
 
+// An arrow word in a row the reader flows: a `cz FLOW` block's rows are no
+// drawing, the reader joins them into running text, and the arrow is one
+// more character of it.  SC33-1683-02 1.2.4.1.1 record 963 ends the row
+// `   refer to the CICS System Programming Reference manual.` with the
+// two-byte word `U+2190` under `cz FLOW P 3 3`; hosted BookServer (DT
+// 19990708140137) serves `... Reference</a> manual.` and the code-page byte
+// 0x1B for the arrow, in the flowed paragraph.  The glyph is kept.
+// SC33-1683-00 1.2.4.1.1 record 996 line 19 stores the same row in a topic
+// with no directive: the arrow, glued to `manual.`, is a character of the
+// row's last word there too.
+void arrow_in_flowed_row(bool trailing_row, bool cz = true) {
+  const Tok arrow{TokenWords{0x2190}, 2, 0};
+  Builder builder(cz);
+  builder.line({sp(3), w("For"), w("information,")});
+  builder.line({sp(3), w("refer"), w("to"), w("the"), w("manual"),
+                b({1, '.'}, 1), attach(), arrow});
+  if (trailing_row) builder.line({sp(3), w("More"), w("text.")});
+  // The arrow ends the topic's last row there, as in the book.
+  if (cz) {
+    builder.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+    builder.line({sp(3), w("After.")});
+  }
+  std::string error;
+  const auto doc = lower(builder, error);
+  check(doc.has_value(), "an arrow in a flowed CZ row declined: " + error);
+  if (!doc) return;
+  const auto html = render_document_html_fragment(*doc);
+  check(contains(html, "For information, refer to the manual.\xE2\x86\x90" +
+                           std::string(trailing_row ? " More text." : "") +
+                           "</p>"),
+        "the arrow is not a character of the flowed paragraph: " + html);
+  check(!contains(html, "<pre"), "a flowed row was drawn: " + html);
+}
+
 // A step diagram: a blank-delimited run of rows with branch rails, one row
 // drawn from box words alone, and a bare `SR<id>` anchor line between two of
 // its rows naming the branch target.  SY27-0327-02 2.1.1 record 121 stores
@@ -1524,6 +1558,9 @@ int main() {
   step_diagram_with_anchor(false, true);
   arrow_in_verbatim_region(true);
   arrow_in_verbatim_region(false);
+  arrow_in_flowed_row(false);
+  arrow_in_flowed_row(true);
+  arrow_in_flowed_row(false, false);
   unended_generic_region_declines();
   return 0;
 }
