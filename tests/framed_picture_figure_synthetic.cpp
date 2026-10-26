@@ -359,6 +359,28 @@ void table_envelope_picture_stands_in_its_row() {
             text < image,
         "markdown image does not stand at its row: " + md);
 }
+// A table envelope whose only row is a picture: dasa3b00 1.2.8.1 record 196
+// stores `SRTBLTBLUNIQ58`, `cselect 3 10 PIC97`, `   PICTURE 97` and
+// `SRETBL`.  The picture's cells are blanked out of its row, yet the row
+// shows the picture; the envelope is that picture, not an empty region.
+void table_envelope_of_one_picture() {
+  Builder b;
+  b.heading();
+  b.line({w("   "), w("Lead.")});
+  b.line({w("SRTBLTBLUNIQ58")});
+  b.line({w("cselect"), w("3"), w("10"), w("PIC1")});
+  b.line({w("   "), w("PICTURE"), w("1")});
+  b.line({w("SRETBL")});
+  b.line({w("   "), w("Following prose.")});
+  auto d = lower({b.finish(132)});
+  if (!d)
+    return;
+  const auto html = render_document_html_fragment(*d);
+  check(html.find("id=\"TBLTBLUNIQ58\"") != std::string::npos &&
+            html.find("<img") != std::string::npos &&
+            html.find("Following prose.") != std::string::npos,
+        "picture-only table envelope lost its picture: " + html);
+}
 // A picture figure framed by full-width rules (`frame=rule`): the rule rows
 // are the page's `<hr>` around the image.  SC33-1698-01 1.2.2 record 104
 // (`SRFIGDFHT25O`, `cz OFF FIG`, a rule, `cselect 3 9 PIC1` over
@@ -407,5 +429,6 @@ int main() {
   caption_row_stays_in_the_frame();
   styled_label_inside_the_frame();
   table_envelope_picture_stands_in_its_row();
+  table_envelope_of_one_picture();
   return 0;
 }

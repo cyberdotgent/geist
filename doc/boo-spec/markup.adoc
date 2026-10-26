@@ -3534,6 +3534,15 @@ fixed-layout region keeps both its character art and its picture.  Note that
 the placeholder words are also hosted's `alt` text, and that a region may
 carry several picture selectors, one per line it decorates.
 
+An envelope may hold one picture and nothing else.  `dasa3b00.boo` `1.2.8.1`,
+logical record 196: line 42 is `SRTBLTBLUNIQ58` (`02`, then the two-byte
+word at `0x6802FC`), followed by `cselect 3 10 PIC97` (`PIC97` at
+`0x680302`), line 44 `   PICTURE 97`, and `SRETBL`.  Once the selector's
+columns are blanked no display text remains, but the region is not empty:
+its one row is the picture, at column 3.  The Application System books
+(`dasa*`, `SH45-5528-00`) write their screen captures this way in dozens of
+topics; their hosted catalog entries are not reachable for comparison.
+
 Not a format fact, but needed when comparing against the hosted server: the
 BookServer's rendered `.GIF` set is incomplete for some books.
 `GG24-3950-01` has no `P67.GIF` or `P87.GIF` and `GX27-3999-00` has no

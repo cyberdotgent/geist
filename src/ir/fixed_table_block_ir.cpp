@@ -3184,7 +3184,10 @@ bool verify_fixed_table_blocks_ir(
       if (!block.body.empty() || block.caption ||
           !block.separator_columns.empty())
         return fail("preformatted table region carries table geometry");
-      bool blank = true;
+      // A picture's line is blanked under it, but the picture is what the
+      // line shows: an envelope holding one picture and nothing else is
+      // that picture, not an empty region.
+      bool blank = block.pictures.empty();
       for (const auto &line : block.preformatted_lines)
         if (line.text.find_first_not_of(' ') != std::string::npos)
           blank = false;
