@@ -1205,7 +1205,18 @@ struct CzBuilder {
                       lines.begin() +
                           static_cast<std::ptrdiff_t>(ranges[next].second),
                       [](const Line& line) { return has_text(line); });
-      if (!text_follows) return fail(error, "cz FLOW LP has no list-part text");
+      // A note is such a part too: SC33-1362-01 1.2.2 (DT 19950831082352)
+      // follows the term `MQCLOS    Close object.` with a row-less
+      // `cz FLOW LP 11 11` and `cz FLOW NT 11 18`, served `<br>` and the
+      // note inside the `<dl>`.
+      const auto note_follows =
+          next < build.directives.size() &&
+          build.directives[next].mode == "flow" &&
+          (build.directives[next].tag == "nt" ||
+           build.directives[next].tag == "note") &&
+          ranges[next].first != npos;
+      if (!text_follows && !note_follows)
+        return fail(error, "cz FLOW LP has no list-part text");
     }
     frame.body_owner = npos;
     frame.inline_entry = npos;

@@ -7835,6 +7835,12 @@ at `0x39745` is `cz FLOW LP 3 3`, `05 52 97 A2 C4 C4` at `0x3974C` is
 the later edition of the `SC33-1692` text and is not on the hosted
 BookServer itself.
 
+A row-less `LP` may also hand its place to a note.  `SC33-1362-01` `1.2.2`,
+logical record 262, follows the entry `MQCLOS    Close object.` with
+`06 40 87 D7 54 A3 A3` at `0x33E8F` (`cz FLOW LP 11 11`) and
+`06 40 87 D8 FC A3 A9` at `0x33E96` (`cz FLOW NT 11 18`); hosted
+(DT `19950831082352`) serves `<br>` and the note inside the `<dl>`.
+
 A list part breaks no rule of the HTML `<dl>` only because BookServer emits
 it as bare text; a paragraph is not a permitted child of `<dl>`, so a reader
 that keeps valid markup serves the part as a paragraph between two runs of

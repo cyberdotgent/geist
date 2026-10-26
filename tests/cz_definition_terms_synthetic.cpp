@@ -306,9 +306,35 @@ void a_parameter_term_split_by_an_anchor() {
             std::string("anchor ") + id + " is not placed at an entry");
 }
 
+// A row-less list part before a note: SC33-1362-01 `1.2.2` follows the term
+// `MQCLOS    Close object.` with `cz FLOW LP 11 11` and
+// `cz FLOW NT 11 18`; hosted (DT 19950831082352) serves `<br>` and the note
+// inside the `<dl>`.
+void a_rowless_list_part_before_a_note() {
+  RecordBuilder builder;
+  builder.heading("1.2.2", "MQCLOS");
+  builder.cz({"cz", "FLOW", "DL", "11", "11"});
+  builder.cz({"cz", "FLOW", "DT", "11", "21"});
+  builder.row("           ", {"MQCLOS", "    ", "Close", "object."});
+  builder.cz({"cz", "FLOW", "LP", "11", "11"});
+  builder.cz({"cz", "FLOW", "NT", "11", "18"});
+  builder.row("           ", {"Note:", " ", "If", "the", "value", "is", "bad."});
+  builder.cz({"cz", "OFF", "ENT", "8", "8"});
+  builder.cz({"cz", "OFF", "EDL", "8", "8"});
+  auto extracted = run(builder.build(90), "MQCLOS");
+  require(extracted.topic.has_value(),
+          "a row-less cz FLOW LP before a note was rejected: " +
+              extracted.error);
+  if (!extracted.topic) return;
+  const auto text = topic_text(*extracted.topic);
+  require(contains(text, "Close") && contains(text, "bad."),
+          "a block lost its words:\n" + text);
+}
+
 }  // namespace
 
 int main() {
+  a_rowless_list_part_before_a_note();
   a_parameter_term_split_by_an_anchor();
   a_term_whose_indent_is_its_left_column();
   a_term_without_rows_before_the_next_term();
