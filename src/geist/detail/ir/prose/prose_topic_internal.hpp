@@ -631,9 +631,15 @@ bool build_blocks(const std::vector<DecodedLogicalRecordSource>& records,
 // 19951012161206) and SC21-8295-03 `EDITION`/`FRONT_1` (`SC21-829`, DT
 // 19970409135933) each open `<pre width="80">` at `cz OFF ADDRESS` and print
 // the address rows in it at their stored columns.
+//
+// `FIGVERBATIM` is no source tag.  It is the name the stream gives a
+// `cz OFF FIG` that opens a verbatim figure region (`CzVerbatimRegion::
+// figure`), and `EFIGVERBATIM` its `cz OFF EFIG`, so the builders read the
+// region as they read the other verbatim tags.
 inline bool cz_verbatim_region_tag(const std::string& tag) {
   return tag == "xmp" || tag == "screen" || tag == "lblbox" ||
-         tag == "syntax" || tag == "lines" || tag == "address";
+         tag == "syntax" || tag == "lines" || tag == "address" ||
+         tag == "figverbatim";
 }
 inline bool cz_verbatim_region_closer(const std::string& tag) {
   return tag.size() > 1 && tag.front() == 'e' &&
@@ -705,11 +711,19 @@ inline bool cz_tabdata_region_closer(const std::string& tag) {
 struct CzVerbatimRegion {
   std::pair<std::size_t, std::size_t> begin{};
   std::pair<std::size_t, std::size_t> end{};
+  // A `cz OFF FIG` .. `cz OFF EFIG` region around a table envelope that no
+  // `cz OFF TABLE` declares (`cz_verbatim_regions`).  `begin` is then the
+  // `SRFIG<id>` line in front of the directive, when there is one, and
+  // `opener` the directive itself.
+  bool figure = false;
+  std::pair<std::size_t, std::size_t> opener{};
 };
 std::vector<CzVerbatimRegion> cz_verbatim_regions(
     const std::vector<DecodedLogicalRecordSource>& records);
 bool inside_cz_verbatim(const std::vector<CzVerbatimRegion>& regions,
                         std::size_t record, std::size_t token);
+bool inside_verbatim_figure(const std::vector<CzVerbatimRegion>& regions,
+                            std::size_t record, std::size_t token);
 
 // The box-enclosed envelopes (`box_enclosed_envelopes`) the prose model
 // reads as box markup: all of them when every envelope of the topic is

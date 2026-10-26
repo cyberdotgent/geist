@@ -46,8 +46,51 @@ std::vector<CzVerbatimRegion> cz_verbatim_regions(
   bool open = false;
   std::pair<std::size_t, std::size_t> begin{};
   std::string open_tag;
+  // A `cz OFF FIG` region is verbatim when it holds a table envelope that no
+  // `cz OFF TABLE` declares and no picture.  The reader opens
+  // `<pre width="132"><!-- figure -->` at `CZ OFF FIG` and enters an OFF
+  // region (bookmgr.exe prints the comment and sets the region depth, as for
+  // every `CZ OFF` tag); only `CZ OFF TABLE` makes a `<table>` (`<!-- table
+  // -->`), so an `SRTBL` envelope inside is drawn rows with an anchor, like
+  // an envelope inside a labelled box.  SC41-5420-03 6.9.1.1 (DT
+  // 19990224124925) serves `SRFIGIAM`, `cz OFF FIG`, `SRTBLTBLUNIQ28`, the
+  // grid, `SRETBL`, `cz OFF ETABLE 0 0`, the caption, `SREFIG` and
+  // `cz OFF EFIG 0 0` as one `<pre>`: both anchors on the grid's top row, the
+  // grid and the caption as stored, nothing for either closer.
+  bool figure_open = false;
+  bool figure_table = false;
+  bool figure_other = false;
+  std::pair<std::size_t, std::size_t> figure_begin{};
+  std::pair<std::size_t, std::size_t> figure_opener{};
+  // The `SRFIG<id>` control directly in front of the next directive, if any.
+  std::optional<std::pair<std::size_t, std::size_t>> anchor_before;
   for (std::size_t index = 0; index < records.size(); ++index) {
+    const auto text = token_words_to_ascii(records[index].assembled.words);
     for (const auto& segment : records[index].control_segments) {
+      const auto srfig =
+          segment.kind == BookControlKind::structural &&
+          !segment.source_tokens.empty() &&
+          ascii_lower(segment.opcode).rfind("srfig", 0) == 0;
+      const auto previous_anchor = anchor_before;
+      if (segment.kind != BookControlKind::text)
+        anchor_before = srfig ? std::optional<std::pair<std::size_t,
+                                                        std::size_t>>{{index,
+                                     segment.source_tokens.front()}}
+                              : std::nullopt;
+      if (figure_open) {
+        if (segment.kind == BookControlKind::table_start) figure_table = true;
+        const auto opcode = ascii_lower(segment.opcode);
+        if (opcode == "csart" || opcode == "csartdesc") figure_other = true;
+        if (segment.kind == BookControlKind::select) {
+          const auto operand = ascii_lower(text.substr(
+              segment.operand_range.begin,
+              segment.operand_range.end - segment.operand_range.begin));
+          const auto last = operand.find_last_of(' ');
+          const auto target =
+              last == std::string::npos ? operand : operand.substr(last + 1);
+          if (target.rfind("pic", 0) == 0) figure_other = true;
+        }
+      }
       if (segment.kind != BookControlKind::layout_directive ||
           segment.malformed || segment.source_tokens.empty() ||
           is_display_line_length_opcode(records[index], segment))
@@ -62,6 +105,30 @@ std::vector<CzVerbatimRegion> cz_verbatim_regions(
       if (words.size() < 3 || words.front() != "cz" || words[1] != "off")
         continue;
       const auto& tag = words.back();
+      if (figure_open) {
+        if (tag == "efig") {
+          if (figure_table && !figure_other)
+            regions.push_back({figure_begin,
+                               {index, segment.source_tokens.back()},
+                               true,
+                               figure_opener});
+          figure_open = false;
+          continue;
+        }
+        // The undeclared table's `cz OFF ETABLE` closes nothing (the generic
+        // `CZ OFF E` closer).  A declared table, or any other region, keeps
+        // the figure's own reading.
+        if (tag != "etable") figure_other = true;
+        continue;
+      }
+      if (!open && tag == "fig") {
+        figure_open = true;
+        figure_table = false;
+        figure_other = false;
+        figure_opener = {index, segment.source_tokens.front()};
+        figure_begin = previous_anchor ? *previous_anchor : figure_opener;
+        continue;
+      }
       if (!open && cz_verbatim_region_tag(tag)) {
         open = true;
         open_tag = tag;
@@ -87,6 +154,14 @@ bool inside_cz_verbatim(const std::vector<CzVerbatimRegion>& regions,
   const std::pair<std::size_t, std::size_t> at{record, token};
   return std::any_of(regions.begin(), regions.end(), [&](const auto& region) {
     return !(at < region.begin) && !(region.end < at);
+  });
+}
+
+bool inside_verbatim_figure(const std::vector<CzVerbatimRegion>& regions,
+                            std::size_t record, std::size_t token) {
+  const std::pair<std::size_t, std::size_t> at{record, token};
+  return std::any_of(regions.begin(), regions.end(), [&](const auto& region) {
+    return region.figure && !(at < region.begin) && !(region.end < at);
   });
 }
 
@@ -1050,10 +1125,22 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
             !segment.source_tokens.empty() &&
             segment.source_tokens.front() == token)
           box_ids.insert(segment.opcode.substr(5));
+    // An envelope inside a verbatim figure region (`CzVerbatimRegion::
+    // figure`) is drawn rows of that region in the same way.
+    for (std::size_t index = 0; index < records.size(); ++index)
+      for (const auto& segment : records[index].control_segments)
+        if (segment.kind == BookControlKind::table_start &&
+            !segment.source_tokens.empty() &&
+            inside_verbatim_figure(verbatim, index,
+                                   segment.source_tokens.front()))
+          box_ids.insert(segment.opcode.substr(5));
     const auto boxed = [&](const FixedTableBlockIR& block) {
       const auto record = record_index_of(records, block.object_source.logical_record);
       return record &&
-             box_markup.count({*record, block.object_source.token_begin}) != 0;
+             (box_markup.count({*record, block.object_source.token_begin}) !=
+                  0 ||
+              inside_verbatim_figure(verbatim, *record,
+                                     block.object_source.token_begin));
     };
     for (const auto& decline : topic.tables.declined) {
       if (box_ids.count(decline.object_id)) continue;
@@ -1078,8 +1165,12 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
     if (!record || ref.segment_index >= records[*record].control_segments.size())
       return false;
     const auto& segment = records[*record].control_segments[ref.segment_index];
+    // An opener inside a verbatim figure region (`CzVerbatimRegion::figure`)
+    // is an anchor of that region's rows, as box markup is.
     return !segment.source_tokens.empty() &&
-           box_markup.count({*record, segment.source_tokens.front()}) != 0;
+           (box_markup.count({*record, segment.source_tokens.front()}) != 0 ||
+            inside_verbatim_figure(verbatim, *record,
+                                   segment.source_tokens.front()));
   };
   if (has_figure_region(records, verbatim, box_markup)) {
     std::string selector_error;
@@ -1184,6 +1275,7 @@ bool plan_spans(const std::vector<DecodedLogicalRecordSource>& records,
           blocks.end());
     }
     for (std::size_t index = 0; index < topic.figures.blocks.size(); ++index) {
+      if (box_figure_markup(topic.figures.blocks[index].span.begin)) continue;
       Region region;
       region.kind = ProseSpanKindIR::figure;
       region.index = index;

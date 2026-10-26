@@ -5736,6 +5736,28 @@ puts the text it carries.  Hosted keeps such closer text inside the open
 `2.4.1`, DT `20260614112503`, prints `Note that zeros are omitted` that way),
 so the two tags do not differ there either.
 
+A `cz OFF FIG` .. `cz OFF EFIG` region is verbatim too when it holds an
+`SRTBL<id>` envelope that no `cz OFF TABLE` declares, and no picture.
+`cz OFF FIG` opens `<pre width="132"><!-- figure -->` and an OFF region like
+every `cz OFF` tag; only `cz OFF TABLE` makes a `<table>` (hosted marks it
+`<!-- table -->`).  `SC41-5420-03.boo` `6.9.1.1` stores, in logical record
+941, `02` at `0x1170AF` then `D7 87` (`SRFIGIAM`), `04` at `0x1170B2` then
+`46 7C B9 15` (`cz OFF FIG`), `02` at `0x1170B7` then `DC F5`
+(`SRTBLTBLUNIQ28`), and the `Printer`/`Print IP`/... grid from line 21; record
+942 has `02` at `0x11736A` then `D6 57` (`SRETBL`) on line 19,
+`cz OFF ETABLE 0 0` on line 22, the caption `   Figure  6-27. IP Address
+Mapping` on line 23, `02` at `0x117386` then `D6 41` (`SREFIG`) on line 24
+and `cz OFF EFIG 0 0` on line 25.  Hosted (DT `19990224124925`) serves one
+`<pre width="132"><!-- figure -->`: `<a name="FIGIAM"><a name="TBLTBLUNIQ28">`
+around the grid's top rule, every grid row and the rule rows after it as
+stored, two `<p>` and the caption row; nothing for `SRETBL`, `SREFIG` or
+either closer, and no `<table>`.  A `SRFIG<id>` frame nested in the region
+(`SC41-3425-00.boo` `2.1.4.7.2`: `SRFIGTHRUPUT`, `cz OFF FIG`, `SRFIGTHRUPT`,
+`SRTBLTHRUPT`, the grid, `SRETBL`, `SREFIG`, `cz OFF ETABLE 0 0`, the
+caption, `SREFIG`, `cz OFF EFIG 0 0`; DT `19950525161600`) is served the same
+way, its three anchors on the grid's top rule, and the `cselect` links of the
+grid rows (`2.1.4`, 18 `SPT` targets) are links in their rows.
+
 Inside a verbatim region a box-drawing run is display content, not row
 geometry: the frame words occupy their own display columns and hosted prints
 their display glyphs.  Drawn box _regions_ are a flattened-dialect shape and

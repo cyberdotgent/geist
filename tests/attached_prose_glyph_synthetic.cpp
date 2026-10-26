@@ -986,6 +986,61 @@ void framed_table(Builder &b, bool blank_inside_frame,
   b.blank();
   b.line({w("   "), w("Text after.")}, std::move(after_length));
 }
+// A CZ figure region around a table no `cz OFF TABLE` declares: the reader
+// opens `<pre width="132"><!-- figure -->` at `cz OFF FIG` and prints every
+// row up to the closer as stored; `SRFIG`/`SRTBL` are anchors on the rows
+// after them, and `SRETBL`/`SREFIG` print nothing.  SC41-5420-03 6.9.1.1
+// records 941-942 store `SRFIGIAM`, `cz OFF FIG`, `SRTBLTBLUNIQ28`, the
+// grid, `SRETBL`, `cz OFF ETABLE 0 0`, the caption, `SREFIG` and
+// `cz OFF EFIG 0 0`; hosted (DT 19990224124925) serves exactly that, both
+// anchors on the grid's top row and the caption as a row of the `<pre>`.
+void cz_frame_around_table() {
+  Builder b;
+  b.line({w("   "), w("Text before.")});
+  b.line({});
+  b.line({w("SRFIGFR1")});
+  b.line({w("cz"), w("OFF"), w("FIG")});
+  b.line({w("   "), repeat({0x250c}, 0x2500, 20, 0x2510)});
+  b.line({w("SRTBLTBLUNIQ9")});
+  b.line({w("   "), {0x2502}, w(std::string(20, ' ')), {0x2502}});
+  b.line({w("   "), {0x2502}, w(" "),
+          repeat(repeat({0x250c}, 0x2500, 8, 0x252c), 0x2500, 7, 0x2510),
+          w(" "), {0x2502}});
+  b.line({w("   "), {0x2502}, w(" "), {0x2502}, w(" "), w("A"),
+          w("      "), {0x2502}, w(" "), w("B"), w("     "), {0x2502},
+          w(" "), {0x2502}});
+  b.line({w("   "), {0x2502}, w(" "),
+          repeat(repeat({0x2514}, 0x2500, 8, 0x2534), 0x2500, 7, 0x2518),
+          w(" "), {0x2502}});
+  b.line({w("SRETBL")});
+  b.line({w("   "), repeat({0x2514}, 0x2500, 20, 0x2518)});
+  b.line({w("cz"), w("OFF"), w("ETABLE"), w("0"), w("0")});
+  b.line({w("   "), w("Figure 1. Caption")});
+  b.line({w("SREFIG")});
+  b.line({w("cz"), w("OFF"), w("EFIG"), w("0"), w("0")});
+  b.line({w("cz"), w("FLOW"), w("P"), w("3"), w("3")});
+  b.line({w("   "), w("Text after.")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "CZ framed table declined: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  // The `SRFIG` anchor stands in front of the region's `<pre>`, as a drawn
+  // figure's anchor does.
+  check(html.find("id=\"FIGFR1\"") < html.find("<pre") &&
+            pre.find("id=\"TBLTBLUNIQ9\"") != std::string::npos &&
+            pre.find(" A ") != std::string::npos &&
+            pre.find("Figure 1. Caption") != std::string::npos &&
+            html.find("Text after.") > html.find("</pre>") &&
+            html.find("<table") == std::string::npos &&
+            html.find("OFF") == std::string::npos &&
+            html.find("ETBL") == std::string::npos &&
+            html.find("EFIG") == std::string::npos,
+        "CZ figure around an undeclared table is not one verbatim block: " +
+            html);
+}
 void frame_rows_around_table(bool blank_inside_frame,
                              TokenWords after_length = w("<BOOK>")) {
   Builder b(false);
@@ -1905,6 +1960,7 @@ int main() {
   figure_spot_anchor_before_index_lines();
   caption_only_figure();
   cz_figure_directive_running_on();
+  cz_frame_around_table();
   envelope_box_markup_is_narrow();
   list_closer_ends_open_drawing();
   unclaimed_box_rows_at_topic_end();

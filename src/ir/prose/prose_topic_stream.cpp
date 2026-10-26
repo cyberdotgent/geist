@@ -1184,6 +1184,31 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
   // `<a name="FIGTBLUNIQ1">` and `<a name="TBLTBLUNIQ1">` on two rows of the
   // labelled box, and no `<table>`.
   const auto verbatim_regions = cz_verbatim_regions(records);
+  // The opener and closer of a verbatim figure region
+  // (`CzVerbatimRegion::figure`) take the region's own tag names, so the
+  // builders read the region as they read every verbatim one.
+  const auto name_verbatim_figure = [&](std::size_t first_item,
+                                        std::size_t record_index,
+                                        const ControlSegmentIR& segment) {
+    if (segment.source_tokens.empty()) return;
+    for (auto at = first_item; at < build.items.size(); ++at) {
+      auto& directive = build.items[at].directive;
+      if (build.items[at].kind != ItemKind::layout ||
+          directive.mode != "off")
+        continue;
+      for (const auto& region : verbatim_regions) {
+        if (!region.figure) continue;
+        if (directive.tag == "fig" &&
+            region.opener ==
+                std::make_pair(record_index, segment.source_tokens.front()))
+          directive.tag = "figverbatim";
+        else if (directive.tag == "efig" &&
+                 region.end ==
+                     std::make_pair(record_index, segment.source_tokens.back()))
+          directive.tag = "efigverbatim";
+      }
+    }
+  };
   const auto box_markup = box_markup_envelopes(records);
   const auto box_leaders = box_leading_anchors(records);
   const auto box_figure_openers = box_leading_figure_openers(records);
@@ -1947,6 +1972,9 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                                         pending_footnote_id, ledger,
                                         build.items, error))
             return false;
+          // SC41-3425-00 2.1.4 record 240 closes its figure region with
+          // `cz OFF EFIG 0 0` right after the trailing menu's `cemenu`.
+          name_verbatim_figure(before, record_index, segment);
           for (auto index = before; index < build.items.size(); ++index)
             if (build.items[index].kind == ItemKind::token &&
                 is_visible(build.items[index].token) &&
@@ -2571,10 +2599,16 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         // A box's own `SRETBL` or `SREFIG` names nothing either; its payload
         // is the box rows after it (hosted SH09-8098-02 3.3.3.4.1 serves no
         // anchor for either).
+        // Inside a verbatim `cz OFF` region the envelope's end markers name
+        // nothing as well: the reader ignores every `SRE` control line
+        // (bookmgr.exe tests the `SRE` prefix among the lines it skips), and
+        // hosted SC41-4853-00 1.2 (DT 19951003131222) serves `FIGTBLUNIQ1`
+        // and `TBLTBLUNIQ1` in its labelled box but no `EFIG`.
         const auto list_closer =
             list_item_closer || unopened_table_end ||
-            (in_box && (segment.kind == BookControlKind::table_end ||
-                        lower_opcode == "srefig"));
+            ((in_box || in_verbatim) &&
+             (segment.kind == BookControlKind::table_end ||
+              lower_opcode == "srefig"));
         // A body anchor can carry the first display line of the text it
         // names.  Hosted BookServer wraps that text in the anchor element
         // and keeps it as body content -- unlike the metadata-envelope
@@ -3386,10 +3420,12 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         }
         if (!title_seen)
           return fail(error, "layout directive precedes the title");
+        const auto first_item = build.items.size();
         if (!collect_layout_directive(records, record_index, segment,
                                       pending_footnote_id, ledger, build.items,
                                       error))
           return false;
+        name_verbatim_figure(first_item, record_index, segment);
         cz_seen = true;
         break;
       }
