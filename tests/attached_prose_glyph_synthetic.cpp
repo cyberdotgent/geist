@@ -591,6 +591,58 @@ void envelope_inside_closed_box() {
             pre.find("|______|") != std::string::npos,
         "box envelope anchor is not on the row after its opener: " + html);
 }
+// A bare `SRSPT<id>` line between the rows of a closed box, optionally
+// followed by `SI` lines: hosted BookServer wraps the next drawn row in
+// `<a name>` inside the box's `<pre>` (SH12-6052-01 5.31.5 `SPTCLPWD1`,
+// SH19-6794-05 3.4.3 `SPTWARN`, SC33-6733-01 5.11.9 `SPTDATS1` right under
+// the top rule).  `envelope` adds the CICS exit box's `SRTBL<id>` opener after
+// the `SI` line: hosted SC33-0665-01 1.1.3.29 (DT 19930625130318) nests
+// `<a name="SPTXZCIN"><a name="TBLTBLUNIQ103">` on the same row.
+void spot_anchor_inside_closed_box(bool index_after, bool under_top,
+                                   bool envelope = false) {
+  Builder b(false);
+  const TokenWords top{0x250c, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500,
+                       0x2510};
+  const TokenWords bottom{0x2514, 0x2500, 0x2500, 0x2500, 0x2500, 0x2500,
+                          0x2500, 0x2518};
+  b.line({});
+  b.line({w("   "), top});
+  if (!under_top)
+    b.line({w("   "), {2, 0x2502}, {1, 'N', 'O', 'T', 'E'}, w(" "),
+            {0x2502}});
+  b.line({w("SRSPTSPOT")});
+  if (index_after)
+    b.line({w("SI"), w("spot"), w("term")});
+  if (envelope)
+    b.line({w("SRTBLTBLUNIQ9")});
+  b.line({w("   "), {2, 0x2502}, {1, 'C', 'M', 'D'}, w("  "), {0x2502}});
+  if (envelope)
+    b.line({w("SRETBL")});
+  b.line({w("   "), {2, 0x2502}, w("      "), {2, 0x2502}});
+  b.line({w("   "), bottom});
+  b.line({});
+  b.line({w("ordinary prose")});
+  std::string error;
+  const auto doc = lower(b, error);
+  check(doc.has_value(), "spot anchor inside a closed box rejected: " + error);
+  if (!doc)
+    return;
+  const auto html = render_document_html_fragment(*doc);
+  const auto pre = pre_body(html);
+  const auto anchor = pre.find("id=\"SPTSPOT\"");
+  const auto cmd = pre.find("CMD");
+  check(anchor != std::string::npos && anchor < cmd &&
+            (under_top || pre.find("NOTE") < anchor) &&
+            pre.find("SRSPT") == std::string::npos &&
+            pre.find("term") == std::string::npos,
+        "box spot anchor is not on the row after its line: " + html);
+  if (envelope) {
+    const auto table = pre.find("id=\"TBLTBLUNIQ9\"");
+    check(table != std::string::npos && anchor < table && table < cmd &&
+              html.find("<table") == std::string::npos,
+          "box envelope opener does not nest after the spot anchor: " + html);
+  }
+}
 // Each shape the rule does not prove keeps the envelope with the table pass.
 void envelope_box_markup_is_narrow() {
   const auto markup = [](bool inner, const std::string &opener,
@@ -1741,6 +1793,10 @@ int main() {
   u25a0_draws_its_character();
   lnk_selector_inside_closed_box();
   envelope_inside_closed_box();
+  spot_anchor_inside_closed_box(false, false);
+  spot_anchor_inside_closed_box(true, false);
+  spot_anchor_inside_closed_box(false, true);
+  spot_anchor_inside_closed_box(true, true, true);
   envelope_box_markup_is_narrow();
   list_closer_ends_open_drawing();
   unclaimed_box_rows_at_topic_end();

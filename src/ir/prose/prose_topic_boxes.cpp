@@ -739,6 +739,15 @@ std::vector<BoxRegion> plan_boxes(
                                       candidate.text, candidate.columns});
         continue;
       }
+      // A bare anchor line between the rails wraps the row after it, as
+      // in an open drawing: hosted SH12-6052-01 5.31.5 (DT 19950125170045) serves
+      // record 393 line 2 `SRSPTCLPWD1` as `<a name="SPTCLPWD1">   |  ...
+      // |</a>` on the rail row of line 3.
+      if (bare_anchor_line(records[candidate.record], candidate)) {
+        region.anchor_lines.emplace_back(candidate.record,
+                                         candidate.line.prefix_token);
+        continue;
+      }
       if (candidate.control_only) continue;
       region.lines.push_back(
           {candidate.record, candidate.line, candidate.text, candidate.columns});

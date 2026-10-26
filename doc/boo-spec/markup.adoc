@@ -5330,6 +5330,30 @@ the line-43 row in `<a name="STPSTPUNIQ13">`.  Two such lines in a row both
 name the row after them; an anchor line that ends the run names the row
 that follows the run.
 
+The same holds between the rails of a closed box.  SH12-6052-01 `5.31.5`
+draws the `Request Definition File` syntax box across logical records
+392--393.  Record 393 line 2 is `02` at `0x3164B`, then `E9 48`
+(`SRSPTCLPWD1`), a line of its own between two rail rows; line 3 is `05` at
+`0x3164E`, then `91` (`U+2502`), a 72-cell blank run and `U+2502`.  Hosted
+(DT `19950125170045`) prints the box verbatim and wraps the line-3 row in
+`<a name="SPTCLPWD1">`; the anchor line draws no row.  `SI` lines between the
+anchor line and the row change nothing: SH19-6794-05 `3.4.3` (`SPTWARN`, DT
+`19980417173459`), SC33-6733-01 `5.11.9` (`SPTDATS1` right under the top
+rule, DT `20000720144410`), SH12-5675-01 `6.7.7`, GC27-9183-00 `2.2.23`,
+GC33-0805-01 `5.0` and SG24-5178-00 `7.2.1` are served the same way.
+
+An anchor line can be followed, after `SI` lines, by the opener of an
+envelope drawn inside the box.  Both then name the same row and nest in
+source order.  SC33-0665-01 `1.1.3.29` draws each exit of the topic as a box
+titled `Exit XZCIN`, `Exit XZCOUT`, `Exit XZCOUT1`; under each top rule stand
+`SRSPT<exit>`, `SI <exit>, global user exit` and `SRTBLTBLUNIQ<n>`, each a
+line of its own.  Hosted (DT `19930625130318`) serves
+`<a name="SPTXZCIN"><a name="TBLTBLUNIQ103">` around the first rail row.
+The anchor line and the opener may sit in different logical records: a later
+build of the same book stores `SRSPTXZCOUT1` as the last line of one record
+and the `SI` line and `SRTBLTBLUNIQ106` at the start of the next.  Two
+envelope openers naming one row have not been observed.
+
 The anchor can be a figure opener `SRFIG<id>` that opens no figure.
 SC09-138 `3.1.9` (logical record 376) draws the `RENAME` syntax diagram
 this way, and no `SREFIG` follows anywhere in the topic:

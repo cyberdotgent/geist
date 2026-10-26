@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cctype>
 #include <map>
+#include <set>
 
 namespace geist::detail::prose_internal {
 
@@ -805,19 +806,18 @@ struct LineBuilder {
     for (const auto control : controls_before)
       if (!apply_box_control(items[control], out.lines[first_row]))
         return false;
+    std::set<std::size_t> envelope_rows;
     for (const auto& item : items) {
       if (item.kind == ItemKind::anchor &&
           item.source.token_end > item.source.token_begin &&
           box_at_logical(item.source.logical_record,
                          item.source.token_begin) == &region) {
-        // The one anchor a drawn box carries is the opener of an envelope
-        // drawn inside it (`box_markup_envelopes`), and its native position
-        // is the first box row after the control: hosted SC24-5527-02 7.4.5
-        // (DT 19921218151459) wraps exactly that row in
-        // `<a name="TBLTBLUNIQ492">`.  Any other anchor still has no proven
-        // row.
-        // An open drawing's bare anchor line wraps the row after it
-        // (`BoxRegion::anchor_lines`).
+        // Two anchors have a native row inside a drawn box: a bare anchor
+        // line (`BoxRegion::anchor_lines`), and the opener of an envelope
+        // drawn inside the box (`box_markup_envelopes`).  Each wraps the
+        // first box row after its control: hosted SC24-5527-02 7.4.5 (DT
+        // 19921218151459) wraps that row in `<a name="TBLTBLUNIQ492">`.
+        // Any other anchor still has no proven row.
         const auto anchor_line = std::any_of(
             region.anchor_lines.begin(), region.anchor_lines.end(),
             [&](const auto& at) {
@@ -825,21 +825,28 @@ struct LineBuilder {
                          item.source.logical_record &&
                      at.second < item.source.token_begin &&
                      item.source.token_begin <
-                         display_line_end_at(at.first, at.second);
+                         display_line_end_at(at.first, at.second + 1);
             });
-        if (!anchor_line && !box_envelope_anchor(item))
+        const auto envelope = !anchor_line && box_envelope_anchor(item);
+        if (!anchor_line && !envelope)
           return fail(error,
                       "anchor inside a drawn box needs a native row position");
         const auto row = box_row_after(region, item.source);
         if (row == npos)
           return fail(error, "anchor inside a drawn box has no later row");
         auto& line = out.lines[first_row + row];
-        // Two anchor lines in a row before one drawing row both name it:
-        // the earlier precedes the later, as a run of anchors before a
-        // flowed row does (`anchor_successors`).  cn7v8001 2.2.11 record
-        // 284 stores `SRSTPs11corv` and `SRSTPSTPUNIQ76` on lines 29-30.
-        if (line.anchor_before && !anchor_line)
+        // Anchors that name one drawing row nest on it in source order, as a
+        // run of anchors before a flowed row does (`anchor_successors`).
+        // cn7v8001 2.2.11 record 284 stores two anchor lines,
+        // `SRSTPs11corv` and `SRSTPSTPUNIQ76`, on lines 29-30.  An anchor
+        // line followed by an envelope opener is the CICS exit box: hosted
+        // SC33-0665-01 1.1.3.29 (DT 19930625130318) serves
+        // `<a name="SPTXZCIN"><a name="TBLTBLUNIQ103">` on the first rail
+        // row after `SRSPTXZCIN`, `SI ...` and `SRTBLTBLUNIQ103`.  Two
+        // envelope openers on one row are not shown and stay declined.
+        if (envelope && envelope_rows.count(first_row + row) != 0)
           return fail(error, "drawn box row carries two anchors");
+        if (envelope) envelope_rows.insert(first_row + row);
         ProseAnchorIR anchor;
         anchor.id = item.anchor_id;
         anchor.source = item.source;
