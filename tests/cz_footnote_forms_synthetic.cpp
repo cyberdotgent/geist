@@ -295,9 +295,44 @@ void rows_before_a_later_flow_directive_decline() {
           "rows between SRFTN and a later cz FLOW FN were accepted");
 }
 
+// A footnote with no `cz FLOW FN` whose text goes on in other blocks:
+// SC41-4612-00 `5.9.5` record 856 stores `SRFTNFTNUNIQ84`, the row
+// `    (23) This limit also includes:`, a `cz FLOW UL 7 7` list of two items
+// and `SREFTN`.  The reader prints the list inside the footnote it opened at
+// the anchor.
+void a_footnote_that_holds_a_list() {
+  RecordBuilder builder;
+  builder.heading("5.9.5", "Limits");
+  builder.cz({"cz", "FLOW", "P", "3", "3"});
+  builder.row("   ", {"Cursors", "cannot", "be", "opened."});
+  builder.empty();
+  builder.cz({"cz", "FLOW", "H3", "3", "3"});
+  builder.cz({"SRFTNFTNUNIQ84"});
+  builder.row("    ", {"(23)", "This", "limit", "also", "includes:"});
+  builder.empty();
+  builder.cz({"cz", "FLOW", "UL", "7", "7"});
+  builder.cz({"cz", "FLOW", "LI", "7", "11"});
+  builder.row("           ", {"Any", "records", "accessed"});
+  builder.cz({"cz", "FLOW", "LI", "7", "11"});
+  builder.row("           ", {"Any", "rows", "deleted"});
+  builder.cz({"SREFTN"});
+  auto extracted = run(builder.build(856), "Limits");
+  require(extracted.topic.has_value(),
+          "a footnote holding a list was rejected: " + extracted.error);
+  if (!extracted.topic) return;
+  const auto note = footnote_text(*extracted.topic, "FTNFTNUNIQ84");
+  require(note && contains(*note, "includes:"),
+          "expected the footnote FTNFTNUNIQ84:\n" +
+              topic_text(*extracted.topic));
+  const auto text = topic_text(*extracted.topic);
+  require(contains(text, "records") && contains(text, "deleted"),
+          "the footnote's list lost its words:\n" + text);
+}
+
 }  // namespace
 
 int main() {
+  a_footnote_that_holds_a_list();
   footnotes_without_a_flow_directive();
   a_flow_directive_before_its_anchor();
   an_unclosed_anchor_declines();

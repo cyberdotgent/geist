@@ -6545,9 +6545,13 @@ as in the flattened dialect; they are the footnote's text.  Other controls
 may stand between the anchor and the rows (`cfont` in `SC41-4850-00` `1.3`
 record 9 line 27, two `SI` index lines in `SC41-4403-00` `1.9` record 56
 lines 17-18); several such footnotes follow each other, each closed by its
-own `SREFTN` (`b1bq1abd` `1.5.6` records 228-230, seven footnotes).  An
-anchor that no `SREFTN` closes, or that another `cz` directive follows
-before its `SREFTN`, is not observed as a footnote.
+own `SREFTN` (`b1bq1abd` `1.5.6` records 228-230, seven footnotes).  The
+footnote's text can go on in other blocks before `SREFTN`: `SC41-4612-00`
+`5.9.5` record 856 stores `SRFTNFTNUNIQ84`, the row `    (23) This limit
+also includes:`, a `cz FLOW UL 7 7` list of two items and `SREFTN`; hosted
+(DT `19950815061811`) serves the row and the list after the footnote
+opening.  An anchor that no `SREFTN` closes, or that a `cz` directive
+follows before any row of its own, is not observed as a footnote.
 
 [[markup_front_matter_heading_forms]]
 ==== Front-matter heading forms

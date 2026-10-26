@@ -3526,7 +3526,6 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         }
         if (!title_seen)
           return fail(error, "layout directive precedes the title");
-        const auto first_item = build.items.size();
         // Rows between a footnote anchor and a later `cz FLOW FN` would land
         // outside the footnote the reader prints around them.
         const auto footnote_rows =
@@ -3539,12 +3538,40 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
                                  !is_row_control_slot(records, item.token);
                         });
         const auto footnote = pending_footnote_id;
+        // Another directive after the footnote's first rows goes on inside
+        // the footnote the reader opened at the anchor: SC41-4612-00 5.9.5
+        // record 856 stores `SRFTNFTNUNIQ84`, `    (23) This limit also
+        // includes:`, a `cz FLOW UL 7 7` list and then `SREFTN`.  The
+        // footnote opens at the anchor, as when `SREFTN` closes it at once.
+        const auto flow_fn = [&] {
+          if (segment.source_tokens.size() < 3) return false;
+          const auto word = [&](std::size_t at) {
+            return ascii_lower(body_text(view_token(
+                records, record_index, segment.source_tokens[at])));
+          };
+          return word(0) == "cz" && word(1) == "flow" && word(2) == "fn";
+        };
+        if (footnote_rows && !flow_fn()) {
+          Item open;
+          open.kind = ItemKind::layout;
+          open.directive.mode = "flow";
+          open.directive.tag = "fn";
+          open.directive.anchor_id = pending_footnote_id;
+          open.directive.source = pending_footnote_source;
+          build.items.insert(
+              build.items.begin() +
+                  static_cast<std::ptrdiff_t>(pending_footnote_item),
+              std::move(open));
+          pending_footnote_id.clear();
+        }
+        const auto first_item = build.items.size();
         if (!collect_layout_directive(records, record_index, segment,
                                       pending_footnote_id, ledger, build.items,
                                       error))
           return false;
         name_verbatim_figure(first_item, record_index, segment);
-        if (footnote_rows && pending_footnote_id.empty())
+        if (footnote_rows && !footnote.empty() && flow_fn() &&
+            pending_footnote_id.empty())
           return fail(error, "rows of SR" + footnote +
                                  " precede its cz FLOW FN");
         cz_seen = true;
