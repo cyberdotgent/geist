@@ -1070,6 +1070,20 @@ after it.
 the token immediately adjacent to the opcode, with no spacing token between
 them (`c.cc` `20`, `c.cc` `2i`). Everything after it is display text.
 
+A plain comma word that ends a display line in front of a control line is
+not the separator either, when the row's own `CFONT` names its cell.
+`SC09-1714-00` topic `1.4`, record 221: display line 5 opens with the length
+byte `15` at `0x1D042` and ends with token 77 (`binding`, byte `2F` at
+`0x1D056`) and token 78 (`1D` at `0x1D057`, a one-byte word spelling `,` with
+no attach control); the next byte, `0E` at `0x1D058`, is the length byte of
+line 6, `cfont 11 20 P 32 1 2 33 19 V 53 1 P`. The row reads
+`           rpc_binding_handle_t source_binding ,`, line 4 styles its cell 47
+(`cfont 11 20 P 32 14 V 47 1 P`), and hosted BookServer (DT
+`19940917171754`) serves `<var>source_binding</var> <kbd>,</kbd>`. The same
+holds for the two-byte comma word of `SC24-546` `D.0` record 1118
+(`LTORG ,` under `cfont 14 5 E 20 1 E`). A row-final comma that no `CFONT`
+covers has not been compared with hosted output.
+
 The opcode cannot be recognised from the flattened decoded string. The byte
 before it projects to `?` — which is equally the projection of the attach
 control word, of a bullet glyph and of every box-drawing word — so a

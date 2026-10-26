@@ -792,7 +792,13 @@ void a_two_run_gap_without_a_reaching_span_keeps_the_pair_reading() {
 // row's `cfont`.  The `,` is a two-byte dictionary word that no control
 // segment claims, spelled like decoder punctuation; hosted (DT
 // 19940323131240) serves `<samp>LTORG</samp> <samp>,</samp>`.
-DecodedLogicalRecordSource styled_terminal_record(bool styled) {
+// SC09-1714-00 1.4 record 221 line 5 stores the same shape with a one-byte
+// `,` (token 78, value 29, inside the line) after `source_binding`, under
+// the row's own `cfont ... 47 1 P`; hosted (DT 19940917171754) serves
+// `<var>source_binding</var> <kbd>,</kbd>`.  `one_byte` stores the comma that
+// way.
+DecodedLogicalRecordSource styled_terminal_record(bool styled,
+                                                  bool one_byte = false) {
   RecordBuilder builder;
   metadata(builder, "1.14", {"Literal", "Pool"});
   builder.line({words("cfont"), words("3"), words("5"), words("E"),
@@ -804,6 +810,11 @@ DecodedLogicalRecordSource styled_terminal_record(bool styled) {
   else
     builder.line({words("cfont"), words("3"), words("5"), words("E")});
   builder.line({words("   "), words("LTORG"), words(",")});
+  if (one_byte) {
+    auto &encoded = builder.record.encoded_tokens;
+    encoded.back() = {29, 1};
+    encoded[encoded.size() - 4].value -= 1;
+  }
   // The next line's length byte is the byte the book's dictionary spells as
   // a seven-cell space run (record 1118 token 63, value 23).
   builder.line_with_prefix(words("       "),
@@ -813,8 +824,9 @@ DecodedLogicalRecordSource styled_terminal_record(bool styled) {
   return builder.build(44);
 }
 
-void a_styled_row_final_comma_before_a_control_is_display_text() {
-  const auto record = styled_terminal_record(true);
+void a_styled_row_final_comma_before_a_control_is_display_text(
+    bool one_byte = false) {
+  const auto record = styled_terminal_record(true, one_byte);
   std::string error;
   const auto prose = extract(record, "Literal Pool", error);
   require(prose.has_value(),
@@ -832,8 +844,9 @@ void a_styled_row_final_comma_before_a_control_is_display_text() {
 
 // The same `,` under no span is not corroborated as a drawn cell: it stays
 // decoder padding, and the row is not widened on its account.
-void an_unstyled_row_final_comma_before_a_control_stays_padding() {
-  const auto record = styled_terminal_record(false);
+void an_unstyled_row_final_comma_before_a_control_stays_padding(
+    bool one_byte = false) {
+  const auto record = styled_terminal_record(false, one_byte);
   std::string error;
   const auto prose = extract(record, "Literal Pool", error);
   if (!prose) return;
@@ -1227,7 +1240,9 @@ int main() {
   a_two_run_gap_inside_a_spanned_row_keeps_the_row_whole();
   a_two_run_gap_without_a_reaching_span_keeps_the_pair_reading();
   a_styled_row_final_comma_before_a_control_is_display_text();
+  a_styled_row_final_comma_before_a_control_is_display_text(true);
   an_unstyled_row_final_comma_before_a_control_stays_padding();
+  an_unstyled_row_final_comma_before_a_control_stays_padding(true);
   a_selector_label_glued_to_a_word_is_a_link();
   a_glued_label_on_its_stored_columns_needs_no_second_span();
   a_glued_label_torn_at_both_ends_still_fails();

@@ -1444,7 +1444,13 @@ bool collect_stream(const std::vector<DecodedLogicalRecordSource>& records,
         // `COPY1) ?` under `... 86 1 E` (DT 19950308184737).  The stream
         // carries it as a candidate; the row model admits it only under that
         // exact span (`styled_terminal`) and keeps it padding otherwise.
-        if (title_seen && !menu_open && !cz_seen && view.width == 2 &&
+        // The word can also be stored in one byte: SC09-1714-00 1.4 record
+        // 221 line 5 ends `source_binding ,` with token 78 (value 29, inside
+        // the line) under the row's own `cfont ... 47 1 P`, and hosted (DT
+        // 19940917171754) serves `<var>source_binding</var> <kbd>,</kbd>`.
+        // The framing check below keeps a length byte out.
+        if (title_seen && !menu_open && !cz_seen &&
+            (view.width == 2 || view.width == 1) &&
             view.body.size() == 1 &&
             (view.body.front() == ',' || view.body.front() == '?')) {
           const auto* line = display_line_of_token(record, token);
