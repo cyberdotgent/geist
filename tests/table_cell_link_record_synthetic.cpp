@@ -157,6 +157,12 @@ std::vector<DecodedLogicalRecordSource> topic() {
   one.line(selector("HDRFUNC2", label(second, "2")));
   RecordBuilder two;
   two.line(row("2", second, width - row_width("2", second) + 1));
+  // Rows after the selected one carry no selector of their own and stay
+  // text, although the record's leading text segment runs on through them
+  // (SC31-8573-00 3.7 record 239: hosted links only the row below
+  // `cselect 35 30 HDROCPPEU`, not the table rows that follow it).
+  two.line(rule(0x251C, 0x253C, 0x2524, inner));
+  two.line(row("2", second, width - row_width("2", second) + 1));
   two.line(rule(0x2514, 0x2534, 0x2518, inner));
   two.line({w("SRETBL")});
   two.line({w("cz"), w("OFF"), w("ETABLE"), w("0"), w("0")});
@@ -194,6 +200,12 @@ void a_selector_reaches_the_row_that_opens_the_next_record() {
   require(text.find("HDRFUNC2") != std::string::npos,
           "the selector whose row opens the next record lost its link: " +
               text);
+  std::size_t links = 0;
+  for (auto at = text.find("value=\"HDRFUNC2\""); at != std::string::npos;
+       at = text.find("value=\"HDRFUNC2\"", at + 1))
+    ++links;
+  require(links == 1, "the cross-record selector linked " +
+                          std::to_string(links) + " rows, not one");
 }
 
 } // namespace

@@ -486,11 +486,28 @@ bool table_region(const std::vector<DecodedLogicalRecordSource>& records,
           const auto& next = records[record + 1];
           if (!next.control_segments.empty() &&
               next.control_segments.front().kind == BookControlKind::text) {
-            link.continuation_record = next.logical_record;
-            link.continuation_tokens =
-                next.control_segments.front().source_tokens;
+            // Only the first display line of that record that draws
+            // anything is the selector's row; the text segment runs on
+            // through the rows below it, which the selector does not reach
+            // (SC31-8573-00 3.7 record 239, hosted DT 19980130154145 links
+            // one row under `cselect 35 30 HDROCPPEU`).
+            const auto& leading = next.control_segments.front().source_tokens;
+            if (const auto* next_lines = record_display_lines(next)) {
+              for (const auto& line : *next_lines) {
+                bool drawn = false;
+                for (const auto& cell : display_line_cells(next, line))
+                  if (cell.word != ' ') drawn = true;
+                if (!drawn) continue;
+                for (const auto token : leading)
+                  if (token > line.prefix_token && token < line.token_end)
+                    link.continuation_tokens.push_back(token);
+                break;
+              }
+            }
             std::sort(link.continuation_tokens.begin(),
                       link.continuation_tokens.end());
+            if (!link.continuation_tokens.empty())
+              link.continuation_record = next.logical_record;
           }
         }
       }
