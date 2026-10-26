@@ -514,6 +514,32 @@ void nested_openers_and_foreign_closers() {
                   2,
               "expected two syntax blocks:\n" + topic_text(*extracted.topic));
   }
+  {
+    // A TABDATA pair inside an XMP: SC33-1362-01 `1.1.1.1.1` record 61
+    // opens `cz OFF XMP` and at once `cz OFF TABDATA`, writes the RPG
+    // declaration rows, and closes with `cz OFF ETABDATA 2 2` and
+    // `cz OFF EXMP 2 2` (record 64 lines 12-13); hosted (DT
+    // 19950831082352) serves the rows as one `<pre width="80">`.
+    RecordBuilder builder;
+    builder.heading("1.1.1.1.1", "RPG");
+    builder.cz({"cz", "BREAK", "3"});
+    builder.cz({"cz", "OFF", "XMP"});
+    builder.cz({"cz", "OFF", "TABDATA"});
+    builder.row("          ", {"D*", "MQDLH", "Structure"});
+    builder.row("          ", {"D", "  ", "DLSID", "      ", "1"});
+    builder.cz({"cz", "OFF", "ETABDATA", "2", "2"});
+    builder.cz({"cz", "OFF", "EXMP", "2", "2"});
+    builder.cz({"cz", "FLOW", "H4", "3", "3"});
+    auto extracted = run(builder.build(61), "RPG");
+    require(extracted.topic.has_value(),
+            "a TABDATA pair inside an XMP was rejected: " + extracted.error);
+    if (extracted.topic)
+      require(count_kind(*extracted.topic, ProseBlockKindIR::preformatted) ==
+                      1 &&
+                  extracted.topic->blocks.back().preformatted_lines.size() == 2,
+              "the nested region is not one two-row block:\n" +
+                  topic_text(*extracted.topic));
+  }
 }
 
 // `cz FLOW LP` outside a definition list.  Before the first item of an item

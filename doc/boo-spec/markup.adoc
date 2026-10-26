@@ -6203,6 +6203,14 @@ at `0xe09c`--`0xe09e`, `EXMP` at `0xe0cd`--`0xe0cf`, and `ELINES` at
 is balanced before the outer closer; its delimiters are structural and do not
 interrupt or reorder the enclosing fixed-column rows.
 
+A `TABDATA` pair nests the same way.  `SC33-1362-01.boo` topic `1.1.1.1.1`
+opens `cz OFF XMP` and then `cz OFF TABDATA` in logical record 61 (`TABDATA`
+is the two-byte word `E8 1A` at `0x238BE`), writes the RPG declaration rows,
+and closes with `cz OFF ETABDATA 2 2` (`D2 D7` at `0x23DAB`) and
+`cz OFF EXMP 2 2` (`D3 0C` at `0x23DB2`) in record 64.  Hosted
+(DT `19950831082352`) serves all the rows in one `<pre width="80">`; 32
+topics of the book have this shape.
+
 *`cz OFF ARTWORK`* opens a fixed-column region holding a picture reference,
 and its picture is a `CSELECT` whose target is `PIC<n>`.
 `GX27-3999-00.boo` topic `FRONT_1`, record 9: segment 10 is `cz OFF ARTWORK`,

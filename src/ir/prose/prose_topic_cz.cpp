@@ -2500,12 +2500,15 @@ struct CzBuilder {
           } else if (inner.tag == "table" || inner.tag == "etable" ||
                      inner.tag == "fig" || inner.tag == "efig") {
             if (inner_rows.first != npos) region_end = inner_rows.second;
-          } else if (cz_verbatim_region_tag(inner.tag)) {
+          } else if (cz_verbatim_region_tag(inner.tag) ||
+                     cz_tabdata_region_tag(inner.tag)) {
             // GX27-3999-00 2.6.1 and 2.6.2 explicitly nest XMP inside
             // LINES; 2.6.1 also nests LINES inside XMP.  The inner
             // delimiters are structural inside the outer fixed-line region:
             // both pairs declare verbatim display rows, and neither
-            // delimiter draws text of its own.
+            // delimiter draws text of its own.  SC33-1362-01 1.1.1.1.1
+            // (DT 19950831082352) nests a TABDATA pair in an XMP the same
+            // way and serves the rows as one `<pre width="80">`.
             // Admit only an immediately balanced pair so a missing inner
             // closer can never make the outer region swallow a later
             // directive.  Row breaks between the pair are breaks of the

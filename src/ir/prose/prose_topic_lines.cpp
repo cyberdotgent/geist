@@ -2007,7 +2007,9 @@ struct LineBuilder {
             // `cz OFF SCREEN` (record 66 line 16 .. record 67 line 20) and
             // draws the screen's last rails and bottom rule after `EXMP`.
             nested_verbatim =
-                xmp_mode && cz_verbatim_region_tag(item.directive.tag) &&
+                xmp_mode &&
+                (cz_verbatim_region_tag(item.directive.tag) ||
+                 cz_tabdata_region_tag(item.directive.tag)) &&
                 next_directive_closes(index);
             xmp_mode = true;
           } else if (cz_verbatim_region_closer(item.directive.tag) ||
